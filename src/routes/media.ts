@@ -1,5 +1,5 @@
 import { Elysia, t } from "elysia";
-import { eq, ilike, or, sql, and, count } from "drizzle-orm";
+import { eq, or, sql, and, count } from "drizzle-orm";
 import { db } from "../db";
 import { media, genres, mediaGenres } from "../db/schema";
 
@@ -24,10 +24,11 @@ export const mediaRoutes = new Elysia({ prefix: "/api/media" })
       }
 
       if (search) {
+        // Use trigram similarity for fuzzy matching (requires pg_trgm extension)
         conditions.push(
           or(
-            ilike(media.titleEn, `%${search}%`),
-            ilike(media.titleOriginal, `%${search}%`)
+            sql`${media.titleEn} % ${search}`,
+            sql`${media.titleOriginal} % ${search}`
           )
         );
       }
@@ -39,7 +40,14 @@ export const mediaRoutes = new Elysia({ prefix: "/api/media" })
           .select()
           .from(media)
           .where(whereClause)
-          .orderBy(media.id)
+          .orderBy(
+            search
+              ? sql`GREATEST(
+                  COALESCE(similarity(${media.titleEn}, ${search}), 0),
+                  COALESCE(similarity(${media.titleOriginal}, ${search}), 0)
+                ) DESC`
+              : media.id
+          )
           .limit(limit)
           .offset(offset),
         db
