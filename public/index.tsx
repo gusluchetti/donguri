@@ -19,9 +19,6 @@ const App = () => {
 
   return (
     <div>
-      <p>
-        hello elysia (client)
-      </p>
       <ul>
         {media?.data.map(m => {
           return (
