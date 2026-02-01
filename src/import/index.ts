@@ -228,11 +228,22 @@ async function runTest(filePath: string, limit: number = 100): Promise<void> {
 
 // ============ Full Import ============
 
+async function cleanTables(): Promise<void> {
+  console.log("Cleaning tables...");
+  await db.delete(mediaGenres);
+  await db.delete(media);
+  await db.delete(genres);
+  await db.delete(importProgress);
+  console.log("Tables cleaned.\n");
+}
+
 export async function runImport(
   filePath: string,
-  options: { resumeFrom?: string; maxEntities?: number } = {}
+  options: { resumeFrom?: string; maxEntities?: number; clean?: boolean } = {}
 ): Promise<ImportStats> {
-  const { resumeFrom, maxEntities } = options;
+  const { resumeFrom, maxEntities, clean } = options;
+
+  if (clean) await cleanTables();
 
   console.log(`Importing from: ${filePath}`);
   if (resumeFrom) console.log(`Resuming from: ${resumeFrom}`);
@@ -328,12 +339,13 @@ export async function runImport(
 if (import.meta.main) {
   const args = process.argv.slice(2);
   const isFull = args.includes("--full");
+  const clean = args.includes("--clean");
   const filePath = args.find((a) => !a.startsWith("--")) || "/mnt/d/latest-all.json.bz2";
   const limitArg = args.find((a) => a.startsWith("--limit="));
   const limit = limitArg ? parseInt(limitArg.split("=")[1], 10) : undefined;
 
   if (isFull) {
-    runImport(filePath, { maxEntities: limit })
+    runImport(filePath, { maxEntities: limit, clean })
       .then(() => process.exit(0))
       .catch((e) => {
         console.error(e);
