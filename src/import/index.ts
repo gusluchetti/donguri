@@ -11,8 +11,17 @@ import { shouldImportEntity, isMediaEntity, hasExternalId, determineMediaType } 
 import { parseMediaEntity } from "./parser";
 import type { ParsedMedia } from "./types";
 
-const BATCH_SIZE = 1000;
+const BATCH_SIZE = 500;
 const PROGRESS_LOG_INTERVAL = 10000;
+
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000) % 60;
+  const minutes = Math.floor(ms / 60000) % 60;
+  const hours = Math.floor(ms / 3600000);
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
 
 interface ImportStats {
   entitiesProcessed: number;
@@ -83,44 +92,54 @@ async function getOrCreateGenreIds(genreWikidataIds: string[], cache: GenreCache
 }
 
 async function insertBatch(batch: ParsedMedia[], genreCache: GenreCache, stats: ImportStats): Promise<void> {
-  for (const item of batch) {
-    try {
-      const inserted = await db
-        .insert(media)
-        .values({
-          wikidataId: item.wikidataId,
-          mediaType: item.mediaType,
-          titleEn: item.titleEn,
-          titleOriginal: item.titleOriginal,
-          originalLanguage: item.originalLanguage,
-          descriptionEn: item.descriptionEn,
-          startYear: item.startYear,
-          endYear: item.endYear,
-          imdbId: item.imdbId,
-          malId: item.malId,
-          seasonCount: item.seasonCount,
-          episodeCount: item.episodeCount,
-        })
-        .onConflictDoNothing()
-        .returning({ id: media.id });
+  if (batch.length === 0) return;
 
-      if (inserted.length > 0 && item.genreIds.length > 0) {
-        const genreDbIds = await getOrCreateGenreIds(item.genreIds, genreCache);
-        stats.genresFound += genreDbIds.length;
+  try {
+    // Bulk insert all media items
+    const mediaValues = batch.map((item) => ({
+      wikidataId: item.wikidataId,
+      mediaType: item.mediaType,
+      titleEn: item.titleEn,
+      titleOriginal: item.titleOriginal,
+      originalLanguage: item.originalLanguage,
+      descriptionEn: item.descriptionEn,
+      startYear: item.startYear,
+      endYear: item.endYear,
+      imdbId: item.imdbId,
+      malId: item.malId,
+      seasonCount: item.seasonCount,
+      episodeCount: item.episodeCount,
+    }));
 
-        if (genreDbIds.length > 0) {
-          await db
-            .insert(mediaGenres)
-            .values(genreDbIds.map((genreId) => ({ mediaId: inserted[0].id, genreId })))
-            .onConflictDoNothing();
-        }
+    const inserted = await db.insert(media).values(mediaValues).onConflictDoNothing().returning({ id: media.id, wikidataId: media.wikidataId });
+
+    stats.entitiesImported += inserted.length;
+
+    // Build wikidataId -> dbId map for genre linking
+    const wikidataToDbId = new Map(inserted.map((r) => [r.wikidataId, r.id]));
+
+    // Collect all genre relationships
+    const genreRelations: { mediaId: string; genreId: string }[] = [];
+
+    for (const item of batch) {
+      const mediaId = wikidataToDbId.get(item.wikidataId);
+      if (!mediaId || item.genreIds.length === 0) continue;
+
+      const genreDbIds = await getOrCreateGenreIds(item.genreIds, genreCache);
+      stats.genresFound += genreDbIds.length;
+
+      for (const genreId of genreDbIds) {
+        genreRelations.push({ mediaId, genreId });
       }
-
-      if (inserted.length > 0) stats.entitiesImported++;
-    } catch (error) {
-      stats.errors++;
-      console.error(`Error inserting ${item.wikidataId}:`, error);
     }
+
+    // Bulk insert genre relationships
+    if (genreRelations.length > 0) {
+      await db.insert(mediaGenres).values(genreRelations).onConflictDoNothing();
+    }
+  } catch (error) {
+    stats.errors += batch.length;
+    console.error("Batch insert error:", error);
   }
 }
 
@@ -248,6 +267,7 @@ export async function runImport(
   console.log(`Importing from: ${filePath}`);
   if (resumeFrom) console.log(`Resuming from: ${resumeFrom}`);
   if (maxEntities) console.log(`Max entities: ${maxEntities}`);
+  console.log();
 
   const [progressRecord] = await db
     .insert(importProgress)
@@ -260,6 +280,8 @@ export async function runImport(
   let batch: ParsedMedia[] = [];
   let lastEntityId: string | null = null;
   let skipping = !!resumeFrom;
+  const startTime = Date.now();
+  let lastLogTime = startTime;
 
   const processEntity = async (entity: WikidataEntity): Promise<void> => {
     stats.entitiesProcessed++;
@@ -286,7 +308,18 @@ export async function runImport(
     }
 
     if (stats.entitiesProcessed % PROGRESS_LOG_INTERVAL === 0) {
-      console.log(`Processed: ${stats.entitiesProcessed}, Imported: ${stats.entitiesImported}, Errors: ${stats.errors}`);
+      const now = Date.now();
+      const elapsed = now - startTime;
+      const rate = stats.entitiesProcessed / (elapsed / 1000);
+      const intervalRate = PROGRESS_LOG_INTERVAL / ((now - lastLogTime) / 1000);
+      lastLogTime = now;
+
+      console.log(
+        `[${formatDuration(elapsed)}] ${lastEntityId} | ` +
+        `Processed: ${stats.entitiesProcessed.toLocaleString()} | ` +
+        `Imported: ${stats.entitiesImported.toLocaleString()} | ` +
+        `Rate: ${Math.round(intervalRate).toLocaleString()}/s`
+      );
       await updateProgress(progressId, stats, lastEntityId);
     }
 
@@ -328,8 +361,16 @@ export async function runImport(
 
   await updateProgress(progressId, stats, lastEntityId, "completed");
 
+  const totalTime = Date.now() - startTime;
+  const avgRate = stats.entitiesProcessed / (totalTime / 1000);
+
   console.log("\n=== Complete ===");
-  console.log(`Processed: ${stats.entitiesProcessed}, Imported: ${stats.entitiesImported}, Errors: ${stats.errors}`);
+  console.log(`Time: ${formatDuration(totalTime)}`);
+  console.log(`Processed: ${stats.entitiesProcessed.toLocaleString()}`);
+  console.log(`Imported: ${stats.entitiesImported.toLocaleString()}`);
+  console.log(`Genres: ${stats.genresFound.toLocaleString()}`);
+  console.log(`Errors: ${stats.errors}`);
+  console.log(`Avg rate: ${Math.round(avgRate).toLocaleString()}/s`);
 
   return stats;
 }
