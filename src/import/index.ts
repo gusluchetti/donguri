@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { Transform } from "node:stream";
-import unbzip2Stream from "unbzip2-stream";
 import split2 from "split2";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
@@ -224,7 +223,7 @@ async function runTest(filePath: string, limit: number = 100): Promise<void> {
   });
 
   try {
-    await pipeline(fs.createReadStream(filePath), unbzip2Stream(), split2(), processStream);
+    await pipeline(fs.createReadStream(filePath), split2(), processStream);
   } catch (error) {
     if (!(error instanceof Error && (error as NodeJS.ErrnoException).code === "ERR_STREAM_PREMATURE_CLOSE")) {
       throw error;
@@ -349,7 +348,7 @@ export async function runImport(
   });
 
   try {
-    await pipeline(fs.createReadStream(filePath), unbzip2Stream(), split2(), processStream);
+    await pipeline(fs.createReadStream(filePath), split2(), processStream);
   } catch (error) {
     if (!(error instanceof Error && (error as NodeJS.ErrnoException).code === "ERR_STREAM_PREMATURE_CLOSE")) {
       throw error;
@@ -382,7 +381,7 @@ if (import.meta.main) {
   const args = process.argv.slice(2);
   const isFull = args.includes("--full");
   const clean = args.includes("--clean");
-  const filePath = args.find((a) => !a.startsWith("--")) || "/mnt/d/latest-all.json.bz2";
+  const filePath = args.find((a) => !a.startsWith("--")) || "media_subset.ndjson";
   const limitArg = args.find((a) => a.startsWith("--limit="));
   const limit = limitArg ? parseInt(limitArg.split("=")[1], 10) : undefined;
 
