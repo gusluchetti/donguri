@@ -24,11 +24,11 @@ export const mediaRoutes = new Elysia({ prefix: "/api/media" })
       }
 
       if (search) {
-        // Use trigram similarity for fuzzy matching (requires pg_trgm extension)
+        // Use word_similarity operator (<<%) - finds search term within longer titles
         conditions.push(
           or(
-            sql`${media.titleEn} % ${search}`,
-            sql`${media.titleOriginal} % ${search}`
+            sql`${search} <<% ${media.titleEn}`,
+            sql`${search} <<% ${media.titleOriginal}`
           )
         );
       }
@@ -43,8 +43,8 @@ export const mediaRoutes = new Elysia({ prefix: "/api/media" })
           .orderBy(
             search
               ? sql`GREATEST(
-                  COALESCE(similarity(${media.titleEn}, ${search}), 0),
-                  COALESCE(similarity(${media.titleOriginal}, ${search}), 0)
+                  COALESCE(word_similarity(${search}, ${media.titleEn}), 0),
+                  COALESCE(word_similarity(${search}, ${media.titleOriginal}), 0)
                 ) DESC`
               : media.id
           )
