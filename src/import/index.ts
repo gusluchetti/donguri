@@ -304,14 +304,10 @@ export async function runImport(
 
     if (batch.length >= BATCH_SIZE) {
       await insertBatch(batch, genreCache, stats);
-      batch = [];
-    }
 
-    if (stats.entitiesProcessed % PROGRESS_LOG_INTERVAL === 0) {
       const now = Date.now();
       const elapsed = now - startTime;
-      const rate = stats.entitiesProcessed / (elapsed / 1000);
-      const intervalRate = PROGRESS_LOG_INTERVAL / ((now - lastLogTime) / 1000);
+      const intervalRate = BATCH_SIZE / ((now - lastLogTime) / 1000);
       lastLogTime = now;
 
       console.log(
@@ -320,7 +316,12 @@ export async function runImport(
         `Imported: ${stats.entitiesImported.toLocaleString()} | ` +
         `Rate: ${Math.round(intervalRate).toLocaleString()}/s`
       );
-      await updateProgress(progressId, stats, lastEntityId);
+
+      batch = [];
+
+      if (stats.entitiesProcessed % PROGRESS_LOG_INTERVAL === 0) {
+        await updateProgress(progressId, stats, lastEntityId);
+      }
     }
 
     if (maxEntities && stats.entitiesProcessed >= maxEntities) {
