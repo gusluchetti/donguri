@@ -3,11 +3,11 @@ import { pipeline } from "node:stream/promises";
 import { Transform } from "node:stream";
 import unbzip2Stream from "unbzip2-stream";
 import split2 from "split2";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { media, genres, mediaGenres, importProgress } from "../db/schema";
 import { WikidataEntity } from "./types";
-import { shouldImportEntity } from "./filters";
+import { shouldImportEntity, isMediaEntity, hasExternalId, determineMediaType } from "./filters";
 import { parseMediaEntity } from "./parser";
 import type { ParsedMedia } from "./types";
 
@@ -22,30 +22,13 @@ interface ImportStats {
 }
 
 interface GenreCache {
-  [wikidataId: string]: string; // Wikidata ID -> database UUID
+  [wikidataId: string]: string;
 }
 
-/**
- * Parse a JSON line from the Wikidata dump
- * Each line is either a JSON object or array element with trailing comma
- */
 function parseJsonLine(line: string): WikidataEntity | null {
-  // Remove trailing comma if present
   let cleanLine = line.trim();
-  if (cleanLine.endsWith(",")) {
-    cleanLine = cleanLine.slice(0, -1);
-  }
-
-  // Skip array brackets
-  if (cleanLine === "[" || cleanLine === "]") {
-    return null;
-  }
-
-  // Skip empty lines
-  if (!cleanLine) {
-    return null;
-  }
-
+  if (cleanLine.endsWith(",")) cleanLine = cleanLine.slice(0, -1);
+  if (cleanLine === "[" || cleanLine === "]" || !cleanLine) return null;
   try {
     return JSON.parse(cleanLine);
   } catch {
@@ -53,23 +36,15 @@ function parseJsonLine(line: string): WikidataEntity | null {
   }
 }
 
-/**
- * Insert or get genre IDs
- */
-async function getOrCreateGenreIds(
-  genreWikidataIds: string[],
-  cache: GenreCache
-): Promise<string[]> {
+async function getOrCreateGenreIds(genreWikidataIds: string[], cache: GenreCache): Promise<string[]> {
   const result: string[] = [];
 
   for (const wikidataId of genreWikidataIds) {
-    // Check cache first
     if (cache[wikidataId]) {
       result.push(cache[wikidataId]);
       continue;
     }
 
-    // Try to find existing genre
     const existing = await db
       .select({ id: genres.id })
       .from(genres)
@@ -82,7 +57,6 @@ async function getOrCreateGenreIds(
       continue;
     }
 
-    // Create new genre (we'll update the name later when we encounter the genre entity)
     const inserted = await db
       .insert(genres)
       .values({ wikidataId })
@@ -93,7 +67,6 @@ async function getOrCreateGenreIds(
       cache[wikidataId] = inserted[0].id;
       result.push(inserted[0].id);
     } else {
-      // Race condition: another process inserted it
       const refetch = await db
         .select({ id: genres.id })
         .from(genres)
@@ -109,17 +82,9 @@ async function getOrCreateGenreIds(
   return result;
 }
 
-/**
- * Insert a batch of media items
- */
-async function insertBatch(
-  batch: ParsedMedia[],
-  genreCache: GenreCache,
-  stats: ImportStats
-): Promise<void> {
+async function insertBatch(batch: ParsedMedia[], genreCache: GenreCache, stats: ImportStats): Promise<void> {
   for (const item of batch) {
     try {
-      // Insert media item
       const inserted = await db
         .insert(media)
         .values({
@@ -140,27 +105,18 @@ async function insertBatch(
         .returning({ id: media.id });
 
       if (inserted.length > 0 && item.genreIds.length > 0) {
-        // Get or create genre IDs
         const genreDbIds = await getOrCreateGenreIds(item.genreIds, genreCache);
         stats.genresFound += genreDbIds.length;
 
-        // Insert media-genre relationships
         if (genreDbIds.length > 0) {
           await db
             .insert(mediaGenres)
-            .values(
-              genreDbIds.map((genreId) => ({
-                mediaId: inserted[0].id,
-                genreId,
-              }))
-            )
+            .values(genreDbIds.map((genreId) => ({ mediaId: inserted[0].id, genreId })))
             .onConflictDoNothing();
         }
       }
 
-      if (inserted.length > 0) {
-        stats.entitiesImported++;
-      }
+      if (inserted.length > 0) stats.entitiesImported++;
     } catch (error) {
       stats.errors++;
       console.error(`Error inserting ${item.wikidataId}:`, error);
@@ -168,9 +124,6 @@ async function insertBatch(
   }
 }
 
-/**
- * Update import progress in the database
- */
 async function updateProgress(
   progressId: string,
   stats: ImportStats,
@@ -189,45 +142,109 @@ async function updateProgress(
     .where(eq(importProgress.id, progressId));
 }
 
-/**
- * Main import function
- */
-export async function importWikidataDump(
+// ============ Test Mode ============
+
+interface TestStats {
+  totalEntities: number;
+  mediaEntities: number;
+  mediaWithExternalIds: number;
+  byType: { movies: number; tvSeries: number; anime: number };
+}
+
+async function runTest(filePath: string, limit: number = 100): Promise<void> {
+  console.log(`Testing dump: ${filePath}`);
+  console.log(`Processing first ${limit} entities\n`);
+
+  const stats: TestStats = {
+    totalEntities: 0,
+    mediaEntities: 0,
+    mediaWithExternalIds: 0,
+    byType: { movies: 0, tvSeries: 0, anime: 0 },
+  };
+
+  const samples: Array<{ id: string; type: string; titles: string[]; imdb: boolean; mal: boolean }> = [];
+  let done = false;
+
+  const processStream = new Transform({
+    objectMode: true,
+    transform(line: string, _encoding, callback) {
+      if (done) return callback();
+
+      const entity = parseJsonLine(line);
+      if (!entity) return callback();
+
+      stats.totalEntities++;
+
+      if (isMediaEntity(entity)) {
+        stats.mediaEntities++;
+        const type = determineMediaType(entity);
+        if (type === "movie") stats.byType.movies++;
+        else if (type === "tv_series") stats.byType.tvSeries++;
+        else if (type === "anime") stats.byType.anime++;
+
+        if (hasExternalId(entity)) stats.mediaWithExternalIds++;
+
+        if (samples.length < 10) {
+          samples.push({
+            id: entity.id,
+            type: type || "unknown",
+            titles: [entity.labels?.en?.value, entity.labels?.ja?.value].filter(Boolean) as string[],
+            imdb: !!entity.claims?.P345?.length,
+            mal: !!entity.claims?.P4086?.length,
+          });
+        }
+      }
+
+      if (stats.totalEntities >= limit) {
+        done = true;
+        this.destroy();
+      }
+
+      callback();
+    },
+  });
+
+  try {
+    await pipeline(fs.createReadStream(filePath), unbzip2Stream(), split2(), processStream);
+  } catch (error) {
+    if (!(error instanceof Error && (error as NodeJS.ErrnoException).code === "ERR_STREAM_PREMATURE_CLOSE")) {
+      throw error;
+    }
+  }
+
+  console.log("=== Results ===\n");
+  console.log(`Total: ${stats.totalEntities}`);
+  console.log(`Media: ${stats.mediaEntities}`);
+  console.log(`With external IDs: ${stats.mediaWithExternalIds}`);
+  console.log(`\nBy type: Movies=${stats.byType.movies}, TV=${stats.byType.tvSeries}, Anime=${stats.byType.anime}`);
+
+  if (samples.length > 0) {
+    console.log("\n=== Samples ===\n");
+    for (const s of samples) {
+      console.log(`${s.id} (${s.type}) - ${s.titles.join(" / ") || "(no title)"} [IMDb:${s.imdb}, MAL:${s.mal}]`);
+    }
+  }
+}
+
+// ============ Full Import ============
+
+export async function runImport(
   filePath: string,
-  options: {
-    resumeFrom?: string;
-    maxEntities?: number;
-  } = {}
+  options: { resumeFrom?: string; maxEntities?: number } = {}
 ): Promise<ImportStats> {
   const { resumeFrom, maxEntities } = options;
 
-  console.log(`Starting import from: ${filePath}`);
-  if (resumeFrom) {
-    console.log(`Resuming from entity: ${resumeFrom}`);
-  }
-  if (maxEntities) {
-    console.log(`Max entities to process: ${maxEntities}`);
-  }
+  console.log(`Importing from: ${filePath}`);
+  if (resumeFrom) console.log(`Resuming from: ${resumeFrom}`);
+  if (maxEntities) console.log(`Max entities: ${maxEntities}`);
 
-  // Create progress record
   const [progressRecord] = await db
     .insert(importProgress)
-    .values({
-      sourceFile: filePath,
-      status: "running",
-      startedAt: new Date(),
-    })
+    .values({ sourceFile: filePath, status: "running", startedAt: new Date() })
     .returning({ id: importProgress.id });
 
   const progressId = progressRecord.id;
-
-  const stats: ImportStats = {
-    entitiesProcessed: 0,
-    entitiesImported: 0,
-    errors: 0,
-    genresFound: 0,
-  };
-
+  const stats: ImportStats = { entitiesProcessed: 0, entitiesImported: 0, errors: 0, genresFound: 0 };
   const genreCache: GenreCache = {};
   let batch: ParsedMedia[] = [];
   let lastEntityId: string | null = null;
@@ -237,7 +254,6 @@ export async function importWikidataDump(
     stats.entitiesProcessed++;
     lastEntityId = entity.id;
 
-    // If resuming, skip until we find the resume point
     if (skipping) {
       if (entity.id === resumeFrom) {
         skipping = false;
@@ -246,40 +262,28 @@ export async function importWikidataDump(
       return;
     }
 
-    // Check if we should import this entity
-    if (!shouldImportEntity(entity)) {
-      return;
-    }
+    if (!shouldImportEntity(entity)) return;
 
-    // Parse the entity
     const parsed = parseMediaEntity(entity);
-    if (!parsed) {
-      return;
-    }
+    if (!parsed) return;
 
     batch.push(parsed);
 
-    // Insert batch when full
     if (batch.length >= BATCH_SIZE) {
       await insertBatch(batch, genreCache, stats);
       batch = [];
     }
 
-    // Log progress
     if (stats.entitiesProcessed % PROGRESS_LOG_INTERVAL === 0) {
-      console.log(
-        `Processed: ${stats.entitiesProcessed}, Imported: ${stats.entitiesImported}, Errors: ${stats.errors}`
-      );
+      console.log(`Processed: ${stats.entitiesProcessed}, Imported: ${stats.entitiesImported}, Errors: ${stats.errors}`);
       await updateProgress(progressId, stats, lastEntityId);
     }
 
-    // Check max entities limit
     if (maxEntities && stats.entitiesProcessed >= maxEntities) {
       throw new Error("MAX_ENTITIES_REACHED");
     }
   };
 
-  // Create transform stream for processing
   const processStream = new Transform({
     objectMode: true,
     async transform(line: string, _encoding, callback) {
@@ -300,49 +304,47 @@ export async function importWikidataDump(
   });
 
   try {
-    await pipeline(
-      fs.createReadStream(filePath),
-      unbzip2Stream(),
-      split2(),
-      processStream
-    );
+    await pipeline(fs.createReadStream(filePath), unbzip2Stream(), split2(), processStream);
   } catch (error) {
-    // Ignore pipeline destruction error when max entities reached
     if (!(error instanceof Error && (error as NodeJS.ErrnoException).code === "ERR_STREAM_PREMATURE_CLOSE")) {
       throw error;
     }
   }
 
-  // Insert remaining batch
   if (batch.length > 0) {
     await insertBatch(batch, genreCache, stats);
   }
 
-  // Update final progress
   await updateProgress(progressId, stats, lastEntityId, "completed");
 
-  console.log("\n=== Import Complete ===");
-  console.log(`Entities processed: ${stats.entitiesProcessed}`);
-  console.log(`Entities imported: ${stats.entitiesImported}`);
-  console.log(`Errors: ${stats.errors}`);
-  console.log(`Genres found: ${stats.genresFound}`);
+  console.log("\n=== Complete ===");
+  console.log(`Processed: ${stats.entitiesProcessed}, Imported: ${stats.entitiesImported}, Errors: ${stats.errors}`);
 
   return stats;
 }
 
-// CLI entry point
+// ============ CLI ============
+
 if (import.meta.main) {
   const args = process.argv.slice(2);
-  const filePath = args[0] || "D:/latest-all.json.bz2";
-  const maxEntities = args[1] ? parseInt(args[1], 10) : undefined;
+  const isTest = args.includes("--test");
+  const filePath = args.find((a) => !a.startsWith("--")) || "/mnt/d/latest-all.json.bz2";
+  const limitArg = args.find((a) => a.startsWith("--limit="));
+  const limit = limitArg ? parseInt(limitArg.split("=")[1], 10) : undefined;
 
-  importWikidataDump(filePath, { maxEntities })
-    .then((stats) => {
-      console.log("Import finished successfully:", stats);
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error("Import failed:", error);
-      process.exit(1);
-    });
+  if (isTest) {
+    runTest(filePath, limit || 100)
+      .then(() => process.exit(0))
+      .catch((e) => {
+        console.error(e);
+        process.exit(1);
+      });
+  } else {
+    runImport(filePath, { maxEntities: limit })
+      .then(() => process.exit(0))
+      .catch((e) => {
+        console.error(e);
+        process.exit(1);
+      });
+  }
 }

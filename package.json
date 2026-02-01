@@ -8,8 +8,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "import:test": "bun run src/scripts/test-dump.ts",
-    "import:run": "bun run src/import/importer.ts"
+    "import:test": "bun run src/import/index.ts --test",
+    "import:run": "bun run src/import/index.ts"
   },
   "dependencies": {
     "@elysiajs/eden": "^1.4.6",
