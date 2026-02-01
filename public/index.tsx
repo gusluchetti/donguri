@@ -8,33 +8,40 @@ const App = () => {
   const [media, setMedia] = useState<MediaListResponse>()
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
-  const [searchInput, setSearchInput] = useState('')
   const [page, setPage] = useState(1)
   const [typeFilter, setTypeFilter] = useState<'movie' | 'tv_series' | 'anime' | ''>('')
 
-  const fetchMedia = useCallback(async () => {
+  const fetchMedia = useCallback(async (searchQuery: string) => {
     setLoading(true)
     const { data } = await api.api.media.get({
       query: {
         page,
         limit: ITEMS_PER_PAGE,
-        search: search || undefined,
+        search: searchQuery || undefined,
         type: typeFilter || undefined,
       },
     })
     setMedia(data)
     setLoading(false)
-  }, [page, search, typeFilter])
+  }, [page, typeFilter])
 
+  // Debounced search effect
   useEffect(() => {
-    fetchMedia()
-  }, [fetchMedia])
+    // Skip if 1 character (wait for 2+ or empty to show all)
+    if (search.length === 1) return
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    setPage(1)
-    setSearch(searchInput)
-  }
+    const timer = setTimeout(() => {
+      setPage(1)
+      fetchMedia(search)
+    }, 250)
+
+    return () => clearTimeout(timer)
+  }, [search])
+
+  // Fetch on page/filter changes
+  useEffect(() => {
+    fetchMedia(search)
+  }, [page, typeFilter])
 
   const pagination = media?.pagination
   const totalPages = pagination?.totalPages ?? 1
@@ -43,20 +50,19 @@ const App = () => {
     <div>
       <h1>Media Catalog</h1>
 
-      <form onSubmit={handleSearch}>
+      <div>
         <input
           type="text"
-          placeholder="Search titles..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Search titles (2+ chars)..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
         />
-        <button type="submit">Search</button>
         {search && (
-          <button type="button" onClick={() => { setSearch(''); setSearchInput(''); setPage(1) }}>
+          <button type="button" onClick={() => setSearch('')}>
             Clear
           </button>
         )}
-      </form>
+      </div>
 
       <div>
         <label>
