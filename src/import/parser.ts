@@ -5,6 +5,7 @@ import {
   WikibaseEntityIdValue,
   TimeDataValue,
   QuantityDataValue,
+  MonolingualTextValue,
 } from "./types";
 import { determineMediaType, getStringClaim } from "./filters";
 
@@ -18,6 +19,89 @@ function getLanguageString(
   language: string
 ): string | null {
   return record?.[language]?.value ?? null;
+}
+
+// Common language Q-IDs to ISO 639-1 codes
+const LANGUAGE_MAP: Record<string, string> = {
+  Q5287: "ja",    // Japanese
+  Q9176: "ko",    // Korean
+  Q7850: "zh",    // Chinese
+  Q1860: "en",    // English
+  Q150: "fr",     // French
+  Q188: "de",     // German
+  Q652: "it",     // Italian
+  Q1321: "es",    // Spanish
+  Q5146: "pt",    // Portuguese
+  Q7737: "ru",    // Russian
+  Q9288: "he",    // Hebrew
+  Q13955: "ar",   // Arabic
+  Q1571: "hi",    // Hindi
+  Q9217: "th",    // Thai
+  Q9199: "tl",    // Tagalog
+  Q9252: "id",    // Indonesian
+  Q9237: "ms",    // Malay
+  Q9296: "vi",    // Vietnamese
+};
+
+/**
+ * Get original title from P1476 (title property with monolingualtext)
+ */
+function getOriginalTitle(entity: WikidataEntity): { title: string; language: string } | null {
+  const claims = entity.claims?.[P.TITLE];
+  if (!claims || claims.length === 0) return null;
+
+  const sortedClaims = [...claims].sort((a, b) => {
+    if (a.rank === "preferred" && b.rank !== "preferred") return -1;
+    if (b.rank === "preferred" && a.rank !== "preferred") return 1;
+    return 0;
+  });
+
+  const claim = sortedClaims[0];
+  if (claim.mainsnak.snaktype === "value" && claim.mainsnak.datavalue?.type === "monolingualtext") {
+    const data = claim.mainsnak.datavalue as MonolingualTextValue;
+    return { title: data.value.text, language: data.value.language };
+  }
+
+  return null;
+}
+
+/**
+ * Get original language Q-ID from P364
+ */
+function getOriginalLanguageQId(entity: WikidataEntity): string | null {
+  const claims = entity.claims?.[P.ORIGINAL_LANGUAGE];
+  if (!claims || claims.length === 0) return null;
+
+  const claim = claims[0];
+  if (claim.mainsnak.snaktype === "value" && claim.mainsnak.datavalue?.type === "wikibase-entityid") {
+    const data = claim.mainsnak.datavalue as WikibaseEntityIdValue;
+    return data.value.id;
+  }
+
+  return null;
+}
+
+/**
+ * Get original title - tries P1476 first, then falls back to label in original language
+ */
+function getOriginalTitleAndLanguage(entity: WikidataEntity): { title: string | null; language: string | null } {
+  // Try P1476 (title) first - it has the title in original language directly
+  const titleClaim = getOriginalTitle(entity);
+  if (titleClaim && titleClaim.title !== getLanguageString(entity.labels, "en")) {
+    return { title: titleClaim.title, language: titleClaim.language };
+  }
+
+  // Fall back to P364 (original language) + label lookup
+  const langQId = getOriginalLanguageQId(entity);
+  if (langQId) {
+    const langCode = LANGUAGE_MAP[langQId];
+    if (langCode && langCode !== "en") {
+      const title = getLanguageString(entity.labels, langCode);
+      if (title) return { title, language: langCode };
+    }
+  }
+
+  return { title: null, language: null };
 }
 
 /**
@@ -137,13 +221,15 @@ export function parseMediaEntity(entity: WikidataEntity): ParsedMedia | null {
     getYearFromTimeClaim(entity, P.START_TIME) ??
     getYearFromTimeClaim(entity, P.PUBLICATION_DATE);
 
+  const { title: titleOriginal, language: originalLanguage } = getOriginalTitleAndLanguage(entity);
+
   return {
     wikidataId: entity.id,
     mediaType,
     titleEn: getLanguageString(entity.labels, "en"),
-    titleJa: getLanguageString(entity.labels, "ja"),
+    titleOriginal,
+    originalLanguage,
     descriptionEn: getLanguageString(entity.descriptions, "en"),
-    descriptionJa: getLanguageString(entity.descriptions, "ja"),
     startYear,
     endYear: getYearFromTimeClaim(entity, P.END_TIME),
     imdbId: getStringClaim(entity, P.IMDB_ID),

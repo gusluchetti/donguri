@@ -127,6 +127,10 @@ export const WikidataProperties = {
 
   // Classification
   GENRE: "P136",
+
+  // Title/Language
+  TITLE: "P1476",
+  ORIGINAL_LANGUAGE: "P364",
 } as const;
 
 // Q-values for media types
@@ -152,9 +156,9 @@ export interface ParsedMedia {
   wikidataId: string;
   mediaType: MediaType;
   titleEn: string | null;
-  titleJa: string | null;
+  titleOriginal: string | null;
+  originalLanguage: string | null; // ISO 639-1 code (e.g., "ja", "ko", "fr")
   descriptionEn: string | null;
-  descriptionJa: string | null;
   startYear: number | null;
   endYear: number | null;
   imdbId: string | null;

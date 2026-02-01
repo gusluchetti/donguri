@@ -27,7 +27,7 @@ export const mediaRoutes = new Elysia({ prefix: "/api/media" })
         conditions.push(
           or(
             ilike(media.titleEn, `%${search}%`),
-            ilike(media.titleJa, `%${search}%`)
+            ilike(media.titleOriginal, `%${search}%`)
           )
         );
       }
