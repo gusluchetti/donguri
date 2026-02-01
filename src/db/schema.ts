@@ -10,6 +10,7 @@ import {
   index,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 import { uuidv7 } from "uuidv7";
 
@@ -42,6 +43,8 @@ export const media = pgTable(
     index("idx_media_imdb").on(table.imdbId),
     index("idx_media_mal").on(table.malId),
     index("idx_media_type").on(table.mediaType),
+    index("idx_media_title_en_trgm").using("gin", sql`${table.titleEn} gin_trgm_ops`),
+    index("idx_media_title_original_trgm").using("gin", sql`${table.titleOriginal} gin_trgm_ops`),
   ]
 );
 
