@@ -327,20 +327,20 @@ export async function runImport(
 
 if (import.meta.main) {
   const args = process.argv.slice(2);
-  const isTest = args.includes("--test");
+  const isFull = args.includes("--full");
   const filePath = args.find((a) => !a.startsWith("--")) || "/mnt/d/latest-all.json.bz2";
   const limitArg = args.find((a) => a.startsWith("--limit="));
   const limit = limitArg ? parseInt(limitArg.split("=")[1], 10) : undefined;
 
-  if (isTest) {
-    runTest(filePath, limit || 100)
+  if (isFull) {
+    runImport(filePath, { maxEntities: limit })
       .then(() => process.exit(0))
       .catch((e) => {
         console.error(e);
         process.exit(1);
       });
   } else {
-    runImport(filePath, { maxEntities: limit })
+    runTest(filePath, limit || 100)
       .then(() => process.exit(0))
       .catch((e) => {
         console.error(e);
