@@ -9,9 +9,15 @@ const app = new Elysia()
       references: fromTypes()
     })
   )
-  .use(await staticPlugin({ prefix: '/' }))
+  .use(await staticPlugin({ prefix: '/', noExtensionLookup: true }))
   .use(mediaRoutes)
-  .get('/hi', { message: 'hi' } as const)
+  .get('/*', ({ path }) => {
+    // Don't serve index.html for API routes or static files
+    if (path.startsWith('/api/')) {
+      return new Response('Not Found', { status: 404 });
+    }
+    return Bun.file('public/index.html');
+  })
   .listen(3000);
 
 console.log(
