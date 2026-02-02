@@ -1,7 +1,7 @@
 import { treaty } from "@elysiajs/eden";
 import { App } from "../../src";
 
-export const api = treaty<App>('localhost:3000')
+export const api = treaty<App>(window.location.origin)
 
 type ApiResponse<T> = Awaited<ReturnType<T>>['data']
 
