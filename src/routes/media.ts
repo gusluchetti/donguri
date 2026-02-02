@@ -84,9 +84,46 @@ export const mediaRoutes = new Elysia({ prefix: "/api/media" })
     }
   )
 
+  // Get statistics (must be before /:wikidataId to avoid matching "stats" as an ID)
+  .get("/stats", async ({ set }) => {
+    set.headers['Cache-Control'] = 'public, max-age=300';
+
+    const [
+      totalMedia,
+      movieCount,
+      tvSeriesCount,
+      animeCount,
+      withImdb,
+      withMal,
+      genreCount,
+    ] = await Promise.all([
+      db.select({ count: count() }).from(media),
+      db.select({ count: count() }).from(media).where(eq(media.mediaType, "movie")),
+      db.select({ count: count() }).from(media).where(eq(media.mediaType, "tv_series")),
+      db.select({ count: count() }).from(media).where(eq(media.mediaType, "anime")),
+      db.select({ count: count() }).from(media).where(sql`${media.imdbId} IS NOT NULL`),
+      db.select({ count: count() }).from(media).where(sql`${media.malId} IS NOT NULL`),
+      db.select({ count: count() }).from(genres),
+    ]);
+
+    return {
+      total: totalMedia[0]?.count ?? 0,
+      byType: {
+        movie: movieCount[0]?.count ?? 0,
+        tv_series: tvSeriesCount[0]?.count ?? 0,
+        anime: animeCount[0]?.count ?? 0,
+      },
+      withExternalIds: {
+        imdb: withImdb[0]?.count ?? 0,
+        mal: withMal[0]?.count ?? 0,
+      },
+      genres: genreCount[0]?.count ?? 0,
+    };
+  })
+
   // Get media by Wikidata ID
   .get(
-    "/:wikidataId",
+    "/wikidata/:wikidataId",
     async ({ params, set }) => {
       set.headers['Cache-Control'] = 'public, max-age=3600';
 
@@ -181,41 +218,4 @@ export const mediaRoutes = new Elysia({ prefix: "/api/media" })
         malId: t.String(),
       }),
     }
-  )
-
-  // Get statistics
-  .get("/stats", async ({ set }) => {
-    set.headers['Cache-Control'] = 'public, max-age=300';
-
-    const [
-      totalMedia,
-      movieCount,
-      tvSeriesCount,
-      animeCount,
-      withImdb,
-      withMal,
-      genreCount,
-    ] = await Promise.all([
-      db.select({ count: count() }).from(media),
-      db.select({ count: count() }).from(media).where(eq(media.mediaType, "movie")),
-      db.select({ count: count() }).from(media).where(eq(media.mediaType, "tv_series")),
-      db.select({ count: count() }).from(media).where(eq(media.mediaType, "anime")),
-      db.select({ count: count() }).from(media).where(sql`${media.imdbId} IS NOT NULL`),
-      db.select({ count: count() }).from(media).where(sql`${media.malId} IS NOT NULL`),
-      db.select({ count: count() }).from(genres),
-    ]);
-
-    return {
-      total: totalMedia[0]?.count ?? 0,
-      byType: {
-        movie: movieCount[0]?.count ?? 0,
-        tv_series: tvSeriesCount[0]?.count ?? 0,
-        anime: animeCount[0]?.count ?? 0,
-      },
-      withExternalIds: {
-        imdb: withImdb[0]?.count ?? 0,
-        mal: withMal[0]?.count ?? 0,
-      },
-      genres: genreCount[0]?.count ?? 0,
-    };
-  });
+  );

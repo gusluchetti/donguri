@@ -24,23 +24,17 @@ export const MediaCatalog = () => {
     setLoading(false)
   }, [page, typeFilter])
 
-  // Debounced search effect
+  // Fetch on page/filter/search changes with debounce for search
   useEffect(() => {
     // Skip if 1 character (wait for 2+ or empty to show all)
     if (search.length === 1) return
 
     const timer = setTimeout(() => {
-      setPage(1)
       fetchMedia(search)
-    }, 250)
+    }, search ? 250 : 0)
 
     return () => clearTimeout(timer)
-  }, [search])
-
-  // Fetch on page/filter changes
-  useEffect(() => {
-    fetchMedia(search)
-  }, [page, typeFilter])
+  }, [search, page, typeFilter, fetchMedia])
 
   const pagination = media?.pagination
   const totalPages = pagination?.totalPages ?? 1
@@ -54,10 +48,13 @@ export const MediaCatalog = () => {
           type="text"
           placeholder="Search titles (2+ chars)..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(1)
+          }}
         />
         {search && (
-          <button type="button" onClick={() => setSearch('')}>
+          <button type="button" onClick={() => { setSearch(''); setPage(1) }}>
             Clear
           </button>
         )}
