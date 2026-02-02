@@ -1,3 +1,4 @@
+import cors from "@elysiajs/cors";
 import openapi, { fromTypes } from "@elysiajs/openapi";
 import staticPlugin from "@elysiajs/static";
 import { Elysia } from "elysia";
@@ -11,6 +12,7 @@ const app = new Elysia({
     },
   },
 })
+  .use(cors())
   .use(
     openapi({
       references: fromTypes()
