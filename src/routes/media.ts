@@ -8,7 +8,7 @@ export const mediaRoutes = new Elysia({ prefix: "/api/media" })
   .get(
     "/",
     async ({ query, set }) => {
-      set.headers['Cache-Control'] = 'public, max-age=60';
+      set.headers['Cache-Control'] = 'public, max-age=1800';
 
       const {
         page = 1,
@@ -86,7 +86,7 @@ export const mediaRoutes = new Elysia({ prefix: "/api/media" })
 
   // Get statistics (must be before /:wikidataId to avoid matching "stats" as an ID)
   .get("/stats", async ({ set }) => {
-    set.headers['Cache-Control'] = 'public, max-age=300';
+    set.headers['Cache-Control'] = 'public, max-age=1800';
 
     const [
       totalMedia,
@@ -125,7 +125,7 @@ export const mediaRoutes = new Elysia({ prefix: "/api/media" })
   .get(
     "/wikidata/:wikidataId",
     async ({ params, set }) => {
-      set.headers['Cache-Control'] = 'public, max-age=3600';
+      set.headers['Cache-Control'] = 'public, max-age=1800';
 
       const item = await db
         .select()
@@ -166,7 +166,7 @@ export const mediaRoutes = new Elysia({ prefix: "/api/media" })
   .get(
     "/imdb/:imdbId",
     async ({ params, set }) => {
-      set.headers['Cache-Control'] = 'public, max-age=3600';
+      set.headers['Cache-Control'] = 'public, max-age=1800';
 
       const item = await db
         .select()
@@ -192,7 +192,7 @@ export const mediaRoutes = new Elysia({ prefix: "/api/media" })
   .get(
     "/mal/:malId",
     async ({ params, set }) => {
-      set.headers['Cache-Control'] = 'public, max-age=3600';
+      set.headers['Cache-Control'] = 'public, max-age=1800';
 
       const malId = parseInt(params.malId, 10);
       if (isNaN(malId)) {
