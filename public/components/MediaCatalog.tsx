@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react"
 import { api, MediaListResponse } from "../libs/api"
 
-const ITEMS_PER_PAGE = 100
+const ITEMS_PER_PAGE = 50
 
-export const Media = () => {
+export const MediaCatalog = () => {
   const [media, setMedia] = useState<MediaListResponse>()
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
