@@ -7,15 +7,15 @@ const ITEMS_PER_PAGE = 50
 // Type badge component with color coding
 const TypeBadge = ({ type }: { type: string }) => {
   if (type === 'movie') {
-    return <span className="font-medium dark:text-kanagawa-accent-orange light:text-kanagawa-light-accent-orange">MOV</span>
+    return <span className="font-medium text-accent-orange dark:text-glow-orange">MOV</span>
   }
   if (type === 'tv_series') {
-    return <span className="font-medium dark:text-kanagawa-accent-cyan light:text-kanagawa-light-accent-cyan">TV</span>
+    return <span className="font-medium text-accent-cyan dark:text-glow-cyan">TV</span>
   }
   if (type === 'anime') {
-    return <span className="font-medium dark:text-kanagawa-accent-green light:text-kanagawa-light-accent-green">ANI</span>
+    return <span className="font-medium text-accent-green dark:text-glow-green">ANI</span>
   }
-  return <span className="font-medium dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary">{type.slice(0, 3).toUpperCase()}</span>
+  return <span className="font-medium text-ink-400 dark:text-sand-500">{type.slice(0, 3).toUpperCase()}</span>
 }
 
 // External link badge
@@ -24,7 +24,7 @@ const LinkBadge = ({ href, label }: { href: string; label: string }) => (
     href={href}
     target="_blank"
     rel="noreferrer"
-    className="px-1 text-xs border rounded dark:border-kanagawa-bg-surface dark:text-kanagawa-text-secondary dark:hover:text-kanagawa-accent-blue dark:hover:border-kanagawa-accent-blue light:border-kanagawa-light-bg-surface light:text-kanagawa-light-text-secondary light:hover:text-kanagawa-light-accent-blue light:hover:border-kanagawa-light-accent-blue transition-colors duration-100"
+    className="px-1 text-xs border rounded border-cream-300 dark:border-espresso-800 text-ink-400 dark:text-sand-500 hover:text-accent-blue dark:hover:text-glow-blue hover:border-accent-blue dark:hover:border-glow-blue transition-colors duration-100"
   >
     {label}
   </a>
@@ -56,15 +56,15 @@ const TableRow = ({ item }: { item: MediaItem }) => {
   const episodes = formatEpisodes(item)
 
   return (
-    <tr className="group border-b dark:border-kanagawa-bg-surface light:border-kanagawa-light-bg-surface dark:hover:bg-kanagawa-bg-elevated light:hover:bg-kanagawa-light-bg-elevated transition-colors duration-100">
+    <tr className="group border-b border-cream-300 dark:border-espresso-800 hover:bg-cream-200 dark:hover:bg-espresso-900 transition-colors duration-100">
       {/* Title column spans both rows visually */}
       <td className="py-1.5 px-3 align-top">
         <div className="flex flex-col gap-0.5">
-          <span className="dark:text-kanagawa-text-primary light:text-kanagawa-light-text-primary truncate max-w-xs" title={item.titleEn || undefined}>
+          <span className="text-ink-600 dark:text-sand-300 truncate max-w-xs" title={item.titleEn || undefined}>
             {item.titleEn || '-'}
           </span>
           {item.titleOriginal && item.titleOriginal !== item.titleEn && (
-            <span className="text-xs dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary truncate max-w-xs" title={item.titleOriginal}>
+            <span className="text-xs text-ink-400 dark:text-sand-500 truncate max-w-xs" title={item.titleOriginal}>
               {item.titleOriginal}
             </span>
           )}
@@ -75,11 +75,11 @@ const TableRow = ({ item }: { item: MediaItem }) => {
         <TypeBadge type={item.mediaType} />
       </td>
       {/* Year */}
-      <td className="py-1.5 px-2 text-center align-top dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary">
+      <td className="py-1.5 px-2 text-center align-top text-ink-400 dark:text-sand-500">
         {formatYear(item.startYear, item.endYear)}
       </td>
       {/* Episodes (hidden on tablet) */}
-      <td className="py-1.5 px-2 text-center align-top dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary hidden lg:table-cell">
+      <td className="py-1.5 px-2 text-center align-top text-ink-400 dark:text-sand-500 hidden lg:table-cell">
         {episodes || '-'}
       </td>
       {/* External links */}
@@ -102,19 +102,19 @@ const MediaCard = ({ item }: { item: MediaItem }) => {
   const episodes = formatEpisodes(item)
 
   return (
-    <div className="p-3 border rounded dark:border-kanagawa-bg-surface dark:bg-kanagawa-bg-elevated light:border-kanagawa-light-bg-surface light:bg-kanagawa-light-bg-elevated">
+    <div className="p-3 border rounded border-cream-300 dark:border-espresso-800 bg-cream-200 dark:bg-espresso-900">
       <div className="flex items-start justify-between gap-2 mb-1">
         <TypeBadge type={item.mediaType} />
-        <span className="text-xs dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary">
+        <span className="text-xs text-ink-400 dark:text-sand-500">
           {formatYear(item.startYear, item.endYear)}
         </span>
       </div>
       <div className="mb-2">
-        <div className="font-medium truncate dark:text-kanagawa-text-primary light:text-kanagawa-light-text-primary" title={item.titleEn || undefined}>
+        <div className="font-medium truncate text-ink-600 dark:text-sand-300" title={item.titleEn || undefined}>
           {item.titleEn || '-'}
         </div>
         {item.titleOriginal && item.titleOriginal !== item.titleEn && (
-          <div className="text-xs truncate dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary" title={item.titleOriginal}>
+          <div className="text-xs truncate text-ink-400 dark:text-sand-500" title={item.titleOriginal}>
             {item.titleOriginal}
           </div>
         )}
@@ -129,7 +129,7 @@ const MediaCard = ({ item }: { item: MediaItem }) => {
           )}
         </div>
         {episodes && (
-          <span className="text-xs dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary">
+          <span className="text-xs text-ink-400 dark:text-sand-500">
             {episodes}
           </span>
         )}
@@ -141,7 +141,7 @@ const MediaCard = ({ item }: { item: MediaItem }) => {
 // Loading state
 const LoadingState = () => (
   <div className="flex items-center justify-center py-12">
-    <span className="dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary tui-loading">
+    <span className="text-ink-400 dark:text-sand-500 tui-loading">
       loading
     </span>
   </div>
@@ -154,8 +154,8 @@ const FilterButton = ({ active, onClick, children }: { active: boolean; onClick:
     onClick={onClick}
     className={`px-2 py-0.5 text-xs border rounded transition-colors duration-100
       ${active
-        ? 'dark:bg-kanagawa-bg-surface dark:border-kanagawa-accent-cyan dark:text-kanagawa-accent-cyan light:bg-kanagawa-light-bg-surface light:border-kanagawa-light-accent-cyan light:text-kanagawa-light-accent-cyan'
-        : 'dark:border-kanagawa-bg-surface dark:text-kanagawa-text-secondary dark:hover:border-kanagawa-text-secondary light:border-kanagawa-light-bg-surface light:text-kanagawa-light-text-secondary light:hover:border-kanagawa-light-text-secondary'
+        ? 'bg-cream-300 dark:bg-espresso-800 border-accent-cyan dark:border-glow-cyan text-accent-cyan dark:text-glow-cyan'
+        : 'border-cream-300 dark:border-espresso-800 text-ink-400 dark:text-sand-500 hover:border-ink-400 dark:hover:border-sand-500'
       }`}
   >
     {children}
@@ -229,7 +229,7 @@ export const MediaCatalog = () => {
       {/* Search and filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="flex-1 relative">
-          <span className="absolute left-2 top-1/2 -translate-y-1/2 dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary">/</span>
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-ink-400 dark:text-sand-500">/</span>
           <input
             type="text"
             placeholder="search (2+ chars)..."
@@ -238,20 +238,20 @@ export const MediaCatalog = () => {
               setSearch(e.target.value)
               setPage(1)
             }}
-            className="w-full pl-6 pr-8 py-1.5 text-sm border rounded dark:bg-kanagawa-bg-base dark:border-kanagawa-bg-surface dark:text-kanagawa-text-primary dark:placeholder-kanagawa-text-secondary light:bg-kanagawa-light-bg-base light:border-kanagawa-light-bg-surface light:text-kanagawa-light-text-primary light:placeholder-kanagawa-light-text-secondary focus:outline-none dark:focus:border-kanagawa-accent-blue light:focus:border-kanagawa-light-accent-blue"
+            className="w-full pl-6 pr-8 py-1.5 text-sm border rounded bg-cream-100 dark:bg-espresso-950 border-cream-300 dark:border-espresso-800 text-ink-600 dark:text-sand-300 placeholder-ink-400 dark:placeholder-sand-500 focus:outline-none focus:border-accent-blue dark:focus:border-glow-blue"
           />
           {search && (
             <button
               type="button"
               onClick={() => { setSearch(''); setPage(1) }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 dark:text-kanagawa-text-secondary dark:hover:text-kanagawa-text-primary light:text-kanagawa-light-text-secondary light:hover:text-kanagawa-light-text-primary"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 dark:text-sand-500 hover:text-ink-600 dark:hover:text-sand-300"
             >
               x
             </button>
           )}
         </div>
         <div className="flex gap-2 items-center">
-          <span className="text-xs dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary">filter:</span>
+          <span className="text-xs text-ink-400 dark:text-sand-500">filter:</span>
           <FilterButton active={typeFilter === ''} onClick={() => { setTypeFilter(''); setPage(1) }}>all</FilterButton>
           <FilterButton active={typeFilter === 'movie'} onClick={() => { setTypeFilter('movie'); setPage(1) }}>mov</FilterButton>
           <FilterButton active={typeFilter === 'tv_series'} onClick={() => { setTypeFilter('tv_series'); setPage(1) }}>tv</FilterButton>
@@ -261,7 +261,7 @@ export const MediaCatalog = () => {
 
       {/* Results info */}
       {pagination && !loading && (
-        <div className="mb-3 text-xs dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary">
+        <div className="mb-3 text-xs text-ink-400 dark:text-sand-500">
           showing {media?.data.length ?? 0} of {pagination.total.toLocaleString()}
           {search && <span> matching "{search}"</span>}
         </div>
@@ -276,12 +276,12 @@ export const MediaCatalog = () => {
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b dark:border-kanagawa-bg-surface light:border-kanagawa-light-bg-surface">
-                  <th className="py-2 px-3 text-left font-medium dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary">title</th>
-                  <th className="py-2 px-2 text-center font-medium dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary w-16">type</th>
-                  <th className="py-2 px-2 text-center font-medium dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary w-20">year</th>
-                  <th className="py-2 px-2 text-center font-medium dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary w-24 hidden lg:table-cell">eps</th>
-                  <th className="py-2 px-2 text-left font-medium dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary w-24">links</th>
+                <tr className="border-b border-cream-300 dark:border-espresso-800">
+                  <th className="py-2 px-3 text-left font-medium text-ink-400 dark:text-sand-500">title</th>
+                  <th className="py-2 px-2 text-center font-medium text-ink-400 dark:text-sand-500 w-16">type</th>
+                  <th className="py-2 px-2 text-center font-medium text-ink-400 dark:text-sand-500 w-20">year</th>
+                  <th className="py-2 px-2 text-center font-medium text-ink-400 dark:text-sand-500 w-24 hidden lg:table-cell">eps</th>
+                  <th className="py-2 px-2 text-left font-medium text-ink-400 dark:text-sand-500 w-24">links</th>
                 </tr>
               </thead>
               <tbody>
@@ -307,31 +307,31 @@ export const MediaCatalog = () => {
           <button
             onClick={() => setPage(1)}
             disabled={page === 1}
-            className="px-2 py-0.5 border rounded dark:border-kanagawa-bg-surface light:border-kanagawa-light-bg-surface disabled:opacity-30 dark:hover:border-kanagawa-text-secondary light:hover:border-kanagawa-light-text-secondary disabled:hover:border-kanagawa-bg-surface transition-colors duration-100"
+            className="px-2 py-0.5 border rounded border-cream-300 dark:border-espresso-800 disabled:opacity-30 hover:border-ink-400 dark:hover:border-sand-500 disabled:hover:border-cream-300 dark:disabled:hover:border-espresso-800 transition-colors duration-100"
           >
             {'\u00AB'}
           </button>
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="px-2 py-0.5 border rounded dark:border-kanagawa-bg-surface light:border-kanagawa-light-bg-surface disabled:opacity-30 dark:hover:border-kanagawa-text-secondary light:hover:border-kanagawa-light-text-secondary disabled:hover:border-kanagawa-bg-surface transition-colors duration-100"
+            className="px-2 py-0.5 border rounded border-cream-300 dark:border-espresso-800 disabled:opacity-30 hover:border-ink-400 dark:hover:border-sand-500 disabled:hover:border-cream-300 dark:disabled:hover:border-espresso-800 transition-colors duration-100"
           >
             {'\u2039'}
           </button>
-          <span className="px-3 dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary">
+          <span className="px-3 text-ink-400 dark:text-sand-500">
             {page} / {totalPages}
           </span>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
-            className="px-2 py-0.5 border rounded dark:border-kanagawa-bg-surface light:border-kanagawa-light-bg-surface disabled:opacity-30 dark:hover:border-kanagawa-text-secondary light:hover:border-kanagawa-light-text-secondary disabled:hover:border-kanagawa-bg-surface transition-colors duration-100"
+            className="px-2 py-0.5 border rounded border-cream-300 dark:border-espresso-800 disabled:opacity-30 hover:border-ink-400 dark:hover:border-sand-500 disabled:hover:border-cream-300 dark:disabled:hover:border-espresso-800 transition-colors duration-100"
           >
             {'\u203A'}
           </button>
           <button
             onClick={() => setPage(totalPages)}
             disabled={page === totalPages}
-            className="px-2 py-0.5 border rounded dark:border-kanagawa-bg-surface light:border-kanagawa-light-bg-surface disabled:opacity-30 dark:hover:border-kanagawa-text-secondary light:hover:border-kanagawa-light-text-secondary disabled:hover:border-kanagawa-bg-surface transition-colors duration-100"
+            className="px-2 py-0.5 border rounded border-cream-300 dark:border-espresso-800 disabled:opacity-30 hover:border-ink-400 dark:hover:border-sand-500 disabled:hover:border-cream-300 dark:disabled:hover:border-espresso-800 transition-colors duration-100"
           >
             {'\u00BB'}
           </button>

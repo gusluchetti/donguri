@@ -28,32 +28,50 @@
               mono: ['IBM Plex Mono', 'monospace'],
             },
             colors: {
-              kanagawa: {
-                // Dark mode - deeper, warmer (gruvbox-inspired)
-                'bg-base': '#1a1816',
-                'bg-elevated': '#242220',
-                'bg-surface': '#32302e',
-                'text-primary': '#c5b89a',
-                'text-secondary': '#7c7065',
-                'accent-blue': '#7daea3',
-                'accent-cyan': '#89b482',
-                'accent-green': '#a9b665',
-                'accent-yellow': '#d8a657',
-                'accent-orange': '#e78a4e',
-                'accent-red': '#ea6962',
-                // Light mode - warm cream with saturated accents
-                'light-bg-base': '#f5f0e1',
-                'light-bg-elevated': '#ebe6d5',
-                'light-bg-surface': '#dfd9c8',
-                'light-text-primary': '#4a4540',
-                'light-text-secondary': '#8a8278',
-                'light-accent-blue': '#3a7a8c',
-                'light-accent-cyan': '#4e8f6a',
-                'light-accent-green': '#6a8c35',
-                'light-accent-yellow': '#b5762e',
-                'light-accent-orange': '#c45a2c',
-                'light-accent-red': '#b83b3b',
-              }
+              // Warm light mode palette
+              cream: {
+                50: '#fdfcf8',
+                100: '#faf6eb',
+                200: '#f0ebe0',
+                300: '#e5dfd2',
+                400: '#d5cfc2',
+              },
+              ink: {
+                400: '#928374',
+                500: '#7c6f64',
+                600: '#5c524a',
+                700: '#4a4540',
+              },
+              // Warm dark mode palette
+              espresso: {
+                950: '#1a1816',
+                900: '#252220',
+                800: '#353230',
+                700: '#454240',
+              },
+              sand: {
+                300: '#c8bda3',
+                400: '#a89984',
+                500: '#847a6a',
+              },
+              // Accent colors - light mode (saturated)
+              accent: {
+                blue: '#076678',
+                cyan: '#427b58',
+                green: '#79740e',
+                yellow: '#b57614',
+                orange: '#af3a03',
+                red: '#9d0006',
+              },
+              // Accent colors - dark mode (glowing)
+              glow: {
+                blue: '#7daea3',
+                cyan: '#8ec07c',
+                green: '#b8bb26',
+                yellow: '#fabd2f',
+                orange: '#fe8019',
+                red: '#fb4934',
+              },
             }
           }
         }
@@ -95,36 +113,31 @@
         font-family: 'IBM Plex Mono', monospace;
       }
 
-      /* Custom scrollbar for dark mode */
-      .dark ::-webkit-scrollbar {
+      /* Custom scrollbar - light mode */
+      ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
       }
+      ::-webkit-scrollbar-track {
+        background: #faf6eb;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #e5dfd2;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #d5cfc2;
+      }
+
+      /* Custom scrollbar - dark mode */
       .dark ::-webkit-scrollbar-track {
         background: #1a1816;
       }
       .dark ::-webkit-scrollbar-thumb {
-        background: #32302e;
-        border-radius: 4px;
+        background: #353230;
       }
       .dark ::-webkit-scrollbar-thumb:hover {
-        background: #45423e;
-      }
-
-      /* Light mode scrollbar */
-      .light ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      .light ::-webkit-scrollbar-track {
-        background: #f5f0e1;
-      }
-      .light ::-webkit-scrollbar-thumb {
-        background: #dfd9c8;
-        border-radius: 4px;
-      }
-      .light ::-webkit-scrollbar-thumb:hover {
-        background: #d0c9b8;
+        background: #454240;
       }
 
       /* TUI loading animation */

@@ -67,8 +67,8 @@ const NavLink = ({ href, children }: { href: string; children: ReactNode }) => {
       href={href}
       className={`px-3 py-1 text-sm transition-colors duration-100
         ${isActive
-          ? 'dark:bg-kanagawa-bg-surface dark:text-kanagawa-accent-cyan light:bg-kanagawa-light-bg-surface light:text-kanagawa-light-accent-cyan'
-          : 'dark:text-kanagawa-text-secondary dark:hover:text-kanagawa-text-primary light:text-kanagawa-light-text-secondary light:hover:text-kanagawa-light-text-primary'
+          ? 'bg-cream-300 dark:bg-espresso-800 text-accent-cyan dark:text-glow-cyan'
+          : 'text-ink-400 dark:text-sand-500 hover:text-ink-600 dark:hover:text-sand-300'
         }`}
     >
       [{children}]
@@ -83,7 +83,7 @@ const ThemeToggle = () => {
   return (
     <button
       onClick={toggleTheme}
-      className="px-2 py-1 text-sm dark:text-kanagawa-text-secondary dark:hover:text-kanagawa-accent-yellow light:text-kanagawa-light-text-secondary light:hover:text-kanagawa-light-accent-yellow transition-colors duration-100"
+      className="px-2 py-1 text-sm text-ink-400 dark:text-sand-500 hover:text-accent-yellow dark:hover:text-glow-yellow transition-colors duration-100"
       title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
     >
       [{theme === 'dark' ? '\u263E' : '\u2600'}]
@@ -97,16 +97,14 @@ const StatusBar = () => {
   const { pagination } = usePagination()
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 h-7 px-4 flex items-center text-xs border-t
-      dark:bg-kanagawa-bg-elevated dark:border-kanagawa-bg-surface dark:text-kanagawa-text-secondary
-      light:bg-kanagawa-light-bg-elevated light:border-kanagawa-light-bg-surface light:text-kanagawa-light-text-secondary">
+    <footer className="fixed bottom-0 left-0 right-0 h-7 px-4 flex items-center text-xs border-t bg-cream-200 dark:bg-espresso-900 border-cream-300 dark:border-espresso-800 text-ink-400 dark:text-sand-500">
       <div className="flex items-center gap-4">
         {stats ? (
           <>
             <span>{stats.total.toLocaleString()} items</span>
-            <span className="dark:text-kanagawa-accent-orange light:text-kanagawa-light-accent-orange">mov: {stats.movies.toLocaleString()}</span>
-            <span className="dark:text-kanagawa-accent-cyan light:text-kanagawa-light-accent-cyan">tv: {stats.tvSeries.toLocaleString()}</span>
-            <span className="dark:text-kanagawa-accent-green light:text-kanagawa-light-accent-green">ani: {stats.anime.toLocaleString()}</span>
+            <span className="text-accent-orange dark:text-glow-orange">mov: {stats.movies.toLocaleString()}</span>
+            <span className="text-accent-cyan dark:text-glow-cyan">tv: {stats.tvSeries.toLocaleString()}</span>
+            <span className="text-accent-green dark:text-glow-green">ani: {stats.anime.toLocaleString()}</span>
           </>
         ) : (
           <span>loading...</span>
@@ -116,9 +114,7 @@ const StatusBar = () => {
         {pagination && (
           <span>pg {pagination.page}/{pagination.totalPages}</span>
         )}
-        <span className="dark:text-kanagawa-text-secondary light:text-kanagawa-light-text-secondary">
-          j/k:nav | /:search | ?:help
-        </span>
+        <span>j/k:nav | /:search | ?:help</span>
       </div>
     </footer>
   )
@@ -127,11 +123,9 @@ const StatusBar = () => {
 // Navigation header
 const NavBar = () => {
   return (
-    <header className="fixed top-0 left-0 right-0 h-10 px-4 flex items-center border-b
-      dark:bg-kanagawa-bg-elevated dark:border-kanagawa-bg-surface
-      light:bg-kanagawa-light-bg-elevated light:border-kanagawa-light-bg-surface">
+    <header className="fixed top-0 left-0 right-0 h-10 px-4 flex items-center border-b bg-cream-200 dark:bg-espresso-900 border-cream-300 dark:border-espresso-800">
       <div className="flex items-center gap-2">
-        <span className="text-sm font-semibold dark:text-kanagawa-accent-yellow light:text-kanagawa-light-accent-yellow">
+        <span className="text-sm font-semibold text-accent-yellow dark:text-glow-yellow">
           {'\u25A3'} donguri
         </span>
       </div>
@@ -141,7 +135,7 @@ const NavBar = () => {
       </nav>
       <div className="ml-auto flex items-center gap-2">
         <ThemeToggle />
-        <button className="px-2 py-1 text-sm dark:text-kanagawa-text-secondary dark:hover:text-kanagawa-text-primary light:text-kanagawa-light-text-secondary light:hover:text-kanagawa-light-text-primary transition-colors duration-100">
+        <button className="px-2 py-1 text-sm text-ink-400 dark:text-sand-500 hover:text-ink-600 dark:hover:text-sand-300 transition-colors duration-100">
           [?]
         </button>
       </div>
@@ -152,7 +146,7 @@ const NavBar = () => {
 // Main app shell
 const AppShell = ({ children }: { children: ReactNode }) => {
   return (
-    <div className="min-h-screen font-mono dark:bg-kanagawa-bg-base dark:text-kanagawa-text-primary light:bg-kanagawa-light-bg-base light:text-kanagawa-light-text-primary">
+    <div className="min-h-screen font-mono bg-cream-100 dark:bg-espresso-950 text-ink-600 dark:text-sand-300">
       <NavBar />
       <main className="pt-10 pb-7 min-h-screen">
         {children}
