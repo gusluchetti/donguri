@@ -1,4 +1,3 @@
-import cors from "@elysiajs/cors";
 import openapi, { fromTypes } from "@elysiajs/openapi";
 import staticPlugin from "@elysiajs/static";
 import { Elysia } from "elysia";
@@ -12,7 +11,17 @@ const app = new Elysia({
     },
   },
 })
-  .use(cors())
+  // Manual CORS headers (avoids Vary: * from @elysiajs/cors which breaks caching)
+  .onRequest(({ set }) => {
+    set.headers['Access-Control-Allow-Origin'] = '*'
+    set.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    set.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    set.headers['Access-Control-Expose-Headers'] = 'Cache-Control'
+  })
+  .options('/*', ({ set }) => {
+    set.status = 204
+    return ''
+  })
   .use(
     openapi({
       references: fromTypes()
