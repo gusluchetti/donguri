@@ -2,22 +2,23 @@ import openapi, { fromTypes } from "@elysiajs/openapi";
 import staticPlugin from "@elysiajs/static";
 import { Elysia } from "elysia";
 import { mediaRoutes } from "./routes/media";
+import index from "../public/index.html";
 
-const app = new Elysia()
+const app = new Elysia({
+  serve: {
+    routes: {
+      "/api/*": false, // Prevent static hijacking of API routes
+    },
+  },
+})
   .use(
     openapi({
       references: fromTypes()
     })
   )
-  .use(await staticPlugin({ prefix: '/', noExtensionLookup: true }))
   .use(mediaRoutes)
-  .get('/*', ({ path }) => {
-    // Don't serve index.html for API routes or static files
-    if (path.startsWith('/api/')) {
-      return new Response('Not Found', { status: 404 });
-    }
-    return Bun.file('public/index.html');
-  })
+  .use(await staticPlugin({ prefix: '/', alwaysStatic: true }))
+  .get("/*", index)
   .listen(3000);
 
 console.log(
