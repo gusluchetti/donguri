@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import useSWR from "swr"
 import { api, MediaItem } from "../libs/api"
 import { useStats, usePagination } from "../index"
+import { MediaType } from "../../src/import/types"
 
 const ITEMS_PER_PAGE = 50
 
@@ -13,7 +14,7 @@ const mediaFetcher = async (key: string) => {
       page: Number(page),
       limit: ITEMS_PER_PAGE,
       search: search || undefined,
-      type: typeFilter || undefined,
+      type: typeFilter as MediaType || undefined,
     },
   })
   return data
@@ -276,7 +277,7 @@ export const MediaCatalog = () => {
       </div>
 
       {/* Results info */}
-      {pagination && !loading && (
+      {pagination && !isLoading && (
         <div className="mb-3 text-xs text-ink-400 dark:text-sand-500">
           showing {media?.data.length ?? 0} of {pagination.total.toLocaleString()}
           {search && <span> matching "{search}"</span>}
@@ -284,7 +285,7 @@ export const MediaCatalog = () => {
       )}
 
       {/* Content */}
-      {loading ? (
+      {isLoading ? (
         <LoadingState />
       ) : (
         <>
@@ -318,7 +319,7 @@ export const MediaCatalog = () => {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && !loading && (
+      {totalPages > 1 && !isLoading && (
         <div className="flex items-center justify-center gap-2 mt-4 text-sm">
           <button
             onClick={() => setPage(1)}
