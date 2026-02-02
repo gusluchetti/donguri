@@ -20,7 +20,8 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "split2": "^4.2.0",
-    "uuidv7": "^1.1.0"
+    "uuidv7": "^1.1.0",
+    "wouter": "^3.9.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.10",
