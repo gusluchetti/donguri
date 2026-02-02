@@ -381,7 +381,7 @@ if (import.meta.main) {
   const args = process.argv.slice(2);
   const isFull = args.includes("--full");
   const clean = args.includes("--clean");
-  const filePath = args.find((a) => !a.startsWith("--")) || "incomplete_media_subset.ndjson";
+  const filePath = args.find((a) => !a.startsWith("--")) || "media_subset.ndjson";
   const limitArg = args.find((a) => a.startsWith("--limit="));
   const limit = limitArg ? parseInt(limitArg.split("=")[1], 10) : undefined;
 
