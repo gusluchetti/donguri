@@ -114,7 +114,6 @@ const StatusBar = () => {
         {pagination && (
           <span>pg {pagination.page}/{pagination.totalPages}</span>
         )}
-        <span>j/k:nav | /:search | ?:help</span>
       </div>
     </footer>
   )
