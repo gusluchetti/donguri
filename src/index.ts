@@ -19,7 +19,10 @@ const app = new Elysia({
   .use(mediaRoutes)
   .use(await staticPlugin({ prefix: '/', alwaysStatic: true }))
   .get("/*", index)
-  .listen(process.env.PORT || 3000);
+  .listen({
+    port: process.env.PORT || 3000,
+    hostname: '0.0.0.0'
+  });
 
 console.log(
   `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
