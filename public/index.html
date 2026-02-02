@@ -1,9 +1,160 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>donguri</title>
+
+    <!-- Theme flash prevention: read cookie before any rendering -->
+    <script>
+      (function() {
+        var theme = document.cookie.split('; ').find(function(c) { return c.startsWith('theme='); });
+        var value = theme ? theme.split('=')[1] : null;
+        if (!value) {
+          value = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.className = value;
+      })();
+    </script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              mono: ['IBM Plex Mono', 'monospace'],
+            },
+            colors: {
+              // Warm light mode palette
+              cream: {
+                50: '#fdfcf8',
+                100: '#faf6eb',
+                200: '#f0ebe0',
+                300: '#e5dfd2',
+                400: '#d5cfc2',
+              },
+              ink: {
+                400: '#928374',
+                500: '#7c6f64',
+                600: '#5c524a',
+                700: '#4a4540',
+              },
+              // Warm dark mode palette
+              espresso: {
+                950: '#1a1816',
+                900: '#252220',
+                800: '#353230',
+                700: '#454240',
+              },
+              sand: {
+                300: '#c8bda3',
+                400: '#a89984',
+                500: '#847a6a',
+              },
+              // Accent colors - light mode (saturated)
+              accent: {
+                blue: '#076678',
+                cyan: '#427b58',
+                green: '#79740e',
+                yellow: '#b57614',
+                orange: '#af3a03',
+                red: '#9d0006',
+              },
+              // Accent colors - dark mode (glowing)
+              glow: {
+                blue: '#7daea3',
+                cyan: '#8ec07c',
+                green: '#b8bb26',
+                yellow: '#fabd2f',
+                orange: '#fe8019',
+                red: '#fb4934',
+              },
+            }
+          }
+        }
+      }
+    </script>
+
+    <style>
+      /* IBM Plex Mono font-face */
+      @font-face {
+        font-family: 'IBM Plex Mono';
+        src: url('/fonts/IBMPlexMono-Regular.woff2') format('woff2');
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'IBM Plex Mono';
+        src: url('/fonts/IBMPlexMono-Medium.woff2') format('woff2');
+        font-weight: 500;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: 'IBM Plex Mono';
+        src: url('/fonts/IBMPlexMono-SemiBold.woff2') format('woff2');
+        font-weight: 600;
+        font-style: normal;
+        font-display: swap;
+      }
+
+      /* Base styles */
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: 'IBM Plex Mono', monospace;
+      }
+
+      /* Custom scrollbar - light mode */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #faf6eb;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #e5dfd2;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #d5cfc2;
+      }
+
+      /* Custom scrollbar - dark mode */
+      .dark ::-webkit-scrollbar-track {
+        background: #1a1816;
+      }
+      .dark ::-webkit-scrollbar-thumb {
+        background: #353230;
+      }
+      .dark ::-webkit-scrollbar-thumb:hover {
+        background: #454240;
+      }
+
+      /* TUI loading animation */
+      @keyframes tui-loading {
+        0% { content: '[      ]'; }
+        16% { content: '[=     ]'; }
+        33% { content: '[==    ]'; }
+        50% { content: '[===   ]'; }
+        66% { content: '[====  ]'; }
+        83% { content: '[===== ]'; }
+        100% { content: '[======]'; }
+      }
+      .tui-loading::after {
+        content: '[      ]';
+        animation: tui-loading 1s steps(1) infinite;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
