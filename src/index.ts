@@ -7,7 +7,7 @@ import index from "../public/index.html";
 const app = new Elysia({
   serve: {
     routes: {
-      "/api/*": false, // Prevent static hijacking of API routes
+      "/api/*": false,
     },
   },
 })
@@ -28,8 +28,8 @@ const app = new Elysia({
     })
   )
   .use(mediaRoutes)
+  .get("/", index)
   .use(await staticPlugin({ prefix: '/', alwaysStatic: true }))
-  .get("/*", index)
   .listen({
     port: process.env.PORT || 3000,
     hostname: '0.0.0.0'
