@@ -1,8 +1,30 @@
-import { useCallback, useEffect, useState } from "react"
-import { api, MediaListResponse, MediaItem } from "../libs/api"
+import { useEffect, useState } from "react"
+import useSWR from "swr"
+import { api, MediaItem } from "../libs/api"
 import { useStats, usePagination } from "../index"
+import { MediaType } from "../../src/import/types"
 
 const ITEMS_PER_PAGE = 50
+
+// SWR fetcher for media list
+const mediaFetcher = async (key: string) => {
+  const [, page, typeFilter, search] = key.split('|')
+  const { data } = await api.api.media.get({
+    query: {
+      page: Number(page),
+      limit: ITEMS_PER_PAGE,
+      search: search || undefined,
+      type: typeFilter as MediaType || undefined,
+    },
+  })
+  return data
+}
+
+// SWR fetcher for stats
+const statsFetcher = async () => {
+  const { data } = await api.api.media.stats.get()
+  return data
+}
 
 // Type badge component with color coding
 const TypeBadge = ({ type }: { type: string }) => {
@@ -163,63 +185,58 @@ const FilterButton = ({ active, onClick, children }: { active: boolean; onClick:
 )
 
 export const MediaCatalog = () => {
-  const [media, setMedia] = useState<MediaListResponse>()
-  const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(1)
   const [typeFilter, setTypeFilter] = useState<'movie' | 'tv_series' | 'anime' | ''>('')
   const { setStats } = useStats()
   const { setPagination } = usePagination()
 
-  // Fetch stats on mount
+  // Debounce search input
   useEffect(() => {
-    const fetchStats = async () => {
-      const { data } = await api.api.media.stats.get()
-      if (data) {
-        setStats({
-          total: data.total,
-          movies: data.byType.movie || 0,
-          tvSeries: data.byType.tv_series || 0,
-          anime: data.byType.anime || 0,
-        })
-      }
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+    }, search ? 250 : 0)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  // Skip fetch if search is exactly 1 char
+  const shouldFetch = debouncedSearch.length !== 1
+
+  // Fetch media with SWR
+  const { data: media, isLoading } = useSWR(
+    shouldFetch ? `media|${page}|${typeFilter}|${debouncedSearch}` : null,
+    mediaFetcher,
+    {
+      keepPreviousData: true,
+      dedupingInterval: 2000,
     }
-    fetchStats()
-  }, [setStats])
+  )
 
-  const fetchMedia = useCallback(async (searchQuery: string) => {
-    setLoading(true)
-    const { data } = await api.api.media.get({
-      query: {
-        page,
-        limit: ITEMS_PER_PAGE,
-        search: searchQuery || undefined,
-        type: typeFilter || undefined,
-      },
-    })
-    setMedia(data)
-    setLoading(false)
+  // Fetch stats with SWR
+  const { data: stats } = useSWR('stats', statsFetcher)
 
-    // Update pagination in status bar
-    if (data?.pagination) {
-      setPagination({
-        page: data.pagination.page,
-        totalPages: data.pagination.totalPages,
+  // Update stats context when data changes
+  useEffect(() => {
+    if (stats) {
+      setStats({
+        total: stats.total,
+        movies: stats.byType.movie || 0,
+        tvSeries: stats.byType.tv_series || 0,
+        anime: stats.byType.anime || 0,
       })
     }
-  }, [page, typeFilter, setPagination])
+  }, [stats, setStats])
 
-  // Fetch on page/filter/search changes with debounce for search
+  // Update pagination context when data changes
   useEffect(() => {
-    // Skip if 1 character (wait for 2+ or empty to show all)
-    if (search.length === 1) return
-
-    const timer = setTimeout(() => {
-      fetchMedia(search)
-    }, search ? 250 : 0)
-
-    return () => clearTimeout(timer)
-  }, [search, page, typeFilter, fetchMedia])
+    if (media?.pagination) {
+      setPagination({
+        page: media.pagination.page,
+        totalPages: media.pagination.totalPages,
+      })
+    }
+  }, [media, setPagination])
 
   const pagination = media?.pagination
   const totalPages = pagination?.totalPages ?? 1
@@ -260,7 +277,7 @@ export const MediaCatalog = () => {
       </div>
 
       {/* Results info */}
-      {pagination && !loading && (
+      {pagination && !isLoading && (
         <div className="mb-3 text-xs text-ink-400 dark:text-sand-500">
           showing {media?.data.length ?? 0} of {pagination.total.toLocaleString()}
           {search && <span> matching "{search}"</span>}
@@ -268,7 +285,7 @@ export const MediaCatalog = () => {
       )}
 
       {/* Content */}
-      {loading ? (
+      {isLoading ? (
         <LoadingState />
       ) : (
         <>
@@ -302,7 +319,7 @@ export const MediaCatalog = () => {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && !loading && (
+      {totalPages > 1 && !isLoading && (
         <div className="flex items-center justify-center gap-2 mt-4 text-sm">
           <button
             onClick={() => setPage(1)}
