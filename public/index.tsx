@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client'
-import { Route, Link, Switch, useLocation } from 'wouter'
+import { Route, Link, Switch, Router, useLocation } from 'wouter'
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import { Home } from './components/Home'
 import { MediaCatalog } from './components/MediaCatalog'
@@ -18,7 +18,7 @@ const StatsContext = createContext<{
   setStats: (stats: Stats) => void
 }>({
   stats: null,
-  setStats: () => {},
+  setStats: () => { },
 })
 
 export const useStats = () => useContext(StatsContext)
@@ -43,7 +43,7 @@ const PaginationContext = createContext<{
   setPagination: (pagination: PaginationInfo) => void
 }>({
   pagination: null,
-  setPagination: () => {},
+  setPagination: () => { },
 })
 
 export const usePagination = () => useContext(PaginationContext)

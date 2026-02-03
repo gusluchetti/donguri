@@ -3,7 +3,7 @@ import { eq, or, sql, and, count } from "drizzle-orm";
 import { db } from "../db";
 import { media, genres, mediaGenres } from "../db/schema";
 
-export const mediaRoutes = new Elysia({ prefix: "/api/media" })
+export const mediaRoutes = new Elysia({ prefix: "/media" })
   // List media with pagination, filtering, and search
   .get(
     "/",
