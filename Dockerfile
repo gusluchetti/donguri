@@ -1,24 +1,32 @@
-FROM oven/bun:1 AS base
+FROM oven/bun AS build
+
 WORKDIR /app
 
-# Install dependencies
-FROM base AS deps
-COPY package.json bun.lock* ./
-RUN bun install --frozen-lockfile
+# Cache packages installation
+COPY package.json package.json
+COPY bun.lock bun.lock
 
-# Production image
-FROM base AS runner
+RUN bun install
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY package.json ./
-COPY src ./src
-COPY public ./public
-COPY drizzle ./drizzle
-COPY drizzle.config.ts ./
-COPY tsconfig.json ./
+COPY ./src ./src
 
 ENV NODE_ENV=production
-ENV PORT=8080
-EXPOSE 8080
 
-CMD ["bun", "run", "src/index.ts"]
+RUN bun build \
+	--compile \
+	--minify-whitespace \
+	--minify-syntax \
+	--outfile server \
+	src/index.ts
+
+FROM gcr.io/distroless/base
+
+WORKDIR /app
+
+COPY --from=build /app/server server
+
+ENV NODE_ENV=production
+
+CMD ["./server"]
+
+EXPOSE 3000
