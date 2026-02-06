@@ -324,7 +324,7 @@ async function main() {
 
   // Set up FTS
   console.log("Setting up FTS5...");
-  for (const stmt of FTS_SETUP_SQL.split(";").filter((s) => s.trim())) {
+  for (const stmt of FTS_SETUP_SQL) {
     await db.run(sql.raw(stmt));
   }
 
