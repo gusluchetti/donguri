@@ -22,8 +22,10 @@ const ANIME_TYPES = new Set<string>([
 // All Q-values we're interested in
 const ALL_MEDIA_TYPES = new Set<string>([
   Q.FILM,
+  Q.ANIMATED_FILM,
   Q.TV_FILM,
   Q.TV_SERIES,
+  Q.ANIMATED_TV_SERIES,
   Q.VIDEO_GAME,
   ...ANIME_TYPES,
 ]);
@@ -74,16 +76,22 @@ export function determineMediaType(entity: WikidataEntity): MediaType | null {
   // 2. Video game
   if (instanceOfValues.includes(Q.VIDEO_GAME)) return "game";
 
-  // 3. Film (includes TV film)
+  // 3. Film (includes TV film and animated film)
   if (
     instanceOfValues.includes(Q.FILM) ||
+    instanceOfValues.includes(Q.ANIMATED_FILM) ||
     instanceOfValues.includes(Q.TV_FILM)
   ) {
     return "movie";
   }
 
-  // 4. TV series
-  if (instanceOfValues.includes(Q.TV_SERIES)) return "tv_series";
+  // 4. TV series (includes animated TV series)
+  if (
+    instanceOfValues.includes(Q.TV_SERIES) ||
+    instanceOfValues.includes(Q.ANIMATED_TV_SERIES)
+  ) {
+    return "tv_series";
+  }
 
   return null;
 }

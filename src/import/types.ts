@@ -145,8 +145,10 @@ export const WikidataProperties = {
 
 export const MediaTypeQValues = {
   FILM: "Q11424",
+  ANIMATED_FILM: "Q202866",
   TV_FILM: "Q506240",
   TV_SERIES: "Q5398426",
+  ANIMATED_TV_SERIES: "Q117467246",
   ANIME_TV_SERIES: "Q63952888",
   ANIME_FILM: "Q20650540",
   OVA: "Q220898",
