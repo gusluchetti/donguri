@@ -4,74 +4,97 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build and Development Commands
 
-**Runtime**: Bun
+**Runtime**: Bun (dev/build), Cloudflare Workers V8 (production)
 
 ```bash
-# Development server with hot reload (port 3000)
-bun run --watch src/index.ts
+# Development server (port 3000)
+bun run dev
 
-# Database commands
-bun run db:generate    # Generate Drizzle ORM migrations
+# Production build
+bun run build
+
+# Database commands (Drizzle + Turso/libSQL)
+bun run db:generate    # Generate migrations from schema
 bun run db:migrate     # Run pending migrations
 bun run db:push        # Push schema changes directly
-bun run db:studio      # Open Drizzle Studio (visual DB browser)
+bun run db:studio      # Open Drizzle Studio
 
-# Wikidata import
-bun run src/import/index.ts [file.ndjson]                    # Test mode (100 entities)
-bun run src/import/index.ts [file] --full                    # Full import
-bun run src/import/index.ts [file] --full --limit=1000       # Limited full import
-bun run src/import/index.ts [file] --full --resumeFrom=Q123  # Resume from entity
-bun run src/import/index.ts [file] --clean                   # Clean DB before import
+# Wikidata import (two-pass pipeline)
+# Pass 1: Extract media subset from full dump
+lbzip2 -dc /path/to/latest-all.json.bz2 | bun run src/import/subset.ts > media-subset.ndjson
+
+# Pass 2: Import subset into Turso
+bun run src/import/index.ts media-subset.ndjson                     # Test mode (100 entities)
+bun run src/import/index.ts media-subset.ndjson --full              # Full import
+bun run src/import/index.ts media-subset.ndjson --full --limit=1000 # Limited import
+bun run src/import/index.ts media-subset.ndjson --full --resumeFrom=Q123
+bun run src/import/index.ts media-subset.ndjson --clean             # Clean DB first
+
+# Deploy to Cloudflare Workers
+bun run build && wrangler deploy
 ```
 
 ## Architecture
 
-**Stack**: Bun + Elysia (HTTP framework) + Drizzle ORM + PostgreSQL + React 19
+**Stack**: TanStack Start (React SSR) + Drizzle ORM + Turso (libSQL) + Cloudflare Workers
 
 ```
-src/index.ts          → Main Elysia app entry, serves static files + API
-src/routes/media.ts   → API endpoints under /api/media
-src/db/schema.ts      → Drizzle schema (media, genres, media_genres, importProgress)
-src/db/index.ts       → Database client initialization
-src/import/           → Wikidata NDJSON import pipeline
-public/               → Static frontend files (React)
-drizzle/              → Migration files
+src/
+  router.tsx          → TanStack Router setup
+  server.tsx          → SSR handler
+  routes/
+    __root.tsx        → Root layout (HTML shell)
+    index.tsx         → Catalog page (virtual list, search, filter)
+    media/
+      $wikidataId.tsx → Media detail page (SSR)
+  db/
+    schema.ts         → Drizzle schema (media, genres, platforms, import_progress)
+    index.ts          → Database client (Turso/libSQL)
+    fts.ts            → FTS5 virtual table setup SQL
+  lib/
+    media.functions.ts → Server functions (listMedia, getMedia, etc.)
+    styles.ts         → Design tokens
+  import/
+    subset.ts         → Pass 1: filter Wikidata dump to media NDJSON
+    index.ts          → Pass 2: parse and import into Turso
+    parser.ts         → Entity property extraction
+    filters.ts        → P31 type classification, quality filters
+    types.ts          → Wikidata types and constants
+vite.config.ts        → Vite + TanStack Start plugin
+wrangler.toml         → Cloudflare Workers config
+drizzle.config.ts     → Drizzle Kit config for Turso
 ```
 
-**Database Schema**:
-- `media` - Core table with wikidataId, mediaType (movie/tv_series/anime), titles, years, imdbId, malId, episode/season counts
-- `genres` - Genre definitions from Wikidata
-- `media_genres` - Many-to-many join table
-- `importProgress` - Tracks import job state for resumability
+## Data Architecture
 
-**API Endpoints** (`/api/media`):
-- `GET /` - List with pagination (`page`, `limit`), type filter, search on titles
-- `GET /:wikidataId` - Get by Wikidata ID (includes genres)
-- `GET /imdb/:imdbId` - Get by IMDb ID
-- `GET /mal/:malId` - Get by MAL ID
-- `GET /stats` - Collection statistics
+**Key split**: Media catalog in Turso (our DB). User data in AT Protocol (their PDS).
 
-**Frontend**: Uses `@elysiajs/eden` for type-safe API calls from React
+### Database (Turso/libSQL)
+- `media` — Unified table for movies, TV, anime, games. Sparse columns for type-specific fields.
+- `genres` / `media_genres` — Many-to-many genre relationships
+- `platforms` / `media_platforms` — Many-to-many platform relationships (games)
+- `import_progress` — Import job tracking with resume support
+- `media_fts` — FTS5 virtual table for title search
 
-## Environment
+### Wikidata Import
+Supports 10 P31 types: Film, TV Film, TV Series, Anime (6 variants), Video Game.
+Quality filter: must have external ID + sitelinks >= 1.
+Properties extracted: titles, dates, duration, episodes, seasons, country, 8 external IDs, genres, platforms, sitelinks count.
 
-Requires `DATABASE_URL` environment variable (PostgreSQL connection string).
+## Environment Variables
+
+```bash
+TURSO_DATABASE_URL=    # libSQL URL (e.g., libsql://db-name.turso.io)
+TURSO_AUTH_TOKEN=      # Turso auth token
+# Or:
+DATABASE_URL=          # Alternative URL variable
+```
 
 ## Frontend Aesthetics
-You tend to converge toward generic, "on distribution" outputs. In frontend design, this creates what users call the "AI slop" aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight. Focus on:
 
-Typography: Choose fonts that are beautiful, unique, and interesting. Avoid generic fonts like Arial and Inter; opt instead for distinctive choices that elevate the frontend's aesthetics.
+Dark theme with warm, earthy tones (donguri = acorn in Japanese).
+IBM Plex Mono for a technical, catalog-like feel.
+Amber/ochre accent (#d4a44a) on dark background (#0f0e0c).
+Type badges color-coded: movie (copper), TV (teal), anime (rose), game (sage).
 
-Color & Theme: Commit to a cohesive aesthetic. Use CSS variables for consistency. Dominant colors with sharp accents outperform timid, evenly-distributed palettes. Draw from IDE themes and cultural aesthetics for inspiration.
-
-Motion: Use animations for effects and micro-interactions. Prioritize CSS-only solutions for HTML. Use Motion library for React when available. Focus on high-impact moments: one well-orchestrated page load with staggered reveals (animation-delay) creates more delight than scattered micro-interactions.
-
-Backgrounds: Create atmosphere and depth rather than defaulting to solid colors. Layer CSS gradients, use geometric patterns, or add contextual effects that match the overall aesthetic.
-
-Avoid generic AI-generated aesthetics:
-- Overused font families (Inter, Roboto, Arial, system fonts)
-- Clichéd color schemes (particularly purple gradients on white backgrounds)
-- Predictable layouts and component patterns
-- Cookie-cutter design that lacks context-specific character
-
-Interpret creatively and make unexpected choices that feel genuinely designed for the context. Vary between light and dark themes, different fonts, different aesthetics. You still tend to converge on common choices (Space Grotesk, for example) across generations. Avoid this: it is critical that you think outside the box!
+Avoid generic AI design patterns. Be creative but restrained — this is a data-dense catalog, not a marketing page.
