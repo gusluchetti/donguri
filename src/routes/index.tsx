@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { listMedia, getMediaStats } from "../lib/media.functions";
+import { TYPE_BADGE_CLASSES, mediaTypeLabel } from "../lib/media-types";
 import type { Media } from "../db/schema";
 
 const MEDIA_TYPES = [
@@ -11,13 +12,6 @@ const MEDIA_TYPES = [
   { value: "anime" as const, label: "Anime" },
   { value: "game" as const, label: "Games" },
 ];
-
-const TYPE_COLORS: Record<string, string> = {
-  movie: "#c17a50",
-  tv_series: "#5a8fa0",
-  anime: "#c25d7e",
-  game: "#6a9f5a",
-};
 
 export const Route = createFileRoute("/")({
   loader: async () => {
@@ -124,34 +118,34 @@ function CatalogPage() {
   }, [virtualItems, items.length, nextCursor, loading, loadMore]);
 
   return (
-    <div style={styles.container}>
+    <div className="bg-dg-bg text-dg-text h-screen font-mono flex flex-col overflow-hidden">
       {/* Header */}
-      <header style={styles.header}>
-        <div style={styles.headerInner}>
-          <h1 style={styles.logo}>
-            <span style={styles.logoAccent}>donguri</span>
+      <header className="px-6 pt-8 pb-4 border-b border-dg-border-subtle">
+        <div className="max-w-[1000px] mx-auto">
+          <h1 className="text-[1.8rem] font-semibold m-0 -tracking-[0.02em]">
+            <span className="text-dg-accent">donguri</span>
           </h1>
-          <p style={styles.tagline}>
+          <p className="text-dg-text-tertiary text-[0.8rem] mt-1">
             {stats.total.toLocaleString()} titles across the catalog
           </p>
         </div>
       </header>
 
       {/* Controls */}
-      <div style={styles.controls}>
+      <div className="max-w-[1000px] mx-auto w-full px-6 py-4 flex flex-col gap-3">
         {/* Search */}
-        <div style={styles.searchWrap}>
+        <div className="w-full">
           <input
             type="text"
             placeholder="Search titles..."
             value={searchInput}
             onChange={(e) => handleSearchInput(e.target.value)}
-            style={styles.searchInput}
+            className="w-full py-2.5 px-3 bg-dg-surface border border-dg-border rounded text-dg-text font-mono text-[0.85rem] outline-none box-border"
           />
         </div>
 
         {/* Type filter tabs */}
-        <div style={styles.tabs}>
+        <div className="flex gap-1 flex-wrap">
           {MEDIA_TYPES.map((t) => {
             const isActive = mediaType === t.value;
             const count = t.value
@@ -161,13 +155,14 @@ function CatalogPage() {
               <button
                 key={t.label}
                 onClick={() => setMediaType(t.value)}
-                style={{
-                  ...styles.tab,
-                  ...(isActive ? styles.tabActive : {}),
-                }}
+                className={`py-1.5 px-3 border rounded-sm font-mono text-xs cursor-pointer flex items-center gap-1.5 transition-all duration-150 ${
+                  isActive
+                    ? "bg-dg-accent/[0.08] border-dg-accent/25 text-dg-accent"
+                    : "bg-transparent border-dg-border-subtle text-dg-text-secondary"
+                }`}
               >
                 {t.label}
-                <span style={styles.tabCount}>
+                <span className="text-[0.65rem] opacity-60">
                   {count.toLocaleString()}
                 </span>
               </button>
@@ -177,7 +172,7 @@ function CatalogPage() {
       </div>
 
       {/* Virtual list */}
-      <div ref={parentRef} style={styles.listContainer}>
+      <div ref={parentRef} className="flex-1 overflow-auto max-w-[1000px] mx-auto w-full px-6">
         <div
           style={{
             height: virtualizer.getTotalSize(),
@@ -190,17 +185,13 @@ function CatalogPage() {
               return (
                 <div
                   key="loader"
+                  className="w-full left-0 border-b border-dg-surface absolute flex items-center justify-center"
                   style={{
-                    ...styles.row,
-                    position: "absolute",
                     top: virtualRow.start,
                     height: virtualRow.size,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
                   }}
                 >
-                  <span style={{ color: "#776b57" }}>
+                  <span className="text-dg-text-tertiary">
                     {loading ? "Loading..." : ""}
                   </span>
                 </div>
@@ -212,13 +203,10 @@ function CatalogPage() {
               <a
                 key={item.id}
                 href={`/media/${item.wikidataId}`}
+                className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit"
                 style={{
-                  ...styles.row,
-                  position: "absolute",
                   top: virtualRow.start,
                   height: virtualRow.size,
-                  textDecoration: "none",
-                  color: "inherit",
                 }}
               >
                 <MediaRow item={item} />
@@ -232,212 +220,40 @@ function CatalogPage() {
 }
 
 function MediaRow({ item }: { item: Media }) {
-  const typeColor = TYPE_COLORS[item.mediaType] ?? "#776b57";
+  const badgeClass = TYPE_BADGE_CLASSES[item.mediaType] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
 
   return (
-    <div style={styles.rowInner}>
-      <div style={styles.rowLeft}>
+    <div className="flex items-center justify-between py-2 h-full gap-4">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
         <span
-          style={{
-            ...styles.typeBadge,
-            backgroundColor: typeColor + "20",
-            color: typeColor,
-            borderColor: typeColor + "40",
-          }}
+          className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm border uppercase tracking-wide whitespace-nowrap shrink-0 ${badgeClass}`}
         >
-          {item.mediaType === "tv_series"
-            ? "TV"
-            : item.mediaType.charAt(0).toUpperCase() +
-              item.mediaType.slice(1)}
+          {mediaTypeLabel(item.mediaType, true)}
         </span>
-        <div style={styles.rowTitles}>
-          <span style={styles.rowTitle}>{item.title}</span>
+        <div className="flex items-baseline gap-2 min-w-0 overflow-hidden">
+          <span className="text-[0.85rem] font-medium truncate text-dg-text">
+            {item.title}
+          </span>
           {item.originalTitle && (
-            <span style={styles.rowOriginalTitle}>
+            <span className="text-xs text-dg-text-tertiary truncate">
               {item.originalTitle}
             </span>
           )}
         </div>
       </div>
-      <div style={styles.rowRight}>
+      <div className="flex items-center gap-4 shrink-0">
         {item.startYear && (
-          <span style={styles.rowYear}>
+          <span className="text-xs text-dg-text-secondary tabular-nums">
             {item.startYear}
             {item.endYear && item.endYear !== item.startYear
               ? `–${item.endYear}`
               : ""}
           </span>
         )}
-        <span style={styles.rowSitelinks}>
+        <span className="text-[0.7rem] text-dg-text-tertiary min-w-8 text-right tabular-nums">
           {item.sitelinksCount ?? 0}
         </span>
       </div>
     </div>
   );
 }
-
-// ─── Inline styles ──────────────────────────────────────────────────────────
-
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    backgroundColor: "#0f0e0c",
-    color: "#e8e0d4",
-    minHeight: "100vh",
-    fontFamily: "'IBM Plex Mono', 'SF Mono', monospace",
-    display: "flex",
-    flexDirection: "column",
-  },
-  header: {
-    padding: "2rem 1.5rem 1rem",
-    borderBottom: "1px solid #2e2a21",
-  },
-  headerInner: {
-    maxWidth: "1000px",
-    margin: "0 auto",
-  },
-  logo: {
-    fontSize: "1.8rem",
-    fontWeight: 600,
-    margin: 0,
-    letterSpacing: "-0.02em",
-  },
-  logoAccent: {
-    color: "#d4a44a",
-  },
-  tagline: {
-    color: "#776b57",
-    fontSize: "0.8rem",
-    marginTop: "0.25rem",
-  },
-  controls: {
-    maxWidth: "1000px",
-    margin: "0 auto",
-    width: "100%",
-    padding: "1rem 1.5rem",
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.75rem",
-  },
-  searchWrap: {
-    width: "100%",
-  },
-  searchInput: {
-    width: "100%",
-    padding: "0.6rem 0.8rem",
-    backgroundColor: "#1a1815",
-    border: "1px solid #3d3628",
-    borderRadius: "4px",
-    color: "#e8e0d4",
-    fontFamily: "'IBM Plex Mono', monospace",
-    fontSize: "0.85rem",
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  tabs: {
-    display: "flex",
-    gap: "0.25rem",
-    flexWrap: "wrap",
-  },
-  tab: {
-    padding: "0.4rem 0.7rem",
-    backgroundColor: "transparent",
-    border: "1px solid #2e2a21",
-    borderRadius: "3px",
-    color: "#a8997f",
-    fontFamily: "'IBM Plex Mono', monospace",
-    fontSize: "0.75rem",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: "0.4rem",
-    transition: "all 0.15s",
-  },
-  tabActive: {
-    backgroundColor: "#d4a44a15",
-    borderColor: "#d4a44a40",
-    color: "#d4a44a",
-  },
-  tabCount: {
-    fontSize: "0.65rem",
-    opacity: 0.6,
-  },
-  listContainer: {
-    flex: 1,
-    overflow: "auto",
-    maxWidth: "1000px",
-    margin: "0 auto",
-    width: "100%",
-    padding: "0 1.5rem",
-  },
-  row: {
-    width: "100%",
-    left: 0,
-    borderBottom: "1px solid #1a1815",
-  },
-  rowInner: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "0.5rem 0",
-    height: "100%",
-    gap: "1rem",
-  },
-  rowLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.75rem",
-    minWidth: 0,
-    flex: 1,
-  },
-  typeBadge: {
-    fontSize: "0.6rem",
-    fontWeight: 600,
-    padding: "0.15rem 0.4rem",
-    borderRadius: "2px",
-    border: "1px solid",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.05em",
-    whiteSpace: "nowrap" as const,
-    flexShrink: 0,
-  },
-  rowTitles: {
-    display: "flex",
-    alignItems: "baseline",
-    gap: "0.5rem",
-    minWidth: 0,
-    overflow: "hidden",
-  },
-  rowTitle: {
-    fontSize: "0.85rem",
-    fontWeight: 500,
-    whiteSpace: "nowrap" as const,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    color: "#e8e0d4",
-  },
-  rowOriginalTitle: {
-    fontSize: "0.75rem",
-    color: "#776b57",
-    whiteSpace: "nowrap" as const,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
-  rowRight: {
-    display: "flex",
-    alignItems: "center",
-    gap: "1rem",
-    flexShrink: 0,
-  },
-  rowYear: {
-    fontSize: "0.75rem",
-    color: "#a8997f",
-    fontVariantNumeric: "tabular-nums",
-  },
-  rowSitelinks: {
-    fontSize: "0.7rem",
-    color: "#776b57",
-    minWidth: "2rem",
-    textAlign: "right" as const,
-    fontVariantNumeric: "tabular-nums",
-  },
-};

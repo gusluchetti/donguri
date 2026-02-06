@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { getMedia } from "../../lib/media.functions";
+import { TYPE_BADGE_CLASSES, mediaTypeLabel } from "../../lib/media-types";
 
 export const Route = createFileRoute("/media/$wikidataId")({
   loader: async ({ params }) => {
@@ -19,16 +20,9 @@ export const Route = createFileRoute("/media/$wikidataId")({
   component: MediaDetailPage,
 });
 
-const TYPE_COLORS: Record<string, string> = {
-  movie: "#c17a50",
-  tv_series: "#5a8fa0",
-  anime: "#c25d7e",
-  game: "#6a9f5a",
-};
-
 function MediaDetailPage() {
   const data = Route.useLoaderData();
-  const typeColor = TYPE_COLORS[data.mediaType] ?? "#776b57";
+  const badgeClass = TYPE_BADGE_CLASSES[data.mediaType] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
 
   const externalLinks: { label: string; url: string }[] = [];
   if (data.imdbId)
@@ -77,36 +71,32 @@ function MediaDetailPage() {
   });
 
   return (
-    <div style={styles.container}>
-      <div style={styles.inner}>
+    <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
+      <div className="max-w-[700px] mx-auto p-6">
         {/* Back link */}
-        <Link to="/" style={styles.back}>
+        <Link to="/" className="text-dg-text-tertiary text-[0.8rem] no-underline inline-block mb-6">
           ← catalog
         </Link>
 
         {/* Header */}
-        <div style={styles.header}>
+        <div className="mb-6">
           <span
-            style={{
-              ...styles.typeBadge,
-              backgroundColor: typeColor + "20",
-              color: typeColor,
-              borderColor: typeColor + "40",
-            }}
+            className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
           >
-            {data.mediaType === "tv_series"
-              ? "TV Series"
-              : data.mediaType.charAt(0).toUpperCase() +
-                data.mediaType.slice(1)}
+            {mediaTypeLabel(data.mediaType)}
           </span>
-          <h1 style={styles.title}>{data.title}</h1>
+          <h1 className="text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
+            {data.title}
+          </h1>
           {data.originalTitle && (
-            <p style={styles.originalTitle}>{data.originalTitle}</p>
+            <p className="text-base text-dg-text-secondary mt-1.5">
+              {data.originalTitle}
+            </p>
           )}
         </div>
 
         {/* Meta info */}
-        <div style={styles.metaGrid}>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3 mb-6 p-4 bg-dg-surface rounded border border-dg-border-subtle">
           {data.startYear && (
             <MetaItem
               label="Year"
@@ -149,16 +139,20 @@ function MediaDetailPage() {
 
         {/* Description */}
         {data.description && (
-          <p style={styles.description}>{data.description}</p>
+          <p className="text-[0.85rem] leading-relaxed text-dg-text-secondary mb-6">
+            {data.description}
+          </p>
         )}
 
         {/* Genres */}
         {data.genres.length > 0 && (
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Genres</h3>
-            <div style={styles.tagList}>
+          <div className="mb-6">
+            <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+              Genres
+            </h3>
+            <div className="flex flex-wrap gap-1.5">
               {data.genres.map((g) => (
-                <span key={g.id} style={styles.tag}>
+                <span key={g.id} className="text-xs py-1 px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary">
                   {g.name}
                 </span>
               ))}
@@ -168,11 +162,13 @@ function MediaDetailPage() {
 
         {/* Platforms (games) */}
         {data.platforms.length > 0 && (
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Platforms</h3>
-            <div style={styles.tagList}>
+          <div className="mb-6">
+            <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+              Platforms
+            </h3>
+            <div className="flex flex-wrap gap-1.5">
               {data.platforms.map((p) => (
-                <span key={p.id} style={styles.tag}>
+                <span key={p.id} className="text-xs py-1 px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary">
                   {p.name}
                 </span>
               ))}
@@ -181,16 +177,18 @@ function MediaDetailPage() {
         )}
 
         {/* External links */}
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Links</h3>
-          <div style={styles.linkList}>
+        <div className="mb-6">
+          <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+            Links
+          </h3>
+          <div className="flex flex-wrap gap-2">
             {externalLinks.map((link) => (
               <a
                 key={link.label}
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={styles.externalLink}
+                className="text-xs text-dg-accent no-underline py-1.5 px-2.5 border border-dg-accent/20 rounded-sm transition-all duration-150"
               >
                 {link.label} ↗
               </a>
@@ -204,126 +202,11 @@ function MediaDetailPage() {
 
 function MetaItem({ label, value }: { label: string; value: string }) {
   return (
-    <div style={styles.metaItem}>
-      <span style={styles.metaLabel}>{label}</span>
-      <span style={styles.metaValue}>{value}</span>
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider">
+        {label}
+      </span>
+      <span className="text-[0.85rem] text-dg-text">{value}</span>
     </div>
   );
 }
-
-// ─── Inline styles ──────────────────────────────────────────────────────────
-
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    backgroundColor: "#0f0e0c",
-    color: "#e8e0d4",
-    minHeight: "100vh",
-    fontFamily: "'IBM Plex Mono', 'SF Mono', monospace",
-  },
-  inner: {
-    maxWidth: "700px",
-    margin: "0 auto",
-    padding: "1.5rem",
-  },
-  back: {
-    color: "#776b57",
-    fontSize: "0.8rem",
-    textDecoration: "none",
-    display: "inline-block",
-    marginBottom: "1.5rem",
-  },
-  header: {
-    marginBottom: "1.5rem",
-  },
-  typeBadge: {
-    fontSize: "0.65rem",
-    fontWeight: 600,
-    padding: "0.2rem 0.5rem",
-    borderRadius: "2px",
-    border: "1px solid",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.05em",
-    display: "inline-block",
-    marginBottom: "0.75rem",
-  },
-  title: {
-    fontSize: "1.6rem",
-    fontWeight: 600,
-    margin: 0,
-    lineHeight: 1.2,
-    letterSpacing: "-0.01em",
-  },
-  originalTitle: {
-    fontSize: "1rem",
-    color: "#a8997f",
-    marginTop: "0.35rem",
-  },
-  metaGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-    gap: "0.75rem",
-    marginBottom: "1.5rem",
-    padding: "1rem",
-    backgroundColor: "#1a1815",
-    borderRadius: "4px",
-    border: "1px solid #2e2a21",
-  },
-  metaItem: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.15rem",
-  },
-  metaLabel: {
-    fontSize: "0.65rem",
-    color: "#776b57",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.08em",
-  },
-  metaValue: {
-    fontSize: "0.85rem",
-    color: "#e8e0d4",
-  },
-  description: {
-    fontSize: "0.85rem",
-    lineHeight: 1.6,
-    color: "#a8997f",
-    marginBottom: "1.5rem",
-  },
-  section: {
-    marginBottom: "1.5rem",
-  },
-  sectionTitle: {
-    fontSize: "0.7rem",
-    color: "#776b57",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.08em",
-    marginBottom: "0.5rem",
-  },
-  tagList: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "0.35rem",
-  },
-  tag: {
-    fontSize: "0.75rem",
-    padding: "0.2rem 0.5rem",
-    backgroundColor: "#242119",
-    border: "1px solid #3d3628",
-    borderRadius: "3px",
-    color: "#a8997f",
-  },
-  linkList: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "0.5rem",
-  },
-  externalLink: {
-    fontSize: "0.75rem",
-    color: "#d4a44a",
-    textDecoration: "none",
-    padding: "0.3rem 0.6rem",
-    border: "1px solid #d4a44a30",
-    borderRadius: "3px",
-    transition: "all 0.15s",
-  },
-};

@@ -5,6 +5,7 @@ import {
   createRootRoute,
 } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import "../app.css";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -33,7 +34,7 @@ function RootDocument({ children }: { children: ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body className="bg-dg-bg m-0 p-0">
         {children}
         <Scripts />
       </body>
