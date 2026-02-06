@@ -14,6 +14,9 @@ drizzle/
 # Generated route tree
 src/routeTree.gen.ts
 
+# Local DB
+*.db
+
 # Import data
 *.ndjson
 media-subset.*
