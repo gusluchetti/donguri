@@ -13,7 +13,10 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "import:subset": "bun run src/import/subset.ts",
-    "import": "bun run src/import/index.ts"
+    "import": "bun run src/import/index.ts",
+    "lint": "biome check .",
+    "lint:fix": "biome check --fix .",
+    "format": "biome format --fix ."
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
@@ -28,6 +31,7 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.3.14",
     "@cloudflare/vite-plugin": "^1.0.0",
     "@tailwindcss/vite": "^4.1.18",
     "@types/node": "^22.0.0",

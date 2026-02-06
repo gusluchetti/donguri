@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useCallback, useRef, useEffect } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { listMedia, getMediaStats } from "../lib/media.functions";
-import { TYPE_BADGE_CLASSES, mediaTypeLabel } from "../lib/media-types";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Media } from "../db/schema";
+import { getMediaStats, listMedia } from "../lib/media.functions";
+import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../lib/media-types";
 
 const MEDIA_TYPES = [
   { value: undefined, label: "All" },
@@ -27,13 +27,11 @@ export const Route = createFileRoute("/")({
 function CatalogPage() {
   const { initialData, stats } = Route.useLoaderData();
   const [items, setItems] = useState<Media[]>(initialData.items);
-  const [nextCursor, setNextCursor] = useState<string | null>(
-    initialData.nextCursor,
-  );
+  const [nextCursor, setNextCursor] = useState<string | null>(initialData.nextCursor);
   const [loading, setLoading] = useState(false);
-  const [mediaType, setMediaType] = useState<
-    "movie" | "tv_series" | "anime" | "game" | undefined
-  >(undefined);
+  const [mediaType, setMediaType] = useState<"movie" | "tv_series" | "anime" | "game" | undefined>(
+    undefined,
+  );
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
@@ -77,16 +75,13 @@ function CatalogPage() {
   }, [mediaType, search, fetchMedia]);
 
   // Debounced search
-  const handleSearchInput = useCallback(
-    (value: string) => {
-      setSearchInput(value);
-      if (searchTimeout.current) clearTimeout(searchTimeout.current);
-      searchTimeout.current = setTimeout(() => {
-        setSearch(value);
-      }, 300);
-    },
-    [],
-  );
+  const handleSearchInput = useCallback((value: string) => {
+    setSearchInput(value);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => {
+      setSearch(value);
+    }, 300);
+  }, []);
 
   const loadMore = useCallback(() => {
     if (nextCursor && !loading) {
@@ -149,10 +144,11 @@ function CatalogPage() {
           {MEDIA_TYPES.map((t) => {
             const isActive = mediaType === t.value;
             const count = t.value
-              ? (stats.byType as Record<string, number>)[t.value] ?? 0
+              ? ((stats.byType as Record<string, number>)[t.value] ?? 0)
               : stats.total;
             return (
               <button
+                type="button"
                 key={t.label}
                 onClick={() => setMediaType(t.value)}
                 className={`py-1.5 px-3 border rounded-sm font-mono text-xs cursor-pointer flex items-center gap-1.5 transition-all duration-150 ${
@@ -162,9 +158,7 @@ function CatalogPage() {
                 }`}
               >
                 {t.label}
-                <span className="text-[0.65rem] opacity-60">
-                  {count.toLocaleString()}
-                </span>
+                <span className="text-[0.65rem] opacity-60">{count.toLocaleString()}</span>
               </button>
             );
           })}
@@ -191,9 +185,7 @@ function CatalogPage() {
                     height: virtualRow.size,
                   }}
                 >
-                  <span className="text-dg-text-tertiary">
-                    {loading ? "Loading..." : ""}
-                  </span>
+                  <span className="text-dg-text-tertiary">{loading ? "Loading..." : ""}</span>
                 </div>
               );
             }
@@ -220,7 +212,8 @@ function CatalogPage() {
 }
 
 function MediaRow({ item }: { item: Media }) {
-  const badgeClass = TYPE_BADGE_CLASSES[item.mediaType] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
+  const badgeClass =
+    TYPE_BADGE_CLASSES[item.mediaType] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
 
   return (
     <div className="flex items-center justify-between py-2 h-full gap-4">
@@ -231,13 +224,9 @@ function MediaRow({ item }: { item: Media }) {
           {mediaTypeLabel(item.mediaType, true)}
         </span>
         <div className="flex items-baseline gap-2 min-w-0 overflow-hidden">
-          <span className="text-[0.85rem] font-medium truncate text-dg-text">
-            {item.title}
-          </span>
+          <span className="text-[0.85rem] font-medium truncate text-dg-text">{item.title}</span>
           {item.originalTitle && (
-            <span className="text-xs text-dg-text-tertiary truncate">
-              {item.originalTitle}
-            </span>
+            <span className="text-xs text-dg-text-tertiary truncate">{item.originalTitle}</span>
           )}
         </div>
       </div>
@@ -245,9 +234,7 @@ function MediaRow({ item }: { item: Media }) {
         {item.startYear && (
           <span className="text-xs text-dg-text-secondary tabular-nums">
             {item.startYear}
-            {item.endYear && item.endYear !== item.startYear
-              ? `–${item.endYear}`
-              : ""}
+            {item.endYear && item.endYear !== item.startYear ? `–${item.endYear}` : ""}
           </span>
         )}
         <span className="text-[0.7rem] text-dg-text-tertiary min-w-8 text-right tabular-nums">

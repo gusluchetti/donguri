@@ -10,23 +10,23 @@
  */
 
 import fs from "node:fs";
-import { pipeline } from "node:stream/promises";
 import { Transform } from "node:stream";
-import split2 from "split2";
+import { pipeline } from "node:stream/promises";
 import { eq, sql } from "drizzle-orm";
+import split2 from "split2";
 import { createDb } from "../db";
+import { FTS_REBUILD_SQL, FTS_SETUP_SQL } from "../db/fts";
 import {
-  media,
   genres,
-  mediaGenres,
-  platforms,
-  mediaPlatforms,
   importProgress,
+  media,
+  mediaGenres,
+  mediaPlatforms,
+  platforms,
 } from "../db/schema";
-import { FTS_SETUP_SQL, FTS_REBUILD_SQL } from "../db/fts";
 import { shouldImportEntity } from "./filters";
 import { parseMediaEntity } from "./parser";
-import type { WikidataEntity, ParsedMedia } from "./types";
+import type { ParsedMedia, WikidataEntity } from "./types";
 
 const BATCH_SIZE = 500;
 const PROGRESS_LOG_INTERVAL = 10_000;
@@ -185,11 +185,7 @@ async function insertBatch(
   try {
     const mediaValues = batch.map((item) => ({
       wikidataId: item.wikidataId,
-      mediaType: item.mediaType as
-        | "movie"
-        | "tv_series"
-        | "anime"
-        | "game",
+      mediaType: item.mediaType as "movie" | "tv_series" | "anime" | "game",
       title: item.title,
       originalTitle: item.originalTitle,
       originalLanguage: item.originalLanguage,
@@ -220,9 +216,7 @@ async function insertBatch(
 
     stats.entitiesImported += inserted.length;
 
-    const wikidataToDbId = new Map(
-      inserted.map((r) => [r.wikidataId, r.id]),
-    );
+    const wikidataToDbId = new Map(inserted.map((r) => [r.wikidataId, r.id]));
 
     // Genre relationships
     const genreRelations: { mediaId: string; genreId: string }[] = [];
@@ -230,11 +224,7 @@ async function insertBatch(
       const mediaId = wikidataToDbId.get(item.wikidataId);
       if (!mediaId || item.genreIds.length === 0) continue;
 
-      const genreDbIds = await getOrCreateGenreIds(
-        db,
-        item.genreIds,
-        genreCache,
-      );
+      const genreDbIds = await getOrCreateGenreIds(db, item.genreIds, genreCache);
       stats.genresFound += genreDbIds.length;
 
       for (const genreId of genreDbIds) {
@@ -252,11 +242,7 @@ async function insertBatch(
       const mediaId = wikidataToDbId.get(item.wikidataId);
       if (!mediaId || item.platformIds.length === 0) continue;
 
-      const platformDbIds = await getOrCreatePlatformIds(
-        db,
-        item.platformIds,
-        platformCache,
-      );
+      const platformDbIds = await getOrCreatePlatformIds(db, item.platformIds, platformCache);
       stats.platformsFound += platformDbIds.length;
 
       for (const platformId of platformDbIds) {
@@ -265,10 +251,7 @@ async function insertBatch(
     }
 
     if (platformRelations.length > 0) {
-      await db
-        .insert(mediaPlatforms)
-        .values(platformRelations)
-        .onConflictDoNothing();
+      await db.insert(mediaPlatforms).values(platformRelations).onConflictDoNothing();
     }
   } catch (error) {
     stats.errors += batch.length;
@@ -329,7 +312,9 @@ async function main() {
   }
 
   console.log(`\nImporting from: ${filePath}`);
-  console.log(`Mode: ${isFullMode ? "full" : "test"}, Limit: ${limit === Infinity ? "none" : limit}`);
+  console.log(
+    `Mode: ${isFullMode ? "full" : "test"}, Limit: ${limit === Infinity ? "none" : limit}`,
+  );
   if (resumeFrom) console.log(`Resuming from: ${resumeFrom}`);
 
   const stats: ImportStats = {
@@ -359,11 +344,7 @@ async function main() {
 
   const processStream = new Transform({
     objectMode: true,
-    async transform(
-      line: string,
-      _encoding: string,
-      callback: (error?: Error | null) => void,
-    ) {
+    async transform(line: string, _encoding: string, callback: (error?: Error | null) => void) {
       if (stats.entitiesImported >= limit) return callback();
 
       const entity = parseJsonLine(line);
@@ -382,10 +363,7 @@ async function main() {
 
       if (stats.entitiesProcessed % PROGRESS_LOG_INTERVAL === 0) {
         const elapsed = formatDuration(Date.now() - startTime);
-        const rate = (
-          stats.entitiesProcessed /
-          ((Date.now() - startTime) / 1000)
-        ).toFixed(0);
+        const rate = (stats.entitiesProcessed / ((Date.now() - startTime) / 1000)).toFixed(0);
         console.log(
           `[${elapsed}] Processed: ${stats.entitiesProcessed.toLocaleString()}, ` +
             `Imported: ${stats.entitiesImported.toLocaleString()}, ` +
@@ -408,8 +386,7 @@ async function main() {
       const parsed = parseMediaEntity(entity);
       if (!parsed) return callback();
 
-      stats.byType[parsed.mediaType] =
-        (stats.byType[parsed.mediaType] || 0) + 1;
+      stats.byType[parsed.mediaType] = (stats.byType[parsed.mediaType] || 0) + 1;
       batch.push(parsed);
 
       if (batch.length >= BATCH_SIZE) {
@@ -428,11 +405,7 @@ async function main() {
     },
   });
 
-  await pipeline(
-    fs.createReadStream(filePath, { encoding: "utf-8" }),
-    split2(),
-    processStream,
-  );
+  await pipeline(fs.createReadStream(filePath, { encoding: "utf-8" }), split2(), processStream);
 
   // Rebuild FTS index after bulk import
   console.log("\nRebuilding FTS index...");

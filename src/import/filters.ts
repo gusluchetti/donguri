@@ -1,9 +1,9 @@
 import {
-  WikidataEntity,
-  WikidataProperties,
+  type MediaType,
   MediaTypeQValues,
-  MediaType,
-  WikibaseEntityIdValue,
+  type WikibaseEntityIdValue,
+  type WikidataEntity,
+  WikidataProperties,
 } from "./types";
 
 const P = WikidataProperties;
@@ -86,10 +86,7 @@ export function determineMediaType(entity: WikidataEntity): MediaType | null {
   }
 
   // 4. TV series (includes animated TV series)
-  if (
-    instanceOfValues.includes(Q.TV_SERIES) ||
-    instanceOfValues.includes(Q.ANIMATED_TV_SERIES)
-  ) {
+  if (instanceOfValues.includes(Q.TV_SERIES) || instanceOfValues.includes(Q.ANIMATED_TV_SERIES)) {
     return "tv_series";
   }
 
@@ -107,10 +104,7 @@ export function isMediaEntity(entity: WikidataEntity): boolean {
 /**
  * Get a string claim value (e.g., external IDs)
  */
-export function getStringClaim(
-  entity: WikidataEntity,
-  property: string,
-): string | null {
+export function getStringClaim(entity: WikidataEntity, property: string): string | null {
   const claims = entity.claims?.[property];
   if (!claims || claims.length === 0) return null;
 
@@ -121,10 +115,7 @@ export function getStringClaim(
   });
 
   const claim = sortedClaims[0];
-  if (
-    claim.mainsnak.snaktype === "value" &&
-    claim.mainsnak.datavalue?.type === "string"
-  ) {
+  if (claim.mainsnak.snaktype === "value" && claim.mainsnak.datavalue?.type === "string") {
     return claim.mainsnak.datavalue.value;
   }
 
@@ -135,9 +126,7 @@ export function getStringClaim(
  * Check if entity has at least one external ID
  */
 export function hasExternalId(entity: WikidataEntity): boolean {
-  return EXTERNAL_ID_PROPERTIES.some(
-    (prop) => getStringClaim(entity, prop) !== null,
-  );
+  return EXTERNAL_ID_PROPERTIES.some((prop) => getStringClaim(entity, prop) !== null);
 }
 
 /**

@@ -1,17 +1,13 @@
+import { determineMediaType, getSitelinksCount, getStringClaim } from "./filters";
 import {
-  WikidataEntity,
+  type MonolingualTextValue,
+  type ParsedMedia,
+  type QuantityDataValue,
+  type TimeDataValue,
+  type WikibaseEntityIdValue,
+  type WikidataEntity,
   WikidataProperties,
-  ParsedMedia,
-  WikibaseEntityIdValue,
-  TimeDataValue,
-  QuantityDataValue,
-  MonolingualTextValue,
 } from "./types";
-import {
-  determineMediaType,
-  getStringClaim,
-  getSitelinksCount,
-} from "./filters";
 
 const P = WikidataProperties;
 
@@ -146,9 +142,7 @@ function getLanguageString(
   return record?.[language]?.value ?? null;
 }
 
-function getOriginalTitle(
-  entity: WikidataEntity,
-): { title: string; language: string } | null {
+function getOriginalTitle(entity: WikidataEntity): { title: string; language: string } | null {
   const claims = entity.claims?.[P.TITLE];
   if (!claims || claims.length === 0) return null;
 
@@ -159,10 +153,7 @@ function getOriginalTitle(
   });
 
   const claim = sortedClaims[0];
-  if (
-    claim.mainsnak.snaktype === "value" &&
-    claim.mainsnak.datavalue?.type === "monolingualtext"
-  ) {
+  if (claim.mainsnak.snaktype === "value" && claim.mainsnak.datavalue?.type === "monolingualtext") {
     const data = claim.mainsnak.datavalue as MonolingualTextValue;
     return { title: data.value.text, language: data.value.language };
   }
@@ -186,14 +177,12 @@ function getOriginalLanguageQId(entity: WikidataEntity): string | null {
   return null;
 }
 
-function getOriginalTitleAndLanguage(
-  entity: WikidataEntity,
-): { title: string | null; language: string | null } {
+function getOriginalTitleAndLanguage(entity: WikidataEntity): {
+  title: string | null;
+  language: string | null;
+} {
   const titleClaim = getOriginalTitle(entity);
-  if (
-    titleClaim &&
-    titleClaim.title !== getLanguageString(entity.labels, "en")
-  ) {
+  if (titleClaim && titleClaim.title !== getLanguageString(entity.labels, "en")) {
     return { title: titleClaim.title, language: titleClaim.language };
   }
 
@@ -213,13 +202,10 @@ function extractYear(timeValue: string): number | null {
   const match = timeValue.match(/^([+-]?\d+)-/);
   if (!match) return null;
   const year = parseInt(match[1], 10);
-  return isNaN(year) ? null : year;
+  return Number.isNaN(year) ? null : year;
 }
 
-function getYearFromTimeClaim(
-  entity: WikidataEntity,
-  property: string,
-): number | null {
+function getYearFromTimeClaim(entity: WikidataEntity, property: string): number | null {
   const claims = entity.claims?.[property];
   if (!claims || claims.length === 0) return null;
 
@@ -230,10 +216,7 @@ function getYearFromTimeClaim(
   });
 
   const claim = sortedClaims[0];
-  if (
-    claim.mainsnak.snaktype === "value" &&
-    claim.mainsnak.datavalue?.type === "time"
-  ) {
+  if (claim.mainsnak.snaktype === "value" && claim.mainsnak.datavalue?.type === "time") {
     const timeData = claim.mainsnak.datavalue as TimeDataValue;
     return extractYear(timeData.value.time);
   }
@@ -241,10 +224,7 @@ function getYearFromTimeClaim(
   return null;
 }
 
-function getQuantityClaim(
-  entity: WikidataEntity,
-  property: string,
-): number | null {
+function getQuantityClaim(entity: WikidataEntity, property: string): number | null {
   const claims = entity.claims?.[property];
   if (!claims || claims.length === 0) return null;
 
@@ -255,22 +235,16 @@ function getQuantityClaim(
   });
 
   const claim = sortedClaims[0];
-  if (
-    claim.mainsnak.snaktype === "value" &&
-    claim.mainsnak.datavalue?.type === "quantity"
-  ) {
+  if (claim.mainsnak.snaktype === "value" && claim.mainsnak.datavalue?.type === "quantity") {
     const quantityData = claim.mainsnak.datavalue as QuantityDataValue;
     const amount = parseFloat(quantityData.value.amount);
-    return isNaN(amount) ? null : Math.round(amount);
+    return Number.isNaN(amount) ? null : Math.round(amount);
   }
 
   return null;
 }
 
-function getEntityIdClaims(
-  entity: WikidataEntity,
-  property: string,
-): string[] {
+function getEntityIdClaims(entity: WikidataEntity, property: string): string[] {
   const claims = entity.claims?.[property];
   if (!claims) return [];
 
@@ -287,10 +261,7 @@ function getEntityIdClaims(
     });
 }
 
-function getFirstEntityIdClaim(
-  entity: WikidataEntity,
-  property: string,
-): string | null {
+function getFirstEntityIdClaim(entity: WikidataEntity, property: string): string | null {
   const ids = getEntityIdClaims(entity, property);
   return ids[0] ?? null;
 }
@@ -325,20 +296,16 @@ export function parseMediaEntity(entity: WikidataEntity): ParsedMedia | null {
   if (!titleEn) return null; // Must have English title
 
   const startYear =
-    getYearFromTimeClaim(entity, P.START_TIME) ??
-    getYearFromTimeClaim(entity, P.PUBLICATION_DATE);
+    getYearFromTimeClaim(entity, P.START_TIME) ?? getYearFromTimeClaim(entity, P.PUBLICATION_DATE);
 
-  const { title: originalTitle, language: originalLanguage } =
-    getOriginalTitleAndLanguage(entity);
+  const { title: originalTitle, language: originalLanguage } = getOriginalTitleAndLanguage(entity);
 
   // Get TMDB ID from the appropriate property based on media type
   let tmdbId: string | null = null;
   if (mediaType === "movie") {
     tmdbId = getStringClaim(entity, P.TMDB_MOVIE_ID);
   } else if (mediaType === "tv_series" || mediaType === "anime") {
-    tmdbId =
-      getStringClaim(entity, P.TMDB_TV_ID) ??
-      getStringClaim(entity, P.TMDB_MOVIE_ID);
+    tmdbId = getStringClaim(entity, P.TMDB_TV_ID) ?? getStringClaim(entity, P.TMDB_MOVIE_ID);
   }
 
   // Build search title from both titles

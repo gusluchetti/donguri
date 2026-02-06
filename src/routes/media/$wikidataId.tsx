@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { getMedia } from "../../lib/media.functions";
-import { TYPE_BADGE_CLASSES, mediaTypeLabel } from "../../lib/media-types";
+import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../../lib/media-types";
 
 export const Route = createFileRoute("/media/$wikidataId")({
   loader: async ({ params }) => {
@@ -22,7 +22,8 @@ export const Route = createFileRoute("/media/$wikidataId")({
 
 function MediaDetailPage() {
   const data = Route.useLoaderData();
-  const badgeClass = TYPE_BADGE_CLASSES[data.mediaType] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
+  const badgeClass =
+    TYPE_BADGE_CLASSES[data.mediaType] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
 
   const externalLinks: { label: string; url: string }[] = [];
   if (data.imdbId)
@@ -89,9 +90,7 @@ function MediaDetailPage() {
             {data.title}
           </h1>
           {data.originalTitle && (
-            <p className="text-base text-dg-text-secondary mt-1.5">
-              {data.originalTitle}
-            </p>
+            <p className="text-base text-dg-text-secondary mt-1.5">{data.originalTitle}</p>
           )}
         </div>
 
@@ -107,34 +106,17 @@ function MediaDetailPage() {
               }
             />
           )}
-          {data.countryOfOrigin && (
-            <MetaItem label="Country" value={data.countryOfOrigin} />
-          )}
-          {data.runtimeMinutes && (
-            <MetaItem label="Runtime" value={`${data.runtimeMinutes} min`} />
-          )}
-          {data.seasonCount && (
-            <MetaItem
-              label="Seasons"
-              value={String(data.seasonCount)}
-            />
-          )}
-          {data.episodeCount && (
-            <MetaItem
-              label="Episodes"
-              value={String(data.episodeCount)}
-            />
-          )}
+          {data.countryOfOrigin && <MetaItem label="Country" value={data.countryOfOrigin} />}
+          {data.runtimeMinutes && <MetaItem label="Runtime" value={`${data.runtimeMinutes} min`} />}
+          {data.seasonCount && <MetaItem label="Seasons" value={String(data.seasonCount)} />}
+          {data.episodeCount && <MetaItem label="Episodes" value={String(data.episodeCount)} />}
           {data.status && (
             <MetaItem
               label="Status"
               value={data.status.charAt(0).toUpperCase() + data.status.slice(1)}
             />
           )}
-          <MetaItem
-            label="Popularity"
-            value={`${data.sitelinksCount ?? 0} sitelinks`}
-          />
+          <MetaItem label="Popularity" value={`${data.sitelinksCount ?? 0} sitelinks`} />
         </div>
 
         {/* Description */}
@@ -152,7 +134,10 @@ function MediaDetailPage() {
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {data.genres.map((g) => (
-                <span key={g.id} className="text-xs py-1 px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary">
+                <span
+                  key={g.id}
+                  className="text-xs py-1 px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                >
                   {g.name}
                 </span>
               ))}
@@ -168,7 +153,10 @@ function MediaDetailPage() {
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {data.platforms.map((p) => (
-                <span key={p.id} className="text-xs py-1 px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary">
+                <span
+                  key={p.id}
+                  className="text-xs py-1 px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                >
                   {p.name}
                 </span>
               ))}
@@ -203,9 +191,7 @@ function MediaDetailPage() {
 function MetaItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider">
-        {label}
-      </span>
+      <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider">{label}</span>
       <span className="text-[0.85rem] text-dg-text">{value}</span>
     </div>
   );

@@ -1,8 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
+import { and, desc, eq, inArray, like, sql } from "drizzle-orm";
 import { z } from "zod";
-import { eq, desc, and, sql, like, inArray } from "drizzle-orm";
 import { getDb } from "../db";
-import { media, genres, mediaGenres, platforms, mediaPlatforms } from "../db/schema";
+import { genres, media, mediaGenres, mediaPlatforms, platforms } from "../db/schema";
 
 // ─── Input schemas ──────────────────────────────────────────────────────────
 
@@ -35,7 +35,7 @@ export const listMedia = createServerFn({ method: "GET" })
     const { cursor, limit, mediaType, search } = data;
 
     // Search mode: FTS5 or LIKE fallback
-    if (search && search.trim()) {
+    if (search?.trim()) {
       const searchTerm = search.trim();
       let matchingIds: string[] = [];
 
@@ -184,11 +184,7 @@ export const getMediaByExternalId = createServerFn({ method: "GET" })
     } as const;
 
     const column = fieldMap[data.field];
-    const item = await db
-      .select()
-      .from(media)
-      .where(eq(column, data.value))
-      .limit(1);
+    const item = await db.select().from(media).where(eq(column, data.value)).limit(1);
 
     return item[0] ?? null;
   });
@@ -196,27 +192,21 @@ export const getMediaByExternalId = createServerFn({ method: "GET" })
 /**
  * Get collection stats.
  */
-export const getMediaStats = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const db = getDb();
+export const getMediaStats = createServerFn({ method: "GET" }).handler(async () => {
+  const db = getDb();
 
-    const [totalResult] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(media);
+  const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(media);
 
-    const typeCounts = await db
-      .select({
-        mediaType: media.mediaType,
-        count: sql<number>`count(*)`,
-      })
-      .from(media)
-      .groupBy(media.mediaType);
+  const typeCounts = await db
+    .select({
+      mediaType: media.mediaType,
+      count: sql<number>`count(*)`,
+    })
+    .from(media)
+    .groupBy(media.mediaType);
 
-    return {
-      total: totalResult.count,
-      byType: Object.fromEntries(
-        typeCounts.map((r) => [r.mediaType, r.count]),
-      ),
-    };
-  },
-);
+  return {
+    total: totalResult.count,
+    byType: Object.fromEntries(typeCounts.map((r) => [r.mediaType, r.count])),
+  };
+});

@@ -1,13 +1,11 @@
-import { drizzle } from "drizzle-orm/libsql";
 import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
 
 function getClient() {
   const url = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL;
   if (!url) {
-    throw new Error(
-      "TURSO_DATABASE_URL or DATABASE_URL environment variable is required",
-    );
+    throw new Error("TURSO_DATABASE_URL or DATABASE_URL environment variable is required");
   }
 
   return createClient({

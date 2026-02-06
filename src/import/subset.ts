@@ -55,7 +55,7 @@ for await (const line of rl) {
   try {
     if (isMediaEntity(entity)) {
       mediaFound++;
-      process.stdout.write(JSON.stringify(entity) + "\n");
+      process.stdout.write(`${JSON.stringify(entity)}\n`);
     }
   } catch {
     errors++;
