@@ -29,7 +29,7 @@ const GetMediaByExternalIdInput = z.object({
  * Default sort: sitelinks_count DESC (popularity).
  */
 export const listMedia = createServerFn({ method: "GET" })
-  .validator(ListMediaInput)
+  .inputValidator(ListMediaInput)
   .handler(async ({ data }) => {
     const db = getDb();
     const { cursor, limit, mediaType, search } = data;
@@ -135,7 +135,7 @@ export const listMedia = createServerFn({ method: "GET" })
  * Get a single media item by Wikidata ID, including genres and platforms.
  */
 export const getMedia = createServerFn({ method: "GET" })
-  .validator(GetMediaInput)
+  .inputValidator(GetMediaInput)
   .handler(async ({ data }) => {
     const db = getDb();
 
@@ -172,7 +172,7 @@ export const getMedia = createServerFn({ method: "GET" })
  * Get media by external ID (IMDb, TMDB, MAL, IGDB).
  */
 export const getMediaByExternalId = createServerFn({ method: "GET" })
-  .validator(GetMediaByExternalIdInput)
+  .inputValidator(GetMediaByExternalIdInput)
   .handler(async ({ data }) => {
     const db = getDb();
 
