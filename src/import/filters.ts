@@ -1,9 +1,9 @@
 import {
-  WikidataEntity,
-  WikidataProperties,
+  type MediaType,
   MediaTypeQValues,
-  MediaType,
-  WikibaseEntityIdValue,
+  type WikibaseEntityIdValue,
+  type WikidataEntity,
+  WikidataProperties,
 } from "./types";
 
 const P = WikidataProperties;
@@ -12,15 +12,36 @@ const Q = MediaTypeQValues;
 // All Q-values that indicate anime
 const ANIME_TYPES = new Set<string>([
   Q.ANIME,
-  Q.ANIME_SERIES,
-  Q.ANIME_FILM,
   Q.ANIME_TV_SERIES,
+  Q.ANIME_FILM,
+  Q.ANIME_TV_SERIES_ALT,
   Q.OVA,
   Q.ONA,
 ]);
 
 // All Q-values we're interested in
-const MEDIA_TYPES = new Set<string>([Q.FILM, Q.TV_SERIES, ...ANIME_TYPES]);
+const ALL_MEDIA_TYPES = new Set<string>([
+  Q.FILM,
+  Q.ANIMATED_FILM,
+  Q.TV_FILM,
+  Q.TV_SERIES,
+  Q.ANIMATED_TV_SERIES,
+  Q.VIDEO_GAME,
+  ...ANIME_TYPES,
+]);
+
+// External ID properties to check for quality filter
+const EXTERNAL_ID_PROPERTIES = [
+  P.IMDB_ID,
+  P.TMDB_MOVIE_ID,
+  P.TMDB_TV_ID,
+  P.MAL_ID,
+  P.ANILIST_ID,
+  P.ANIDB_ID,
+  P.IGDB_ID,
+  P.ANN_ID,
+  P.TVDB_ID,
+];
 
 /**
  * Get all P31 (instance of) values for an entity
@@ -33,7 +54,7 @@ export function getInstanceOfValues(entity: WikidataEntity): string[] {
     .filter(
       (claim) =>
         claim.mainsnak.snaktype === "value" &&
-        claim.mainsnak.datavalue?.type === "wikibase-entityid"
+        claim.mainsnak.datavalue?.type === "wikibase-entityid",
     )
     .map((claim) => {
       const value = claim.mainsnak.datavalue as WikibaseEntityIdValue;
@@ -42,26 +63,30 @@ export function getInstanceOfValues(entity: WikidataEntity): string[] {
 }
 
 /**
- * Determine the media type of an entity based on its P31 values
- * Returns null if the entity is not a media type we're interested in
+ * Determine media type with priority: anime > game > movie > tv_series
  */
 export function determineMediaType(entity: WikidataEntity): MediaType | null {
   const instanceOfValues = getInstanceOfValues(entity);
 
-  // Check for anime first (more specific)
+  // 1. Anime first (most specific)
   for (const qValue of instanceOfValues) {
-    if (ANIME_TYPES.has(qValue)) {
-      return "anime";
-    }
+    if (ANIME_TYPES.has(qValue)) return "anime";
   }
 
-  // Check for film
-  if (instanceOfValues.includes(Q.FILM)) {
+  // 2. Video game
+  if (instanceOfValues.includes(Q.VIDEO_GAME)) return "game";
+
+  // 3. Film (includes TV film and animated film)
+  if (
+    instanceOfValues.includes(Q.FILM) ||
+    instanceOfValues.includes(Q.ANIMATED_FILM) ||
+    instanceOfValues.includes(Q.TV_FILM)
+  ) {
     return "movie";
   }
 
-  // Check for TV series
-  if (instanceOfValues.includes(Q.TV_SERIES)) {
+  // 4. TV series (includes animated TV series)
+  if (instanceOfValues.includes(Q.TV_SERIES) || instanceOfValues.includes(Q.ANIMATED_TV_SERIES)) {
     return "tv_series";
   }
 
@@ -73,20 +98,16 @@ export function determineMediaType(entity: WikidataEntity): MediaType | null {
  */
 export function isMediaEntity(entity: WikidataEntity): boolean {
   const instanceOfValues = getInstanceOfValues(entity);
-  return instanceOfValues.some((qValue) => MEDIA_TYPES.has(qValue));
+  return instanceOfValues.some((qValue) => ALL_MEDIA_TYPES.has(qValue));
 }
 
 /**
- * Get a string claim value (e.g., IMDb ID)
+ * Get a string claim value (e.g., external IDs)
  */
-export function getStringClaim(
-  entity: WikidataEntity,
-  property: string
-): string | null {
+export function getStringClaim(entity: WikidataEntity, property: string): string | null {
   const claims = entity.claims?.[property];
   if (!claims || claims.length === 0) return null;
 
-  // Prefer claims with "preferred" rank
   const sortedClaims = [...claims].sort((a, b) => {
     if (a.rank === "preferred" && b.rank !== "preferred") return -1;
     if (b.rank === "preferred" && a.rank !== "preferred") return 1;
@@ -94,10 +115,7 @@ export function getStringClaim(
   });
 
   const claim = sortedClaims[0];
-  if (
-    claim.mainsnak.snaktype === "value" &&
-    claim.mainsnak.datavalue?.type === "string"
-  ) {
+  if (claim.mainsnak.snaktype === "value" && claim.mainsnak.datavalue?.type === "string") {
     return claim.mainsnak.datavalue.value;
   }
 
@@ -105,27 +123,27 @@ export function getStringClaim(
 }
 
 /**
- * Check if entity has either IMDb ID or MAL ID (quality filter)
+ * Check if entity has at least one external ID
  */
 export function hasExternalId(entity: WikidataEntity): boolean {
-  const imdbId = getStringClaim(entity, P.IMDB_ID);
-  const malId = getStringClaim(entity, P.MAL_ID);
-  return imdbId !== null || malId !== null;
+  return EXTERNAL_ID_PROPERTIES.some((prop) => getStringClaim(entity, prop) !== null);
 }
 
 /**
- * Main filter function: checks if entity is a valid media item
- * Must be a media type AND have at least one external ID
+ * Get sitelinks count
+ */
+export function getSitelinksCount(entity: WikidataEntity): number {
+  if (!entity.sitelinks) return 0;
+  return Object.keys(entity.sitelinks).length;
+}
+
+/**
+ * Quality filter: must be media + have external ID + have sitelinks
  */
 export function shouldImportEntity(entity: WikidataEntity): boolean {
-  // Must be an item (not a property)
   if (entity.type !== "item") return false;
-
-  // Must be a media type we care about
   if (!isMediaEntity(entity)) return false;
-
-  // Must have at least one external ID for quality filtering
   if (!hasExternalId(entity)) return false;
-
+  if (getSitelinksCount(entity) < 1) return false;
   return true;
 }

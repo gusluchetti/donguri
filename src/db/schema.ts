@@ -1,87 +1,143 @@
-import {
-  pgTable,
-  varchar,
-  text,
-  smallint,
-  integer,
-  timestamp,
-  pgEnum,
-  primaryKey,
-  index,
-  uuid,
-} from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
-import { relations } from "drizzle-orm";
-import { uuidv7 } from "uuidv7";
+import { relations, sql } from "drizzle-orm";
+import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { ulid } from "ulid";
 
-export const mediaTypeEnum = pgEnum("media_type", [
-  "movie",
-  "tv_series",
-  "anime",
-]);
+// ─── Media ──────────────────────────────────────────────────────────────────
 
-export const media = pgTable(
+export const media = sqliteTable(
   "media",
   {
-    id: uuid("id").primaryKey().$defaultFn(uuidv7),
-    wikidataId: varchar("wikidata_id", { length: 20 }).notNull().unique(),
-    mediaType: mediaTypeEnum("media_type").notNull(),
-    titleEn: text("title_en"),
-    titleOriginal: text("title_original"),
-    originalLanguage: varchar("original_language", { length: 10 }),
-    descriptionEn: text("description_en"),
-    startYear: smallint("start_year"),
-    endYear: smallint("end_year"),
-    imdbId: varchar("imdb_id", { length: 20 }),
-    malId: integer("mal_id"),
-    seasonCount: smallint("season_count"),
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => ulid()),
+    wikidataId: text("wikidata_id").notNull().unique(),
+    mediaType: text("media_type", {
+      enum: ["movie", "tv_series", "anime", "game"],
+    }).notNull(),
+
+    // Titles & Description
+    title: text("title").notNull(),
+    originalTitle: text("original_title"),
+    originalLanguage: text("original_language"),
+    description: text("description"),
+
+    // Dates
+    startYear: integer("start_year"),
+    endYear: integer("end_year"),
+
+    // Video media fields (NULL for games)
+    runtimeMinutes: integer("runtime_minutes"),
+    seasonCount: integer("season_count"),
     episodeCount: integer("episode_count"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    status: text("status", {
+      enum: ["airing", "ended", "cancelled", "upcoming"],
+    }),
+
+    // Popularity
+    sitelinksCount: integer("sitelinks_count").default(0),
+
+    // Country
+    countryOfOrigin: text("country_of_origin"),
+
+    // External IDs
+    imdbId: text("imdb_id"),
+    tmdbId: text("tmdb_id"),
+    malId: text("mal_id"),
+    anilistId: text("anilist_id"),
+    anidbId: text("anidb_id"),
+    igdbId: text("igdb_id"),
+    annId: text("ann_id"),
+    tvdbId: text("tvdb_id"),
+
+    // Media image
+    posterUrl: text("poster_url"),
+
+    // Normalized search column
+    searchTitle: text("search_title"),
+
+    // Timestamps
+    createdAt: text("created_at").default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at").default(sql`(datetime('now'))`),
   },
   (table) => [
+    index("idx_media_type").on(table.mediaType),
+    index("idx_media_sitelinks").on(table.sitelinksCount),
+    index("idx_media_start_year").on(table.startYear),
     index("idx_media_imdb").on(table.imdbId),
     index("idx_media_mal").on(table.malId),
-    index("idx_media_type").on(table.mediaType),
-    index("idx_media_title_en_trgm").using("gin", sql`${table.titleEn} gin_trgm_ops`),
-    index("idx_media_title_original_trgm").using("gin", sql`${table.titleOriginal} gin_trgm_ops`),
-  ]
+    index("idx_media_igdb").on(table.igdbId),
+    index("idx_media_tmdb").on(table.tmdbId),
+  ],
 );
 
-export const genres = pgTable("genres", {
-  id: uuid("id").primaryKey().$defaultFn(uuidv7),
-  wikidataId: varchar("wikidata_id", { length: 20 }).notNull().unique(),
-  nameEn: text("name_en"),
-  nameJa: text("name_ja"),
+// ─── Genres ─────────────────────────────────────────────────────────────────
+
+export const genres = sqliteTable("genres", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => ulid()),
+  wikidataId: text("wikidata_id").notNull().unique(),
+  name: text("name").notNull(),
 });
 
-export const mediaGenres = pgTable(
+export const mediaGenres = sqliteTable(
   "media_genres",
   {
-    mediaId: uuid("media_id")
+    mediaId: text("media_id")
       .notNull()
       .references(() => media.id, { onDelete: "cascade" }),
-    genreId: uuid("genre_id")
+    genreId: text("genre_id")
       .notNull()
       .references(() => genres.id, { onDelete: "cascade" }),
   },
-  (table) => [primaryKey({ columns: [table.mediaId, table.genreId] })]
+  (table) => [primaryKey({ columns: [table.mediaId, table.genreId] })],
 );
 
-export const importProgress = pgTable("import_progress", {
-  id: uuid("id").primaryKey().$defaultFn(uuidv7),
-  sourceFile: varchar("source_file", { length: 500 }),
-  entitiesProcessed: integer("entities_processed").default(0),
-  entitiesImported: integer("entities_imported").default(0),
-  lastEntityId: varchar("last_entity_id", { length: 20 }),
-  status: varchar("status", { length: 20 }).default("pending"),
-  startedAt: timestamp("started_at", { withTimezone: true }),
-  completedAt: timestamp("completed_at", { withTimezone: true }),
+// ─── Platforms (games) ──────────────────────────────────────────────────────
+
+export const platforms = sqliteTable("platforms", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => ulid()),
+  wikidataId: text("wikidata_id").notNull().unique(),
+  name: text("name").notNull(),
 });
 
-// Relations
+export const mediaPlatforms = sqliteTable(
+  "media_platforms",
+  {
+    mediaId: text("media_id")
+      .notNull()
+      .references(() => media.id, { onDelete: "cascade" }),
+    platformId: text("platform_id")
+      .notNull()
+      .references(() => platforms.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.mediaId, table.platformId] })],
+);
+
+// ─── Import Progress ────────────────────────────────────────────────────────
+
+export const importProgress = sqliteTable("import_progress", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => ulid()),
+  sourceFile: text("source_file"),
+  entitiesProcessed: integer("entities_processed").default(0),
+  entitiesImported: integer("entities_imported").default(0),
+  lastEntityId: text("last_entity_id"),
+  status: text("status", {
+    enum: ["running", "completed", "failed"],
+  }),
+  startedAt: text("started_at"),
+  completedAt: text("completed_at"),
+});
+
+// ─── Relations ──────────────────────────────────────────────────────────────
+
 export const mediaRelations = relations(media, ({ many }) => ({
   mediaGenres: many(mediaGenres),
+  mediaPlatforms: many(mediaPlatforms),
 }));
 
 export const genresRelations = relations(genres, ({ many }) => ({
@@ -89,20 +145,32 @@ export const genresRelations = relations(genres, ({ many }) => ({
 }));
 
 export const mediaGenresRelations = relations(mediaGenres, ({ one }) => ({
-  media: one(media, {
-    fields: [mediaGenres.mediaId],
-    references: [media.id],
-  }),
+  media: one(media, { fields: [mediaGenres.mediaId], references: [media.id] }),
   genre: one(genres, {
     fields: [mediaGenres.genreId],
     references: [genres.id],
   }),
 }));
 
-// Types
+export const platformsRelations = relations(platforms, ({ many }) => ({
+  mediaPlatforms: many(mediaPlatforms),
+}));
+
+export const mediaPlatformsRelations = relations(mediaPlatforms, ({ one }) => ({
+  media: one(media, {
+    fields: [mediaPlatforms.mediaId],
+    references: [media.id],
+  }),
+  platform: one(platforms, {
+    fields: [mediaPlatforms.platformId],
+    references: [platforms.id],
+  }),
+}));
+
+// ─── Types ──────────────────────────────────────────────────────────────────
+
 export type Media = typeof media.$inferSelect;
 export type NewMedia = typeof media.$inferInsert;
 export type Genre = typeof genres.$inferSelect;
-export type NewGenre = typeof genres.$inferInsert;
-export type MediaGenre = typeof mediaGenres.$inferSelect;
+export type Platform = typeof platforms.$inferSelect;
 export type ImportProgress = typeof importProgress.$inferSelect;

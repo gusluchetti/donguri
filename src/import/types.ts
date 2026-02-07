@@ -63,7 +63,7 @@ export interface WikibaseEntityIdValue {
 export interface TimeDataValue {
   type: "time";
   value: {
-    time: string; // e.g., "+2020-01-01T00:00:00Z"
+    time: string;
     timezone: number;
     before: number;
     after: number;
@@ -107,63 +107,82 @@ export interface SiteLink {
   badges: string[];
 }
 
-// Wikidata property constants
+// ─── Property & Q-value constants ───────────────────────────────────────────
+
 export const WikidataProperties = {
-  // Type identification
   INSTANCE_OF: "P31",
 
   // External IDs
   IMDB_ID: "P345",
+  TMDB_MOVIE_ID: "P4947",
+  TMDB_TV_ID: "P4983",
   MAL_ID: "P4086",
+  ANILIST_ID: "P8729",
+  ANIDB_ID: "P5646",
+  IGDB_ID: "P5794",
+  ANN_ID: "P1985",
+  TVDB_ID: "P4835",
 
   // Dates
   START_TIME: "P580",
   END_TIME: "P582",
   PUBLICATION_DATE: "P577",
 
-  // Counts
+  // Counts & duration
   EPISODE_COUNT: "P1113",
   SEASON_COUNT: "P2437",
+  DURATION: "P2047",
 
   // Classification
   GENRE: "P136",
+  COUNTRY_OF_ORIGIN: "P495",
+  PLATFORM: "P400",
 
   // Title/Language
   TITLE: "P1476",
   ORIGINAL_LANGUAGE: "P364",
 } as const;
 
-// Q-values for media types
 export const MediaTypeQValues = {
-  // Film
   FILM: "Q11424",
-
-  // TV Series
+  ANIMATED_FILM: "Q202866",
+  TV_FILM: "Q506240",
   TV_SERIES: "Q5398426",
-
-  // Anime-related
-  ANIME: "Q1107",
-  ANIME_SERIES: "Q63952888",
+  ANIMATED_TV_SERIES: "Q117467246",
+  ANIME_TV_SERIES: "Q63952888",
   ANIME_FILM: "Q20650540",
-  ANIME_TV_SERIES: "Q11086742",
   OVA: "Q220898",
-  ONA: "Q1047299",
+  ONA: "Q1127759",
+  ANIME: "Q1107",
+  ANIME_TV_SERIES_ALT: "Q11086742",
+  VIDEO_GAME: "Q7889",
 } as const;
 
-export type MediaType = "movie" | "tv_series" | "anime";
+export type MediaType = "movie" | "tv_series" | "anime" | "game";
 
 export interface ParsedMedia {
   wikidataId: string;
   mediaType: MediaType;
-  titleEn: string | null;
-  titleOriginal: string | null;
-  originalLanguage: string | null; // ISO 639-1 code (e.g., "ja", "ko", "fr")
-  descriptionEn: string | null;
+  title: string;
+  originalTitle: string | null;
+  originalLanguage: string | null;
+  description: string | null;
   startYear: number | null;
   endYear: number | null;
-  imdbId: string | null;
-  malId: number | null;
+  runtimeMinutes: number | null;
   seasonCount: number | null;
   episodeCount: number | null;
-  genreIds: string[]; // Wikidata Q-IDs of genres
+  sitelinksCount: number;
+  countryOfOrigin: string | null;
+  imdbId: string | null;
+  tmdbId: string | null;
+  malId: string | null;
+  anilistId: string | null;
+  anidbId: string | null;
+  igdbId: string | null;
+  annId: string | null;
+  tvdbId: string | null;
+  genreIds: string[];
+  platformIds: string[];
+  searchTitle: string;
 }

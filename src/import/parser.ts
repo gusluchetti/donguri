@@ -1,51 +1,147 @@
+import { determineMediaType, getSitelinksCount, getStringClaim } from "./filters";
 import {
-  WikidataEntity,
+  type MonolingualTextValue,
+  type ParsedMedia,
+  type QuantityDataValue,
+  type TimeDataValue,
+  type WikibaseEntityIdValue,
+  type WikidataEntity,
   WikidataProperties,
-  ParsedMedia,
-  WikibaseEntityIdValue,
-  TimeDataValue,
-  QuantityDataValue,
-  MonolingualTextValue,
 } from "./types";
-import { determineMediaType, getStringClaim } from "./filters";
 
 const P = WikidataProperties;
 
-/**
- * Extract a label or description in the specified language
- */
+// Common language Q-IDs to ISO 639-1 codes
+const LANGUAGE_MAP: Record<string, string> = {
+  Q5287: "ja",
+  Q9176: "ko",
+  Q7850: "zh",
+  Q1860: "en",
+  Q150: "fr",
+  Q188: "de",
+  Q652: "it",
+  Q1321: "es",
+  Q5146: "pt",
+  Q7737: "ru",
+  Q9288: "he",
+  Q13955: "ar",
+  Q1571: "hi",
+  Q9217: "th",
+  Q9199: "tl",
+  Q9252: "id",
+  Q9237: "ms",
+  Q9296: "vi",
+  Q7411: "nl",
+  Q9043: "no",
+  Q9027: "sv",
+  Q7026: "ca",
+  Q9610: "bn",
+  Q9063: "pl",
+  Q809: "cs",
+  Q9067: "hu",
+  Q9078: "ro",
+  Q7918: "bg",
+  Q9035: "fi",
+  Q9091: "uk",
+  Q36510: "da",
+  Q9240: "tl",
+};
+
+// Common country Q-IDs to names
+const COUNTRY_MAP: Record<string, string> = {
+  Q30: "United States",
+  Q17: "Japan",
+  Q145: "United Kingdom",
+  Q142: "France",
+  Q183: "Germany",
+  Q148: "China",
+  Q884: "South Korea",
+  Q38: "Italy",
+  Q29: "Spain",
+  Q55: "Netherlands",
+  Q16: "Canada",
+  Q408: "Australia",
+  Q668: "India",
+  Q155: "Brazil",
+  Q159: "Russia",
+  Q801: "Israel",
+  Q36: "Poland",
+  Q20: "Norway",
+  Q34: "Sweden",
+  Q39: "Switzerland",
+  Q40: "Austria",
+  Q45: "Portugal",
+  Q37: "Ireland",
+  Q33: "Finland",
+  Q35: "Denmark",
+  Q212: "Ukraine",
+  Q218: "Romania",
+  Q214: "Slovakia",
+  Q213: "Czech Republic",
+  Q219: "Bulgaria",
+  Q28: "Hungary",
+  Q865: "Taiwan",
+  Q928: "Philippines",
+  Q334: "Singapore",
+  Q869: "Thailand",
+  Q252: "Indonesia",
+  Q833: "Malaysia",
+  Q711: "Mongolia",
+  Q574: "East Timor",
+  Q96: "Mexico",
+  Q414: "Argentina",
+  Q298: "Chile",
+  Q733: "Paraguay",
+  Q77: "Uruguay",
+  Q736: "Ecuador",
+  Q739: "Colombia",
+  Q717: "Venezuela",
+  Q419: "Peru",
+  Q750: "Bolivia",
+  Q1036: "Nigeria",
+  Q258: "South Africa",
+  Q115: "Ethiopia",
+  Q114: "Kenya",
+  Q79: "Egypt",
+  Q1028: "Morocco",
+  Q1033: "Nigeria",
+  Q43: "Turkey",
+  Q796: "Iraq",
+  Q794: "Iran",
+  Q851: "Saudi Arabia",
+  Q842: "Oman",
+  Q846: "Qatar",
+  Q878: "United Arab Emirates",
+  Q233: "Malta",
+  Q31: "Belgium",
+  Q32: "Luxembourg",
+  Q191: "Estonia",
+  Q211: "Latvia",
+  Q37417: "Lithuania",
+  Q215: "Slovenia",
+  Q224: "Croatia",
+  Q225: "Bosnia and Herzegovina",
+  Q236: "Montenegro",
+  Q241: "Cuba",
+  Q229: "Cyprus",
+  Q227: "Azerbaijan",
+  Q230: "Georgia",
+  Q399: "Armenia",
+  Q232: "Kazakhstan",
+  Q189: "Iceland",
+  Q184: "Belarus",
+  Q15180: "Soviet Union",
+  Q756617: "Kingdom of Denmark",
+  Q174: "New Zealand",
+};
+
 function getLanguageString(
   record: Record<string, { language: string; value: string }> | undefined,
-  language: string
+  language: string,
 ): string | null {
   return record?.[language]?.value ?? null;
 }
 
-// Common language Q-IDs to ISO 639-1 codes
-const LANGUAGE_MAP: Record<string, string> = {
-  Q5287: "ja",    // Japanese
-  Q9176: "ko",    // Korean
-  Q7850: "zh",    // Chinese
-  Q1860: "en",    // English
-  Q150: "fr",     // French
-  Q188: "de",     // German
-  Q652: "it",     // Italian
-  Q1321: "es",    // Spanish
-  Q5146: "pt",    // Portuguese
-  Q7737: "ru",    // Russian
-  Q9288: "he",    // Hebrew
-  Q13955: "ar",   // Arabic
-  Q1571: "hi",    // Hindi
-  Q9217: "th",    // Thai
-  Q9199: "tl",    // Tagalog
-  Q9252: "id",    // Indonesian
-  Q9237: "ms",    // Malay
-  Q9296: "vi",    // Vietnamese
-};
-
-/**
- * Get original title from P1476 (title property with monolingualtext)
- */
 function getOriginalTitle(entity: WikidataEntity): { title: string; language: string } | null {
   const claims = entity.claims?.[P.TITLE];
   if (!claims || claims.length === 0) return null;
@@ -65,15 +161,15 @@ function getOriginalTitle(entity: WikidataEntity): { title: string; language: st
   return null;
 }
 
-/**
- * Get original language Q-ID from P364
- */
 function getOriginalLanguageQId(entity: WikidataEntity): string | null {
   const claims = entity.claims?.[P.ORIGINAL_LANGUAGE];
   if (!claims || claims.length === 0) return null;
 
   const claim = claims[0];
-  if (claim.mainsnak.snaktype === "value" && claim.mainsnak.datavalue?.type === "wikibase-entityid") {
+  if (
+    claim.mainsnak.snaktype === "value" &&
+    claim.mainsnak.datavalue?.type === "wikibase-entityid"
+  ) {
     const data = claim.mainsnak.datavalue as WikibaseEntityIdValue;
     return data.value.id;
   }
@@ -81,17 +177,15 @@ function getOriginalLanguageQId(entity: WikidataEntity): string | null {
   return null;
 }
 
-/**
- * Get original title - tries P1476 first, then falls back to label in original language
- */
-function getOriginalTitleAndLanguage(entity: WikidataEntity): { title: string | null; language: string | null } {
-  // Try P1476 (title) first - it has the title in original language directly
+function getOriginalTitleAndLanguage(entity: WikidataEntity): {
+  title: string | null;
+  language: string | null;
+} {
   const titleClaim = getOriginalTitle(entity);
   if (titleClaim && titleClaim.title !== getLanguageString(entity.labels, "en")) {
     return { title: titleClaim.title, language: titleClaim.language };
   }
 
-  // Fall back to P364 (original language) + label lookup
   const langQId = getOriginalLanguageQId(entity);
   if (langQId) {
     const langCode = LANGUAGE_MAP[langQId];
@@ -104,32 +198,17 @@ function getOriginalTitleAndLanguage(entity: WikidataEntity): { title: string | 
   return { title: null, language: null };
 }
 
-/**
- * Extract year from a Wikidata time value
- * Time format: "+2020-01-01T00:00:00Z" or "-0500-01-01T00:00:00Z"
- */
 function extractYear(timeValue: string): number | null {
-  // Match the year portion, handling both positive and negative years
   const match = timeValue.match(/^([+-]?\d+)-/);
   if (!match) return null;
-
   const year = parseInt(match[1], 10);
-  if (isNaN(year)) return null;
-
-  return year;
+  return Number.isNaN(year) ? null : year;
 }
 
-/**
- * Get a time claim and extract the year
- */
-function getYearFromTimeClaim(
-  entity: WikidataEntity,
-  property: string
-): number | null {
+function getYearFromTimeClaim(entity: WikidataEntity, property: string): number | null {
   const claims = entity.claims?.[property];
   if (!claims || claims.length === 0) return null;
 
-  // Prefer claims with "preferred" rank
   const sortedClaims = [...claims].sort((a, b) => {
     if (a.rank === "preferred" && b.rank !== "preferred") return -1;
     if (b.rank === "preferred" && a.rank !== "preferred") return 1;
@@ -137,10 +216,7 @@ function getYearFromTimeClaim(
   });
 
   const claim = sortedClaims[0];
-  if (
-    claim.mainsnak.snaktype === "value" &&
-    claim.mainsnak.datavalue?.type === "time"
-  ) {
+  if (claim.mainsnak.snaktype === "value" && claim.mainsnak.datavalue?.type === "time") {
     const timeData = claim.mainsnak.datavalue as TimeDataValue;
     return extractYear(timeData.value.time);
   }
@@ -148,17 +224,10 @@ function getYearFromTimeClaim(
   return null;
 }
 
-/**
- * Get a quantity claim value as a number
- */
-function getQuantityClaim(
-  entity: WikidataEntity,
-  property: string
-): number | null {
+function getQuantityClaim(entity: WikidataEntity, property: string): number | null {
   const claims = entity.claims?.[property];
   if (!claims || claims.length === 0) return null;
 
-  // Prefer claims with "preferred" rank
   const sortedClaims = [...claims].sort((a, b) => {
     if (a.rank === "preferred" && b.rank !== "preferred") return -1;
     if (b.rank === "preferred" && a.rank !== "preferred") return 1;
@@ -166,23 +235,17 @@ function getQuantityClaim(
   });
 
   const claim = sortedClaims[0];
-  if (
-    claim.mainsnak.snaktype === "value" &&
-    claim.mainsnak.datavalue?.type === "quantity"
-  ) {
+  if (claim.mainsnak.snaktype === "value" && claim.mainsnak.datavalue?.type === "quantity") {
     const quantityData = claim.mainsnak.datavalue as QuantityDataValue;
     const amount = parseFloat(quantityData.value.amount);
-    return isNaN(amount) ? null : Math.round(amount);
+    return Number.isNaN(amount) ? null : Math.round(amount);
   }
 
   return null;
 }
 
-/**
- * Get all genre Q-IDs from the entity
- */
-function getGenreIds(entity: WikidataEntity): string[] {
-  const claims = entity.claims?.[P.GENRE];
+function getEntityIdClaims(entity: WikidataEntity, property: string): string[] {
+  const claims = entity.claims?.[property];
   if (!claims) return [];
 
   return claims
@@ -190,7 +253,7 @@ function getGenreIds(entity: WikidataEntity): string[] {
       (claim) =>
         claim.mainsnak.snaktype === "value" &&
         claim.mainsnak.datavalue?.type === "wikibase-entityid" &&
-        claim.rank !== "deprecated"
+        claim.rank !== "deprecated",
     )
     .map((claim) => {
       const value = claim.mainsnak.datavalue as WikibaseEntityIdValue;
@@ -198,44 +261,94 @@ function getGenreIds(entity: WikidataEntity): string[] {
     });
 }
 
-/**
- * Parse MAL ID - it's stored as a string but we want it as a number
- */
-function parseMalId(entity: WikidataEntity): number | null {
-  const malIdStr = getStringClaim(entity, P.MAL_ID);
-  if (!malIdStr) return null;
+function getFirstEntityIdClaim(entity: WikidataEntity, property: string): string | null {
+  const ids = getEntityIdClaims(entity, property);
+  return ids[0] ?? null;
+}
 
-  const malId = parseInt(malIdStr, 10);
-  return isNaN(malId) ? null : malId;
+function getCountryOfOrigin(entity: WikidataEntity): string | null {
+  const countryQId = getFirstEntityIdClaim(entity, P.COUNTRY_OF_ORIGIN);
+  if (!countryQId) return null;
+  return COUNTRY_MAP[countryQId] ?? null;
+}
+
+/**
+ * Normalize a title for search: lowercase, strip diacritics, remove punctuation
+ */
+function normalizeForSearch(title: string): string {
+  return title
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Get best available title: en label → mul (multilingual default) → P1476 original title
+ */
+function getBestTitle(entity: WikidataEntity): string | null {
+  return (
+    getLanguageString(entity.labels, "en") ??
+    getLanguageString(entity.labels, "mul") ??
+    getOriginalTitle(entity)?.title ??
+    null
+  );
 }
 
 /**
  * Parse a Wikidata entity into our media format
- * Returns null if the entity cannot be parsed as a valid media item
  */
 export function parseMediaEntity(entity: WikidataEntity): ParsedMedia | null {
   const mediaType = determineMediaType(entity);
   if (!mediaType) return null;
 
-  const startYear =
-    getYearFromTimeClaim(entity, P.START_TIME) ??
-    getYearFromTimeClaim(entity, P.PUBLICATION_DATE);
+  const titleEn = getBestTitle(entity);
+  if (!titleEn) return null;
 
-  const { title: titleOriginal, language: originalLanguage } = getOriginalTitleAndLanguage(entity);
+  const startYear =
+    getYearFromTimeClaim(entity, P.START_TIME) ?? getYearFromTimeClaim(entity, P.PUBLICATION_DATE);
+
+  const { title: originalTitle, language: originalLanguage } = getOriginalTitleAndLanguage(entity);
+
+  // Get TMDB ID from the appropriate property based on media type
+  let tmdbId: string | null = null;
+  if (mediaType === "movie") {
+    tmdbId = getStringClaim(entity, P.TMDB_MOVIE_ID);
+  } else if (mediaType === "tv_series" || mediaType === "anime") {
+    tmdbId = getStringClaim(entity, P.TMDB_TV_ID) ?? getStringClaim(entity, P.TMDB_MOVIE_ID);
+  }
+
+  // Build search title from both titles
+  const searchParts = [titleEn];
+  if (originalTitle) searchParts.push(originalTitle);
+  const searchTitle = normalizeForSearch(searchParts.join(" "));
 
   return {
     wikidataId: entity.id,
     mediaType,
-    titleEn: getLanguageString(entity.labels, "en"),
-    titleOriginal,
+    title: titleEn,
+    originalTitle,
     originalLanguage,
-    descriptionEn: getLanguageString(entity.descriptions, "en"),
+    description: getLanguageString(entity.descriptions, "en"),
     startYear,
     endYear: getYearFromTimeClaim(entity, P.END_TIME),
-    imdbId: getStringClaim(entity, P.IMDB_ID),
-    malId: parseMalId(entity),
+    runtimeMinutes: getQuantityClaim(entity, P.DURATION),
     seasonCount: getQuantityClaim(entity, P.SEASON_COUNT),
     episodeCount: getQuantityClaim(entity, P.EPISODE_COUNT),
-    genreIds: getGenreIds(entity),
+    sitelinksCount: getSitelinksCount(entity),
+    countryOfOrigin: getCountryOfOrigin(entity),
+    imdbId: getStringClaim(entity, P.IMDB_ID),
+    tmdbId,
+    malId: getStringClaim(entity, P.MAL_ID),
+    anilistId: getStringClaim(entity, P.ANILIST_ID),
+    anidbId: getStringClaim(entity, P.ANIDB_ID),
+    igdbId: getStringClaim(entity, P.IGDB_ID),
+    annId: getStringClaim(entity, P.ANN_ID),
+    tvdbId: getStringClaim(entity, P.TVDB_ID),
+    genreIds: getEntityIdClaims(entity, P.GENRE),
+    platformIds: getEntityIdClaims(entity, P.PLATFORM),
+    searchTitle,
   };
 }
