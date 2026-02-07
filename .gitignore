@@ -15,7 +15,7 @@ drizzle/
 src/routeTree.gen.ts
 
 # Local DB
-*.db
+*.db*
 
 # Import data
 *.ndjson
