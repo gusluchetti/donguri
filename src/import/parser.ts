@@ -181,8 +181,10 @@ function getOriginalTitleAndLanguage(entity: WikidataEntity): {
   title: string | null;
   language: string | null;
 } {
+  const bestTitle = getBestTitle(entity);
+
   const titleClaim = getOriginalTitle(entity);
-  if (titleClaim && titleClaim.title !== getLanguageString(entity.labels, "en")) {
+  if (titleClaim && titleClaim.title !== bestTitle) {
     return { title: titleClaim.title, language: titleClaim.language };
   }
 
@@ -191,7 +193,7 @@ function getOriginalTitleAndLanguage(entity: WikidataEntity): {
     const langCode = LANGUAGE_MAP[langQId];
     if (langCode && langCode !== "en") {
       const title = getLanguageString(entity.labels, langCode);
-      if (title) return { title, language: langCode };
+      if (title && title !== bestTitle) return { title, language: langCode };
     }
   }
 
