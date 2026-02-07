@@ -286,14 +286,26 @@ function normalizeForSearch(title: string): string {
 }
 
 /**
+ * Get best available title: en label → mul (multilingual default) → P1476 original title
+ */
+function getBestTitle(entity: WikidataEntity): string | null {
+  return (
+    getLanguageString(entity.labels, "en") ??
+    getLanguageString(entity.labels, "mul") ??
+    getOriginalTitle(entity)?.title ??
+    null
+  );
+}
+
+/**
  * Parse a Wikidata entity into our media format
  */
 export function parseMediaEntity(entity: WikidataEntity): ParsedMedia | null {
   const mediaType = determineMediaType(entity);
   if (!mediaType) return null;
 
-  const titleEn = getLanguageString(entity.labels, "en");
-  if (!titleEn) return null; // Must have English title
+  const titleEn = getBestTitle(entity);
+  if (!titleEn) return null;
 
   const startYear =
     getYearFromTimeClaim(entity, P.START_TIME) ?? getYearFromTimeClaim(entity, P.PUBLICATION_DATE);
