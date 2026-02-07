@@ -75,7 +75,7 @@ function MediaDetailPage() {
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
       <div className="max-w-[700px] mx-auto p-6">
         {/* Back link */}
-        <Link to="/" className="text-dg-text-tertiary text-[0.8rem] no-underline inline-block mb-6">
+        <Link to="/catalog" className="text-dg-text-tertiary text-[0.8rem] no-underline inline-block mb-6">
           ← catalog
         </Link>
 
