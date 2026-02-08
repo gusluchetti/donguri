@@ -39,4 +39,3 @@ The network — see what others are watching.
 
 - **Your data, your PDS.** No vendor lock-in. Export is built in because AT Proto records are portable.
 - **Catalog is shared, tracking is personal.** The Wikidata-sourced catalog is public infrastructure. Your watchlist and ratings live on your PDS.
-- **Sparse over bloated.** Not every title needs every field. The schema is designed for a sparse, real-world dataset.

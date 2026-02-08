@@ -1,6 +1,13 @@
-import { createRootRoute, HeadContent, Link, Outlet, Scripts } from "@tanstack/react-router";
+import {
+  createRootRoute,
+  HeadContent,
+  Link,
+  Outlet,
+  Scripts,
+} from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import "../app.css";
+import { getAuthState, logout } from "../lib/auth.functions";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -20,6 +27,10 @@ export const Route = createRootRoute({
       },
     ],
   }),
+  loader: async () => {
+    const auth = await getAuthState();
+    return { auth };
+  },
   component: RootComponent,
 });
 
@@ -44,6 +55,8 @@ const NAV_LINKS = [
 ] as const;
 
 function RootComponent() {
+  const { auth } = Route.useLoaderData();
+
   return (
     <RootDocument>
       <nav className="border-b border-dg-border-subtle px-6 py-3 font-mono">
@@ -68,6 +81,32 @@ function RootComponent() {
               )}
             </Link>
           ))}
+          <div className="ml-auto">
+            {auth ? (
+              <div className="flex items-center gap-4">
+                <span className="text-[0.8rem] text-dg-text-secondary">
+                  @{auth.handle}
+                </span>
+                <button
+                  type="button"
+                  className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none font-mono"
+                  onClick={async () => {
+                    await logout();
+                    window.location.href = "/";
+                  }}
+                >
+                  logout
+                </button>
+              </div>
+            ) : (
+              <Link
+                to="/"
+                className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-150"
+              >
+                login
+              </Link>
+            )}
+          </div>
         </div>
       </nav>
       <Outlet />

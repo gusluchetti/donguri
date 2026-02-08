@@ -1,3 +1,11 @@
 name = "donguri"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "OAUTH_STATE"
+id = "<OAUTH_STATE_KV_ID>"
+
+[[kv_namespaces]]
+binding = "OAUTH_SESSION"
+id = "<OAUTH_SESSION_KV_ID>"

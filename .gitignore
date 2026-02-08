@@ -5,6 +5,7 @@ dist/
 .wrangler/
 .env
 .env.local
+.dev.vars
 *.local
 bun.lock
 

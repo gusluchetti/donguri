@@ -8,5 +8,10 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  build: {
+    rollupOptions: {
+      external: ["cloudflare:workers"],
+    },
+  },
   plugins: [tailwindcss(), tsconfigPaths(), tanstackStart(), react()],
 });
