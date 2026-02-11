@@ -4,26 +4,28 @@ donguri is a media catalog and tracker for movies, TV shows, anime, and games. U
 
 ## Current status
 
-The media catalog is functional with ~70k titles imported from Wikidata. AT Protocol OAuth scaffolding is in place. Migrating to Fly.io + Postgres for deployment.
+Media catalog is live on Fly.io with Postgres, Wikidata titles imported (5+ sitelinks filter). AT Protocol OAuth login works end-to-end via Bluesky. Next up: tracking features (watchlist, ratings, progress).
 
 ## Phase 0: Catalog infrastructure [DONE]
 
-- [x] Wikidata import pipeline (10 P31 types, quality filtering)
-- [x] Database with search
-- [x] Catalog UI with virtual list, search, filtering
+- [x] Wikidata import pipeline (10 P31 types, quality filtering, 5+ sitelinks)
+- [x] Postgres database with pg_trgm search
+- [x] Catalog UI with virtual list, search, type filtering
 - [x] Media detail pages with external links
 - [x] Roadmap page
 - [x] Catalog search params in URL (shareable, preserved on navigation)
+- [x] Non-blocking navigation (client-side data fetching, skeleton loading states)
+- [x] Catalog accessible without login (with sign-in prompt)
 
-## Phase 1: AT Protocol integration [IN PROGRESS]
+## Phase 1: AT Protocol integration [DONE]
 
 - [x] OAuth client scaffolding (metadata endpoints, JWKS)
 - [x] Singleton OAuth client with dynamic PUBLIC_URL
 - [x] Design Lexicon schema (`app.donguri.catalog.entry`)
 - [x] Sync helpers (PDS write → DB mirror, reconciliation on login)
-- [ ] Fix OAuth login flow end-to-end (dev tunnel, key generation, test)
-- [ ] Session management and identity display
-- [ ] Handle resolution (DID ↔ handle)
+- [x] OAuth login flow end-to-end (dev tunnel, key generation, tested)
+- [x] Session management and identity display (@handle in nav, logout)
+- [x] Handle resolution (DID → handle via plc.directory)
 - [ ] Store user data on their PDS via catalog entry records
 
 ## Phase 1.5: Fly.io deployment [IN PROGRESS]
@@ -33,10 +35,10 @@ The media catalog is functional with ~70k titles imported from Wikidata. AT Prot
 - [x] Replace KV stores with Postgres-backed OAuth stores
 - [x] Remove Cloudflare Workers layer
 - [x] Dockerfile + fly.toml
-- [ ] Fly.io app provisioning (app + Postgres cluster)
-- [ ] ES256 key pair generation and fly secrets
-- [ ] Production PUBLIC_URL and domain setup
-- [ ] Run Wikidata import against production DB
+- [x] Fly.io app provisioning (app + Postgres cluster)
+- [x] ES256 key pair generation
+- [x] Run Wikidata import against production DB
+- [ ] Production domain setup + fly secrets for production
 - [ ] CI/CD pipeline (build + deploy)
 
 ## Phase 2: Tracking features + local storage
