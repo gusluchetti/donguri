@@ -1,0 +1,13 @@
+node_modules
+dist
+.output
+.vinxi
+.git
+.env
+.env.local
+.dev.vars
+*.ndjson
+media-subset.*
+*.db*
+.DS_Store
+Thumbs.db

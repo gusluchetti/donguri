@@ -4,7 +4,7 @@ primary_region = "iad"
 [build]
 
 [deploy]
-  release_command = "bun run db:migrate"
+  release_command = "node scripts/migrate.mjs"
 
 [http_service]
   internal_port = 3000
