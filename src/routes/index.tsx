@@ -1,9 +1,9 @@
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { initiateLogin } from "../lib/auth.functions";
 import { getUserCatalogEntries } from "../lib/catalog.functions";
 import { getCachedWatchlist, setCachedWatchlist } from "../lib/idb-cache";
 import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../lib/media-types";
-import { initiateLogin } from "../lib/auth.functions";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -124,13 +124,7 @@ function LoggedInView({ handle }: { handle: string }) {
           {STATUS_ORDER.map((status) => {
             const items = grouped.get(status);
             if (!items) return null;
-            return (
-              <WatchlistSection
-                key={status}
-                status={status}
-                items={items}
-              />
-            );
+            return <WatchlistSection key={status} status={status} items={items} />;
           })}
         </div>
       )}
@@ -138,13 +132,7 @@ function LoggedInView({ handle }: { handle: string }) {
   );
 }
 
-function WatchlistSection({
-  status,
-  items,
-}: {
-  status: string;
-  items: CatalogEntryRow[];
-}) {
+function WatchlistSection({ status, items }: { status: string; items: CatalogEntryRow[] }) {
   const accentClass = STATUS_ACCENT[status] ?? "text-dg-text-secondary";
 
   return (

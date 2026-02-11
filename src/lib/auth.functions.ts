@@ -5,11 +5,7 @@ import { getDb } from "../db";
 import { users } from "../db/schema";
 import { getAuthenticatedAgent } from "./auth/agent";
 import { getOAuthClient } from "./auth/client";
-import {
-  clearSessionCookie,
-  getSessionData,
-  setSessionCookie,
-} from "./auth/session";
+import { clearSessionCookie, getSessionData, setSessionCookie } from "./auth/session";
 import { reconcileUser } from "./sync";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -28,7 +24,10 @@ export const getAuthState = createServerFn({ method: "GET" }).handler(async () =
     .limit(1);
 
   if (!user) {
-    console.error("[auth] getAuthState: session valid but user not in DB (did=%s), clearing", session.did);
+    console.error(
+      "[auth] getAuthState: session valid but user not in DB (did=%s), clearing",
+      session.did,
+    );
     clearSessionCookie();
     return null;
   }

@@ -43,7 +43,11 @@ export async function putCatalogEntry(
       },
       validate: false, // PDS can't validate custom lexicons
     });
-    console.debug("[sync] putCatalogEntry PDS putRecord → uri=%s cid=%s", response.data.uri, response.data.cid);
+    console.debug(
+      "[sync] putCatalogEntry PDS putRecord → uri=%s cid=%s",
+      response.data.uri,
+      response.data.cid,
+    );
   } catch (err) {
     console.error("[sync] putCatalogEntry PDS write FAILED:", err);
     throw err;

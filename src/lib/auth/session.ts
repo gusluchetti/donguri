@@ -83,7 +83,10 @@ export async function requireAuth(): Promise<SessionData & { userId: string }> {
     .limit(1);
 
   if (!user) {
-    console.error("[auth] session valid but user not found in DB (did=%s), clearing session", session.did);
+    console.error(
+      "[auth] session valid but user not found in DB (did=%s), clearing session",
+      session.did,
+    );
     clearSessionCookie();
     throw new Error("Not authenticated");
   }

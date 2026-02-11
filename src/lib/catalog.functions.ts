@@ -26,7 +26,10 @@ export const getCatalogEntry = createServerFn({ method: "GET" })
       .limit(1);
 
     const result = entry ?? null;
-    console.debug("[catalog] getCatalogEntry → %s", result ? `found (status=${result.status})` : "null");
+    console.debug(
+      "[catalog] getCatalogEntry → %s",
+      result ? `found (status=${result.status})` : "null",
+    );
     return result;
   });
 
@@ -85,7 +88,12 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    console.debug("[catalog] setCatalogEntry wikidataId=%s status=%s rating=%s", data.wikidataId, data.status, data.rating ?? "null");
+    console.debug(
+      "[catalog] setCatalogEntry wikidataId=%s status=%s rating=%s",
+      data.wikidataId,
+      data.status,
+      data.rating ?? "null",
+    );
     try {
       const { userId, did } = await requireAuth();
       console.debug("[catalog] setCatalogEntry auth ok userId=%s did=%s", userId, did);
@@ -103,7 +111,10 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
         })
         .from(catalogEntries)
         .where(
-          and(eq(catalogEntries.userId, userId), eq(catalogEntries.mediaWikidataId, data.wikidataId)),
+          and(
+            eq(catalogEntries.userId, userId),
+            eq(catalogEntries.mediaWikidataId, data.wikidataId),
+          ),
         )
         .limit(1);
 
@@ -122,7 +133,10 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
         }
       }
 
-      console.debug("[catalog] setCatalogEntry existing entry: %s", existing ? `yes (created ${existing.createdAt?.toISOString()})` : "no");
+      console.debug(
+        "[catalog] setCatalogEntry existing entry: %s",
+        existing ? `yes (created ${existing.createdAt?.toISOString()})` : "no",
+      );
       console.debug("[catalog] setCatalogEntry → calling putCatalogEntry");
 
       await putCatalogEntry(agent, userId, did, {
