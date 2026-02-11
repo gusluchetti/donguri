@@ -9,6 +9,26 @@ import { getMedia } from "../../lib/media.functions";
 
 const rootRoute = getRouteApi("__root__");
 
+/** Maps 0–10 rating to a color: dark red → amber → green */
+function ratingColor(value: number | null): string | undefined {
+  if (value == null || value === 0) return undefined;
+  // 3-stop gradient: 0→red(0,70%,45%), 5→amber(40,80%,55%), 10→green(140,60%,45%)
+  const t = value / 10;
+  let h: number, s: number, l: number;
+  if (t <= 0.5) {
+    const p = t / 0.5;
+    h = 0 + p * 40;
+    s = 70 + p * 10;
+    l = 45 + p * 10;
+  } else {
+    const p = (t - 0.5) / 0.5;
+    h = 40 + p * 100;
+    s = 80 - p * 20;
+    l = 55 - p * 10;
+  }
+  return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`;
+}
+
 const STATUSES = [
   { value: "watching", label: "Watching" },
   { value: "plan_to_watch", label: "Plan to Watch" },
@@ -525,6 +545,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               }}
               disabled={saving}
               className="dg-range flex-1"
+              style={{ "--rating-color": ratingColor(localRating) } as React.CSSProperties}
             />
             <RatingInput value={localRating} onChange={setLocalRating} disabled={saving} />
             {localRating != null && (
@@ -587,6 +608,7 @@ function RatingInput({
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const color = ratingColor(value) ?? "var(--color-dg-accent)";
 
   const startEditing = () => {
     if (disabled) return;
@@ -623,9 +645,8 @@ function RatingInput({
           if (e.key === "Enter") commit();
           if (e.key === "Escape") setEditing(false);
         }}
-        size={Math.max(text.length, 1)}
-        className="text-[0.85rem] text-dg-accent tabular-nums text-right bg-dg-bg border border-dg-accent/30 rounded-sm px-1 py-0 font-mono outline-none field-sizing-content"
-        style={{ width: `${Math.max(text.length, 1) + 1}ch` }}
+        className="w-[6ch] text-[0.85rem] tabular-nums text-right bg-dg-bg border border-dg-border rounded-sm px-1 py-0 font-mono outline-none shrink-0"
+        style={{ color, borderColor: color }}
       />
     );
   }
@@ -635,7 +656,8 @@ function RatingInput({
       type="button"
       onClick={startEditing}
       disabled={disabled}
-      className="text-[0.85rem] text-dg-accent tabular-nums min-w-[4ch] text-right bg-transparent border-none font-mono cursor-text p-0 hover:underline decoration-dg-accent/30 disabled:cursor-default disabled:no-underline"
+      className="text-[0.85rem] tabular-nums w-[6ch] text-right bg-transparent border-none font-mono cursor-text p-0 shrink-0 hover:underline disabled:cursor-default disabled:no-underline"
+      style={{ color, textDecorationColor: `${color}50` }}
       title="Click to type a rating"
     >
       {value != null ? value.toFixed(2) : "\u2014"}

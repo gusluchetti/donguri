@@ -96,7 +96,7 @@ input[type="range"].dg-range::-webkit-slider-thumb {
   width: 14px;
   height: 14px;
   border-radius: 2px;
-  background: var(--color-dg-accent);
+  background: var(--rating-color, var(--color-dg-accent));
   border: 1px solid var(--color-dg-border);
   margin-top: -6px;
 }
@@ -112,7 +112,7 @@ input[type="range"].dg-range::-moz-range-thumb {
   width: 14px;
   height: 14px;
   border-radius: 2px;
-  background: var(--color-dg-accent);
+  background: var(--rating-color, var(--color-dg-accent));
   border: 1px solid var(--color-dg-border);
 }
 
