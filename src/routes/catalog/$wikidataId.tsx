@@ -526,9 +526,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               disabled={saving}
               className="dg-range flex-1"
             />
-            <span className="text-[0.85rem] text-dg-accent tabular-nums min-w-[4ch] text-right">
-              {localRating != null ? localRating.toFixed(2) : "\u2014"}
-            </span>
+            <RatingInput value={localRating} onChange={setLocalRating} disabled={saving} />
             {localRating != null && (
               <button
                 type="button"
@@ -574,6 +572,72 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
         </div>
       )}
     </div>
+  );
+}
+
+function RatingInput({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: number | null;
+  onChange: (v: number | null) => void;
+  disabled: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const startEditing = () => {
+    if (disabled) return;
+    setText(value != null ? value.toFixed(2) : "");
+    setEditing(true);
+  };
+
+  useEffect(() => {
+    if (editing) inputRef.current?.select();
+  }, [editing]);
+
+  const commit = () => {
+    setEditing(false);
+    const normalized = text.replace(",", ".").trim();
+    if (normalized === "") {
+      onChange(null);
+      return;
+    }
+    const parsed = Number.parseFloat(normalized);
+    if (Number.isNaN(parsed)) return;
+    onChange(Math.round(Math.min(10, Math.max(0, parsed)) * 100) / 100);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        inputMode="decimal"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") setEditing(false);
+        }}
+        className="w-[4.5ch] text-[0.85rem] text-dg-accent tabular-nums text-right bg-dg-bg border border-dg-accent/30 rounded-sm px-1 py-0 font-mono outline-none"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={startEditing}
+      disabled={disabled}
+      className="text-[0.85rem] text-dg-accent tabular-nums min-w-[4ch] text-right bg-transparent border-none font-mono cursor-text p-0 hover:underline decoration-dg-accent/30 disabled:cursor-default disabled:no-underline"
+      title="Click to type a rating"
+    >
+      {value != null ? value.toFixed(2) : "\u2014"}
+    </button>
   );
 }
 
