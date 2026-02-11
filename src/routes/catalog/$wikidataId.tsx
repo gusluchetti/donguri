@@ -353,7 +353,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const ratingTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const pendingRating = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -532,21 +532,30 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               type="range"
               min="0"
               max="10"
-              step="0.5"
+              step="0.01"
               value={entry.rating ?? 0}
               onChange={(e) => {
                 const val = Number.parseFloat(e.target.value);
+                pendingRating.current = val || null;
                 setEntry((prev) => prev ? { ...prev, rating: val, updatedAt: new Date() } : prev);
-                if (ratingTimeout.current) clearTimeout(ratingTimeout.current);
-                ratingTimeout.current = setTimeout(() => {
-                  handleSetRating(val || null);
-                }, 400);
+              }}
+              onMouseUp={() => {
+                if (pendingRating.current !== null || entry.rating) {
+                  handleSetRating(pendingRating.current);
+                  pendingRating.current = null;
+                }
+              }}
+              onTouchEnd={() => {
+                if (pendingRating.current !== null || entry.rating) {
+                  handleSetRating(pendingRating.current);
+                  pendingRating.current = null;
+                }
               }}
               disabled={saving}
               className="dg-range flex-1"
             />
-            <span className="text-[0.85rem] text-dg-accent tabular-nums min-w-[3ch] text-right">
-              {entry.rating != null ? entry.rating.toFixed(1) : "\u2014"}
+            <span className="text-[0.85rem] text-dg-accent tabular-nums min-w-[4ch] text-right">
+              {entry.rating != null ? entry.rating.toFixed(2) : "\u2014"}
             </span>
             {entry.rating != null && (
               <button
