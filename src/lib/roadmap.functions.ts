@@ -7,15 +7,13 @@ export const getRoadmap = createServerFn({ method: "GET" }).handler(async () => 
   let markdown: string;
 
   try {
-    // In development, try local filesystem first
-    if (process.env.NODE_ENV === "development") {
-      const fs = await import("node:fs");
-      const path = await import("node:path");
-      const localPath = path.resolve(process.cwd(), "ROADMAP.md");
-      if (fs.existsSync(localPath)) {
-        markdown = fs.readFileSync(localPath, "utf-8");
-        return marked.parse(markdown) as string;
-      }
+    // Try local filesystem first (works in dev and in Docker)
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const localPath = path.resolve(process.cwd(), "ROADMAP.md");
+    if (fs.existsSync(localPath)) {
+      markdown = fs.readFileSync(localPath, "utf-8");
+      return marked.parse(markdown) as string;
     }
   } catch {
     // Fall through to GitHub fetch

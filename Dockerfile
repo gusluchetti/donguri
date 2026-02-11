@@ -26,6 +26,7 @@ COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY drizzle ./drizzle
 COPY scripts ./scripts
+COPY ROADMAP.md ./
 COPY package.json ./
 
 EXPOSE 3000
