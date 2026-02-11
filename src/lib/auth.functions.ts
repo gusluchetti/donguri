@@ -5,86 +5,16 @@ import { getDb } from "../db";
 import { users } from "../db/schema";
 import { getAuthenticatedAgent } from "./auth/agent";
 import { getOAuthClient } from "./auth/client";
-import { getEnv } from "./env";
+import {
+  clearSessionCookie,
+  getSessionData,
+  setSessionCookie,
+} from "./auth/session";
 import { reconcileUser } from "./sync";
 
 const isDev = process.env.NODE_ENV === "development";
 
-const COOKIE_NAME = "donguri-auth";
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
-
-export type SessionData = { did: string; handle: string };
-
-async function signPayload(payload: string): Promise<string> {
-  const env = getEnv();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(env.SESSION_SECRET),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)));
-  return `${payload}.${sigB64}`;
-}
-
-async function verifyPayload(signed: string): Promise<string | null> {
-  const lastDot = signed.lastIndexOf(".");
-  if (lastDot === -1) return null;
-  const payload = signed.slice(0, lastDot);
-  const expected = await signPayload(payload);
-  if (expected !== signed) return null;
-  return payload;
-}
-
-async function setSessionCookie(data: SessionData): Promise<void> {
-  const { setCookie } = await import("@tanstack/react-start/server");
-  const payload = btoa(JSON.stringify(data));
-  const signed = await signPayload(payload);
-  setCookie(COOKIE_NAME, signed, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV !== "development",
-    sameSite: "lax",
-    maxAge: COOKIE_MAX_AGE,
-    path: "/",
-  });
-}
-
-async function getSessionData(): Promise<SessionData | null> {
-  const { getCookie } = await import("@tanstack/react-start/server");
-  const cookie = getCookie(COOKIE_NAME);
-  if (!cookie) return null;
-
-  const payload = await verifyPayload(cookie);
-  if (!payload) return null;
-
-  try {
-    return JSON.parse(atob(payload)) as SessionData;
-  } catch {
-    return null;
-  }
-}
-
-async function clearSessionCookie(): Promise<void> {
-  const { deleteCookie } = await import("@tanstack/react-start/server");
-  deleteCookie(COOKIE_NAME, { path: "/" });
-}
-
-export async function requireAuth(): Promise<SessionData & { userId: string }> {
-  const session = await getSessionData();
-  if (!session) throw new Error("Not authenticated");
-
-  const db = getDb();
-  const [user] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.did, session.did))
-    .limit(1);
-
-  if (!user) throw new Error("User not found");
-  return { ...session, userId: user.id };
-}
+export type { SessionData } from "./auth/session";
 
 export const getAuthState = createServerFn({ method: "GET" }).handler(async () => {
   return await getSessionData();
@@ -218,7 +148,7 @@ export const logout = createServerFn({ method: "POST" }).handler(async () => {
       console.error("[logout] revocation failed:", err);
     }
   }
-  await clearSessionCookie();
+  clearSessionCookie();
   if (isDev) console.debug("[logout] cookie cleared");
   return { ok: true };
 });

@@ -5,7 +5,7 @@ import { getDb } from "../db";
 import type { CatalogEntry } from "../db/schema";
 import { catalogEntries, media } from "../db/schema";
 import { getAuthenticatedAgent } from "./auth/agent";
-import { requireAuth } from "./auth.functions";
+import { requireAuth } from "./auth/session";
 import { deleteCatalogEntry, putCatalogEntry } from "./sync";
 
 const StatusEnum = z.enum(["watching", "completed", "dropped", "plan_to_watch", "paused"]);

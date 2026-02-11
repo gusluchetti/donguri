@@ -26,7 +26,11 @@ Media catalog is live on Fly.io with Postgres, Wikidata titles imported (5+ site
 - [x] OAuth login flow end-to-end (dev tunnel, key generation, tested)
 - [x] Session management and identity display (@handle in nav, logout)
 - [x] Handle resolution (DID → handle via plc.directory)
-- [ ] Store user data on their PDS via catalog entry records
+- [x] PDS writes for catalog entries (set status, rating, note → PDS → DB mirror)
+- [x] Catalog entry CRUD (watchlist add/remove, status, rating, episode progress)
+- [x] Tracking panel on media detail pages (optimistic UI, PDS-first writes)
+- [x] Homepage watchlist view (grouped by status)
+- [ ] Validate basic CRUD and PDS sync end-to-end (manual smoke test)
 
 ## Phase 1.5: Fly.io deployment [IN PROGRESS]
 
