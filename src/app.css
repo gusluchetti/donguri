@@ -119,3 +119,16 @@ input[type="range"].dg-range::-moz-range-thumb {
 input[type="range"].dg-range:disabled {
   opacity: 0.5;
 }
+
+/* Ellipsis loading animation */
+.dg-ellipsis::after {
+  content: "";
+  animation: ellipsis 1.2s steps(4) infinite;
+}
+
+@keyframes ellipsis {
+  0%  { content: ""; }
+  25% { content: "."; }
+  50% { content: ".."; }
+  75% { content: "..."; }
+}

@@ -243,7 +243,7 @@ function LoginForm() {
             disabled={loading || !handle.trim()}
             className="bg-transparent border border-dg-accent/30 text-dg-accent px-4 py-2 rounded-sm text-[0.85rem] font-mono cursor-pointer transition-all duration-150 hover:border-dg-accent/60 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {loading ? "..." : "Sign in"}
+            {loading ? <span className="dg-ellipsis">Signing in</span> : "Sign in"}
           </button>
         </div>
         {error && <p className="text-dg-movie text-[0.8rem] mt-2">{error}</p>}

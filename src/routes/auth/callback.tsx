@@ -47,10 +47,9 @@ function CallbackPage() {
             </a>
           </div>
         ) : (
-          <div className="flex items-center gap-3">
-            <div className="w-4 h-4 border-2 border-dg-accent border-t-transparent rounded-full animate-spin" />
-            <p className="text-dg-text-secondary text-[0.85rem]">Authenticating...</p>
-          </div>
+          <p className="text-dg-text-secondary text-[0.85rem]">
+            <span className="dg-ellipsis">Authenticating</span>
+          </p>
         )}
       </div>
     </div>
