@@ -9,5 +9,15 @@ export default defineConfig({
     port: 3000,
     allowedHosts: ["nearest-area-said-clocks.trycloudflare.com"],
   },
+  environments: {
+    client: {
+      build: {
+        rollupOptions: {
+          // Server-only code (TanStack SSR, postgres) leaks into client barrel exports
+          external: [/^node:/, "os", "fs", "net", "tls", "crypto", "stream", "perf_hooks"],
+        },
+      },
+    },
+  },
   plugins: [tailwindcss(), tsconfigPaths(), tanstackStart(), react()],
 });

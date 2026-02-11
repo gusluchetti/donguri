@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "build": "vite build",
-    "start": "node .output/server/index.mjs",
+    "start": "node dist/server/server.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -22,8 +22,8 @@
     "@atproto/api": "^0.18.20",
     "@atproto/jwk-jose": "^0.1.11",
     "@atproto/oauth-client-node": "^0.3.16",
-    "@tanstack/react-router": "^1.158.0",
-    "@tanstack/react-start": "^1.158.0",
+    "@tanstack/react-router": "^1.159.5",
+    "@tanstack/react-start": "^1.159.5",
     "@tanstack/react-virtual": "^3.13.0",
     "drizzle-orm": "^0.45.1",
     "marked": "^17.0.1",
@@ -43,7 +43,7 @@
     "drizzle-kit": "^0.31.0",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.7.0",
-    "vite": "^6.0.0",
+    "vite": "^7.0.0",
     "vite-tsconfig-paths": "^4.3.0"
   }
 }
