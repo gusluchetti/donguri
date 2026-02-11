@@ -18,7 +18,7 @@ export function getEnv(): AppEnv {
   _env = {
     OAUTH_PRIVATE_KEY_JWK: process.env.OAUTH_PRIVATE_KEY_JWK || "",
     SESSION_SECRET: process.env.SESSION_SECRET || "dev-secret-change-me-in-production-please",
-    PUBLIC_URL: process.env.PUBLIC_URL || "http://localhost:3000",
+    PUBLIC_URL: (process.env.PUBLIC_URL || "http://localhost:3000").replace(/\/+$/, ""),
   };
 
   return _env;
