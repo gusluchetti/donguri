@@ -354,9 +354,11 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Local rating tracks the slider; savedRating tracks what the server has
+  // Local state tracks UI; saved* refs track what the server has
   const [localRating, setLocalRating] = useState<number | null>(null);
+  const [localStatus, setLocalStatus] = useState<string | null>(null);
   const savedRating = useRef<number | null>(null);
+  const savedStatus = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -367,7 +369,9 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
           console.debug("[tracking] loaded entry for %s → %s", wikidataId, e ? e.status : "not tracked");
           setEntry(e);
           setLocalRating(e?.rating ?? null);
+          setLocalStatus(e?.status ?? null);
           savedRating.current = e?.rating ?? null;
+          savedStatus.current = e?.status ?? null;
           setLoaded(true);
         }
       })
@@ -385,94 +389,64 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
   const ratingDirty =
     localRating !== savedRating.current &&
     !(localRating === null && savedRating.current === null);
+  const statusDirty = localStatus !== savedStatus.current;
+  const isDirty = ratingDirty || statusDirty;
 
-  const handleSetStatus = useCallback(
-    async (status: "watching" | "completed" | "dropped" | "plan_to_watch" | "paused") => {
-      console.debug("[tracking] setStatus %s → %s (optimistic)", wikidataId, status);
-      setSaving(true);
-      setError(null);
-      const prev = entry;
-      setEntry((e) =>
-        e
-          ? { ...e, status, updatedAt: new Date() }
-          : ({
-              id: "",
-              userId: "",
-              mediaWikidataId: wikidataId,
-              mediaTitle: null,
-              mediaType: null,
-              status,
-              rating: null,
-              note: null,
-              episodeProgress: null,
-              rkey: null,
-              syncedAt: null,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            } as CatalogEntry),
-      );
-      try {
-        await setCatalogEntry({
-          data: {
-            wikidataId,
-            status,
-            rating: prev?.rating,
-            note: prev?.note,
-            episodeProgress: prev?.episodeProgress,
-          },
-        });
-        console.debug("[tracking] setStatus %s → server ok, refreshing", wikidataId);
-        const fresh = await getCatalogEntry({ data: { wikidataId } });
-        setEntry(fresh);
-        setLocalRating(fresh?.rating ?? null);
-        savedRating.current = fresh?.rating ?? null;
-        clearCachedWatchlist();
-        router.invalidate();
-      } catch (err) {
-        console.error("[tracking] setStatus %s → FAILED:", wikidataId, err);
-        setEntry(prev);
-        setError("Failed to save");
-      } finally {
-        setSaving(false);
-      }
-    },
-    [entry, wikidataId, router],
-  );
-
-  const handleSaveRating = useCallback(async () => {
-    if (!entry?.status) return;
-    const rating = localRating;
-    console.debug("[tracking] saveRating %s → %s", wikidataId, rating);
+  const handleSave = useCallback(async () => {
+    const status = localStatus as NonNullable<CatalogEntry["status"]>;
+    if (!status) return;
+    console.debug("[tracking] save %s → status=%s rating=%s", wikidataId, status, localRating);
     setSaving(true);
     setError(null);
     const prev = entry;
-    setEntry((e) => (e ? { ...e, rating, updatedAt: new Date() } : e));
+    setEntry((e) =>
+      e
+        ? { ...e, status, rating: localRating, updatedAt: new Date() }
+        : ({
+            id: "",
+            userId: "",
+            mediaWikidataId: wikidataId,
+            mediaTitle: null,
+            mediaType: null,
+            status,
+            rating: localRating,
+            note: null,
+            episodeProgress: null,
+            rkey: null,
+            syncedAt: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          } as CatalogEntry),
+    );
     try {
       await setCatalogEntry({
         data: {
           wikidataId,
-          status: entry.status,
-          rating,
-          note: entry.note,
-          episodeProgress: entry.episodeProgress,
+          status,
+          rating: localRating,
+          note: prev?.note,
+          episodeProgress: prev?.episodeProgress,
         },
       });
-      console.debug("[tracking] saveRating %s → server ok, refreshing", wikidataId);
+      console.debug("[tracking] save %s → server ok, refreshing", wikidataId);
       const fresh = await getCatalogEntry({ data: { wikidataId } });
       setEntry(fresh);
       setLocalRating(fresh?.rating ?? null);
+      setLocalStatus(fresh?.status ?? null);
       savedRating.current = fresh?.rating ?? null;
+      savedStatus.current = fresh?.status ?? null;
       clearCachedWatchlist();
       router.invalidate();
     } catch (err) {
-      console.error("[tracking] saveRating %s → FAILED:", wikidataId, err);
+      console.error("[tracking] save %s → FAILED:", wikidataId, err);
       setEntry(prev);
       setLocalRating(prev?.rating ?? null);
+      setLocalStatus(prev?.status ?? null);
       setError("Failed to save");
     } finally {
       setSaving(false);
     }
-  }, [entry, localRating, wikidataId, router]);
+  }, [entry, localStatus, localRating, wikidataId, router]);
 
   const handleRemove = useCallback(async () => {
     console.debug("[tracking] remove %s (optimistic)", wikidataId);
@@ -510,16 +484,16 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
 
       {error && <p className="text-dg-anime text-[0.75rem] mb-2">{error}</p>}
 
-      {/* Status buttons — horizontal */}
+      {/* Status buttons — horizontal (local-only, saved on explicit save) */}
       <div className="flex flex-wrap gap-1.5 mb-4">
         {STATUSES.map((s) => {
-          const isActive = entry?.status === s.value;
+          const isActive = localStatus === s.value;
           const colorClass = STATUS_COLORS[s.value];
           return (
             <button
               key={s.value}
               type="button"
-              onClick={() => handleSetStatus(s.value)}
+              onClick={() => setLocalStatus(s.value)}
               disabled={saving}
               className={`text-[0.8rem] py-1.5 px-3 rounded-sm border font-mono cursor-pointer transition-all duration-150 disabled:opacity-50 ${
                 isActive
@@ -533,8 +507,8 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
         })}
       </div>
 
-      {/* Rating (only when tracked) */}
-      {entry?.status && (
+      {/* Rating (only when a status is selected) */}
+      {localStatus && (
         <div className="mb-4">
           <h4 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
             Rating
@@ -571,30 +545,32 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
       )}
 
       {/* Bottom bar: save (left) + remove (right) */}
-      {entry?.status && (
+      {localStatus && (
         <div className="flex items-center justify-between">
           <button
             type="button"
-            onClick={handleSaveRating}
-            disabled={saving || !ratingDirty}
+            onClick={handleSave}
+            disabled={saving || !isDirty}
             className={`bg-transparent border-none cursor-pointer p-0 transition-colors duration-150 disabled:opacity-30 ${
-              ratingDirty
+              isDirty
                 ? "text-dg-accent hover:text-dg-accent/80"
                 : "text-dg-text-tertiary"
             }`}
-            title="Save rating"
+            title="Save changes"
           >
             <Save size={16} />
           </button>
-          <button
-            type="button"
-            onClick={handleRemove}
-            disabled={saving}
-            className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-0 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
-            title="Remove from list"
-          >
-            <Trash2 size={16} />
-          </button>
+          {savedStatus.current && (
+            <button
+              type="button"
+              onClick={handleRemove}
+              disabled={saving}
+              className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-0 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
+              title="Remove from list"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       )}
     </div>
