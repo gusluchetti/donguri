@@ -39,17 +39,21 @@ const fetch = async (request: Request) => {
   }
 
   if (url.pathname === "/.well-known/jwks.json") {
-    const env = getEnv();
-    const key = await JoseKey.fromImportable(
-      env.OAUTH_PRIVATE_KEY,
-      "donguri-key",
-    );
-    return Response.json(
-      { keys: [key.publicJwk] },
-      {
-        headers: { "Cache-Control": "public, max-age=3600" },
-      },
-    );
+    try {
+      const env = getEnv();
+      const key = await JoseKey.fromImportable(
+        env.OAUTH_PRIVATE_KEY,
+        "donguri-key",
+      );
+      return Response.json(
+        { keys: [key.publicJwk] },
+        {
+          headers: { "Cache-Control": "public, max-age=3600" },
+        },
+      );
+    } catch {
+      return Response.json({ error: "JWKS not configured" }, { status: 500 });
+    }
   }
 
   return startHandler(request);

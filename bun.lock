@@ -6,6 +6,7 @@
       "name": "donguri",
       "dependencies": {
         "@atproto/api": "^0.18.20",
+        "@atproto/jwk-jose": "^0.1.11",
         "@atproto/oauth-client-node": "^0.3.16",
         "@tanstack/react-router": "^1.158.0",
         "@tanstack/react-start": "^1.158.0",

@@ -26,7 +26,7 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
   }
 
   if (!env.OAUTH_PRIVATE_KEY) {
-    const msg = "OAUTH_PRIVATE_KEY is empty — generate keys with: bun run scripts/generate-keys.ts";
+    const msg = "OAUTH_PRIVATE_KEY is empty — set OAUTH_PRIVATE_KEY_JWK in .env (see .env.example)";
     console.error("[oauth]", msg);
     throw new Error(msg);
   }
