@@ -28,8 +28,12 @@ export async function putCatalogEntry(
   const rkey = entry.mediaRef;
   console.debug("[sync] putCatalogEntry did=%s rkey=%s status=%s", did, rkey, entry.status);
 
-  // Strip local-only metadata fields before PDS write
-  const { title: _title, mediaType: _mediaType, ...pdsRecord } = entry;
+  // Strip local-only metadata; convert rating to integer (×100) for DAG-CBOR compatibility
+  const { title: _title, mediaType: _mediaType, rating, ...pdsRest } = entry;
+  const pdsRecord = {
+    ...pdsRest,
+    ...(rating != null ? { rating: Math.round(rating * 100) } : {}),
+  };
 
   let response: Awaited<ReturnType<typeof agent.com.atproto.repo.putRecord>>;
   try {
@@ -161,6 +165,10 @@ export async function reconcileUser(agent: Agent, userId: string, did: string): 
   console.debug("[sync] reconcileUser fetched %d records from PDS", pdsRecords.size);
 
   for (const [rkey, record] of pdsRecords) {
+    // Rating stored as integer ×100 in PDS; convert back to float for DB
+    if (record.rating != null && record.rating > 10) {
+      record.rating = record.rating / 100;
+    }
     await upsertLocalMirror(userId, rkey, record);
   }
   console.debug("[sync] reconcileUser upserted %d records to local DB", pdsRecords.size);

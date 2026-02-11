@@ -639,7 +639,15 @@ function RatingInput({
         type="text"
         inputMode="decimal"
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        maxLength={5}
+        onChange={(e) => {
+          const v = e.target.value;
+          // Allow typing but block more than 2 decimal places
+          const norm = v.replace(",", ".");
+          const dot = norm.indexOf(".");
+          if (dot !== -1 && norm.length - dot - 1 > 2) return;
+          setText(v);
+        }}
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === "Enter") commit();
