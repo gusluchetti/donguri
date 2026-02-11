@@ -4,10 +4,14 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
+const publicHost = process.env.PUBLIC_URL
+  ? new URL(process.env.PUBLIC_URL).hostname
+  : undefined;
+
 export default defineConfig({
   server: {
     port: 3000,
-    allowedHosts: ["labs-early-finest-rights.trycloudflare.com"],
+    allowedHosts: publicHost ? [publicHost] : [],
   },
   environments: {
     client: {
