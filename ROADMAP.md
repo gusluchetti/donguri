@@ -4,7 +4,7 @@ donguri is a media catalog and tracker for movies, TV shows, anime, and games. U
 
 ## Current status
 
-Media catalog is live on Fly.io with Postgres, Wikidata titles imported (5+ sitelinks filter). AT Protocol OAuth login works end-to-end via Bluesky. Next up: tracking features (watchlist, ratings, progress).
+Media catalog is live on Fly.io with Postgres, Wikidata titles imported (5+ sitelinks filter). AT Protocol OAuth login works end-to-end via Bluesky. Tracking features are live: watchlist, ratings (0–100 scale), episode progress, notes, quick-add from catalog, and save feedback UX. Next up: IDB offline cache, service imports, and social features.
 
 ## Phase 0: Catalog infrastructure [DONE]
 
@@ -42,10 +42,13 @@ Media catalog is live on Fly.io with Postgres, Wikidata titles imported (5+ site
 - [x] Fly.io app provisioning (app + Postgres cluster)
 - [x] ES256 key pair generation
 - [x] Run Wikidata import against production DB
+- [x] Metadata enrichment (descriptions, genres, platforms)
+- [x] Client-side IDB cache for watchlist
+- [x] PWA manifest
 - [ ] Production domain setup + fly secrets for production
 - [ ] CI/CD pipeline (build + deploy)
 
-## Phase 2: Tracking features + local storage
+## Phase 2: Tracking features + local storage [IN PROGRESS]
 
 The core experience — track what you watch and play, with offline support.
 
@@ -53,20 +56,22 @@ The core experience — track what you watch and play, with offline support.
 
 ```
 User action (e.g. "watched ep 3 of HxH")
-  → Local write (IndexedDB → instant optimistic UI)
+  → Optimistic UI (instant visual update)
   → Server DB write
     → AT users: PDS write → eventual DB sync (PDS is source of truth)
     → Non-AT users: DB is source of truth directly
+  → Terminal-style save feedback (ok / err)
 ```
 
 ### Features
 
-- [ ] Local storage layer (IndexedDB) for offline support and optimistic UI
-- [ ] User accounts: AT Protocol login or local-only accounts
-- [ ] Watchlist: add/remove media, set status (watching, completed, dropped, plan to watch)
-- [ ] Episode progress tracking for series and anime
-- [ ] Ratings (1–10 scale)
-- [ ] Short reviews / notes per title
+- [x] Watchlist: add/remove media, set status (watching, completed, dropped, plan to watch, paused)
+- [x] Ratings (0–100 integer scale)
+- [x] Episode progress tracking for series and anime
+- [x] Short notes per title
+- [x] Quick-add from catalog list ([+] → [...] → [ok])
+- [x] Save feedback UX (terminal-style inline indicators via `useAction` hook)
+- [ ] IndexedDB offline cache (partially implemented — watchlist cache exists)
 - [ ] Import from existing services (MyAnimeList, Letterboxd, etc.)
 
 ## Phase 3: Social features

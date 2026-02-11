@@ -45,6 +45,7 @@ function CatalogPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(q ?? "");
   const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
+  const [quickAddState, setQuickAddState] = useState<Record<string, "pending" | "done">>({});
   const searchTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -148,13 +149,27 @@ function CatalogPage() {
       e.stopPropagation();
       console.debug("[quick-add] %s → watching (optimistic)", wikidataId);
       setLocalOverrides((prev) => ({ ...prev, [wikidataId]: "watching" }));
+      setQuickAddState((prev) => ({ ...prev, [wikidataId]: "pending" }));
       try {
         await setCatalogEntry({ data: { wikidataId, status: "watching" } });
         console.debug("[quick-add] %s → server ok", wikidataId);
+        setQuickAddState((prev) => ({ ...prev, [wikidataId]: "done" }));
+        setTimeout(() => {
+          setQuickAddState((prev) => {
+            const next = { ...prev };
+            delete next[wikidataId];
+            return next;
+          });
+        }, 1500);
         clearCachedWatchlist();
         router.invalidate();
       } catch (err) {
         console.error("[quick-add] %s → FAILED:", wikidataId, err);
+        setQuickAddState((prev) => {
+          const next = { ...prev };
+          delete next[wikidataId];
+          return next;
+        });
         setLocalOverrides((prev) => {
           const next = { ...prev };
           delete next[wikidataId];
@@ -293,6 +308,7 @@ function CatalogPage() {
               const status = trackedIds[item.wikidataId] ?? null;
               const isTracked = status !== null;
               const showAdd = auth && !isTracked;
+              const addState = quickAddState[item.wikidataId] ?? null;
 
               return (
                 <Link
@@ -309,6 +325,7 @@ function CatalogPage() {
                     item={item}
                     trackedStatus={status}
                     showAdd={!!showAdd}
+                    addState={addState}
                     onQuickAdd={handleQuickAdd}
                   />
                 </Link>
@@ -353,11 +370,13 @@ function MediaRow({
   item,
   trackedStatus,
   showAdd,
+  addState,
   onQuickAdd,
 }: {
   item: Media;
   trackedStatus: string | null;
   showAdd: boolean;
+  addState: "pending" | "done" | null;
   onQuickAdd: (wikidataId: string, e: React.MouseEvent) => void;
 }) {
   const badgeClass =
@@ -368,7 +387,11 @@ function MediaRow({
   return (
     <div className="flex items-center justify-between py-2 h-full gap-4">
       <div className="flex items-center gap-3 min-w-0 flex-1">
-        {showAdd && (
+        {addState === "pending" ? (
+          <span className="text-[0.75rem] font-bold text-dg-accent font-mono shrink-0">[<span className="dg-ellipsis" />]</span>
+        ) : addState === "done" ? (
+          <span className="text-[0.75rem] font-bold text-dg-game font-mono shrink-0">[ok]</span>
+        ) : showAdd ? (
           <button
             type="button"
             onClick={(e) => onQuickAdd(item.wikidataId, e)}
@@ -376,7 +399,7 @@ function MediaRow({
           >
             [+]
           </button>
-        )}
+        ) : null}
         <span
           className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm border uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center ${badgeClass}`}
         >

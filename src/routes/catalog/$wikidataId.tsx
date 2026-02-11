@@ -3,6 +3,7 @@ import { Save, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CatalogEntry } from "../../db/schema";
 import { getCatalogEntry, getMediaStub, removeCatalogEntry, setCatalogEntry } from "../../lib/catalog.functions";
+import { useAction } from "../../lib/use-action";
 import { clearCachedWatchlist } from "../../lib/idb-cache";
 import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../../lib/media-types";
 import { getMedia } from "../../lib/media.functions";
@@ -371,8 +372,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
   const router = useRouter();
   const [entry, setEntry] = useState<CatalogEntry | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const action = useAction();
   // Local state tracks UI; saved* refs track what the server has
   const [localRating, setLocalRating] = useState<number | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
@@ -415,8 +415,6 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
     const status = localStatus as NonNullable<CatalogEntry["status"]>;
     if (!status) return;
     console.debug("[tracking] save %s → status=%s rating=%s", wikidataId, status, localRating);
-    setSaving(true);
-    setError(null);
     const prev = entry;
     setEntry((e) =>
       e
@@ -437,55 +435,53 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
             updatedAt: new Date(),
           } as CatalogEntry),
     );
-    try {
-      await setCatalogEntry({
-        data: {
-          wikidataId,
-          status,
-          rating: localRating,
-          note: prev?.note,
-          episodeProgress: prev?.episodeProgress,
-        },
-      });
-      console.debug("[tracking] save %s → server ok, refreshing", wikidataId);
-      const fresh = await getCatalogEntry({ data: { wikidataId } });
-      setEntry(fresh);
-      setLocalRating(fresh?.rating ?? null);
-      setLocalStatus(fresh?.status ?? null);
-      savedRating.current = fresh?.rating ?? null;
-      savedStatus.current = fresh?.status ?? null;
-      clearCachedWatchlist();
-      router.invalidate();
-    } catch (err) {
-      console.error("[tracking] save %s → FAILED:", wikidataId, err);
-      setEntry(prev);
-      setLocalRating(prev?.rating ?? null);
-      setLocalStatus(prev?.status ?? null);
-      setError("Failed to save");
-    } finally {
-      setSaving(false);
-    }
-  }, [entry, localStatus, localRating, wikidataId, router]);
+    await action.run(async () => {
+      try {
+        await setCatalogEntry({
+          data: {
+            wikidataId,
+            status,
+            rating: localRating,
+            note: prev?.note,
+            episodeProgress: prev?.episodeProgress,
+          },
+        });
+        console.debug("[tracking] save %s → server ok, refreshing", wikidataId);
+        const fresh = await getCatalogEntry({ data: { wikidataId } });
+        setEntry(fresh);
+        setLocalRating(fresh?.rating ?? null);
+        setLocalStatus(fresh?.status ?? null);
+        savedRating.current = fresh?.rating ?? null;
+        savedStatus.current = fresh?.status ?? null;
+        clearCachedWatchlist();
+        router.invalidate();
+      } catch (err) {
+        console.error("[tracking] save %s → FAILED:", wikidataId, err);
+        setEntry(prev);
+        setLocalRating(prev?.rating ?? null);
+        setLocalStatus(prev?.status ?? null);
+        throw err;
+      }
+    });
+  }, [entry, localStatus, localRating, wikidataId, router, action]);
 
   const handleRemove = useCallback(async () => {
     console.debug("[tracking] remove %s (optimistic)", wikidataId);
-    setSaving(true);
-    setError(null);
     const prev = entry;
     setEntry(null);
-    try {
-      await removeCatalogEntry({ data: { wikidataId } });
-      console.debug("[tracking] remove %s → server ok", wikidataId);
-      clearCachedWatchlist();
-      router.invalidate();
-    } catch (err) {
-      console.error("[tracking] remove %s → FAILED:", wikidataId, err);
-      setEntry(prev);
-      setError("Failed to remove");
-    } finally {
-      setSaving(false);
-    }
-  }, [entry, wikidataId, router]);
+    await action.run(async () => {
+      try {
+        await removeCatalogEntry({ data: { wikidataId } });
+        console.debug("[tracking] remove %s → server ok", wikidataId);
+        clearCachedWatchlist();
+        router.invalidate();
+      } catch (err) {
+        console.error("[tracking] remove %s → FAILED:", wikidataId, err);
+        setEntry(prev);
+        throw err;
+      }
+    });
+  }, [entry, wikidataId, router, action]);
 
   if (!loaded) {
     return (
@@ -498,10 +494,16 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
   return (
     <div className="border border-dg-border-subtle rounded p-4 bg-dg-surface mb-6">
       <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-3">
-        Tracking {saving && <span className="text-dg-accent ml-1">saving...</span>}
+        {action.state === "pending" ? (
+          <><span className="dg-ellipsis">Tracking</span></>
+        ) : action.state === "done" ? (
+          <>Tracking <span className="text-dg-game">ok</span></>
+        ) : action.state === "error" ? (
+          <>Tracking <span className="text-dg-anime">err</span></>
+        ) : (
+          "Tracking"
+        )}
       </h3>
-
-      {error && <p className="text-dg-anime text-[0.75rem] mb-2">{error}</p>}
 
       {/* Status buttons — horizontal (local-only, saved on explicit save) */}
       <div className="flex flex-wrap gap-1.5 mb-4">
@@ -513,7 +515,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               key={s.value}
               type="button"
               onClick={() => setLocalStatus(s.value)}
-              disabled={saving}
+              disabled={action.state === "pending"}
               className={`text-[0.8rem] py-1.5 px-3 rounded-sm border font-mono cursor-pointer transition-all duration-150 disabled:opacity-50 ${
                 isActive
                   ? colorClass
@@ -542,7 +544,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               onChange={(e) => {
                 setLocalRating(Number.parseInt(e.target.value, 10) || null);
               }}
-              disabled={saving}
+              disabled={action.state === "pending"}
               className="dg-range flex-1"
               style={{ "--rating-color": ratingColor(localRating) } as React.CSSProperties}
             />
@@ -551,7 +553,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               <button
                 type="button"
                 onClick={() => setLocalRating(null)}
-                disabled={saving}
+                disabled={action.state === "pending"}
                 className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-0 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
                 title="Clear rating"
               >
@@ -568,7 +570,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || !isDirty}
+            disabled={action.state === "pending" || !isDirty}
             className={`bg-transparent border-none cursor-pointer p-0 transition-colors duration-150 disabled:opacity-30 ${
               isDirty
                 ? "text-dg-accent hover:text-dg-accent/80"
@@ -582,7 +584,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
             <button
               type="button"
               onClick={handleRemove}
-              disabled={saving}
+              disabled={action.state === "pending"}
               className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-0 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
               title="Remove from list"
             >
