@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* Mobile touch & scroll */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.scrollbar-hide {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 @theme {
   --font-mono: "IBM Plex Mono", "SF Mono", "Fira Code", monospace;
 
@@ -118,6 +131,24 @@ input[type="range"].dg-range::-moz-range-thumb {
 
 input[type="range"].dg-range:disabled {
   opacity: 0.5;
+}
+
+@media (pointer: coarse) {
+  input[type="range"].dg-range::-webkit-slider-runnable-track {
+    height: 6px;
+  }
+  input[type="range"].dg-range::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+    margin-top: -10px;
+  }
+  input[type="range"].dg-range::-moz-range-track {
+    height: 6px;
+  }
+  input[type="range"].dg-range::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+  }
 }
 
 /* Ellipsis loading animation */

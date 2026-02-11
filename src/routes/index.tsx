@@ -59,26 +59,26 @@ function HomePage() {
 
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[700px] mx-auto px-6 py-16">
-        <h1 className="text-[2rem] font-semibold -tracking-[0.02em] mb-2">
+      <div className="max-w-[700px] mx-auto px-4 py-10 sm:px-6 sm:py-16">
+        <h1 className="text-[1.6rem] sm:text-[2rem] font-semibold -tracking-[0.02em] mb-2">
           <span className="text-dg-accent">donguri</span>
         </h1>
-        <p className="text-dg-text-secondary text-[0.9rem] leading-relaxed mb-8">
+        <p className="text-dg-text-secondary text-[0.9rem] leading-relaxed mb-6 sm:mb-8">
           Track movies, TV, anime, and games. Your watchlist, your data, your rules.
         </p>
 
         {auth ? <LoggedInView handle={auth.handle} /> : <LoginForm />}
 
-        <div className="flex gap-3 mt-8">
+        <div className="flex flex-col sm:flex-row gap-3 mt-6 sm:mt-8">
           <Link
             to="/catalog"
-            className="text-[0.85rem] text-dg-accent no-underline py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-150"
+            className="text-[0.85rem] text-dg-accent no-underline py-2.5 sm:py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-150 text-center sm:text-left"
           >
             Browse catalog
           </Link>
           <Link
             to="/roadmap"
-            className="text-[0.85rem] text-dg-text-secondary no-underline py-2 px-4 border border-dg-border-subtle rounded-sm transition-all duration-150"
+            className="text-[0.85rem] text-dg-text-secondary no-underline py-2.5 sm:py-2 px-4 border border-dg-border-subtle rounded-sm transition-all duration-150 text-center sm:text-left"
           >
             Roadmap
           </Link>
@@ -104,7 +104,7 @@ function LoggedInView({ handle }: { handle: string }) {
 
   return (
     <div>
-      <div className="border border-dg-border-subtle rounded p-5 bg-dg-surface mb-6">
+      <div className="border border-dg-border-subtle rounded p-4 sm:p-5 bg-dg-surface mb-6">
         <p className="text-dg-text text-[0.9rem]">
           Signed in as <span className="text-dg-accent">@{handle}</span>
         </p>
@@ -115,7 +115,7 @@ function LoggedInView({ handle }: { handle: string }) {
       )}
 
       {grouped.size === 0 ? (
-        <div className="border border-dg-border-subtle rounded p-5 bg-dg-surface">
+        <div className="border border-dg-border-subtle rounded p-4 sm:p-5 bg-dg-surface">
           <p className="text-dg-text-secondary text-[0.85rem] leading-relaxed">
             Your watchlist is empty. Browse the catalog to add titles.
           </p>
@@ -152,7 +152,7 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
               key={item.id}
               to="/catalog/$wikidataId"
               params={{ wikidataId: item.mediaWikidataId }}
-              className="flex items-center gap-3 px-4 py-2.5 no-underline text-inherit hover:bg-dg-elevated/50 transition-colors duration-100"
+              className="flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-2.5 no-underline text-inherit hover:bg-dg-elevated/50 transition-colors duration-100"
             >
               <span
                 className={`text-[0.55rem] font-semibold py-0.5 px-1.5 rounded-sm border uppercase tracking-wide whitespace-nowrap shrink-0 ${badgeClass}`}
@@ -208,7 +208,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="border border-dg-border-subtle rounded p-5 bg-dg-surface">
+    <div className="border border-dg-border-subtle rounded p-4 sm:p-5 bg-dg-surface">
       <form onSubmit={onSubmit}>
         <label
           htmlFor="handle"
@@ -216,7 +216,7 @@ function LoginForm() {
         >
           Sign in with Bluesky
         </label>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             id="handle"
             type="text"
@@ -224,12 +224,12 @@ function LoginForm() {
             onChange={(e) => setHandle(e.target.value)}
             placeholder="handle.bsky.social"
             disabled={loading}
-            className="flex-1 bg-dg-bg border border-dg-border rounded px-3 py-2 text-[0.85rem] text-dg-text font-mono placeholder:text-dg-text-tertiary focus:outline-none focus:border-dg-accent/50 disabled:opacity-50"
+            className="flex-1 bg-dg-bg border border-dg-border rounded px-3 py-2.5 sm:py-2 text-base sm:text-[0.85rem] text-dg-text font-mono placeholder:text-dg-text-tertiary focus:outline-none focus:border-dg-accent/50 disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={loading || !handle.trim()}
-            className="bg-transparent border border-dg-accent/30 text-dg-accent px-4 py-2 rounded-sm text-[0.85rem] font-mono cursor-pointer transition-all duration-150 hover:border-dg-accent/60 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="bg-transparent border border-dg-accent/30 text-dg-accent px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-mono cursor-pointer transition-all duration-150 hover:border-dg-accent/60 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loading ? <span className="dg-ellipsis">Signing in</span> : "Sign in"}
           </button>

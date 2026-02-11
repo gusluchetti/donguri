@@ -10,7 +10,7 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1" },
       { name: "theme-color", content: "#d4a44a" },
       { title: "donguri" },
       {
@@ -74,14 +74,14 @@ function RootComponent() {
 
   return (
     <RootDocument>
-      <nav className="border-b border-dg-border-subtle px-6 py-3 font-mono">
-        <div className="max-w-[1000px] mx-auto flex items-center gap-6">
+      <nav className="border-b border-dg-border-subtle px-4 sm:px-6 py-3 font-mono">
+        <div className="max-w-[1000px] mx-auto flex items-center min-h-[44px] gap-4 sm:gap-6">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.to}
               to={link.to}
               activeOptions={{ exact: link.exact !== false }}
-              className="text-[0.85rem] no-underline transition-colors duration-150"
+              className="text-[0.85rem] no-underline transition-colors duration-150 min-h-[44px] flex items-center"
               activeProps={{ className: "text-dg-accent" }}
               inactiveProps={{
                 className: link.accent ? "text-dg-accent" : "text-dg-text-secondary",
@@ -93,10 +93,10 @@ function RootComponent() {
           <div className="ml-auto">
             {auth ? (
               <div className="flex items-center gap-4">
-                <span className="text-[0.8rem] text-dg-text-secondary">@{auth.handle}</span>
+                <span className="text-[0.8rem] text-dg-text-secondary hidden sm:inline">@{auth.handle}</span>
                 <button
                   type="button"
-                  className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none font-mono"
+                  className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none font-mono min-h-[44px] flex items-center"
                   onClick={async () => {
                     await logout();
                     cacheClearAll();
@@ -109,7 +109,7 @@ function RootComponent() {
             ) : (
               <Link
                 to="/"
-                className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-150"
+                className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-150 min-h-[44px] flex items-center"
               >
                 login
               </Link>
