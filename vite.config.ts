@@ -7,7 +7,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 export default defineConfig({
   server: {
     port: 3000,
-    allowedHosts: ["nearest-area-said-clocks.trycloudflare.com"],
+    allowedHosts: ["labs-early-finest-rights.trycloudflare.com"],
   },
   environments: {
     client: {
