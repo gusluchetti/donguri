@@ -8,8 +8,6 @@ dist/
 *.local
 bun.lock
 
-# Drizzle
-drizzle/
 
 # Generated route tree
 src/routeTree.gen.ts

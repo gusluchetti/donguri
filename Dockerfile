@@ -21,6 +21,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY package.json drizzle.config.ts ./
 COPY src/db ./src/db
+COPY drizzle ./drizzle
 
 EXPOSE 3000
 CMD ["bun", "run", "start"]
