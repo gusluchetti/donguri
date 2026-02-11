@@ -25,6 +25,10 @@ export function getDb() {
 
 // For import scripts that run outside the server
 export function createDb(url: string) {
-  const client = postgres(url, { max: 10, idle_timeout: 20 });
+  const client = postgres(url, {
+    max: 5,
+    idle_timeout: 30,
+    connect_timeout: 30,
+  });
   return drizzle(client, { schema });
 }

@@ -26,8 +26,10 @@ import { shouldImportEntity } from "./filters";
 import { parseMediaEntity } from "./parser";
 import type { ParsedMedia, WikidataEntity } from "./types";
 
-const BATCH_SIZE = 1000;
+const BATCH_SIZE = 200;
 const PROGRESS_LOG_INTERVAL = 1_000;
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 2_000;
 
 function formatDuration(ms: number): string {
   const seconds = Math.floor(ms / 1000) % 60;
@@ -59,6 +61,28 @@ function parseJsonLine(line: string): WikidataEntity | null {
 }
 
 // ─── DB helpers ─────────────────────────────────────────────────────────────
+
+async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const isConnectionError =
+        err instanceof Error &&
+        (err.message.includes("CONNECTION_CLOSED") ||
+          err.message.includes("CONNECT_TIMEOUT") ||
+          err.message.includes("connection") ||
+          err.cause?.toString().includes("CONNECTION_CLOSED"));
+      if (isConnectionError && attempt < MAX_RETRIES) {
+        console.warn(`[retry] ${label} failed (attempt ${attempt}/${MAX_RETRIES}), retrying in ${RETRY_DELAY_MS}ms...`);
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error("unreachable");
+}
 
 type DbType = ReturnType<typeof createDb>;
 
@@ -132,10 +156,13 @@ async function insertBatch(
     }
 
     // Batch-ensure genres and platforms exist (2 round trips instead of N)
-    await Promise.all([
-      allGenreIds.size > 0 ? ensureGenres(db, [...allGenreIds], genreCache) : undefined,
-      allPlatformIds.size > 0 ? ensurePlatforms(db, [...allPlatformIds], platformCache) : undefined,
-    ]);
+    await withRetry(
+      () => Promise.all([
+        allGenreIds.size > 0 ? ensureGenres(db, [...allGenreIds], genreCache) : undefined,
+        allPlatformIds.size > 0 ? ensurePlatforms(db, [...allPlatformIds], platformCache) : undefined,
+      ]),
+      "ensure genres/platforms",
+    );
 
     // Insert media
     const mediaValues = batch.map((item) => ({
@@ -163,11 +190,14 @@ async function insertBatch(
       searchTitle: item.searchTitle,
     }));
 
-    const inserted = await db
-      .insert(media)
-      .values(mediaValues)
-      .onConflictDoNothing()
-      .returning({ id: media.id, wikidataId: media.wikidataId });
+    const inserted = await withRetry(
+      () => db
+        .insert(media)
+        .values(mediaValues)
+        .onConflictDoNothing()
+        .returning({ id: media.id, wikidataId: media.wikidataId }),
+      "insert media",
+    );
 
     stats.entitiesImported += inserted.length;
 
@@ -199,14 +229,17 @@ async function insertBatch(
     }
 
     // Bulk insert relations (2 more round trips max)
-    await Promise.all([
-      genreRelations.length > 0
-        ? db.insert(mediaGenres).values(genreRelations).onConflictDoNothing()
-        : undefined,
-      platformRelations.length > 0
-        ? db.insert(mediaPlatforms).values(platformRelations).onConflictDoNothing()
-        : undefined,
-    ]);
+    await withRetry(
+      () => Promise.all([
+        genreRelations.length > 0
+          ? db.insert(mediaGenres).values(genreRelations).onConflictDoNothing()
+          : undefined,
+        platformRelations.length > 0
+          ? db.insert(mediaPlatforms).values(platformRelations).onConflictDoNothing()
+          : undefined,
+      ]),
+      "insert relations",
+    );
   } catch (error) {
     stats.errors += batch.length;
     console.error("Batch insert error:", error);
