@@ -80,15 +80,20 @@ function LoggedInView({ handle }: { handle: string }) {
 
   useEffect(() => {
     let cancelled = false;
+    console.debug("[watchlist] loading entries...");
     getUserCatalogEntries({})
       .then((data) => {
         if (!cancelled) {
+          console.debug("[watchlist] loaded %d entries", data.length);
           setEntries(data as CatalogEntryRow[]);
           setLoading(false);
         }
       })
-      .catch(() => {
-        if (!cancelled) setLoading(false);
+      .catch((err) => {
+        if (!cancelled) {
+          console.error("[watchlist] load FAILED:", err);
+          setLoading(false);
+        }
       });
     return () => {
       cancelled = true;

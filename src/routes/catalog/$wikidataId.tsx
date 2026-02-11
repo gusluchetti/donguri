@@ -269,15 +269,20 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
 
   useEffect(() => {
     let cancelled = false;
+    console.debug("[tracking] loading entry for %s", wikidataId);
     getCatalogEntry({ data: { wikidataId } })
       .then((e) => {
         if (!cancelled) {
+          console.debug("[tracking] loaded entry for %s → %s", wikidataId, e ? e.status : "not tracked");
           setEntry(e);
           setLoaded(true);
         }
       })
-      .catch(() => {
-        if (!cancelled) setLoaded(true);
+      .catch((err) => {
+        if (!cancelled) {
+          console.error("[tracking] load FAILED for %s:", wikidataId, err);
+          setLoaded(true);
+        }
       });
     return () => {
       cancelled = true;
@@ -286,6 +291,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
 
   const handleSetStatus = useCallback(
     async (status: "watching" | "completed" | "dropped" | "plan_to_watch" | "paused") => {
+      console.debug("[tracking] setStatus %s → %s (optimistic)", wikidataId, status);
       setSaving(true);
       setError(null);
       const prev = entry;
@@ -316,10 +322,12 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
             episodeProgress: prev?.episodeProgress,
           },
         });
+        console.debug("[tracking] setStatus %s → server ok, refreshing", wikidataId);
         const fresh = await getCatalogEntry({ data: { wikidataId } });
         setEntry(fresh);
         router.invalidate();
-      } catch {
+      } catch (err) {
+        console.error("[tracking] setStatus %s → FAILED:", wikidataId, err);
         setEntry(prev);
         setError("Failed to save");
       } finally {
@@ -332,6 +340,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
   const handleSetRating = useCallback(
     async (rating: number | null) => {
       if (!entry?.status) return;
+      console.debug("[tracking] setRating %s → %s (optimistic)", wikidataId, rating);
       setSaving(true);
       setError(null);
       const prev = entry;
@@ -346,10 +355,12 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
             episodeProgress: entry.episodeProgress,
           },
         });
+        console.debug("[tracking] setRating %s → server ok, refreshing", wikidataId);
         const fresh = await getCatalogEntry({ data: { wikidataId } });
         setEntry(fresh);
         router.invalidate();
-      } catch {
+      } catch (err) {
+        console.error("[tracking] setRating %s → FAILED:", wikidataId, err);
         setEntry(prev);
         setError("Failed to save");
       } finally {
@@ -360,14 +371,17 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
   );
 
   const handleRemove = useCallback(async () => {
+    console.debug("[tracking] remove %s (optimistic)", wikidataId);
     setSaving(true);
     setError(null);
     const prev = entry;
     setEntry(null);
     try {
       await removeCatalogEntry({ data: { wikidataId } });
+      console.debug("[tracking] remove %s → server ok", wikidataId);
       router.invalidate();
-    } catch {
+    } catch (err) {
+      console.error("[tracking] remove %s → FAILED:", wikidataId, err);
       setEntry(prev);
       setError("Failed to remove");
     } finally {

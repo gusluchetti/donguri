@@ -14,6 +14,7 @@ export const getCatalogEntry = createServerFn({ method: "GET" })
   .inputValidator(z.object({ wikidataId: z.string() }))
   .handler(async ({ data }): Promise<CatalogEntry | null> => {
     const { userId } = await requireAuth();
+    console.debug("[catalog] getCatalogEntry wikidataId=%s userId=%s", data.wikidataId, userId);
     const db = getDb();
 
     const [entry] = await db
@@ -24,11 +25,14 @@ export const getCatalogEntry = createServerFn({ method: "GET" })
       )
       .limit(1);
 
-    return entry ?? null;
+    const result = entry ?? null;
+    console.debug("[catalog] getCatalogEntry → %s", result ? `found (status=${result.status})` : "null");
+    return result;
   });
 
 export const getUserCatalogEntries = createServerFn({ method: "GET" }).handler(async () => {
   const { userId } = await requireAuth();
+  console.debug("[catalog] getUserCatalogEntries userId=%s", userId);
   const db = getDb();
 
   const entries = await db
@@ -48,11 +52,13 @@ export const getUserCatalogEntries = createServerFn({ method: "GET" }).handler(a
     .where(eq(catalogEntries.userId, userId))
     .orderBy(desc(catalogEntries.updatedAt));
 
+  console.debug("[catalog] getUserCatalogEntries → %d entries", entries.length);
   return entries;
 });
 
 export const getUserTrackedIds = createServerFn({ method: "GET" }).handler(async () => {
   const { userId } = await requireAuth();
+  console.debug("[catalog] getUserTrackedIds userId=%s", userId);
   const db = getDb();
 
   const entries = await db
@@ -63,6 +69,7 @@ export const getUserTrackedIds = createServerFn({ method: "GET" }).handler(async
     .from(catalogEntries)
     .where(eq(catalogEntries.userId, userId));
 
+  console.debug("[catalog] getUserTrackedIds → %d tracked", entries.length);
   return Object.fromEntries(entries.map((e) => [e.mediaWikidataId, e.status]));
 });
 
@@ -78,40 +85,61 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const { userId, did } = await requireAuth();
-    const agent = await getAuthenticatedAgent(did);
+    console.debug("[catalog] setCatalogEntry wikidataId=%s status=%s rating=%s", data.wikidataId, data.status, data.rating ?? "null");
+    try {
+      const { userId, did } = await requireAuth();
+      console.debug("[catalog] setCatalogEntry auth ok userId=%s did=%s", userId, did);
+      const agent = await getAuthenticatedAgent(did);
+      console.debug("[catalog] setCatalogEntry agent obtained");
 
-    const now = new Date().toISOString();
+      const now = new Date().toISOString();
 
-    const db = getDb();
-    const [existing] = await db
-      .select({ createdAt: catalogEntries.createdAt })
-      .from(catalogEntries)
-      .where(
-        and(eq(catalogEntries.userId, userId), eq(catalogEntries.mediaWikidataId, data.wikidataId)),
-      )
-      .limit(1);
+      const db = getDb();
+      const [existing] = await db
+        .select({ createdAt: catalogEntries.createdAt })
+        .from(catalogEntries)
+        .where(
+          and(eq(catalogEntries.userId, userId), eq(catalogEntries.mediaWikidataId, data.wikidataId)),
+        )
+        .limit(1);
 
-    await putCatalogEntry(agent, userId, did, {
-      mediaRef: data.wikidataId,
-      status: data.status,
-      rating: data.rating ?? undefined,
-      note: data.note ?? undefined,
-      episodeProgress: data.episodeProgress ?? undefined,
-      createdAt: existing?.createdAt?.toISOString() ?? now,
-      updatedAt: now,
-    });
+      console.debug("[catalog] setCatalogEntry existing entry: %s", existing ? `yes (created ${existing.createdAt?.toISOString()})` : "no");
+      console.debug("[catalog] setCatalogEntry → calling putCatalogEntry");
 
-    return { ok: true };
+      await putCatalogEntry(agent, userId, did, {
+        mediaRef: data.wikidataId,
+        status: data.status,
+        rating: data.rating ?? undefined,
+        note: data.note ?? undefined,
+        episodeProgress: data.episodeProgress ?? undefined,
+        createdAt: existing?.createdAt?.toISOString() ?? now,
+        updatedAt: now,
+      });
+
+      console.debug("[catalog] setCatalogEntry → ok");
+      return { ok: true };
+    } catch (err) {
+      console.error("[catalog] setCatalogEntry FAILED:", err);
+      throw err;
+    }
   });
 
 export const removeCatalogEntry = createServerFn({ method: "POST" })
   .inputValidator(z.object({ wikidataId: z.string() }))
   .handler(async ({ data }) => {
-    const { userId, did } = await requireAuth();
-    const agent = await getAuthenticatedAgent(did);
+    console.debug("[catalog] removeCatalogEntry wikidataId=%s", data.wikidataId);
+    try {
+      const { userId, did } = await requireAuth();
+      console.debug("[catalog] removeCatalogEntry auth ok userId=%s did=%s", userId, did);
+      const agent = await getAuthenticatedAgent(did);
+      console.debug("[catalog] removeCatalogEntry → calling deleteCatalogEntry");
 
-    await deleteCatalogEntry(agent, userId, did, data.wikidataId);
+      await deleteCatalogEntry(agent, userId, did, data.wikidataId);
 
-    return { ok: true };
+      console.debug("[catalog] removeCatalogEntry → ok");
+      return { ok: true };
+    } catch (err) {
+      console.error("[catalog] removeCatalogEntry FAILED:", err);
+      throw err;
+    }
   });

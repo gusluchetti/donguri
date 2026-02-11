@@ -28,7 +28,9 @@ export const Route = createRootRoute({
     if (auth) {
       try {
         trackedIds = await getUserTrackedIds({});
-      } catch {}
+      } catch (err) {
+        console.error("[root] getUserTrackedIds FAILED:", err, "(continuing with empty)");
+      }
     }
     return { auth, trackedIds };
   },
