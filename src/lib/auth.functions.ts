@@ -17,7 +17,23 @@ const isDev = process.env.NODE_ENV === "development";
 export type { SessionData } from "./auth/session";
 
 export const getAuthState = createServerFn({ method: "GET" }).handler(async () => {
-  return await getSessionData();
+  const session = await getSessionData();
+  if (!session) return null;
+
+  const db = getDb();
+  const [user] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.did, session.did))
+    .limit(1);
+
+  if (!user) {
+    console.error("[auth] getAuthState: session valid but user not in DB (did=%s), clearing", session.did);
+    clearSessionCookie();
+    return null;
+  }
+
+  return session;
 });
 
 export const initiateLogin = createServerFn({ method: "POST" })

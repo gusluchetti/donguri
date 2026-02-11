@@ -82,6 +82,10 @@ export async function requireAuth(): Promise<SessionData & { userId: string }> {
     .where(eq(users.did, session.did))
     .limit(1);
 
-  if (!user) throw new Error("User not found");
+  if (!user) {
+    console.error("[auth] session valid but user not found in DB (did=%s), clearing session", session.did);
+    clearSessionCookie();
+    throw new Error("Not authenticated");
+  }
   return { ...session, userId: user.id };
 }
