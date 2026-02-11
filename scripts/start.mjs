@@ -71,6 +71,6 @@ const server = createServer(async (req, res) => {
 });
 
 const port = parseInt(process.env.PORT || "3000", 10);
-server.listen(port, () => {
-  console.log(`listening on :${port}`);
+server.listen(port, "0.0.0.0", () => {
+  console.log(`listening on 0.0.0.0:${port}`);
 });
