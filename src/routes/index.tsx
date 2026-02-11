@@ -1,8 +1,40 @@
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getUserCatalogEntries } from "../lib/catalog.functions";
+import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../lib/media-types";
 import { initiateLogin } from "../lib/auth.functions";
 
 const rootRoute = getRouteApi("__root__");
+
+const STATUS_ORDER = ["watching", "plan_to_watch", "paused", "dropped", "completed"] as const;
+
+const STATUS_LABELS: Record<string, string> = {
+  watching: "Watching",
+  plan_to_watch: "Plan to Watch",
+  paused: "Paused",
+  dropped: "Dropped",
+  completed: "Completed",
+};
+
+const STATUS_ACCENT: Record<string, string> = {
+  watching: "text-dg-accent",
+  plan_to_watch: "text-dg-tv",
+  paused: "text-dg-text-tertiary",
+  dropped: "text-dg-anime",
+  completed: "text-dg-game",
+};
+
+type CatalogEntryRow = {
+  id: string;
+  mediaWikidataId: string;
+  status: string | null;
+  rating: number | null;
+  note: string | null;
+  episodeProgress: number | null;
+  updatedAt: Date | null;
+  mediaTitle: string | null;
+  mediaType: string | null;
+};
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -13,7 +45,7 @@ function HomePage() {
 
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[600px] mx-auto px-6 py-16">
+      <div className="max-w-[700px] mx-auto px-6 py-16">
         <h1 className="text-[2rem] font-semibold -tracking-[0.02em] mb-2">
           <span className="text-dg-accent">donguri</span>
         </h1>
@@ -43,14 +75,112 @@ function HomePage() {
 }
 
 function LoggedInView({ handle }: { handle: string }) {
+  const [entries, setEntries] = useState<CatalogEntryRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    getUserCatalogEntries({})
+      .then((data) => {
+        if (!cancelled) {
+          setEntries(data as CatalogEntryRow[]);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Group by status
+  const grouped = new Map<string, CatalogEntryRow[]>();
+  for (const status of STATUS_ORDER) {
+    const items = entries.filter((e) => e.status === status);
+    if (items.length > 0) grouped.set(status, items);
+  }
+
   return (
-    <div className="border border-dg-border-subtle rounded p-5 bg-dg-surface">
-      <p className="text-dg-text text-[0.9rem] mb-2">
-        Signed in as <span className="text-dg-accent">@{handle}</span>
-      </p>
-      <p className="text-dg-text-secondary text-[0.85rem] leading-relaxed">
-        Watchlist features are coming soon. For now, browse the catalog.
-      </p>
+    <div>
+      <div className="border border-dg-border-subtle rounded p-5 bg-dg-surface mb-6">
+        <p className="text-dg-text text-[0.9rem]">
+          Signed in as <span className="text-dg-accent">@{handle}</span>
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="text-dg-text-tertiary text-[0.85rem]">Loading watchlist...</div>
+      ) : grouped.size === 0 ? (
+        <div className="border border-dg-border-subtle rounded p-5 bg-dg-surface">
+          <p className="text-dg-text-secondary text-[0.85rem] leading-relaxed">
+            Your watchlist is empty. Browse the catalog to add titles.
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-6">
+          {STATUS_ORDER.map((status) => {
+            const items = grouped.get(status);
+            if (!items) return null;
+            return (
+              <WatchlistSection
+                key={status}
+                status={status}
+                items={items}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WatchlistSection({
+  status,
+  items,
+}: {
+  status: string;
+  items: CatalogEntryRow[];
+}) {
+  const accentClass = STATUS_ACCENT[status] ?? "text-dg-text-secondary";
+
+  return (
+    <div>
+      <h2 className={`text-[0.8rem] uppercase tracking-wider mb-2 ${accentClass}`}>
+        {STATUS_LABELS[status] ?? status}{" "}
+        <span className="text-dg-text-tertiary font-normal">({items.length})</span>
+      </h2>
+      <div className="border border-dg-border-subtle rounded bg-dg-surface divide-y divide-dg-border-subtle">
+        {items.map((item) => {
+          const badgeClass =
+            TYPE_BADGE_CLASSES[item.mediaType ?? ""] ??
+            "bg-dg-elevated text-dg-text-tertiary border-dg-border";
+          return (
+            <Link
+              key={item.id}
+              to="/media/$wikidataId"
+              params={{ wikidataId: item.mediaWikidataId }}
+              className="flex items-center gap-3 px-4 py-2.5 no-underline text-inherit hover:bg-dg-elevated/50 transition-colors duration-100"
+            >
+              <span
+                className={`text-[0.55rem] font-semibold py-0.5 px-1.5 rounded-sm border uppercase tracking-wide whitespace-nowrap shrink-0 ${badgeClass}`}
+              >
+                {mediaTypeLabel(item.mediaType ?? "", true)}
+              </span>
+              <span className="text-[0.85rem] text-dg-text truncate flex-1">
+                {item.mediaTitle ?? item.mediaWikidataId}
+              </span>
+              {item.rating && (
+                <span className="text-[0.75rem] text-dg-accent tabular-nums shrink-0">
+                  {item.rating}/10
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }

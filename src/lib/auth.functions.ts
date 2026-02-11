@@ -1,17 +1,20 @@
 import { createServerFn } from "@tanstack/react-start";
 import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { getDb } from "../db";
+import { users } from "../db/schema";
+import { getAuthenticatedAgent } from "./auth/agent";
 import { getOAuthClient } from "./auth/client";
 import { getEnv } from "./env";
+import { reconcileUser } from "./sync";
 
 const isDev = process.env.NODE_ENV === "development";
-
-// ─── Session cookie helpers ─────────────────────────────────────────────────
 
 const COOKIE_NAME = "donguri-auth";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
-type SessionData = { did: string; handle: string };
+export type SessionData = { did: string; handle: string };
 
 async function signPayload(payload: string): Promise<string> {
   const env = getEnv();
@@ -66,18 +69,25 @@ function clearSessionCookie(): void {
   deleteCookie(COOKIE_NAME, { path: "/" });
 }
 
-// ─── Server functions ───────────────────────────────────────────────────────
+export async function requireAuth(): Promise<SessionData & { userId: string }> {
+  const session = await getSessionData();
+  if (!session) throw new Error("Not authenticated");
 
-/**
- * Get current auth state from session cookie.
- */
+  const db = getDb();
+  const [user] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.did, session.did))
+    .limit(1);
+
+  if (!user) throw new Error("User not found");
+  return { ...session, userId: user.id };
+}
+
 export const getAuthState = createServerFn({ method: "GET" }).handler(async () => {
   return await getSessionData();
 });
 
-/**
- * Initiate OAuth login — returns the authorization URL to redirect to.
- */
 export const initiateLogin = createServerFn({ method: "POST" })
   .inputValidator(z.object({ handle: z.string().min(1) }))
   .handler(async ({ data }) => {
@@ -99,9 +109,6 @@ export const initiateLogin = createServerFn({ method: "POST" })
     }
   });
 
-/**
- * Handle OAuth callback — exchanges code for session.
- */
 export const handleOAuthCallback = createServerFn({ method: "GET" })
   .inputValidator(
     z.object({
@@ -145,7 +152,6 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
       const did = result.session.did;
       if (isDev) console.debug("[callback] session obtained, DID:", did);
 
-      // Resolve handle from DID via public API
       let handle: string = did;
       try {
         if (isDev) console.debug("[callback] resolving handle for DID:", did);
@@ -160,6 +166,35 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
         console.error("[callback] handle resolution failed:", err);
       }
 
+      const db = getDb();
+      const existing = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.did, did))
+        .limit(1);
+
+      let userId: string;
+      if (existing.length > 0) {
+        userId = existing[0].id;
+        await db.update(users).set({ handle }).where(eq(users.id, userId));
+        if (isDev) console.debug("[callback] updated existing user:", userId);
+      } else {
+        const [newUser] = await db
+          .insert(users)
+          .values({ did, handle, authMethod: "atproto" })
+          .returning({ id: users.id });
+        userId = newUser.id;
+        if (isDev) console.debug("[callback] created new user:", userId);
+      }
+
+      try {
+        const agent = await getAuthenticatedAgent(did);
+        await reconcileUser(agent, userId, did);
+        if (isDev) console.debug("[callback] PDS reconciliation complete");
+      } catch (err) {
+        console.error("[callback] PDS reconciliation failed (login continues):", err);
+      }
+
       await setSessionCookie({ did, handle });
       if (isDev) console.debug("[callback] session cookie set, login complete");
       return { did, handle };
@@ -169,9 +204,6 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
     }
   });
 
-/**
- * Logout — revoke AT Proto session and clear cookie.
- */
 export const logout = createServerFn({ method: "POST" }).handler(async () => {
   if (isDev) console.debug("[logout] ─── logout called ───");
   const session = await getSessionData();

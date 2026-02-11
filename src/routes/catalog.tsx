@@ -3,6 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { Media } from "../db/schema";
+import { getUserTrackedIds } from "../lib/catalog.functions";
 import { getMediaStats, listMedia } from "../lib/media.functions";
 import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../lib/media-types";
 
@@ -41,8 +42,15 @@ function CatalogPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(q ?? "");
+  const [trackedIds, setTrackedIds] = useState<Record<string, string | null>>({});
   const searchTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const parentRef = useRef<HTMLDivElement>(null);
+
+  // Fetch tracked IDs for indicators (when logged in)
+  useEffect(() => {
+    if (!auth) return;
+    getUserTrackedIds({}).then(setTrackedIds).catch(() => {});
+  }, [auth]);
 
   // Fetch data when search params change (only if logged in)
   useEffect(() => {
@@ -271,7 +279,7 @@ function CatalogPage() {
                     height: virtualRow.size,
                   }}
                 >
-                  <MediaRow item={item} />
+                  <MediaRow item={item} trackedStatus={trackedIds[item.wikidataId] ?? null} />
                 </Link>
               );
             })}
@@ -282,13 +290,40 @@ function CatalogPage() {
   );
 }
 
-function MediaRow({ item }: { item: Media }) {
+const TRACKED_ASTERISK_COLORS: Record<string, string> = {
+  watching: "text-dg-accent",
+  plan_to_watch: "text-dg-tv",
+  paused: "text-dg-text-tertiary",
+  dropped: "text-dg-anime",
+  completed: "text-dg-game",
+};
+
+function formatMeta(item: Media): string {
+  const { mediaType, seasonCount, episodeCount, runtimeMinutes } = item;
+  if (mediaType === "tv_series" || mediaType === "anime") {
+    const parts: string[] = [];
+    if (seasonCount) parts.push(`S${String(seasonCount).padStart(2, "0")}`);
+    if (episodeCount) parts.push(`E${episodeCount}`);
+    return parts.join("");
+  }
+  if (mediaType === "movie" && runtimeMinutes) {
+    return `${runtimeMinutes} min`;
+  }
+  return "";
+}
+
+function MediaRow({ item, trackedStatus }: { item: Media; trackedStatus: string | null }) {
   const badgeClass =
     TYPE_BADGE_CLASSES[item.mediaType] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
+
+  const meta = formatMeta(item);
 
   return (
     <div className="flex items-center justify-between py-2 h-full gap-4">
       <div className="flex items-center gap-3 min-w-0 flex-1">
+        {trackedStatus && (
+          <span className={`text-sm shrink-0 ${TRACKED_ASTERISK_COLORS[trackedStatus] ?? "text-dg-text-tertiary"}`}>*</span>
+        )}
         <span
           className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm border uppercase tracking-wide whitespace-nowrap shrink-0 ${badgeClass}`}
         >
@@ -308,9 +343,11 @@ function MediaRow({ item }: { item: Media }) {
             {item.endYear && item.endYear !== item.startYear ? `–${item.endYear}` : ""}
           </span>
         )}
-        <span className="text-[0.7rem] text-dg-text-tertiary min-w-8 text-right tabular-nums">
-          {item.sitelinksCount ?? 0}
-        </span>
+        {meta && (
+          <span className="text-[0.7rem] text-dg-text-tertiary min-w-12 text-right tabular-nums">
+            {meta}
+          </span>
+        )}
       </div>
     </div>
   );

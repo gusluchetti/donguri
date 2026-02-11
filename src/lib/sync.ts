@@ -1,21 +1,15 @@
-/**
- * Sync helpers: PDS (source of truth for AT users) → server DB mirror.
- *
- * Write path: write to PDS first, then upsert DB mirror on success.
- * Read path: read from Postgres DB (fast, supports aggregation).
- * Live sync: Jetstream subscription (Phase 3 — not implemented here).
- */
-
 import type { Agent } from "@atproto/api";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../db";
+import type { CatalogEntry } from "../db/schema";
 import { catalogEntries } from "../db/schema";
 
 const COLLECTION = "app.donguri.catalog.entry";
 
+/** PDS wire format — field names differ from DB row (mediaRef vs mediaWikidataId, ISO strings vs timestamps). */
 export interface CatalogEntryRecord {
   mediaRef: string;
-  status: "watching" | "completed" | "dropped" | "plan_to_watch";
+  status: NonNullable<CatalogEntry["status"]>;
   rating?: number;
   note?: string;
   episodeProgress?: number;
@@ -23,17 +17,12 @@ export interface CatalogEntryRecord {
   updatedAt?: string;
 }
 
-/**
- * Write a catalog entry to the user's PDS, then mirror locally.
- * Uses com.atproto.repo.putRecord so the rkey is deterministic (mediaRef-based).
- */
 export async function putCatalogEntry(
   agent: Agent,
   userId: string,
   did: string,
   entry: CatalogEntryRecord,
 ): Promise<{ uri: string; cid: string }> {
-  // Deterministic rkey from mediaRef so each media item has one record
   const rkey = entry.mediaRef;
 
   const response = await agent.com.atproto.repo.putRecord({
@@ -44,17 +33,14 @@ export async function putCatalogEntry(
       $type: COLLECTION,
       ...entry,
     },
+    validate: false, // PDS can't validate custom lexicons
   });
 
-  // Mirror to local DB
   await upsertLocalMirror(userId, rkey, entry);
 
   return { uri: response.data.uri, cid: response.data.cid };
 }
 
-/**
- * Delete a catalog entry from the user's PDS and local mirror.
- */
 export async function deleteCatalogEntry(
   agent: Agent,
   userId: string,
@@ -69,17 +55,12 @@ export async function deleteCatalogEntry(
     rkey,
   });
 
-  // Remove from local mirror
   const db = getDb();
   await db
     .delete(catalogEntries)
     .where(and(eq(catalogEntries.userId, userId), eq(catalogEntries.mediaWikidataId, mediaRef)));
 }
 
-/**
- * Upsert a record into the catalog_entries table.
- * Called after PDS writes and during Jetstream/reconciliation sync.
- */
 export async function upsertLocalMirror(
   userId: string,
   rkey: string,
@@ -87,7 +68,6 @@ export async function upsertLocalMirror(
 ): Promise<void> {
   const db = getDb();
 
-  // Check if entry already exists for this user + media
   const existing = await db
     .select({ id: catalogEntries.id })
     .from(catalogEntries)
@@ -125,17 +105,13 @@ export async function upsertLocalMirror(
   }
 }
 
-/**
- * Reconcile local mirror with PDS records for an AT Protocol user.
- * Call on login to catch any writes made from other clients.
- */
+/** Reconcile on login — catches writes from other clients. */
 export async function reconcileUser(agent: Agent, userId: string, did: string): Promise<void> {
   const db = getDb();
 
   let cursor: string | undefined;
   const pdsRecords = new Map<string, CatalogEntryRecord>();
 
-  // Paginate through all records in the collection
   do {
     const response = await agent.com.atproto.repo.listRecords({
       repo: did,
@@ -152,12 +128,10 @@ export async function reconcileUser(agent: Agent, userId: string, did: string): 
     cursor = response.data.cursor;
   } while (cursor);
 
-  // Upsert all PDS records into local mirror
   for (const [rkey, record] of pdsRecords) {
     await upsertLocalMirror(userId, rkey, record);
   }
 
-  // Remove local entries that no longer exist on PDS
   const localEntries = await db
     .select({ id: catalogEntries.id, rkey: catalogEntries.rkey })
     .from(catalogEntries)

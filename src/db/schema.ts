@@ -151,7 +151,7 @@ export const catalogEntries = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     mediaWikidataId: text("media_wikidata_id").notNull(),
     status: text("status", {
-      enum: ["watching", "completed", "dropped", "plan_to_watch"],
+      enum: ["watching", "completed", "dropped", "plan_to_watch", "paused"],
     }),
     rating: integer("rating"),
     note: text("note"),
