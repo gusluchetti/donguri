@@ -239,7 +239,7 @@ function CatalogPage() {
   return (
     <div className="bg-dg-bg text-dg-text h-screen font-mono flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="px-6 pt-6 pb-4">
+      <header className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2 sm:pb-4">
         <div className="max-w-[1000px] mx-auto">
           <p className="text-dg-text-tertiary text-[0.8rem]">
             {stats.total > 0
@@ -250,7 +250,7 @@ function CatalogPage() {
       </header>
 
       {/* Controls */}
-      <div className="max-w-[1000px] mx-auto w-full px-6 py-4 flex flex-col gap-3">
+      <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 py-3 sm:py-4 flex flex-col gap-3">
         {/* Search */}
         <div className="w-full">
           <input
@@ -258,12 +258,12 @@ function CatalogPage() {
             placeholder="Search titles..."
             value={searchInput}
             onChange={(e) => handleSearchInput(e.target.value)}
-            className="w-full py-2.5 px-3 bg-dg-surface border border-dg-border rounded text-dg-text font-mono text-[0.85rem] outline-none box-border"
+            className="w-full py-2.5 px-3 bg-dg-surface border border-dg-border rounded text-dg-text font-mono text-base sm:text-[0.85rem] outline-none box-border"
           />
         </div>
 
         {/* Type filter tabs */}
-        <div className="flex gap-1 flex-wrap">
+        <div className="flex gap-1 flex-nowrap overflow-x-auto sm:flex-wrap scrollbar-hide">
           {MEDIA_TYPES.map((t) => {
             const isActive = mediaType === t.value;
             const count = t.value
@@ -274,7 +274,7 @@ function CatalogPage() {
                 type="button"
                 key={t.label}
                 onClick={() => handleTypeChange(t.value)}
-                className={`py-1.5 px-3 border rounded-sm font-mono text-xs cursor-pointer flex items-center gap-1.5 transition-all duration-150 ${
+                className={`py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 border rounded-sm font-mono text-xs cursor-pointer flex items-center gap-1.5 shrink-0 transition-all duration-150 ${
                   isActive
                     ? "bg-dg-accent/[0.08] border-dg-accent/25 text-dg-accent"
                     : "bg-transparent border-dg-border-subtle text-dg-text-secondary"
@@ -292,7 +292,7 @@ function CatalogPage() {
 
       {/* Login prompt */}
       {!auth && (
-        <div className="max-w-[1000px] mx-auto w-full px-6 pb-3">
+        <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 pb-3">
           <Link
             to="/"
             className="block border border-dg-accent/20 bg-dg-accent/[0.04] rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-150"
@@ -305,7 +305,7 @@ function CatalogPage() {
 
       {/* Error state */}
       {error && (
-        <div className="max-w-[1000px] mx-auto w-full px-6 pb-4">
+        <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 pb-4">
           <div className="border border-dg-accent/30 bg-dg-accent/[0.05] rounded px-4 py-3 text-sm text-dg-accent">
             {error}
           </div>
@@ -313,7 +313,7 @@ function CatalogPage() {
       )}
 
       {/* Virtual list */}
-      <div ref={parentRef} className="flex-1 overflow-auto max-w-[1000px] mx-auto w-full px-6">
+      <div ref={parentRef} className="flex-1 overflow-auto max-w-[1000px] mx-auto w-full px-4 sm:px-6">
         {initialLoading ? (
           <div className="flex items-center justify-center py-12">
             <span className="text-dg-text-tertiary text-[0.85rem]">Loading catalog...</span>
@@ -420,8 +420,8 @@ function MediaRow({
   const meta = formatMeta(item);
 
   return (
-    <div className="flex items-center justify-between py-2 h-full gap-4">
-      <div className="flex items-center gap-3 min-w-0 flex-1">
+    <div className="flex items-center justify-between py-2 h-full gap-2 sm:gap-4">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
         {addState === "pending" ? (
           <span className="text-[0.75rem] font-bold text-dg-accent font-mono shrink-0">
             [<span className="dg-ellipsis" />]
@@ -432,7 +432,7 @@ function MediaRow({
           <button
             type="button"
             onClick={(e) => onQuickAdd(item.wikidataId, e)}
-            className="text-[0.75rem] font-bold text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 shrink-0 hidden group-hover:inline-block hover:text-dg-accent"
+            className="text-[0.75rem] font-bold text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent"
           >
             [+]
           </button>
@@ -452,13 +452,13 @@ function MediaRow({
             </span>
           )}
           {item.originalTitle && (
-            <span className="text-xs text-dg-text-tertiary truncate">{item.originalTitle}</span>
+            <span className="text-xs text-dg-text-tertiary truncate hidden sm:inline">{item.originalTitle}</span>
           )}
         </div>
       </div>
       <div className="flex items-center gap-4 shrink-0">
         {meta && (
-          <span className="text-[0.7rem] text-dg-text-tertiary min-w-12 text-right tabular-nums">
+          <span className="text-[0.7rem] text-dg-text-tertiary min-w-12 text-right tabular-nums hidden sm:flex">
             {meta}
           </span>
         )}

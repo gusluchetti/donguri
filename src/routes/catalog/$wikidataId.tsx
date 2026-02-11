@@ -84,13 +84,13 @@ function MediaDetailRouter() {
 function MediaDetailSkeleton() {
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[700px] mx-auto p-6">
+      <div className="max-w-[700px] mx-auto p-4 sm:p-6">
         <div className="text-dg-text-tertiary text-[0.8rem] mb-6">&larr; catalog</div>
         <div className="mb-6">
           <div className="w-16 h-5 bg-dg-surface rounded-sm mb-3 animate-pulse" />
           <div className="w-2/3 h-8 bg-dg-surface rounded animate-pulse" />
         </div>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3 mb-6 p-4 bg-dg-surface rounded border border-dg-border-subtle">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3 mb-5 sm:mb-6 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
           {[...Array(4)].map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton items
             <div key={i} className="flex flex-col gap-1">
@@ -120,16 +120,16 @@ function MediaStubPage({
 
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[700px] mx-auto p-6">
+      <div className="max-w-[700px] mx-auto p-4 sm:p-6">
         <button
           type="button"
           onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer p-0 mb-6 inline-block"
+          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-4 sm:mb-6 inline-block"
         >
           &larr; back
         </button>
 
-        <div className="mb-6">
+        <div className="mb-5 sm:mb-6">
           {stub.mediaType && (
             <span
               className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
@@ -137,12 +137,12 @@ function MediaStubPage({
               {mediaTypeLabel(stub.mediaType)}
             </span>
           )}
-          <h1 className="text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
+          <h1 className="text-[1.35rem] sm:text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
             {stub.title}
           </h1>
         </div>
 
-        <div className="border border-dg-border-subtle rounded p-4 bg-dg-surface mb-6">
+        <div className="border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-5 sm:mb-6">
           <p className="text-[0.8rem] text-dg-text-tertiary">
             This title has not been imported into the catalog yet. Metadata will appear after the
             next data import.
@@ -151,7 +151,7 @@ function MediaStubPage({
 
         {auth && <TrackingPanel wikidataId={stub.wikidataId} />}
 
-        <div className="mb-6">
+        <div className="mb-5 sm:mb-6">
           <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
             Links
           </h3>
@@ -160,7 +160,7 @@ function MediaStubPage({
               href={`https://www.wikidata.org/wiki/${stub.wikidataId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-dg-accent no-underline py-1.5 px-2.5 border border-dg-accent/20 rounded-sm transition-all duration-150"
+              className="text-xs text-dg-accent no-underline py-2 px-3 sm:py-1.5 sm:px-2.5 border border-dg-accent/20 rounded-sm transition-all duration-150"
             >
               Wikidata {"\u2197"}
             </a>
@@ -236,24 +236,24 @@ function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof
 
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[700px] mx-auto p-6">
+      <div className="max-w-[700px] mx-auto p-4 sm:p-6">
         {/* Back link */}
         <button
           type="button"
           onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer p-0 mb-6 inline-block"
+          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-4 sm:mb-6 inline-block"
         >
           &larr; back
         </button>
 
         {/* Header */}
-        <div className="mb-6">
+        <div className="mb-5 sm:mb-6">
           <span
             className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
           >
             {mediaTypeLabel(data.mediaType)}
           </span>
-          <h1 className="text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
+          <h1 className="text-[1.35rem] sm:text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
             {data.title}
           </h1>
           {data.originalTitle && (
@@ -262,7 +262,7 @@ function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof
         </div>
 
         {/* Meta info */}
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3 mb-6 p-4 bg-dg-surface rounded border border-dg-border-subtle">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3 mb-5 sm:mb-6 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
           {data.startYear && (
             <MetaItem
               label="Year"
@@ -293,14 +293,14 @@ function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof
 
         {/* Description */}
         {data.description && (
-          <p className="text-[0.85rem] leading-relaxed text-dg-text-secondary mb-6">
+          <p className="text-[0.85rem] leading-relaxed text-dg-text-secondary mb-5 sm:mb-6">
             {data.description}
           </p>
         )}
 
         {/* Genres */}
         {data.genres.length > 0 && (
-          <div className="mb-6">
+          <div className="mb-5 sm:mb-6">
             <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
               Genres
             </h3>
@@ -308,7 +308,7 @@ function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof
               {data.genres.map((g) => (
                 <span
                   key={g.id}
-                  className="text-xs py-1 px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                  className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
                 >
                   {g.name}
                 </span>
@@ -319,7 +319,7 @@ function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof
 
         {/* Platforms (games) */}
         {data.platforms.length > 0 && (
-          <div className="mb-6">
+          <div className="mb-5 sm:mb-6">
             <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
               Platforms
             </h3>
@@ -327,7 +327,7 @@ function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof
               {data.platforms.map((p) => (
                 <span
                   key={p.id}
-                  className="text-xs py-1 px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                  className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
                 >
                   {p.name}
                 </span>
@@ -337,7 +337,7 @@ function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof
         )}
 
         {/* External links */}
-        <div className="mb-6">
+        <div className="mb-5 sm:mb-6">
           <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
             Links
           </h3>
@@ -348,7 +348,7 @@ function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-dg-accent no-underline py-1.5 px-2.5 border border-dg-accent/20 rounded-sm transition-all duration-150"
+                className="text-xs text-dg-accent no-underline py-2 px-3 sm:py-1.5 sm:px-2.5 border border-dg-accent/20 rounded-sm transition-all duration-150"
               >
                 {link.label} {"\u2197"}
               </a>
@@ -493,14 +493,14 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
 
   if (!loaded) {
     return (
-      <div className="border border-dg-border-subtle rounded p-4 bg-dg-surface mb-6">
+      <div className="border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-5 sm:mb-6">
         <div className="w-20 h-3 bg-dg-elevated rounded animate-pulse" />
       </div>
     );
   }
 
   return (
-    <div className="border border-dg-border-subtle rounded p-4 bg-dg-surface mb-6">
+    <div className="border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-5 sm:mb-6">
       <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-3">
         {action.state === "pending" ? (
           <span className="dg-ellipsis">Tracking</span>
@@ -517,8 +517,8 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
         )}
       </h3>
 
-      {/* Status buttons — horizontal (local-only, saved on explicit save) */}
-      <div className="flex flex-wrap gap-1.5 mb-4">
+      {/* Status buttons — horizontal scroll on mobile, wrap on desktop */}
+      <div className="flex flex-nowrap overflow-x-auto sm:flex-wrap gap-1.5 mb-4 scrollbar-hide">
         {STATUSES.map((s) => {
           const isActive = localStatus === s.value;
           const colorClass = STATUS_COLORS[s.value];
@@ -528,7 +528,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               type="button"
               onClick={() => setLocalStatus(s.value)}
               disabled={action.state === "pending"}
-              className={`text-[0.8rem] py-1.5 px-3 rounded-sm border font-mono cursor-pointer transition-all duration-150 disabled:opacity-50 ${
+              className={`text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-mono cursor-pointer shrink-0 transition-all duration-150 disabled:opacity-50 ${
                 isActive
                   ? colorClass
                   : "border-dg-border-subtle text-dg-text-secondary bg-transparent hover:border-dg-border"
@@ -570,7 +570,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
                 type="button"
                 onClick={() => setLocalRating(null)}
                 disabled={action.state === "pending"}
-                className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-0 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
+                className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-2 -m-2 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
                 title="Clear rating"
               >
                 <X size={14} />
@@ -587,7 +587,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
             type="button"
             onClick={handleSave}
             disabled={action.state === "pending" || !isDirty}
-            className={`bg-transparent border-none cursor-pointer p-0 transition-colors duration-150 disabled:opacity-30 ${
+            className={`bg-transparent border-none cursor-pointer p-2 -m-2 transition-colors duration-150 disabled:opacity-30 ${
               isDirty ? "text-dg-accent hover:text-dg-accent/80" : "text-dg-text-tertiary"
             }`}
             title="Save changes"
@@ -599,7 +599,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               type="button"
               onClick={handleRemove}
               disabled={action.state === "pending"}
-              className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-0 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
+              className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-2 -m-2 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
               title="Remove from list"
             >
               <Trash2 size={16} />
