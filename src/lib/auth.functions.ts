@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db";
@@ -40,6 +39,7 @@ async function verifyPayload(signed: string): Promise<string | null> {
 }
 
 async function setSessionCookie(data: SessionData): Promise<void> {
+  const { setCookie } = await import("@tanstack/react-start/server");
   const payload = btoa(JSON.stringify(data));
   const signed = await signPayload(payload);
   setCookie(COOKIE_NAME, signed, {
@@ -52,6 +52,7 @@ async function setSessionCookie(data: SessionData): Promise<void> {
 }
 
 async function getSessionData(): Promise<SessionData | null> {
+  const { getCookie } = await import("@tanstack/react-start/server");
   const cookie = getCookie(COOKIE_NAME);
   if (!cookie) return null;
 
@@ -65,7 +66,8 @@ async function getSessionData(): Promise<SessionData | null> {
   }
 }
 
-function clearSessionCookie(): void {
+async function clearSessionCookie(): Promise<void> {
+  const { deleteCookie } = await import("@tanstack/react-start/server");
   deleteCookie(COOKIE_NAME, { path: "/" });
 }
 
@@ -216,7 +218,7 @@ export const logout = createServerFn({ method: "POST" }).handler(async () => {
       console.error("[logout] revocation failed:", err);
     }
   }
-  clearSessionCookie();
+  await clearSessionCookie();
   if (isDev) console.debug("[logout] cookie cleared");
   return { ok: true };
 });
