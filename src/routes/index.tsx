@@ -1,9 +1,10 @@
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { initiateLogin } from "../lib/auth.functions";
 import { getUserCatalogEntries } from "../lib/catalog.functions";
-import { getCachedWatchlist, setCachedWatchlist } from "../lib/idb-cache";
 import { mediaTypeLabel, ratingColor, TYPE_BADGE_CLASSES } from "../lib/media-types";
+import { scheduleCatalogPrefetch } from "../lib/prefetch";
+import { swrLoadWithFallback } from "../lib/swr-loader";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -40,16 +41,12 @@ type CatalogEntryRow = {
 export const Route = createFileRoute("/")({
   loader: async () => {
     try {
-      const entries = await getUserCatalogEntries({});
-      if (typeof window !== "undefined") {
-        setCachedWatchlist(entries);
-      }
-      return { entries: entries as CatalogEntryRow[], fromCache: false };
+      const { data, fromCache } = await swrLoadWithFallback(() => getUserCatalogEntries({}), {
+        key: "watchlist",
+        maxAgeMs: 30_000,
+      });
+      return { entries: data as CatalogEntryRow[], fromCache };
     } catch {
-      if (typeof window !== "undefined") {
-        const cached = await getCachedWatchlist();
-        if (cached) return { entries: cached as CatalogEntryRow[], fromCache: true };
-      }
       return { entries: [] as CatalogEntryRow[], fromCache: false };
     }
   },
@@ -93,6 +90,10 @@ function HomePage() {
 
 function LoggedInView({ handle }: { handle: string }) {
   const { entries, fromCache } = Route.useLoaderData();
+
+  useEffect(() => {
+    scheduleCatalogPrefetch();
+  }, []);
 
   // Group by status
   const grouped = new Map<string, CatalogEntryRow[]>();

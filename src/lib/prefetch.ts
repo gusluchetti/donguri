@@ -1,0 +1,62 @@
+import { cacheGet, cacheSet, isStale } from "./idb-cache";
+import { getMediaStats, listMedia } from "./media.functions";
+
+const CATALOG_MAX_AGE = 10 * 60 * 1000; // 10 min
+let prefetchScheduled = false;
+
+/**
+ * Background-prefetch the first page of each catalog type tab + mediaStats.
+ * Uses requestIdleCallback (fallback: setTimeout 2s). Only runs once per session.
+ */
+export function scheduleCatalogPrefetch(): void {
+  if (prefetchScheduled || typeof window === "undefined") return;
+  prefetchScheduled = true;
+
+  const schedule =
+    typeof requestIdleCallback === "function"
+      ? requestIdleCallback
+      : (cb: () => void) => setTimeout(cb, 2000);
+
+  schedule(() => {
+    runPrefetch().catch(() => {});
+  });
+}
+
+const TYPE_KEYS: Array<{
+  mediaType: "movie" | "tv_series" | "anime" | "game" | undefined;
+  cacheKey: string;
+}> = [
+  { mediaType: undefined, cacheKey: "catalog:all:0" },
+  { mediaType: "movie", cacheKey: "catalog:movie:0" },
+  { mediaType: "tv_series", cacheKey: "catalog:tv_series:0" },
+  { mediaType: "anime", cacheKey: "catalog:anime:0" },
+  { mediaType: "game", cacheKey: "catalog:game:0" },
+];
+
+async function runPrefetch(): Promise<void> {
+  // Prefetch mediaStats if stale
+  const statsCached = await cacheGet("mediaStats");
+  if (!statsCached || isStale(statsCached.timestamp, CATALOG_MAX_AGE)) {
+    try {
+      const stats = await getMediaStats({});
+      await cacheSet("mediaStats", stats);
+    } catch {
+      // Non-critical
+    }
+  }
+
+  for (const { mediaType, cacheKey } of TYPE_KEYS) {
+    const cached = await cacheGet(cacheKey);
+    if (cached && !isStale(cached.timestamp, CATALOG_MAX_AGE)) continue;
+
+    try {
+      const result = await listMedia({ data: { limit: 50, mediaType } });
+      await cacheSet(cacheKey, result);
+    } catch {
+      // Non-critical
+    }
+
+    // Avoid flooding connections
+    await new Promise((r) => setTimeout(r, 500));
+  }
+}

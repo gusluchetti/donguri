@@ -4,9 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { Media } from "../../db/schema";
 import { setCatalogEntry } from "../../lib/catalog.functions";
-import { clearCachedWatchlist } from "../../lib/idb-cache";
+import { cacheGet, cacheSet, invalidateUserCaches, isStale } from "../../lib/idb-cache";
 import { getMediaStats, listMedia } from "../../lib/media.functions";
 import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../../lib/media-types";
+import { scheduleCatalogPrefetch } from "../../lib/prefetch";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -53,6 +54,10 @@ function CatalogPage() {
   const trackedIds: Record<string, string | null> = { ...rootTrackedIds, ...localOverrides };
 
   // Fetch data when search params change (only if logged in)
+  const isSearch = !!q;
+  const catalogCacheKey = `catalog:${mediaType ?? "all"}:0`;
+  const prefetchTriggered = useRef(false);
+
   useEffect(() => {
     if (!auth) {
       setInitialLoading(false);
@@ -60,33 +65,66 @@ function CatalogPage() {
     }
 
     let cancelled = false;
-    setInitialLoading(true);
     setError(null);
 
-    Promise.all([
-      listMedia({
-        data: { limit: 50, mediaType, search: q || undefined },
-      }),
-      getMediaStats({}),
-    ])
-      .then(([data, statsData]) => {
+    const load = async () => {
+      // Try IDB cache first (only for browse, not search)
+      if (!isSearch) {
+        const [cachedCatalog, cachedStats] = await Promise.all([
+          cacheGet<{ items: Media[]; nextCursor: string | null }>(catalogCacheKey),
+          cacheGet<{ total: number; byType: Record<string, number> }>("mediaStats"),
+        ]);
+
+        if (cachedCatalog && !cancelled) {
+          setItems(cachedCatalog.data.items);
+          setNextCursor(cachedCatalog.data.nextCursor);
+          if (cachedStats) setStats(cachedStats.data);
+          setInitialLoading(false);
+
+          // If fresh, skip network
+          if (!isStale(cachedCatalog.timestamp, 10 * 60 * 1000)) return;
+        }
+      } else {
+        setInitialLoading(true);
+      }
+
+      // Fetch fresh data
+      try {
+        const [data, statsData] = await Promise.all([
+          listMedia({ data: { limit: 50, mediaType, search: q || undefined } }),
+          getMediaStats({}),
+        ]);
         if (cancelled) return;
         setItems(data.items);
         setNextCursor(data.nextCursor);
         setStats(statsData);
         setInitialLoading(false);
-      })
-      .catch((e) => {
+
+        // Cache browse results (not search)
+        if (!isSearch) {
+          cacheSet(catalogCacheKey, data).catch(() => {});
+          cacheSet("mediaStats", statsData).catch(() => {});
+
+          // Trigger prefetch after first successful load
+          if (!prefetchTriggered.current) {
+            prefetchTriggered.current = true;
+            scheduleCatalogPrefetch();
+          }
+        }
+      } catch (e) {
         if (cancelled) return;
         console.error("[catalog] fetch failed:", e);
         setError("Could not connect to database");
         setInitialLoading(false);
-      });
+      }
+    };
+
+    load();
 
     return () => {
       cancelled = true;
     };
-  }, [auth, q, mediaType]);
+  }, [auth, q, mediaType, isSearch, catalogCacheKey]);
 
   // Sync search input when URL param changes externally (e.g. back/forward)
   useEffect(() => {
@@ -161,7 +199,7 @@ function CatalogPage() {
             return next;
           });
         }, 1500);
-        clearCachedWatchlist();
+        invalidateUserCaches();
         router.invalidate();
       } catch (err) {
         console.error("[quick-add] %s → FAILED:", wikidataId, err);

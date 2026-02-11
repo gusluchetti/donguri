@@ -8,9 +8,10 @@ import {
   removeCatalogEntry,
   setCatalogEntry,
 } from "../../lib/catalog.functions";
-import { clearCachedWatchlist } from "../../lib/idb-cache";
+import { cacheDelete, cacheGet, cacheSet, invalidateUserCaches } from "../../lib/idb-cache";
 import { getMedia } from "../../lib/media.functions";
 import { mediaTypeLabel, ratingColor, TYPE_BADGE_CLASSES } from "../../lib/media-types";
+import { swrLoad } from "../../lib/swr-loader";
 import { useAction } from "../../lib/use-action";
 
 const rootRoute = getRouteApi("__root__");
@@ -45,7 +46,10 @@ type LoaderData = FullLoaderData | StubLoaderData;
 
 export const Route = createFileRoute("/catalog/$wikidataId")({
   loader: async ({ params }): Promise<LoaderData> => {
-    const data = await getMedia({ data: { wikidataId: params.wikidataId } });
+    const { data } = await swrLoad(() => getMedia({ data: { wikidataId: params.wikidataId } }), {
+      key: `media:${params.wikidataId}`,
+      maxAgeMs: 10 * 60 * 1000,
+    });
     if (data) return { kind: "full", media: data };
 
     const stub = await getMediaStub({ data: { wikidataId: params.wikidataId } });
@@ -369,29 +373,40 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    console.debug("[tracking] loading entry for %s", wikidataId);
-    getCatalogEntry({ data: { wikidataId } })
-      .then((e) => {
+    const entryCacheKey = `entry:${wikidataId}`;
+
+    const applyEntry = (e: CatalogEntry | null) => {
+      setEntry(e);
+      setLocalRating(e?.rating ?? null);
+      setLocalStatus(e?.status ?? null);
+      savedRating.current = e?.rating ?? null;
+      savedStatus.current = e?.status ?? null;
+      setLoaded(true);
+    };
+
+    const load = async () => {
+      // Try IDB cache first for instant display
+      const cached = await cacheGet<CatalogEntry | null>(entryCacheKey);
+      if (cached && !cancelled) {
+        applyEntry(cached.data);
+      }
+
+      // Always fetch fresh
+      try {
+        const e = await getCatalogEntry({ data: { wikidataId } });
         if (!cancelled) {
-          console.debug(
-            "[tracking] loaded entry for %s → %s",
-            wikidataId,
-            e ? e.status : "not tracked",
-          );
-          setEntry(e);
-          setLocalRating(e?.rating ?? null);
-          setLocalStatus(e?.status ?? null);
-          savedRating.current = e?.rating ?? null;
-          savedStatus.current = e?.status ?? null;
-          setLoaded(true);
+          applyEntry(e);
+          cacheSet(entryCacheKey, e).catch(() => {});
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         if (!cancelled) {
           console.error("[tracking] load FAILED for %s:", wikidataId, err);
-          setLoaded(true);
+          if (!cached) setLoaded(true);
         }
-      });
+      }
+    };
+
+    load();
     return () => {
       cancelled = true;
     };
@@ -444,7 +459,8 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
         setLocalStatus(fresh?.status ?? null);
         savedRating.current = fresh?.rating ?? null;
         savedStatus.current = fresh?.status ?? null;
-        clearCachedWatchlist();
+        invalidateUserCaches();
+        cacheDelete(`entry:${wikidataId}`);
         router.invalidate();
       } catch (err) {
         console.error("[tracking] save %s → FAILED:", wikidataId, err);
@@ -464,7 +480,8 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
       try {
         await removeCatalogEntry({ data: { wikidataId } });
         console.debug("[tracking] remove %s → server ok", wikidataId);
-        clearCachedWatchlist();
+        invalidateUserCaches();
+        cacheDelete(`entry:${wikidataId}`);
         router.invalidate();
       } catch (err) {
         console.error("[tracking] remove %s → FAILED:", wikidataId, err);

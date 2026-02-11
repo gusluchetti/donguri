@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import "../app.css";
 import { getAuthState, logout } from "../lib/auth.functions";
 import { getUserTrackedIds } from "../lib/catalog.functions";
-import { clearCachedWatchlist } from "../lib/idb-cache";
+import { cacheClearAll } from "../lib/idb-cache";
+import { swrLoad } from "../lib/swr-loader";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -33,7 +34,11 @@ export const Route = createRootRoute({
     let trackedIds: Record<string, string | null> = {};
     if (auth) {
       try {
-        trackedIds = await getUserTrackedIds({});
+        const result = await swrLoad(() => getUserTrackedIds({}), {
+          key: "trackedIds",
+          maxAgeMs: 30_000,
+        });
+        trackedIds = result.data;
       } catch (err) {
         console.error("[root] getUserTrackedIds FAILED:", err, "(continuing with empty)");
       }
@@ -94,7 +99,7 @@ function RootComponent() {
                   className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none font-mono"
                   onClick={async () => {
                     await logout();
-                    clearCachedWatchlist();
+                    cacheClearAll();
                     window.location.href = "/";
                   }}
                 >
