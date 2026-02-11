@@ -175,7 +175,7 @@ function WatchlistSection({
               </span>
               {item.rating != null && (
                 <span className="text-[0.75rem] text-dg-accent tabular-nums shrink-0">
-                  {item.rating.toFixed(1)}/10
+                  {item.rating}/100
                 </span>
               )}
             </Link>

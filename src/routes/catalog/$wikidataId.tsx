@@ -9,11 +9,10 @@ import { getMedia } from "../../lib/media.functions";
 
 const rootRoute = getRouteApi("__root__");
 
-/** Maps 0–10 rating to a color: dark red → amber → green */
+/** Maps 0–100 rating to a color: dark red → amber → green */
 function ratingColor(value: number | null): string | undefined {
   if (value == null || value === 0) return undefined;
-  // 3-stop gradient: 0→red(0,70%,45%), 5→amber(40,80%,55%), 10→green(140,60%,45%)
-  const t = value / 10;
+  const t = value / 100;
   let h: number, s: number, l: number;
   if (t <= 0.5) {
     const p = t / 0.5;
@@ -537,11 +536,11 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
             <input
               type="range"
               min="0"
-              max="10"
-              step="0.1"
+              max="100"
+              step="1"
               value={localRating ?? 0}
               onChange={(e) => {
-                setLocalRating(Number.parseFloat(e.target.value) || null);
+                setLocalRating(Number.parseInt(e.target.value, 10) || null);
               }}
               disabled={saving}
               className="dg-range flex-1"
@@ -612,7 +611,7 @@ function RatingInput({
 
   const startEditing = () => {
     if (disabled) return;
-    setText(value != null ? value.toFixed(1) : "");
+    setText(value != null ? String(value) : "");
     setEditing(true);
   };
 
@@ -622,14 +621,14 @@ function RatingInput({
 
   const commit = () => {
     setEditing(false);
-    const normalized = text.replace(",", ".").trim();
-    if (normalized === "") {
+    const trimmed = text.trim();
+    if (trimmed === "") {
       onChange(null);
       return;
     }
-    const parsed = Number.parseFloat(normalized);
+    const parsed = Number.parseInt(trimmed, 10);
     if (Number.isNaN(parsed)) return;
-    onChange(Math.round(Math.min(10, Math.max(0, parsed)) * 10) / 10);
+    onChange(Math.min(100, Math.max(0, parsed)));
   };
 
   if (editing) {
@@ -637,23 +636,18 @@ function RatingInput({
       <input
         ref={inputRef}
         type="text"
-        inputMode="decimal"
+        inputMode="numeric"
         value={text}
-        maxLength={4}
+        maxLength={3}
         onChange={(e) => {
-          const v = e.target.value;
-          // Allow typing but block more than 1 decimal place
-          const norm = v.replace(",", ".");
-          const dot = norm.indexOf(".");
-          if (dot !== -1 && norm.length - dot - 1 > 1) return;
-          setText(v);
+          if (/^\d{0,3}$/.test(e.target.value)) setText(e.target.value);
         }}
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === "Enter") commit();
           if (e.key === "Escape") setEditing(false);
         }}
-        className="w-[6ch] text-[0.85rem] tabular-nums text-right bg-dg-bg border border-dg-border rounded-sm px-1 py-0 font-mono outline-none shrink-0"
+        className="w-[4ch] text-[0.85rem] tabular-nums text-right bg-dg-bg border border-dg-border rounded-sm px-1 py-0 font-mono outline-none shrink-0"
         style={{ color, borderColor: color }}
       />
     );
@@ -664,11 +658,11 @@ function RatingInput({
       type="button"
       onClick={startEditing}
       disabled={disabled}
-      className="text-[0.85rem] tabular-nums w-[6ch] text-right bg-transparent border-none font-mono cursor-text p-0 shrink-0 hover:underline disabled:cursor-default disabled:no-underline"
+      className="text-[0.85rem] tabular-nums w-[4ch] text-right bg-transparent border-none font-mono cursor-text p-0 shrink-0 hover:underline disabled:cursor-default disabled:no-underline"
       style={{ color, textDecorationColor: `${color}50` }}
       title="Click to type a rating"
     >
-      {value != null ? value.toFixed(1) : "\u2014"}
+      {value != null ? value : "\u2014"}
     </button>
   );
 }

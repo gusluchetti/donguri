@@ -79,7 +79,7 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
     z.object({
       wikidataId: z.string(),
       status: StatusEnum,
-      rating: z.number().min(0).max(10).nullish(),
+      rating: z.number().int().min(0).max(100).nullish(),
       note: z.string().max(10000).nullish(),
       episodeProgress: z.number().int().min(0).nullish(),
     }),
