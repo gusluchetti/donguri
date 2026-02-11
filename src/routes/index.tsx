@@ -3,7 +3,7 @@ import { useState } from "react";
 import { initiateLogin } from "../lib/auth.functions";
 import { getUserCatalogEntries } from "../lib/catalog.functions";
 import { getCachedWatchlist, setCachedWatchlist } from "../lib/idb-cache";
-import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../lib/media-types";
+import { mediaTypeLabel, ratingColor, TYPE_BADGE_CLASSES } from "../lib/media-types";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -162,7 +162,10 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
                 {item.mediaTitle ?? item.mediaWikidataId}
               </span>
               {item.rating != null && (
-                <span className="text-[0.75rem] text-dg-accent tabular-nums shrink-0">
+                <span
+                  className="text-[0.75rem] tabular-nums shrink-0"
+                  style={{ color: ratingColor(item.rating) ?? "var(--color-dg-accent)" }}
+                >
                   {item.rating}/100
                 </span>
               )}

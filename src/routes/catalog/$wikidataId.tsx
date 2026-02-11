@@ -10,29 +10,10 @@ import {
 } from "../../lib/catalog.functions";
 import { clearCachedWatchlist } from "../../lib/idb-cache";
 import { getMedia } from "../../lib/media.functions";
-import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../../lib/media-types";
+import { mediaTypeLabel, ratingColor, TYPE_BADGE_CLASSES } from "../../lib/media-types";
 import { useAction } from "../../lib/use-action";
 
 const rootRoute = getRouteApi("__root__");
-
-/** Maps 0–100 rating to a color: dark red → amber → green */
-function ratingColor(value: number | null): string | undefined {
-  if (value == null || value === 0) return undefined;
-  const t = value / 100;
-  let h: number, s: number, l: number;
-  if (t <= 0.5) {
-    const p = t / 0.5;
-    h = 0 + p * 40;
-    s = 70 + p * 10;
-    l = 45 + p * 10;
-  } else {
-    const p = (t - 0.5) / 0.5;
-    h = 40 + p * 100;
-    s = 80 - p * 20;
-    l = 55 - p * 10;
-  }
-  return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`;
-}
 
 const STATUSES = [
   { value: "watching", label: "Watching" },
