@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { handleOAuthCallback } from "../../lib/auth.functions";
 
@@ -15,7 +15,6 @@ export const Route = createFileRoute("/auth/callback")({
 
 function CallbackPage() {
   const search = Route.useSearch();
-  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(
     search.error ? "Authentication was denied or failed." : null,
   );
@@ -26,7 +25,8 @@ function CallbackPage() {
 
     handleOAuthCallback({ data: search })
       .then(() => {
-        navigate({ to: "/" });
+        // Hard redirect to bust cached loader data (auth state changed)
+        window.location.href = "/";
       })
       .catch(() => {
         setError("Authentication failed. Please try again.");
