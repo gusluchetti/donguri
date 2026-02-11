@@ -1,4 +1,4 @@
-import { createFileRoute, getRouteApi } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import type { CatalogEntry } from "../../db/schema";
 import { getCatalogEntry, removeCatalogEntry, setCatalogEntry } from "../../lib/catalog.functions";
@@ -23,7 +23,7 @@ const STATUS_COLORS: Record<string, string> = {
   dropped: "border-dg-anime text-dg-anime bg-dg-anime/10",
 };
 
-export const Route = createFileRoute("/media/$wikidataId")({
+export const Route = createFileRoute("/catalog/$wikidataId")({
   loader: async ({ params }) => {
     const data = await getMedia({ data: { wikidataId: params.wikidataId } });
     if (!data) throw new Error("Media not found");
@@ -76,47 +76,59 @@ function MediaDetailPage() {
   const badgeClass =
     TYPE_BADGE_CLASSES[data.mediaType] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
 
+  const isAnime = data.mediaType === "anime";
+  const isGame = data.mediaType === "game";
+  const isTvOrAnime = data.mediaType === "tv_series" || isAnime;
+
   const externalLinks: { label: string; url: string }[] = [];
   if (data.imdbId)
     externalLinks.push({
       label: "IMDb",
       url: `https://www.imdb.com/title/${data.imdbId}`,
     });
-  if (data.tmdbId && data.mediaType === "movie")
+  if (data.tmdbId && !isGame) {
     externalLinks.push({
       label: "TMDB",
-      url: `https://www.themoviedb.org/movie/${data.tmdbId}`,
+      url:
+        data.mediaType === "movie"
+          ? `https://www.themoviedb.org/movie/${data.tmdbId}`
+          : `https://www.themoviedb.org/tv/${data.tmdbId}`,
     });
-  if (data.tmdbId && data.mediaType !== "movie")
-    externalLinks.push({
-      label: "TMDB",
-      url: `https://www.themoviedb.org/tv/${data.tmdbId}`,
-    });
-  if (data.malId)
+  }
+  if (data.malId && isAnime)
     externalLinks.push({
       label: "MyAnimeList",
       url: `https://myanimelist.net/anime/${data.malId}`,
     });
-  if (data.anilistId)
+  if (data.anilistId && isAnime)
     externalLinks.push({
       label: "AniList",
       url: `https://anilist.co/anime/${data.anilistId}`,
     });
-  if (data.anidbId)
+  if (data.anidbId && isAnime)
     externalLinks.push({
       label: "AniDB",
       url: `https://anidb.net/anime/${data.anidbId}`,
     });
-  if (data.igdbId)
+  if (data.annId && isAnime)
+    externalLinks.push({
+      label: "ANN",
+      url: `https://www.animenewsnetwork.com/encyclopedia/anime.php?id=${data.annId}`,
+    });
+  if (data.igdbId && isGame)
     externalLinks.push({
       label: "IGDB",
       url: `https://www.igdb.com/games/${data.igdbId}`,
     });
-  if (data.tvdbId)
+  if (data.tvdbId && isTvOrAnime) {
+    const isNumeric = /^\d+$/.test(data.tvdbId);
     externalLinks.push({
       label: "TheTVDB",
-      url: `https://thetvdb.com/series/${data.tvdbId}`,
+      url: isNumeric
+        ? `https://thetvdb.com/dereferrer/series/${data.tvdbId}`
+        : `https://thetvdb.com/series/${data.tvdbId}`,
     });
+  }
   externalLinks.push({
     label: "Wikidata",
     url: `https://www.wikidata.org/wiki/${data.wikidataId}`,
@@ -124,7 +136,7 @@ function MediaDetailPage() {
 
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[960px] mx-auto p-6">
+      <div className="max-w-[700px] mx-auto p-6">
         {/* Back link */}
         <button
           type="button"
@@ -134,124 +146,114 @@ function MediaDetailPage() {
           &larr; back
         </button>
 
-        {/* Two-column layout: content left, tracking right */}
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left column — media info */}
-          <div className="flex-1 min-w-0">
-            {/* Header */}
-            <div className="mb-6">
-              <span
-                className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
-              >
-                {mediaTypeLabel(data.mediaType)}
-              </span>
-              <h1 className="text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
-                {data.title}
-              </h1>
-              {data.originalTitle && (
-                <p className="text-base text-dg-text-secondary mt-1.5">{data.originalTitle}</p>
-              )}
-            </div>
+        {/* Header */}
+        <div className="mb-6">
+          <span
+            className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
+          >
+            {mediaTypeLabel(data.mediaType)}
+          </span>
+          <h1 className="text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
+            {data.title}
+          </h1>
+          {data.originalTitle && (
+            <p className="text-base text-dg-text-secondary mt-1.5">{data.originalTitle}</p>
+          )}
+        </div>
 
-            {/* Meta info */}
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3 mb-6 p-4 bg-dg-surface rounded border border-dg-border-subtle">
-              {data.startYear && (
-                <MetaItem
-                  label="Year"
-                  value={
-                    data.endYear && data.endYear !== data.startYear
-                      ? `${data.startYear}\u2013${data.endYear}`
-                      : String(data.startYear)
-                  }
-                />
-              )}
-              {data.countryOfOrigin && <MetaItem label="Country" value={data.countryOfOrigin} />}
-              {data.runtimeMinutes && (
-                <MetaItem label="Runtime" value={`${data.runtimeMinutes} min`} />
-              )}
-              {data.seasonCount && <MetaItem label="Seasons" value={String(data.seasonCount)} />}
-              {data.episodeCount && <MetaItem label="Episodes" value={String(data.episodeCount)} />}
-              {data.status && (
-                <MetaItem
-                  label="Status"
-                  value={data.status.charAt(0).toUpperCase() + data.status.slice(1)}
-                />
-              )}
-              <MetaItem label="Popularity" value={`${data.sitelinksCount ?? 0} sitelinks`} />
-            </div>
+        {/* Meta info */}
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3 mb-6 p-4 bg-dg-surface rounded border border-dg-border-subtle">
+          {data.startYear && (
+            <MetaItem
+              label="Year"
+              value={
+                data.endYear && data.endYear !== data.startYear
+                  ? `${data.startYear}\u2013${data.endYear}`
+                  : String(data.startYear)
+              }
+            />
+          )}
+          {data.countryOfOrigin && <MetaItem label="Country" value={data.countryOfOrigin} />}
+          {data.runtimeMinutes && (
+            <MetaItem label="Runtime" value={`${data.runtimeMinutes} min`} />
+          )}
+          {data.seasonCount && <MetaItem label="Seasons" value={String(data.seasonCount)} />}
+          {data.episodeCount && <MetaItem label="Episodes" value={String(data.episodeCount)} />}
+          {data.status && (
+            <MetaItem
+              label="Status"
+              value={data.status.charAt(0).toUpperCase() + data.status.slice(1)}
+            />
+          )}
+          <MetaItem label="Popularity" value={`${data.sitelinksCount ?? 0} sitelinks`} />
+        </div>
 
-            {/* Description */}
-            {data.description && (
-              <p className="text-[0.85rem] leading-relaxed text-dg-text-secondary mb-6">
-                {data.description}
-              </p>
-            )}
+        {/* Tracking panel (inline) */}
+        {auth && <TrackingPanel wikidataId={data.wikidataId} />}
 
-            {/* Genres */}
-            {data.genres.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-                  Genres
-                </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {data.genres.map((g) => (
-                    <span
-                      key={g.id}
-                      className="text-xs py-1 px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                    >
-                      {g.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+        {/* Description */}
+        {data.description && (
+          <p className="text-[0.85rem] leading-relaxed text-dg-text-secondary mb-6">
+            {data.description}
+          </p>
+        )}
 
-            {/* Platforms (games) */}
-            {data.platforms.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-                  Platforms
-                </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {data.platforms.map((p) => (
-                    <span
-                      key={p.id}
-                      className="text-xs py-1 px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                    >
-                      {p.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* External links */}
-            <div className="mb-6">
-              <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-                Links
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {externalLinks.map((link) => (
-                  <a
-                    key={link.label}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-dg-accent no-underline py-1.5 px-2.5 border border-dg-accent/20 rounded-sm transition-all duration-150"
-                  >
-                    {link.label} &nearr;
-                  </a>
-                ))}
-              </div>
+        {/* Genres */}
+        {data.genres.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+              Genres
+            </h3>
+            <div className="flex flex-wrap gap-1.5">
+              {data.genres.map((g) => (
+                <span
+                  key={g.id}
+                  className="text-xs py-1 px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                >
+                  {g.name}
+                </span>
+              ))}
             </div>
           </div>
+        )}
 
-          {/* Right column — tracking panel */}
-          {auth && (
-            <div className="lg:w-[260px] shrink-0">
-              <TrackingPanel wikidataId={data.wikidataId} />
+        {/* Platforms (games) */}
+        {data.platforms.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+              Platforms
+            </h3>
+            <div className="flex flex-wrap gap-1.5">
+              {data.platforms.map((p) => (
+                <span
+                  key={p.id}
+                  className="text-xs py-1 px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                >
+                  {p.name}
+                </span>
+              ))}
             </div>
-          )}
+          </div>
+        )}
+
+        {/* External links */}
+        <div className="mb-6">
+          <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+            Links
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {externalLinks.map((link) => (
+              <a
+                key={link.label}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-dg-accent no-underline py-1.5 px-2.5 border border-dg-accent/20 rounded-sm transition-all duration-150"
+              >
+                {link.label} &nearr;
+              </a>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -259,6 +261,7 @@ function MediaDetailPage() {
 }
 
 function TrackingPanel({ wikidataId }: { wikidataId: string }) {
+  const router = useRouter();
   const [entry, setEntry] = useState<CatalogEntry | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -285,7 +288,6 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
     async (status: "watching" | "completed" | "dropped" | "plan_to_watch" | "paused") => {
       setSaving(true);
       setError(null);
-      // Optimistic update
       const prev = entry;
       setEntry((e) =>
         e
@@ -314,9 +316,9 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
             episodeProgress: prev?.episodeProgress,
           },
         });
-        // Refetch to get real data
         const fresh = await getCatalogEntry({ data: { wikidataId } });
         setEntry(fresh);
+        router.invalidate();
       } catch {
         setEntry(prev);
         setError("Failed to save");
@@ -324,7 +326,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
         setSaving(false);
       }
     },
-    [entry, wikidataId],
+    [entry, wikidataId, router],
   );
 
   const handleSetRating = useCallback(
@@ -346,6 +348,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
         });
         const fresh = await getCatalogEntry({ data: { wikidataId } });
         setEntry(fresh);
+        router.invalidate();
       } catch {
         setEntry(prev);
         setError("Failed to save");
@@ -353,7 +356,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
         setSaving(false);
       }
     },
-    [entry, wikidataId],
+    [entry, wikidataId, router],
   );
 
   const handleRemove = useCallback(async () => {
@@ -363,32 +366,33 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
     setEntry(null);
     try {
       await removeCatalogEntry({ data: { wikidataId } });
+      router.invalidate();
     } catch {
       setEntry(prev);
       setError("Failed to remove");
     } finally {
       setSaving(false);
     }
-  }, [entry, wikidataId]);
+  }, [entry, wikidataId, router]);
 
   if (!loaded) {
     return (
-      <div className="border border-dg-border-subtle rounded p-4 bg-dg-surface">
+      <div className="border border-dg-border-subtle rounded p-4 bg-dg-surface mb-6">
         <div className="w-20 h-3 bg-dg-elevated rounded animate-pulse" />
       </div>
     );
   }
 
   return (
-    <div className="border border-dg-border-subtle rounded p-4 bg-dg-surface sticky top-6">
+    <div className="border border-dg-border-subtle rounded p-4 bg-dg-surface mb-6">
       <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-3">
         Tracking {saving && <span className="text-dg-accent ml-1">saving...</span>}
       </h3>
 
       {error && <p className="text-dg-anime text-[0.75rem] mb-2">{error}</p>}
 
-      {/* Status buttons */}
-      <div className="flex flex-col gap-1.5 mb-4">
+      {/* Status buttons — horizontal */}
+      <div className="flex flex-wrap gap-1.5 mb-4">
         {STATUSES.map((s) => {
           const isActive = entry?.status === s.value;
           const colorClass = STATUS_COLORS[s.value];
@@ -398,7 +402,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               type="button"
               onClick={() => handleSetStatus(s.value)}
               disabled={saving}
-              className={`text-left text-[0.8rem] py-1.5 px-3 rounded-sm border font-mono cursor-pointer transition-all duration-150 disabled:opacity-50 ${
+              className={`text-[0.8rem] py-1.5 px-3 rounded-sm border font-mono cursor-pointer transition-all duration-150 disabled:opacity-50 ${
                 isActive
                   ? colorClass
                   : "border-dg-border-subtle text-dg-text-secondary bg-transparent hover:border-dg-border"

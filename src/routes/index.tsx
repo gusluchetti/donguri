@@ -160,7 +160,7 @@ function WatchlistSection({
           return (
             <Link
               key={item.id}
-              to="/media/$wikidataId"
+              to="/catalog/$wikidataId"
               params={{ wikidataId: item.mediaWikidataId }}
               className="flex items-center gap-3 px-4 py-2.5 no-underline text-inherit hover:bg-dg-elevated/50 transition-colors duration-100"
             >

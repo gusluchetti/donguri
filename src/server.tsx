@@ -35,6 +35,15 @@ const fetch = async (request: Request) => {
     return Response.json({ status: "ok", timestamp: new Date().toISOString() });
   }
 
+  // 301 redirect old /media/ paths to /catalog/
+  if (url.pathname.startsWith("/media/")) {
+    const newPath = url.pathname.replace(/^\/media\//, "/catalog/");
+    return new Response(null, {
+      status: 301,
+      headers: { Location: `${newPath}${url.search}` },
+    });
+  }
+
   if (url.pathname === "/.well-known/jwks.json") {
     try {
       const env = getEnv();

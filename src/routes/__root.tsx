@@ -2,6 +2,7 @@ import { createRootRoute, HeadContent, Link, Outlet, Scripts } from "@tanstack/r
 import type { ReactNode } from "react";
 import "../app.css";
 import { getAuthState, logout } from "../lib/auth.functions";
+import { getUserTrackedIds } from "../lib/catalog.functions";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -23,7 +24,13 @@ export const Route = createRootRoute({
   }),
   loader: async () => {
     const auth = await getAuthState();
-    return { auth };
+    let trackedIds: Record<string, string | null> = {};
+    if (auth) {
+      try {
+        trackedIds = await getUserTrackedIds({});
+      } catch {}
+    }
+    return { auth, trackedIds };
   },
   staleTime: 30_000,
   component: RootComponent,
@@ -43,10 +50,10 @@ function RootDocument({ children }: { children: ReactNode }) {
   );
 }
 
-const NAV_LINKS: readonly { to: string; label: string; accent?: boolean }[] = [
-  { to: "/", label: "donguri", accent: true },
-  { to: "/catalog", label: "catalog" },
-  { to: "/roadmap", label: "roadmap" },
+const NAV_LINKS: readonly { to: string; label: string; accent?: boolean; exact?: boolean }[] = [
+  { to: "/", label: "donguri", accent: true, exact: true },
+  { to: "/catalog", label: "catalog", exact: false },
+  { to: "/roadmap", label: "roadmap", exact: true },
 ];
 
 function RootComponent() {
@@ -60,7 +67,7 @@ function RootComponent() {
             <Link
               key={link.to}
               to={link.to}
-              activeOptions={{ exact: true }}
+              activeOptions={{ exact: link.exact !== false }}
               className="text-[0.85rem] no-underline transition-colors duration-150"
               activeProps={{ className: "text-dg-accent" }}
               inactiveProps={{

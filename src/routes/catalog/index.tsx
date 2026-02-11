@@ -1,11 +1,11 @@
-import { createFileRoute, getRouteApi, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
-import type { Media } from "../db/schema";
-import { getUserTrackedIds } from "../lib/catalog.functions";
-import { getMediaStats, listMedia } from "../lib/media.functions";
-import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../lib/media-types";
+import type { Media } from "../../db/schema";
+import { setCatalogEntry } from "../../lib/catalog.functions";
+import { getMediaStats, listMedia } from "../../lib/media.functions";
+import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../../lib/media-types";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -22,13 +22,14 @@ const MEDIA_TYPES = [
   { value: "game" as const, label: "Games" },
 ];
 
-export const Route = createFileRoute("/catalog")({
+export const Route = createFileRoute("/catalog/")({
   validateSearch: catalogSearchSchema,
   component: CatalogPage,
 });
 
 function CatalogPage() {
-  const { auth } = rootRoute.useLoaderData();
+  const { auth, trackedIds: rootTrackedIds } = rootRoute.useLoaderData();
+  const router = useRouter();
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog" });
 
@@ -42,15 +43,12 @@ function CatalogPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(q ?? "");
-  const [trackedIds, setTrackedIds] = useState<Record<string, string | null>>({});
+  const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
   const searchTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const parentRef = useRef<HTMLDivElement>(null);
 
-  // Fetch tracked IDs for indicators (when logged in)
-  useEffect(() => {
-    if (!auth) return;
-    getUserTrackedIds({}).then(setTrackedIds).catch(() => {});
-  }, [auth]);
+  // Merge root tracked IDs with local optimistic overrides
+  const trackedIds: Record<string, string | null> = { ...rootTrackedIds, ...localOverrides };
 
   // Fetch data when search params change (only if logged in)
   useEffect(() => {
@@ -141,6 +139,25 @@ function CatalogPage() {
       });
     },
     [navigate],
+  );
+
+  const handleQuickAdd = useCallback(
+    async (wikidataId: string, e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setLocalOverrides((prev) => ({ ...prev, [wikidataId]: "plan_to_watch" }));
+      try {
+        await setCatalogEntry({ data: { wikidataId, status: "plan_to_watch" } });
+        router.invalidate();
+      } catch {
+        setLocalOverrides((prev) => {
+          const next = { ...prev };
+          delete next[wikidataId];
+          return next;
+        });
+      }
+    },
+    [router],
   );
 
   const virtualizer = useVirtualizer({
@@ -268,18 +285,27 @@ function CatalogPage() {
               }
 
               const item = items[virtualRow.index];
+              const status = trackedIds[item.wikidataId] ?? null;
+              const isTracked = status !== null;
+              const showAdd = auth && !isTracked;
+
               return (
                 <Link
                   key={item.id}
-                  to="/media/$wikidataId"
+                  to="/catalog/$wikidataId"
                   params={{ wikidataId: item.wikidataId }}
-                  className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block"
+                  className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group"
                   style={{
                     top: virtualRow.start,
                     height: virtualRow.size,
                   }}
                 >
-                  <MediaRow item={item} trackedStatus={trackedIds[item.wikidataId] ?? null} />
+                  <MediaRow
+                    item={item}
+                    trackedStatus={status}
+                    showAdd={!!showAdd}
+                    onQuickAdd={handleQuickAdd}
+                  />
                 </Link>
               );
             })}
@@ -302,8 +328,14 @@ function formatMeta(item: Media): string {
   const { mediaType, seasonCount, episodeCount, runtimeMinutes } = item;
   if (mediaType === "tv_series" || mediaType === "anime") {
     const parts: string[] = [];
-    if (seasonCount) parts.push(`S${String(seasonCount).padStart(2, "0")}`);
-    if (episodeCount) parts.push(`E${episodeCount}`);
+    if (seasonCount || episodeCount) {
+      const maxDigits = Math.max(
+        String(seasonCount ?? 0).length,
+        String(episodeCount ?? 0).length,
+      );
+      if (seasonCount) parts.push(`S${String(seasonCount).padStart(maxDigits, "0")}`);
+      if (episodeCount) parts.push(`E${String(episodeCount).padStart(maxDigits, "0")}`);
+    }
     return parts.join("");
   }
   if (mediaType === "movie" && runtimeMinutes) {
@@ -312,7 +344,17 @@ function formatMeta(item: Media): string {
   return "";
 }
 
-function MediaRow({ item, trackedStatus }: { item: Media; trackedStatus: string | null }) {
+function MediaRow({
+  item,
+  trackedStatus,
+  showAdd,
+  onQuickAdd,
+}: {
+  item: Media;
+  trackedStatus: string | null;
+  showAdd: boolean;
+  onQuickAdd: (wikidataId: string, e: React.MouseEvent) => void;
+}) {
   const badgeClass =
     TYPE_BADGE_CLASSES[item.mediaType] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
 
@@ -321,31 +363,40 @@ function MediaRow({ item, trackedStatus }: { item: Media; trackedStatus: string 
   return (
     <div className="flex items-center justify-between py-2 h-full gap-4">
       <div className="flex items-center gap-3 min-w-0 flex-1">
-        {trackedStatus && (
-          <span className={`text-sm shrink-0 ${TRACKED_ASTERISK_COLORS[trackedStatus] ?? "text-dg-text-tertiary"}`}>*</span>
+        {showAdd && (
+          <button
+            type="button"
+            onClick={(e) => onQuickAdd(item.wikidataId, e)}
+            className="text-[0.75rem] font-bold text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 shrink-0 hidden group-hover:inline-block hover:text-dg-accent"
+          >
+            [+]
+          </button>
         )}
         <span
-          className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm border uppercase tracking-wide whitespace-nowrap shrink-0 ${badgeClass}`}
+          className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm border uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center ${badgeClass}`}
         >
           {mediaTypeLabel(item.mediaType, true)}
         </span>
         <div className="flex items-baseline gap-2 min-w-0 overflow-hidden">
           <span className="text-[0.85rem] font-medium truncate text-dg-text">{item.title}</span>
+          {trackedStatus && (
+            <span className={`text-sm shrink-0 ${TRACKED_ASTERISK_COLORS[trackedStatus] ?? "text-dg-text-tertiary"}`}>*</span>
+          )}
           {item.originalTitle && (
             <span className="text-xs text-dg-text-tertiary truncate">{item.originalTitle}</span>
           )}
         </div>
       </div>
       <div className="flex items-center gap-4 shrink-0">
+        {meta && (
+          <span className="text-[0.7rem] text-dg-text-tertiary min-w-12 text-right tabular-nums">
+            {meta}
+          </span>
+        )}
         {item.startYear && (
           <span className="text-xs text-dg-text-secondary tabular-nums">
             {item.startYear}
             {item.endYear && item.endYear !== item.startYear ? `–${item.endYear}` : ""}
-          </span>
-        )}
-        {meta && (
-          <span className="text-[0.7rem] text-dg-text-tertiary min-w-12 text-right tabular-nums">
-            {meta}
           </span>
         )}
       </div>
