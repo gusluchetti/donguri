@@ -10,8 +10,10 @@
 interface AppEnv {
   OAUTH_STATE: KVNamespace;
   OAUTH_SESSION: KVNamespace;
-  OAUTH_PRIVATE_KEY_PEM: string;
+  /** ES256 private key — JWK JSON string (preferred) or PEM */
+  OAUTH_PRIVATE_KEY: string;
   SESSION_SECRET: string;
+  PUBLIC_URL: string;
 }
 
 let _env: AppEnv | null = null;
@@ -23,10 +25,7 @@ let _env: AppEnv | null = null;
 class MemoryKV implements KVNamespace {
   private store = new Map<string, { value: string; expiry?: number }>();
 
-  async get(
-    key: string,
-    options?: KVNamespaceGetOptions<"text">,
-  ): Promise<string | null>;
+  async get(key: string, options?: KVNamespaceGetOptions<"text">): Promise<string | null>;
   async get(key: string, type: "text"): Promise<string | null>;
   async get(key: string, type: "json"): Promise<unknown>;
   async get(key: string, type: "arrayBuffer"): Promise<ArrayBuffer | null>;
@@ -41,14 +40,8 @@ class MemoryKV implements KVNamespace {
     return entry.value;
   }
 
-  async put(
-    key: string,
-    value: string,
-    options?: KVNamespacePutOptions,
-  ): Promise<void> {
-    const expiry = options?.expirationTtl
-      ? Date.now() + options.expirationTtl * 1000
-      : undefined;
+  async put(key: string, value: string, options?: KVNamespacePutOptions): Promise<void> {
+    const expiry = options?.expirationTtl ? Date.now() + options.expirationTtl * 1000 : undefined;
     this.store.set(key, { value, expiry });
   }
 
@@ -92,17 +85,44 @@ export async function getEnv(): Promise<AppEnv> {
   if (process.env.NODE_ENV !== "development") {
     // Production: use Cloudflare Workers bindings
     const { env } = await import("cloudflare:workers");
-    _env = env as unknown as AppEnv;
+    const cfEnv = env as unknown as AppEnv;
+    // PUBLIC_URL may not be a CF binding — default to production domain
+    _env = {
+      ...cfEnv,
+      PUBLIC_URL: cfEnv.PUBLIC_URL || "https://donguri.app",
+    };
     return _env;
   }
 
   // Development: read from .dev.vars (wrangler secrets file), shim KV with in-memory store
   const devVars = await loadDevVars();
+
+  const isDev = process.env.NODE_ENV === "development";
+
+  // Accept either JWK (preferred for Bun) or PEM key format
+  const privateKey =
+    devVars.OAUTH_PRIVATE_KEY_JWK ||
+    devVars.OAUTH_PRIVATE_KEY_PEM ||
+    devVars.OAUTH_PRIVATE_KEY ||
+    "";
+
+  if (isDev) {
+    console.debug("[env] loaded .dev.vars keys:", Object.keys(devVars));
+    console.debug("[env] OAUTH_PRIVATE_KEY length:", privateKey.length);
+    console.debug("[env] OAUTH_PRIVATE_KEY starts with:", privateKey.slice(0, 20));
+    console.debug(
+      "[env] SESSION_SECRET:",
+      devVars.SESSION_SECRET ? "(set)" : "(missing, using default)",
+    );
+    console.debug("[env] PUBLIC_URL:", devVars.PUBLIC_URL || "(missing, using default)");
+  }
+
   _env = {
     OAUTH_STATE: new MemoryKV() as unknown as KVNamespace,
     OAUTH_SESSION: new MemoryKV() as unknown as KVNamespace,
-    OAUTH_PRIVATE_KEY_PEM: devVars.OAUTH_PRIVATE_KEY_PEM || "",
+    OAUTH_PRIVATE_KEY: privateKey,
     SESSION_SECRET: devVars.SESSION_SECRET || "dev-secret-change-me-in-production-please",
+    PUBLIC_URL: devVars.PUBLIC_URL || "http://localhost:3000",
   };
   return _env;
 }

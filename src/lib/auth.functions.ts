@@ -8,6 +8,8 @@ import { z } from "zod";
 import { getEnv } from "./env";
 import { getOAuthClient } from "./auth/client";
 
+const isDev = process.env.NODE_ENV === "development";
+
 // ─── Session cookie helpers ─────────────────────────────────────────────────
 
 const COOKIE_NAME = "donguri-auth";
@@ -89,9 +91,35 @@ export const getAuthState = createServerFn({ method: "GET" }).handler(
 export const initiateLogin = createServerFn({ method: "POST" })
   .inputValidator(z.object({ handle: z.string().min(1) }))
   .handler(async ({ data }) => {
-    const client = await getOAuthClient();
-    const url = await client.authorize(data.handle);
-    return { url: url.toString() };
+    if (isDev) {
+      console.debug("[login] ─── initiateLogin called ───");
+      console.debug("[login] handle:", data.handle);
+    }
+
+    let client;
+    try {
+      client = await getOAuthClient();
+      if (isDev) console.debug("[login] OAuth client obtained");
+    } catch (err) {
+      console.error("[login] failed to get OAuth client:", err);
+      throw err;
+    }
+
+    try {
+      if (isDev) console.debug("[login] calling client.authorize with handle:", data.handle);
+      const url = await client.authorize(data.handle);
+      if (isDev) console.debug("[login] authorize returned URL:", url.toString());
+      return { url: url.toString() };
+    } catch (err) {
+      console.error("[login] client.authorize failed:", err);
+      if (err instanceof Error) {
+        console.error("[login] error name:", err.name);
+        console.error("[login] error message:", err.message);
+        console.error("[login] error stack:", err.stack);
+        if ("cause" in err) console.error("[login] error cause:", err.cause);
+      }
+      throw err;
+    }
   });
 
 /**
@@ -108,22 +136,59 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
     }),
   )
   .handler(async ({ data }) => {
+    if (isDev) {
+      console.debug("[callback] ─── handleOAuthCallback called ───");
+      console.debug("[callback] params:", {
+        code: data.code ? `${data.code.slice(0, 10)}...` : undefined,
+        state: data.state ? `${data.state.slice(0, 10)}...` : undefined,
+        iss: data.iss,
+        error: data.error,
+        error_description: data.error_description,
+      });
+    }
+
     if (data.error) {
+      console.error("[callback] OAuth error from PDS:", data.error, data.error_description);
       throw new Error(data.error_description || data.error);
     }
 
-    const client = await getOAuthClient();
+    let client;
+    try {
+      client = await getOAuthClient();
+      if (isDev) console.debug("[callback] OAuth client obtained");
+    } catch (err) {
+      console.error("[callback] failed to get OAuth client:", err);
+      throw err;
+    }
+
     const params = new URLSearchParams();
     if (data.code) params.set("code", data.code);
     if (data.state) params.set("state", data.state);
     if (data.iss) params.set("iss", data.iss);
 
-    const { session } = await client.callback(params);
+    if (isDev) console.debug("[callback] calling client.callback with params:", params.toString());
+
+    let session;
+    try {
+      const result = await client.callback(params);
+      session = result.session;
+      if (isDev) console.debug("[callback] session obtained, DID:", session.did);
+    } catch (err) {
+      console.error("[callback] client.callback failed:", err);
+      if (err instanceof Error) {
+        console.error("[callback] error name:", err.name);
+        console.error("[callback] error message:", err.message);
+        console.error("[callback] error stack:", err.stack);
+      }
+      throw err;
+    }
+
     const did = session.did;
 
     // Resolve handle from DID via public API
     let handle = did;
     try {
+      if (isDev) console.debug("[callback] resolving handle for DID:", did);
       const res = await fetch(
         `https://plc.directory/${encodeURIComponent(did)}`,
       );
@@ -135,12 +200,17 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
         if (atUri) {
           handle = atUri.replace("at://", "");
         }
+        if (isDev) console.debug("[callback] resolved handle:", handle);
+      } else {
+        if (isDev) console.debug("[callback] PLC directory returned status:", res.status);
       }
-    } catch {
+    } catch (err) {
+      console.error("[callback] handle resolution failed:", err);
       // Fall back to DID as handle
     }
 
     await setSessionCookie({ did, handle });
+    if (isDev) console.debug("[callback] session cookie set, login complete");
     return { did, handle };
   });
 
@@ -148,15 +218,18 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
  * Logout — revoke AT Proto session and clear cookie.
  */
 export const logout = createServerFn({ method: "POST" }).handler(async () => {
+  if (isDev) console.debug("[logout] ─── logout called ───");
   const session = await getSessionData();
   if (session) {
     try {
       const client = await getOAuthClient();
       await client.revoke(session.did);
-    } catch {
-      // Best-effort revocation
+      if (isDev) console.debug("[logout] session revoked for DID:", session.did);
+    } catch (err) {
+      console.error("[logout] revocation failed:", err);
     }
   }
   clearSessionCookie();
+  if (isDev) console.debug("[logout] cookie cleared");
   return { ok: true };
 });

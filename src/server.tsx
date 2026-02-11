@@ -5,21 +5,20 @@ import {
 } from "@tanstack/react-start/server";
 import { getEnv } from "./lib/env";
 
-const isDev = process.env.NODE_ENV === "development";
-const PUBLIC_URL = isDev ? "http://127.0.0.1:3000" : "https://donguri.app";
-
 const startHandler = createStartHandler(defaultStreamHandler);
 
 const fetch = async (request: Request, ...args: unknown[]) => {
   const url = new URL(request.url);
 
   if (url.pathname === "/.well-known/oauth-client-metadata.json") {
+    const env = await getEnv();
+    const publicUrl = env.PUBLIC_URL;
     return Response.json(
       {
-        client_id: `${PUBLIC_URL}/.well-known/oauth-client-metadata.json`,
+        client_id: `${publicUrl}/.well-known/oauth-client-metadata.json`,
         client_name: "donguri",
-        client_uri: PUBLIC_URL,
-        redirect_uris: [`${PUBLIC_URL}/auth/callback`],
+        client_uri: publicUrl,
+        redirect_uris: [`${publicUrl}/auth/callback`],
         grant_types: ["authorization_code", "refresh_token"],
         scope: "atproto transition:generic",
         response_types: ["code"],
@@ -27,7 +26,7 @@ const fetch = async (request: Request, ...args: unknown[]) => {
         token_endpoint_auth_method: "private_key_jwt",
         token_endpoint_auth_signing_alg: "ES256",
         dpop_bound_access_tokens: true,
-        jwks_uri: `${PUBLIC_URL}/.well-known/jwks.json`,
+        jwks_uri: `${publicUrl}/.well-known/jwks.json`,
       },
       {
         headers: { "Cache-Control": "public, max-age=3600" },
@@ -38,7 +37,7 @@ const fetch = async (request: Request, ...args: unknown[]) => {
   if (url.pathname === "/.well-known/jwks.json") {
     const env = await getEnv();
     const key = await JoseKey.fromImportable(
-      env.OAUTH_PRIVATE_KEY_PEM,
+      env.OAUTH_PRIVATE_KEY,
       "donguri-key",
     );
     return Response.json(

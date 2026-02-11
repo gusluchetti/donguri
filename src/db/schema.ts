@@ -116,6 +116,37 @@ export const mediaPlatforms = sqliteTable(
   (table) => [primaryKey({ columns: [table.mediaId, table.platformId] })],
 );
 
+// ─── User Records (local mirror of PDS data) ──────────────────────────────
+
+export const userRecords = sqliteTable(
+  "user_records",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => ulid()),
+    did: text("did").notNull(),
+    rkey: text("rkey").notNull(),
+    collection: text("collection").notNull(),
+    mediaWikidataId: text("media_wikidata_id").notNull(),
+    status: text("status", {
+      enum: ["watching", "completed", "dropped", "plan_to_watch"],
+    }),
+    rating: integer("rating"),
+    note: text("note"),
+    episodeProgress: integer("episode_progress"),
+    indexedAt: text("indexed_at").notNull().default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("idx_user_records_did").on(table.did),
+    index("idx_user_records_media").on(table.mediaWikidataId),
+    index("idx_user_records_did_collection_rkey").on(
+      table.did,
+      table.collection,
+      table.rkey,
+    ),
+  ],
+);
+
 // ─── Import Progress ────────────────────────────────────────────────────────
 
 export const importProgress = sqliteTable("import_progress", {
@@ -174,3 +205,5 @@ export type NewMedia = typeof media.$inferInsert;
 export type Genre = typeof genres.$inferSelect;
 export type Platform = typeof platforms.$inferSelect;
 export type ImportProgress = typeof importProgress.$inferSelect;
+export type UserRecord = typeof userRecords.$inferSelect;
+export type NewUserRecord = typeof userRecords.$inferInsert;

@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { getMedia } from "../../lib/media.functions";
 import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../../lib/media-types";
 
@@ -74,10 +74,14 @@ function MediaDetailPage() {
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
       <div className="max-w-[700px] mx-auto p-6">
-        {/* Back link */}
-        <Link to="/catalog" className="text-dg-text-tertiary text-[0.8rem] no-underline inline-block mb-6">
+        {/* Back link — uses history.back() to preserve catalog search params */}
+        <button
+          type="button"
+          onClick={() => window.history.back()}
+          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer p-0 mb-6 inline-block"
+        >
           ← catalog
-        </Link>
+        </button>
 
         {/* Header */}
         <div className="mb-6">

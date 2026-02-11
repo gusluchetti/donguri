@@ -1,9 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import type { Media } from "../db/schema";
 import { getMediaStats, listMedia } from "../lib/media.functions";
 import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../lib/media-types";
+
+const catalogSearchSchema = z.object({
+  q: z.string().optional().catch(undefined),
+  type: z.enum(["movie", "tv_series", "anime", "game"]).optional().catch(undefined),
+});
 
 const MEDIA_TYPES = [
   { value: undefined, label: "All" },
@@ -14,9 +20,17 @@ const MEDIA_TYPES = [
 ];
 
 export const Route = createFileRoute("/catalog")({
-  loader: async () => {
+  validateSearch: catalogSearchSchema,
+  loaderDeps: ({ search }) => ({ q: search.q, type: search.type }),
+  loader: async ({ deps }) => {
     const [initialData, stats] = await Promise.all([
-      listMedia({ data: { limit: 50 } }),
+      listMedia({
+        data: {
+          limit: 50,
+          mediaType: deps.type,
+          search: deps.q || undefined,
+        },
+      }),
       getMediaStats(),
     ]);
     return { initialData, stats };
@@ -26,73 +40,76 @@ export const Route = createFileRoute("/catalog")({
 
 function CatalogPage() {
   const { initialData, stats } = Route.useLoaderData();
+  const { q, type: mediaType } = Route.useSearch();
+  const navigate = useNavigate({ from: "/catalog" });
+
   const [items, setItems] = useState<Media[]>(initialData.items);
   const [nextCursor, setNextCursor] = useState<string | null>(initialData.nextCursor);
   const [loading, setLoading] = useState(false);
-  const [mediaType, setMediaType] = useState<"movie" | "tv_series" | "anime" | "game" | undefined>(
-    undefined,
-  );
-  const [search, setSearch] = useState("");
-  const [searchInput, setSearchInput] = useState("");
+  const [searchInput, setSearchInput] = useState(q ?? "");
   const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
   const parentRef = useRef<HTMLDivElement>(null);
 
-  const fetchMedia = useCallback(
-    async (
-      opts: {
-        cursor?: string;
-        type?: "movie" | "tv_series" | "anime" | "game";
-        searchTerm?: string;
-        append?: boolean;
-      } = {},
-    ) => {
+  // Reset items when loader data changes (URL params changed)
+  useEffect(() => {
+    setItems(initialData.items);
+    setNextCursor(initialData.nextCursor);
+  }, [initialData]);
+
+  // Sync search input when URL param changes externally (e.g. back/forward)
+  useEffect(() => {
+    setSearchInput(q ?? "");
+  }, [q]);
+
+  const fetchMore = useCallback(
+    async (cursor: string) => {
       setLoading(true);
       try {
         const result = await listMedia({
           data: {
-            cursor: opts.append ? opts.cursor : undefined,
+            cursor,
             limit: 50,
-            mediaType: opts.type,
-            search: opts.searchTerm || undefined,
+            mediaType,
+            search: q || undefined,
           },
         });
-        if (opts.append) {
-          setItems((prev) => [...prev, ...result.items]);
-        } else {
-          setItems(result.items);
-        }
+        setItems((prev) => [...prev, ...result.items]);
         setNextCursor(result.nextCursor);
       } finally {
         setLoading(false);
       }
     },
-    [],
+    [mediaType, q],
   );
 
-  // Refetch when type filter changes
-  useEffect(() => {
-    fetchMedia({ type: mediaType, searchTerm: search });
-  }, [mediaType, search, fetchMedia]);
+  const handleSearchInput = useCallback(
+    (value: string) => {
+      setSearchInput(value);
+      if (searchTimeout.current) clearTimeout(searchTimeout.current);
+      searchTimeout.current = setTimeout(() => {
+        navigate({
+          search: (prev) => ({
+            ...prev,
+            q: value || undefined,
+          }),
+          replace: true,
+        });
+      }, 300);
+    },
+    [navigate],
+  );
 
-  // Debounced search
-  const handleSearchInput = useCallback((value: string) => {
-    setSearchInput(value);
-    if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    searchTimeout.current = setTimeout(() => {
-      setSearch(value);
-    }, 300);
-  }, []);
-
-  const loadMore = useCallback(() => {
-    if (nextCursor && !loading) {
-      fetchMedia({
-        cursor: nextCursor,
-        type: mediaType,
-        searchTerm: search,
-        append: true,
+  const handleTypeChange = useCallback(
+    (type: "movie" | "tv_series" | "anime" | "game" | undefined) => {
+      navigate({
+        search: (prev) => ({
+          ...prev,
+          type,
+        }),
       });
-    }
-  }, [nextCursor, loading, mediaType, search, fetchMedia]);
+    },
+    [navigate],
+  );
 
   const virtualizer = useVirtualizer({
     count: items.length + (nextCursor ? 1 : 0),
@@ -108,9 +125,9 @@ function CatalogPage() {
     const lastItem = virtualItems[virtualItems.length - 1];
     if (!lastItem) return;
     if (lastItem.index >= items.length - 5 && nextCursor && !loading) {
-      loadMore();
+      fetchMore(nextCursor);
     }
-  }, [virtualItems, items.length, nextCursor, loading, loadMore]);
+  }, [virtualItems, items.length, nextCursor, loading, fetchMore]);
 
   return (
     <div className="bg-dg-bg text-dg-text h-screen font-mono flex flex-col overflow-hidden">
@@ -147,7 +164,7 @@ function CatalogPage() {
               <button
                 type="button"
                 key={t.label}
-                onClick={() => setMediaType(t.value)}
+                onClick={() => handleTypeChange(t.value)}
                 className={`py-1.5 px-3 border rounded-sm font-mono text-xs cursor-pointer flex items-center gap-1.5 transition-all duration-150 ${
                   isActive
                     ? "bg-dg-accent/[0.08] border-dg-accent/25 text-dg-accent"
@@ -189,17 +206,18 @@ function CatalogPage() {
 
             const item = items[virtualRow.index];
             return (
-              <a
+              <Link
                 key={item.id}
-                href={`/media/${item.wikidataId}`}
-                className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit"
+                to="/media/$wikidataId"
+                params={{ wikidataId: item.wikidataId }}
+                className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block"
                 style={{
                   top: virtualRow.start,
                   height: virtualRow.size,
                 }}
               >
                 <MediaRow item={item} />
-              </a>
+              </Link>
             );
           })}
         </div>

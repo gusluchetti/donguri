@@ -69,11 +69,19 @@ function LoginForm() {
     setLoading(true);
     setError(null);
 
+    const trimmed = handle.trim();
+    console.debug("[login-ui] submitting handle:", trimmed);
+
     try {
-      const result = await initiateLogin({ data: { handle: handle.trim() } });
+      console.debug("[login-ui] calling initiateLogin...");
+      const result = await initiateLogin({ data: { handle: trimmed } });
+      console.debug("[login-ui] got redirect URL:", result.url);
       window.location.href = result.url;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to initiate login");
+      console.error("[login-ui] initiateLogin failed:", err);
+      const msg = err instanceof Error ? err.message : "Failed to initiate login";
+      console.error("[login-ui] error message shown to user:", msg);
+      setError(msg);
       setLoading(false);
     }
   };

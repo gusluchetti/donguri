@@ -1,0 +1,18 @@
+# AT Protocol OAuth — ES256 private key (JWK format, works with Bun)
+# Generate with: bun run scripts/generate-keys.ts
+OAUTH_PRIVATE_KEY_JWK={"crv":"P-256","d":"<base64url>","kty":"EC","x":"<base64url>","y":"<base64url>","alg":"ES256"}
+
+# Session cookie signing secret (any random string)
+SESSION_SECRET="change-me-to-a-random-string"
+
+# Public URL — AT Proto OAuth requires either:
+#   - localhost/127.0.0.1 (client validates locally, but PDS can't reach you)
+#   - An HTTPS URL the PDS can reach (use a tunnel for dev)
+#
+# Default (client passes validation, but PDS can't complete the flow):
+PUBLIC_URL="http://127.0.0.1:3000"
+#
+# For full OAuth testing, use a cloudflared tunnel:
+#   cloudflared tunnel --url http://localhost:3000
+# Then set PUBLIC_URL to the generated https URL:
+# PUBLIC_URL="https://abc-xyz-123.trycloudflare.com"
