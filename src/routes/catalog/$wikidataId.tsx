@@ -623,7 +623,9 @@ function RatingInput({
           if (e.key === "Enter") commit();
           if (e.key === "Escape") setEditing(false);
         }}
-        className="w-[4.5ch] text-[0.85rem] text-dg-accent tabular-nums text-right bg-dg-bg border border-dg-accent/30 rounded-sm px-1 py-0 font-mono outline-none"
+        size={Math.max(text.length, 1)}
+        className="text-[0.85rem] text-dg-accent tabular-nums text-right bg-dg-bg border border-dg-accent/30 rounded-sm px-1 py-0 font-mono outline-none field-sizing-content"
+        style={{ width: `${Math.max(text.length, 1) + 1}ch` }}
       />
     );
   }
