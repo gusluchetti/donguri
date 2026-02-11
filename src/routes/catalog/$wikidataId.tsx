@@ -1,4 +1,5 @@
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
+import { Save, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CatalogEntry } from "../../db/schema";
 import { getCatalogEntry, getMediaStub, removeCatalogEntry, setCatalogEntry } from "../../lib/catalog.functions";
@@ -353,7 +354,9 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const pendingRating = useRef<number | null>(null);
+  // Local rating tracks the slider; savedRating tracks what the server has
+  const [localRating, setLocalRating] = useState<number | null>(null);
+  const savedRating = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -363,6 +366,8 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
         if (!cancelled) {
           console.debug("[tracking] loaded entry for %s → %s", wikidataId, e ? e.status : "not tracked");
           setEntry(e);
+          setLocalRating(e?.rating ?? null);
+          savedRating.current = e?.rating ?? null;
           setLoaded(true);
         }
       })
@@ -376,6 +381,10 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
       cancelled = true;
     };
   }, [wikidataId]);
+
+  const ratingDirty =
+    localRating !== savedRating.current &&
+    !(localRating === null && savedRating.current === null);
 
   const handleSetStatus = useCallback(
     async (status: "watching" | "completed" | "dropped" | "plan_to_watch" | "paused") => {
@@ -415,6 +424,8 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
         console.debug("[tracking] setStatus %s → server ok, refreshing", wikidataId);
         const fresh = await getCatalogEntry({ data: { wikidataId } });
         setEntry(fresh);
+        setLocalRating(fresh?.rating ?? null);
+        savedRating.current = fresh?.rating ?? null;
         clearCachedWatchlist();
         router.invalidate();
       } catch (err) {
@@ -428,39 +439,40 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
     [entry, wikidataId, router],
   );
 
-  const handleSetRating = useCallback(
-    async (rating: number | null) => {
-      if (!entry?.status) return;
-      console.debug("[tracking] setRating %s → %s (optimistic)", wikidataId, rating);
-      setSaving(true);
-      setError(null);
-      const prev = entry;
-      setEntry((e) => (e ? { ...e, rating, updatedAt: new Date() } : e));
-      try {
-        await setCatalogEntry({
-          data: {
-            wikidataId,
-            status: entry.status,
-            rating,
-            note: entry.note,
-            episodeProgress: entry.episodeProgress,
-          },
-        });
-        console.debug("[tracking] setRating %s → server ok, refreshing", wikidataId);
-        const fresh = await getCatalogEntry({ data: { wikidataId } });
-        setEntry(fresh);
-        clearCachedWatchlist();
-        router.invalidate();
-      } catch (err) {
-        console.error("[tracking] setRating %s → FAILED:", wikidataId, err);
-        setEntry(prev);
-        setError("Failed to save");
-      } finally {
-        setSaving(false);
-      }
-    },
-    [entry, wikidataId, router],
-  );
+  const handleSaveRating = useCallback(async () => {
+    if (!entry?.status) return;
+    const rating = localRating;
+    console.debug("[tracking] saveRating %s → %s", wikidataId, rating);
+    setSaving(true);
+    setError(null);
+    const prev = entry;
+    setEntry((e) => (e ? { ...e, rating, updatedAt: new Date() } : e));
+    try {
+      await setCatalogEntry({
+        data: {
+          wikidataId,
+          status: entry.status,
+          rating,
+          note: entry.note,
+          episodeProgress: entry.episodeProgress,
+        },
+      });
+      console.debug("[tracking] saveRating %s → server ok, refreshing", wikidataId);
+      const fresh = await getCatalogEntry({ data: { wikidataId } });
+      setEntry(fresh);
+      setLocalRating(fresh?.rating ?? null);
+      savedRating.current = fresh?.rating ?? null;
+      clearCachedWatchlist();
+      router.invalidate();
+    } catch (err) {
+      console.error("[tracking] saveRating %s → FAILED:", wikidataId, err);
+      setEntry(prev);
+      setLocalRating(prev?.rating ?? null);
+      setError("Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }, [entry, localRating, wikidataId, router]);
 
   const handleRemove = useCallback(async () => {
     console.debug("[tracking] remove %s (optimistic)", wikidataId);
@@ -533,54 +545,57 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               min="0"
               max="10"
               step="0.01"
-              value={entry.rating ?? 0}
+              value={localRating ?? 0}
               onChange={(e) => {
-                const val = Number.parseFloat(e.target.value);
-                pendingRating.current = val || null;
-                setEntry((prev) => prev ? { ...prev, rating: val, updatedAt: new Date() } : prev);
-              }}
-              onMouseUp={() => {
-                if (pendingRating.current !== null || entry.rating) {
-                  handleSetRating(pendingRating.current);
-                  pendingRating.current = null;
-                }
-              }}
-              onTouchEnd={() => {
-                if (pendingRating.current !== null || entry.rating) {
-                  handleSetRating(pendingRating.current);
-                  pendingRating.current = null;
-                }
+                setLocalRating(Number.parseFloat(e.target.value) || null);
               }}
               disabled={saving}
               className="dg-range flex-1"
             />
             <span className="text-[0.85rem] text-dg-accent tabular-nums min-w-[4ch] text-right">
-              {entry.rating != null ? entry.rating.toFixed(2) : "\u2014"}
+              {localRating != null ? localRating.toFixed(2) : "\u2014"}
             </span>
-            {entry.rating != null && (
+            {localRating != null && (
               <button
                 type="button"
-                onClick={() => handleSetRating(null)}
+                onClick={() => setLocalRating(null)}
                 disabled={saving}
-                className="text-[0.7rem] text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
+                className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-0 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
+                title="Clear rating"
               >
-                clear
+                <X size={14} />
               </button>
             )}
           </div>
         </div>
       )}
 
-      {/* Remove button */}
+      {/* Bottom bar: save (left) + remove (right) */}
       {entry?.status && (
-        <button
-          type="button"
-          onClick={handleRemove}
-          disabled={saving}
-          className="text-[0.75rem] text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
-        >
-          Remove from list
-        </button>
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={handleSaveRating}
+            disabled={saving || !ratingDirty}
+            className={`bg-transparent border-none cursor-pointer p-0 transition-colors duration-150 disabled:opacity-30 ${
+              ratingDirty
+                ? "text-dg-accent hover:text-dg-accent/80"
+                : "text-dg-text-tertiary"
+            }`}
+            title="Save rating"
+          >
+            <Save size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={handleRemove}
+            disabled={saving}
+            className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-0 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
+            title="Remove from list"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       )}
     </div>
   );
