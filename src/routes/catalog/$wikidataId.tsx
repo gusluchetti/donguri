@@ -538,7 +538,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               type="range"
               min="0"
               max="10"
-              step="0.01"
+              step="0.1"
               value={localRating ?? 0}
               onChange={(e) => {
                 setLocalRating(Number.parseFloat(e.target.value) || null);
@@ -612,7 +612,7 @@ function RatingInput({
 
   const startEditing = () => {
     if (disabled) return;
-    setText(value != null ? value.toFixed(2) : "");
+    setText(value != null ? value.toFixed(1) : "");
     setEditing(true);
   };
 
@@ -629,7 +629,7 @@ function RatingInput({
     }
     const parsed = Number.parseFloat(normalized);
     if (Number.isNaN(parsed)) return;
-    onChange(Math.round(Math.min(10, Math.max(0, parsed)) * 100) / 100);
+    onChange(Math.round(Math.min(10, Math.max(0, parsed)) * 10) / 10);
   };
 
   if (editing) {
@@ -639,13 +639,13 @@ function RatingInput({
         type="text"
         inputMode="decimal"
         value={text}
-        maxLength={5}
+        maxLength={4}
         onChange={(e) => {
           const v = e.target.value;
-          // Allow typing but block more than 2 decimal places
+          // Allow typing but block more than 1 decimal place
           const norm = v.replace(",", ".");
           const dot = norm.indexOf(".");
-          if (dot !== -1 && norm.length - dot - 1 > 2) return;
+          if (dot !== -1 && norm.length - dot - 1 > 1) return;
           setText(v);
         }}
         onBlur={commit}
@@ -668,7 +668,7 @@ function RatingInput({
       style={{ color, textDecorationColor: `${color}50` }}
       title="Click to type a rating"
     >
-      {value != null ? value.toFixed(2) : "\u2014"}
+      {value != null ? value.toFixed(1) : "\u2014"}
     </button>
   );
 }
