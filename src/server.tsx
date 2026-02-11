@@ -7,11 +7,11 @@ import { getEnv } from "./lib/env";
 
 const startHandler = createStartHandler(defaultStreamHandler);
 
-const fetch = async (request: Request, ...args: unknown[]) => {
+const fetch = async (request: Request) => {
   const url = new URL(request.url);
 
   if (url.pathname === "/.well-known/oauth-client-metadata.json") {
-    const env = await getEnv();
+    const env = getEnv();
     const publicUrl = env.PUBLIC_URL;
     return Response.json(
       {
@@ -34,8 +34,12 @@ const fetch = async (request: Request, ...args: unknown[]) => {
     );
   }
 
+  if (url.pathname === "/api/health") {
+    return Response.json({ status: "ok", timestamp: new Date().toISOString() });
+  }
+
   if (url.pathname === "/.well-known/jwks.json") {
-    const env = await getEnv();
+    const env = getEnv();
     const key = await JoseKey.fromImportable(
       env.OAUTH_PRIVATE_KEY,
       "donguri-key",
@@ -48,7 +52,7 @@ const fetch = async (request: Request, ...args: unknown[]) => {
     );
   }
 
-  return startHandler(request, ...args);
+  return startHandler(request);
 };
 
 export default { fetch };

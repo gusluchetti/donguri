@@ -1,10 +1,18 @@
-import { relations, sql } from "drizzle-orm";
-import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { relations } from "drizzle-orm";
+import {
+  index,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import { ulid } from "ulid";
 
 // ─── Media ──────────────────────────────────────────────────────────────────
 
-export const media = sqliteTable(
+export const media = pgTable(
   "media",
   {
     id: text("id")
@@ -56,8 +64,8 @@ export const media = sqliteTable(
     searchTitle: text("search_title"),
 
     // Timestamps
-    createdAt: text("created_at").default(sql`(datetime('now'))`),
-    updatedAt: text("updated_at").default(sql`(datetime('now'))`),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
   },
   (table) => [
     index("idx_media_type").on(table.mediaType),
@@ -72,7 +80,7 @@ export const media = sqliteTable(
 
 // ─── Genres ─────────────────────────────────────────────────────────────────
 
-export const genres = sqliteTable("genres", {
+export const genres = pgTable("genres", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => ulid()),
@@ -80,7 +88,7 @@ export const genres = sqliteTable("genres", {
   name: text("name").notNull(),
 });
 
-export const mediaGenres = sqliteTable(
+export const mediaGenres = pgTable(
   "media_genres",
   {
     mediaId: text("media_id")
@@ -95,7 +103,7 @@ export const mediaGenres = sqliteTable(
 
 // ─── Platforms (games) ──────────────────────────────────────────────────────
 
-export const platforms = sqliteTable("platforms", {
+export const platforms = pgTable("platforms", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => ulid()),
@@ -103,7 +111,7 @@ export const platforms = sqliteTable("platforms", {
   name: text("name").notNull(),
 });
 
-export const mediaPlatforms = sqliteTable(
+export const mediaPlatforms = pgTable(
   "media_platforms",
   {
     mediaId: text("media_id")
@@ -116,17 +124,31 @@ export const mediaPlatforms = sqliteTable(
   (table) => [primaryKey({ columns: [table.mediaId, table.platformId] })],
 );
 
-// ─── User Records (local mirror of PDS data) ──────────────────────────────
+// ─── Users ──────────────────────────────────────────────────────────────────
 
-export const userRecords = sqliteTable(
-  "user_records",
+export const users = pgTable("users", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => ulid()),
+  did: text("did").unique(), // nullable — only set for AT Protocol users
+  handle: text("handle").notNull(),
+  authMethod: text("auth_method", {
+    enum: ["atproto", "local"],
+  }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ─── Catalog Entries (user tracking data) ───────────────────────────────────
+
+export const catalogEntries = pgTable(
+  "catalog_entries",
   {
     id: text("id")
       .primaryKey()
       .$defaultFn(() => ulid()),
-    did: text("did").notNull(),
-    rkey: text("rkey").notNull(),
-    collection: text("collection").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     mediaWikidataId: text("media_wikidata_id").notNull(),
     status: text("status", {
       enum: ["watching", "completed", "dropped", "plan_to_watch"],
@@ -134,22 +156,40 @@ export const userRecords = sqliteTable(
     rating: integer("rating"),
     note: text("note"),
     episodeProgress: integer("episode_progress"),
-    indexedAt: text("indexed_at").notNull().default(sql`(datetime('now'))`),
+    rkey: text("rkey"), // nullable — only set for AT Protocol users
+    syncedAt: timestamp("synced_at"), // nullable — last PDS sync time
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
   },
   (table) => [
-    index("idx_user_records_did").on(table.did),
-    index("idx_user_records_media").on(table.mediaWikidataId),
-    index("idx_user_records_did_collection_rkey").on(
-      table.did,
-      table.collection,
-      table.rkey,
+    index("idx_catalog_entries_user").on(table.userId),
+    index("idx_catalog_entries_media").on(table.mediaWikidataId),
+    uniqueIndex("idx_catalog_entries_user_media").on(
+      table.userId,
+      table.mediaWikidataId,
     ),
   ],
 );
 
+// ─── OAuth State (replaces KV) ──────────────────────────────────────────────
+
+export const oauthStates = pgTable("oauth_states", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(), // JSON string
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
+// ─── OAuth Sessions (replaces KV) ──────────────────────────────────────────
+
+export const oauthSessions = pgTable("oauth_sessions", {
+  sub: text("sub").primaryKey(), // DID
+  session: text("session").notNull(), // JSON string
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // ─── Import Progress ────────────────────────────────────────────────────────
 
-export const importProgress = sqliteTable("import_progress", {
+export const importProgress = pgTable("import_progress", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => ulid()),
@@ -160,8 +200,8 @@ export const importProgress = sqliteTable("import_progress", {
   status: text("status", {
     enum: ["running", "completed", "failed"],
   }),
-  startedAt: text("started_at"),
-  completedAt: text("completed_at"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
 });
 
 // ─── Relations ──────────────────────────────────────────────────────────────
@@ -198,12 +238,25 @@ export const mediaPlatformsRelations = relations(mediaPlatforms, ({ one }) => ({
   }),
 }));
 
+export const usersRelations = relations(users, ({ many }) => ({
+  catalogEntries: many(catalogEntries),
+}));
+
+export const catalogEntriesRelations = relations(catalogEntries, ({ one }) => ({
+  user: one(users, {
+    fields: [catalogEntries.userId],
+    references: [users.id],
+  }),
+}));
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export type Media = typeof media.$inferSelect;
 export type NewMedia = typeof media.$inferInsert;
 export type Genre = typeof genres.$inferSelect;
 export type Platform = typeof platforms.$inferSelect;
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type CatalogEntry = typeof catalogEntries.$inferSelect;
+export type NewCatalogEntry = typeof catalogEntries.$inferInsert;
 export type ImportProgress = typeof importProgress.$inferSelect;
-export type UserRecord = typeof userRecords.$inferSelect;
-export type NewUserRecord = typeof userRecords.$inferInsert;

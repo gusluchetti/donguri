@@ -1,30 +1,30 @@
-import { createClient } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import * as schema from "./schema";
 
-function getClient() {
-  const url = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL;
+function getConnectionString() {
+  const url = process.env.DATABASE_URL;
   if (!url) {
-    throw new Error("TURSO_DATABASE_URL or DATABASE_URL environment variable is required");
+    throw new Error("DATABASE_URL environment variable is required");
   }
-
-  return createClient({
-    url,
-    authToken: process.env.TURSO_AUTH_TOKEN,
-  });
+  return url;
 }
 
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
 export function getDb() {
   if (!_db) {
-    _db = drizzle(getClient(), { schema });
+    const client = postgres(getConnectionString(), {
+      max: 10,
+      idle_timeout: 20,
+    });
+    _db = drizzle(client, { schema });
   }
   return _db;
 }
 
 // For import scripts that run outside the server
-export function createDb(url: string, authToken?: string) {
-  const client = createClient({ url, authToken });
+export function createDb(url: string) {
+  const client = postgres(url, { max: 10, idle_timeout: 20 });
   return drizzle(client, { schema });
 }

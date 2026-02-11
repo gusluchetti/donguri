@@ -1,15 +1,15 @@
 # donguri roadmap
 
-donguri is a media catalog and tracker for movies, TV shows, anime, and games — built on the AT Protocol so your data stays yours.
+donguri is a media catalog and tracker for movies, TV shows, anime, and games. User data is stored on a server database with optional AT Protocol sync — your PDS becomes the source of truth if you connect it, otherwise the DB is your source of truth.
 
 ## Current status
 
-The media catalog is live with ~70k titles imported from Wikidata. AT Protocol OAuth scaffolding is in place, with Lexicon schema designed and local mirror table ready for user data.
+The media catalog is functional with ~70k titles imported from Wikidata. AT Protocol OAuth scaffolding is in place. Migrating to Fly.io + Postgres for deployment.
 
 ## Phase 0: Catalog infrastructure [DONE]
 
 - [x] Wikidata import pipeline (10 P31 types, quality filtering)
-- [x] Turso/libSQL database with FTS5 search
+- [x] Database with search
 - [x] Catalog UI with virtual list, search, filtering
 - [x] Media detail pages with external links
 - [x] Roadmap page
@@ -17,32 +17,49 @@ The media catalog is live with ~70k titles imported from Wikidata. AT Protocol O
 
 ## Phase 1: AT Protocol integration [IN PROGRESS]
 
-- [x] OAuth client scaffolding (metadata endpoints, JWKS, KV stores)
+- [x] OAuth client scaffolding (metadata endpoints, JWKS)
 - [x] Singleton OAuth client with dynamic PUBLIC_URL
 - [x] Design Lexicon schema (`app.donguri.catalog.entry`)
-- [x] Local DB mirror table for user PDS records
-- [x] Sync helpers (PDS write → local mirror, reconciliation on login)
+- [x] Sync helpers (PDS write → DB mirror, reconciliation on login)
 - [ ] Fix OAuth login flow end-to-end (dev tunnel, key generation, test)
 - [ ] Session management and identity display
 - [ ] Handle resolution (DID ↔ handle)
 - [ ] Store user data on their PDS via catalog entry records
 
-## Phase 1.5: Deployment
+## Phase 1.5: Fly.io deployment [IN PROGRESS]
 
-- [ ] Cloudflare Workers KV namespace setup (OAUTH_STATE, OAUTH_SESSION)
-- [ ] ES256 key pair generation and wrangler secrets
+- [x] Migrate from Turso/libSQL to Postgres (Drizzle schema + client)
+- [x] Replace FTS5 with pg_trgm ILIKE search
+- [x] Replace KV stores with Postgres-backed OAuth stores
+- [x] Remove Cloudflare Workers layer
+- [x] Dockerfile + fly.toml
+- [ ] Fly.io app provisioning (app + Postgres cluster)
+- [ ] ES256 key pair generation and fly secrets
 - [ ] Production PUBLIC_URL and domain setup
-- [ ] Turso production database provisioning
-- [ ] wrangler.toml finalization (KV IDs, compatibility flags)
+- [ ] Run Wikidata import against production DB
 - [ ] CI/CD pipeline (build + deploy)
 
-## Phase 2: Tracking features
+## Phase 2: Tracking features + local storage
 
-The core experience — track what you watch and play.
+The core experience — track what you watch and play, with offline support.
 
+### Data flow
+
+```
+User action (e.g. "watched ep 3 of HxH")
+  → Local write (IndexedDB → instant optimistic UI)
+  → Server DB write
+    → AT users: PDS write → eventual DB sync (PDS is source of truth)
+    → Non-AT users: DB is source of truth directly
+```
+
+### Features
+
+- [ ] Local storage layer (IndexedDB) for offline support and optimistic UI
+- [ ] User accounts: AT Protocol login or local-only accounts
 - [ ] Watchlist: add/remove media, set status (watching, completed, dropped, plan to watch)
 - [ ] Episode progress tracking for series and anime
-- [ ] Ratings (1–10 scale, stored as AT Proto records)
+- [ ] Ratings (1–10 scale)
 - [ ] Short reviews / notes per title
 - [ ] Import from existing services (MyAnimeList, Letterboxd, etc.)
 
@@ -58,6 +75,7 @@ The network — see what others are watching.
 
 ## Design principles
 
-- **Your data, your PDS.** No vendor lock-in. Export is built in because AT Proto records are portable.
-- **Catalog is shared, tracking is personal.** The Wikidata-sourced catalog is public infrastructure. Your watchlist and ratings live on your PDS.
-- **Eventual consistency.** PDS is source of truth. Local mirror enables fast reads and aggregation. Jetstream keeps it in sync.
+- **Your data, your choice.** AT Protocol users sync to their PDS (portable, no lock-in). Non-AT users store directly in the server DB. Local storage provides offline access for both.
+- **Catalog is shared, tracking is personal.** The Wikidata-sourced catalog is public infrastructure. Your watchlist and ratings are yours.
+- **Offline-first.** Local writes are instant. Server and PDS sync happen in the background.
+- **Eventual consistency.** PDS is source of truth for AT users. DB is source of truth for non-AT users. IndexedDB is the fast local cache for everyone.

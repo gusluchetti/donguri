@@ -23,23 +23,32 @@ export const Route = createFileRoute("/catalog")({
   validateSearch: catalogSearchSchema,
   loaderDeps: ({ search }) => ({ q: search.q, type: search.type }),
   loader: async ({ deps }) => {
-    const [initialData, stats] = await Promise.all([
-      listMedia({
-        data: {
-          limit: 50,
-          mediaType: deps.type,
-          search: deps.q || undefined,
-        },
-      }),
-      getMediaStats(),
-    ]);
-    return { initialData, stats };
+    try {
+      const [initialData, stats] = await Promise.all([
+        listMedia({
+          data: {
+            limit: 50,
+            mediaType: deps.type,
+            search: deps.q || undefined,
+          },
+        }),
+        getMediaStats(),
+      ]);
+      return { initialData, stats, error: null };
+    } catch (e) {
+      console.error("[catalog] loader failed:", e);
+      return {
+        initialData: { items: [], nextCursor: null },
+        stats: { total: 0, byType: {} },
+        error: "Could not connect to database",
+      };
+    }
   },
   component: CatalogPage,
 });
 
 function CatalogPage() {
-  const { initialData, stats } = Route.useLoaderData();
+  const { initialData, stats, error } = Route.useLoaderData();
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog" });
 
@@ -178,6 +187,15 @@ function CatalogPage() {
           })}
         </div>
       </div>
+
+      {/* Error state */}
+      {error && (
+        <div className="max-w-[1000px] mx-auto w-full px-6 pb-4">
+          <div className="border border-dg-accent/30 bg-dg-accent/[0.05] rounded px-4 py-3 text-sm text-dg-accent">
+            {error}
+          </div>
+        </div>
+      )}
 
       {/* Virtual list */}
       <div ref={parentRef} className="flex-1 overflow-auto max-w-[1000px] mx-auto w-full px-6">

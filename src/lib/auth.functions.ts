@@ -18,7 +18,7 @@ const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 type SessionData = { did: string; handle: string };
 
 async function signPayload(payload: string): Promise<string> {
-  const env = await getEnv();
+  const env = getEnv();
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(env.SESSION_SECRET),

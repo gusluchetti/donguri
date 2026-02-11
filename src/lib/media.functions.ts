@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, desc, eq, inArray, like, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db";
 import { genres, media, mediaGenres, mediaPlatforms, platforms } from "../db/schema";
@@ -34,49 +34,16 @@ export const listMedia = createServerFn({ method: "GET" })
     const db = getDb();
     const { cursor, limit, mediaType, search } = data;
 
-    // Search mode: FTS5 or LIKE fallback
+    // Search mode: pg_trgm ILIKE
     if (search?.trim()) {
-      const searchTerm = search.trim();
-      let matchingIds: string[] = [];
+      const searchTerm = `%${search.trim()}%`;
 
-      // Try FTS5 first
-      try {
-        const ftsQuery = searchTerm
-          .split(/\s+/)
-          .map((word) => `"${word}"*`)
-          .join(" ");
-        const ftsResults = await db.all(
-          sql`SELECT m.id FROM media m JOIN media_fts f ON m.rowid = f.rowid WHERE media_fts MATCH ${ftsQuery} LIMIT ${limit + 1}`,
-        );
-        matchingIds = (ftsResults as { id: string }[]).map((r) => r.id);
-      } catch {
-        // FTS fallback: LIKE on search_title
-        const normalized = searchTerm
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .toLowerCase()
-          .replace(/[^\w\s]/g, "")
-          .trim();
-
-        const conditions = [like(media.searchTitle, `%${normalized}%`)];
-        if (mediaType) conditions.push(eq(media.mediaType, mediaType));
-
-        const results = await db
-          .select({ id: media.id })
-          .from(media)
-          .where(and(...conditions))
-          .orderBy(desc(media.sitelinksCount))
-          .limit(limit + 1);
-
-        matchingIds = results.map((r) => r.id);
-      }
-
-      if (matchingIds.length === 0) {
-        return { items: [], nextCursor: null };
-      }
-
-      // Apply type filter and fetch full records
-      const conditions = [inArray(media.id, matchingIds)];
+      const conditions = [
+        or(
+          ilike(media.title, searchTerm),
+          ilike(media.originalTitle, searchTerm),
+        ),
+      ];
       if (mediaType) conditions.push(eq(media.mediaType, mediaType));
 
       const items = await db

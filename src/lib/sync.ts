@@ -1,15 +1,15 @@
 /**
- * Sync helpers: PDS (source of truth) → local Turso mirror.
+ * Sync helpers: PDS (source of truth for AT users) → server DB mirror.
  *
- * Write path: write to PDS first, then upsert local mirror on success.
- * Read path: read from local Turso DB (fast, supports aggregation).
+ * Write path: write to PDS first, then upsert DB mirror on success.
+ * Read path: read from Postgres DB (fast, supports aggregation).
  * Live sync: Jetstream subscription (Phase 3 — not implemented here).
  */
 
 import type { Agent } from "@atproto/api";
 import { eq, and } from "drizzle-orm";
 import { getDb } from "../db";
-import { userRecords } from "../db/schema";
+import { catalogEntries } from "../db/schema";
 
 const COLLECTION = "app.donguri.catalog.entry";
 
@@ -29,6 +29,7 @@ export interface CatalogEntryRecord {
  */
 export async function putCatalogEntry(
   agent: Agent,
+  userId: string,
   did: string,
   entry: CatalogEntryRecord,
 ): Promise<{ uri: string; cid: string }> {
@@ -46,7 +47,7 @@ export async function putCatalogEntry(
   });
 
   // Mirror to local DB
-  await upsertLocalMirror(did, rkey, entry);
+  await upsertLocalMirror(userId, rkey, entry);
 
   return { uri: response.data.uri, cid: response.data.cid };
 }
@@ -56,6 +57,7 @@ export async function putCatalogEntry(
  */
 export async function deleteCatalogEntry(
   agent: Agent,
+  userId: string,
   did: string,
   mediaRef: string,
 ): Promise<void> {
@@ -70,71 +72,76 @@ export async function deleteCatalogEntry(
   // Remove from local mirror
   const db = getDb();
   await db
-    .delete(userRecords)
+    .delete(catalogEntries)
     .where(
       and(
-        eq(userRecords.did, did),
-        eq(userRecords.collection, COLLECTION),
-        eq(userRecords.rkey, rkey),
+        eq(catalogEntries.userId, userId),
+        eq(catalogEntries.mediaWikidataId, mediaRef),
       ),
     );
 }
 
 /**
- * Upsert a record into the local mirror table.
+ * Upsert a record into the catalog_entries table.
  * Called after PDS writes and during Jetstream/reconciliation sync.
  */
 export async function upsertLocalMirror(
-  did: string,
+  userId: string,
   rkey: string,
   record: CatalogEntryRecord,
 ): Promise<void> {
   const db = getDb();
 
-  // Check if record already exists
+  // Check if entry already exists for this user + media
   const existing = await db
-    .select({ id: userRecords.id })
-    .from(userRecords)
+    .select({ id: catalogEntries.id })
+    .from(catalogEntries)
     .where(
       and(
-        eq(userRecords.did, did),
-        eq(userRecords.collection, COLLECTION),
-        eq(userRecords.rkey, rkey),
+        eq(catalogEntries.userId, userId),
+        eq(catalogEntries.mediaWikidataId, record.mediaRef),
       ),
     )
     .limit(1);
 
+  const now = new Date();
+
   if (existing.length > 0) {
     await db
-      .update(userRecords)
+      .update(catalogEntries)
       .set({
-        mediaWikidataId: record.mediaRef,
         status: record.status,
         rating: record.rating ?? null,
         note: record.note ?? null,
         episodeProgress: record.episodeProgress ?? null,
-        indexedAt: new Date().toISOString(),
+        rkey,
+        syncedAt: now,
+        updatedAt: now,
       })
-      .where(eq(userRecords.id, existing[0].id));
+      .where(eq(catalogEntries.id, existing[0].id));
   } else {
-    await db.insert(userRecords).values({
-      did,
-      rkey,
-      collection: COLLECTION,
+    await db.insert(catalogEntries).values({
+      userId,
       mediaWikidataId: record.mediaRef,
       status: record.status,
       rating: record.rating ?? null,
       note: record.note ?? null,
       episodeProgress: record.episodeProgress ?? null,
+      rkey,
+      syncedAt: now,
     });
   }
 }
 
 /**
- * Reconcile local mirror with PDS records for a user.
+ * Reconcile local mirror with PDS records for an AT Protocol user.
  * Call on login to catch any writes made from other clients.
  */
-export async function reconcileUser(agent: Agent, did: string): Promise<void> {
+export async function reconcileUser(
+  agent: Agent,
+  userId: string,
+  did: string,
+): Promise<void> {
   const db = getDb();
 
   let cursor: string | undefined;
@@ -159,20 +166,18 @@ export async function reconcileUser(agent: Agent, did: string): Promise<void> {
 
   // Upsert all PDS records into local mirror
   for (const [rkey, record] of pdsRecords) {
-    await upsertLocalMirror(did, rkey, record);
+    await upsertLocalMirror(userId, rkey, record);
   }
 
-  // Remove local records that no longer exist on PDS
-  const localRecords = await db
-    .select({ id: userRecords.id, rkey: userRecords.rkey })
-    .from(userRecords)
-    .where(
-      and(eq(userRecords.did, did), eq(userRecords.collection, COLLECTION)),
-    );
+  // Remove local entries that no longer exist on PDS
+  const localEntries = await db
+    .select({ id: catalogEntries.id, rkey: catalogEntries.rkey })
+    .from(catalogEntries)
+    .where(eq(catalogEntries.userId, userId));
 
-  for (const local of localRecords) {
-    if (!pdsRecords.has(local.rkey)) {
-      await db.delete(userRecords).where(eq(userRecords.id, local.id));
+  for (const local of localEntries) {
+    if (local.rkey && !pdsRecords.has(local.rkey)) {
+      await db.delete(catalogEntries).where(eq(catalogEntries.id, local.id));
     }
   }
 }

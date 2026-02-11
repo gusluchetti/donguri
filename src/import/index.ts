@@ -1,5 +1,5 @@
 /**
- * Pass 2: Parse and import media entities from subset NDJSON into Turso.
+ * Pass 2: Parse and import media entities from subset NDJSON into Postgres.
  *
  * Usage:
  *   bun run src/import/index.ts media-subset.ndjson                     # Test mode (100)
@@ -15,7 +15,7 @@ import { pipeline } from "node:stream/promises";
 import { eq, sql } from "drizzle-orm";
 import split2 from "split2";
 import { createDb } from "../db";
-import { FTS_REBUILD_SQL, FTS_SETUP_SQL } from "../db/fts";
+import { TRGM_SETUP_SQL } from "../db/fts";
 import {
   genres,
   importProgress,
@@ -284,13 +284,13 @@ async function main() {
   const resumeArg = args.find((a) => a.startsWith("--resumeFrom="));
   const resumeFrom = resumeArg ? resumeArg.split("=")[1] : null;
 
-  const url = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL;
+  const url = process.env.DATABASE_URL;
   if (!url) {
-    console.error("TURSO_DATABASE_URL or DATABASE_URL required");
+    console.error("DATABASE_URL required");
     process.exit(1);
   }
 
-  const db = createDb(url, process.env.TURSO_AUTH_TOKEN);
+  const db = createDb(url);
 
   // Push schema
   console.log("Ensuring schema...");
@@ -305,10 +305,10 @@ async function main() {
     await db.delete(importProgress);
   }
 
-  // Set up FTS
-  console.log("Setting up FTS5...");
-  for (const stmt of FTS_SETUP_SQL) {
-    await db.run(sql.raw(stmt));
+  // Set up pg_trgm indexes
+  console.log("Setting up trigram indexes...");
+  for (const stmt of TRGM_SETUP_SQL) {
+    await db.execute(sql.raw(stmt));
   }
 
   console.log(`\nImporting from: ${filePath}`);
@@ -332,7 +332,7 @@ async function main() {
     .values({
       sourceFile: filePath,
       status: "running",
-      startedAt: new Date().toISOString(),
+      startedAt: new Date(),
     })
     .returning({ id: importProgress.id });
 
@@ -407,10 +407,6 @@ async function main() {
 
   await pipeline(fs.createReadStream(filePath, { encoding: "utf-8" }), split2(), processStream);
 
-  // Rebuild FTS index after bulk import
-  console.log("\nRebuilding FTS index...");
-  await db.run(sql.raw(FTS_REBUILD_SQL));
-
   // Update progress
   await db
     .update(importProgress)
@@ -418,7 +414,7 @@ async function main() {
       entitiesProcessed: stats.entitiesProcessed,
       entitiesImported: stats.entitiesImported,
       status: "completed",
-      completedAt: new Date().toISOString(),
+      completedAt: new Date(),
     })
     .where(eq(importProgress.id, progressRecord.id));
 
