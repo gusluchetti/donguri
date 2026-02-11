@@ -25,8 +25,8 @@ ENV NODE_ENV=production
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY drizzle ./drizzle
-COPY scripts/migrate.mjs ./scripts/
+COPY scripts ./scripts
 COPY package.json ./
 
 EXPOSE 3000
-CMD ["node", "dist/server/server.js"]
+CMD ["node", "scripts/start.mjs"]
