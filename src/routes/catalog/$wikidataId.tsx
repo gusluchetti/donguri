@@ -1,5 +1,5 @@
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CatalogEntry } from "../../db/schema";
 import { getCatalogEntry, removeCatalogEntry, setCatalogEntry } from "../../lib/catalog.functions";
 import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../../lib/media-types";
@@ -266,6 +266,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const ratingTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -444,14 +445,10 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               onChange={(e) => {
                 const val = Number.parseFloat(e.target.value);
                 setEntry((prev) => prev ? { ...prev, rating: val, updatedAt: new Date() } : prev);
-              }}
-              onMouseUp={(e) => {
-                const val = Number.parseFloat((e.target as HTMLInputElement).value);
-                handleSetRating(val || null);
-              }}
-              onTouchEnd={(e) => {
-                const val = Number.parseFloat((e.target as HTMLInputElement).value);
-                handleSetRating(val || null);
+                if (ratingTimeout.current) clearTimeout(ratingTimeout.current);
+                ratingTimeout.current = setTimeout(() => {
+                  handleSetRating(val || null);
+                }, 400);
               }}
               disabled={saving}
               className="dg-range flex-1"
