@@ -351,10 +351,7 @@ function formatMeta(item: Media): string {
   if (mediaType === "tv_series" || mediaType === "anime") {
     const parts: string[] = [];
     if (seasonCount || episodeCount) {
-      const maxDigits = Math.max(
-        String(seasonCount ?? 0).length,
-        String(episodeCount ?? 0).length,
-      );
+      const maxDigits = Math.max(String(seasonCount ?? 0).length, String(episodeCount ?? 0).length);
       if (seasonCount) parts.push(`S${String(seasonCount).padStart(maxDigits, "0")}`);
       if (episodeCount) parts.push(`E${String(episodeCount).padStart(maxDigits, "0")}`);
     }
@@ -388,7 +385,9 @@ function MediaRow({
     <div className="flex items-center justify-between py-2 h-full gap-4">
       <div className="flex items-center gap-3 min-w-0 flex-1">
         {addState === "pending" ? (
-          <span className="text-[0.75rem] font-bold text-dg-accent font-mono shrink-0">[<span className="dg-ellipsis" />]</span>
+          <span className="text-[0.75rem] font-bold text-dg-accent font-mono shrink-0">
+            [<span className="dg-ellipsis" />]
+          </span>
         ) : addState === "done" ? (
           <span className="text-[0.75rem] font-bold text-dg-game font-mono shrink-0">[ok]</span>
         ) : showAdd ? (
@@ -408,7 +407,11 @@ function MediaRow({
         <div className="flex items-baseline gap-2 min-w-0 overflow-hidden">
           <span className="text-[0.85rem] font-medium truncate text-dg-text">{item.title}</span>
           {trackedStatus && (
-            <span className={`text-sm shrink-0 ${TRACKED_ASTERISK_COLORS[trackedStatus] ?? "text-dg-text-tertiary"}`}>*</span>
+            <span
+              className={`text-sm shrink-0 ${TRACKED_ASTERISK_COLORS[trackedStatus] ?? "text-dg-text-tertiary"}`}
+            >
+              *
+            </span>
           )}
           {item.originalTitle && (
             <span className="text-xs text-dg-text-tertiary truncate">{item.originalTitle}</span>

@@ -2,11 +2,16 @@ import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router"
 import { Save, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CatalogEntry } from "../../db/schema";
-import { getCatalogEntry, getMediaStub, removeCatalogEntry, setCatalogEntry } from "../../lib/catalog.functions";
-import { useAction } from "../../lib/use-action";
+import {
+  getCatalogEntry,
+  getMediaStub,
+  removeCatalogEntry,
+  setCatalogEntry,
+} from "../../lib/catalog.functions";
 import { clearCachedWatchlist } from "../../lib/idb-cache";
-import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../../lib/media-types";
 import { getMedia } from "../../lib/media.functions";
+import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../../lib/media-types";
+import { useAction } from "../../lib/use-action";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -77,13 +82,9 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
         : loaderData?.kind === "stub"
           ? loaderData.stub.title
           : "Media";
-    const description =
-      loaderData?.kind === "full" ? (loaderData.media.description ?? "") : "";
+    const description = loaderData?.kind === "full" ? (loaderData.media.description ?? "") : "";
     return {
-      meta: [
-        { title: `${title} — donguri` },
-        { name: "description", content: description },
-      ],
+      meta: [{ title: `${title} — donguri` }, { name: "description", content: description }],
     };
   },
   component: MediaDetailRouter,
@@ -122,10 +123,15 @@ function MediaDetailSkeleton() {
   );
 }
 
-function MediaStubPage({ stub }: { stub: { wikidataId: string; title: string; mediaType: string | null } }) {
+function MediaStubPage({
+  stub,
+}: {
+  stub: { wikidataId: string; title: string; mediaType: string | null };
+}) {
   const { auth } = rootRoute.useLoaderData();
   const badgeClass =
-    TYPE_BADGE_CLASSES[stub.mediaType ?? ""] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
+    TYPE_BADGE_CLASSES[stub.mediaType ?? ""] ??
+    "bg-dg-elevated text-dg-text-tertiary border-dg-border";
 
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
@@ -153,7 +159,8 @@ function MediaStubPage({ stub }: { stub: { wikidataId: string; title: string; me
 
         <div className="border border-dg-border-subtle rounded p-4 bg-dg-surface mb-6">
           <p className="text-[0.8rem] text-dg-text-tertiary">
-            This title has not been imported into the catalog yet. Metadata will appear after the next data import.
+            This title has not been imported into the catalog yet. Metadata will appear after the
+            next data import.
           </p>
         </div>
 
@@ -385,7 +392,11 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
     getCatalogEntry({ data: { wikidataId } })
       .then((e) => {
         if (!cancelled) {
-          console.debug("[tracking] loaded entry for %s → %s", wikidataId, e ? e.status : "not tracked");
+          console.debug(
+            "[tracking] loaded entry for %s → %s",
+            wikidataId,
+            e ? e.status : "not tracked",
+          );
           setEntry(e);
           setLocalRating(e?.rating ?? null);
           setLocalStatus(e?.status ?? null);
@@ -406,8 +417,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
   }, [wikidataId]);
 
   const ratingDirty =
-    localRating !== savedRating.current &&
-    !(localRating === null && savedRating.current === null);
+    localRating !== savedRating.current && !(localRating === null && savedRating.current === null);
   const statusDirty = localStatus !== savedStatus.current;
   const isDirty = ratingDirty || statusDirty;
 
@@ -495,11 +505,15 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
     <div className="border border-dg-border-subtle rounded p-4 bg-dg-surface mb-6">
       <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-3">
         {action.state === "pending" ? (
-          <><span className="dg-ellipsis">Tracking</span></>
+          <span className="dg-ellipsis">Tracking</span>
         ) : action.state === "done" ? (
-          <>Tracking <span className="text-dg-game">ok</span></>
+          <>
+            Tracking <span className="text-dg-game">ok</span>
+          </>
         ) : action.state === "error" ? (
-          <>Tracking <span className="text-dg-anime">err</span></>
+          <>
+            Tracking <span className="text-dg-anime">err</span>
+          </>
         ) : (
           "Tracking"
         )}
@@ -548,7 +562,11 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               className="dg-range flex-1"
               style={{ "--rating-color": ratingColor(localRating) } as React.CSSProperties}
             />
-            <RatingInput value={localRating} onChange={setLocalRating} disabled={saving} />
+            <RatingInput
+              value={localRating}
+              onChange={setLocalRating}
+              disabled={action.state === "pending"}
+            />
             {localRating != null && (
               <button
                 type="button"
@@ -572,9 +590,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
             onClick={handleSave}
             disabled={action.state === "pending" || !isDirty}
             className={`bg-transparent border-none cursor-pointer p-0 transition-colors duration-150 disabled:opacity-30 ${
-              isDirty
-                ? "text-dg-accent hover:text-dg-accent/80"
-                : "text-dg-text-tertiary"
+              isDirty ? "text-dg-accent hover:text-dg-accent/80" : "text-dg-text-tertiary"
             }`}
             title="Save changes"
           >
