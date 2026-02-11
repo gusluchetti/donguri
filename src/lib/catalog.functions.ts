@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db";
 import type { CatalogEntry } from "../db/schema";
@@ -44,8 +44,8 @@ export const getUserCatalogEntries = createServerFn({ method: "GET" }).handler(a
       note: catalogEntries.note,
       episodeProgress: catalogEntries.episodeProgress,
       updatedAt: catalogEntries.updatedAt,
-      mediaTitle: media.title,
-      mediaType: media.mediaType,
+      mediaTitle: sql<string | null>`COALESCE(${catalogEntries.mediaTitle}, ${media.title})`,
+      mediaType: sql<string | null>`COALESCE(${catalogEntries.mediaType}, ${media.mediaType})`,
     })
     .from(catalogEntries)
     .leftJoin(media, eq(catalogEntries.mediaWikidataId, media.wikidataId))
@@ -96,12 +96,31 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
 
       const db = getDb();
       const [existing] = await db
-        .select({ createdAt: catalogEntries.createdAt })
+        .select({
+          createdAt: catalogEntries.createdAt,
+          mediaTitle: catalogEntries.mediaTitle,
+          mediaType: catalogEntries.mediaType,
+        })
         .from(catalogEntries)
         .where(
           and(eq(catalogEntries.userId, userId), eq(catalogEntries.mediaWikidataId, data.wikidataId)),
         )
         .limit(1);
+
+      // Resolve title/mediaType: prefer catalog_entry, fall back to media table
+      let title = existing?.mediaTitle ?? undefined;
+      let entryMediaType = existing?.mediaType ?? undefined;
+      if (!title || !entryMediaType) {
+        const [mediaRow] = await db
+          .select({ title: media.title, mediaType: media.mediaType })
+          .from(media)
+          .where(eq(media.wikidataId, data.wikidataId))
+          .limit(1);
+        if (mediaRow) {
+          title = title ?? mediaRow.title;
+          entryMediaType = entryMediaType ?? mediaRow.mediaType;
+        }
+      }
 
       console.debug("[catalog] setCatalogEntry existing entry: %s", existing ? `yes (created ${existing.createdAt?.toISOString()})` : "no");
       console.debug("[catalog] setCatalogEntry → calling putCatalogEntry");
@@ -112,6 +131,8 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
         rating: data.rating ?? undefined,
         note: data.note ?? undefined,
         episodeProgress: data.episodeProgress ?? undefined,
+        title,
+        mediaType: entryMediaType,
         createdAt: existing?.createdAt?.toISOString() ?? now,
         updatedAt: now,
       });
@@ -142,4 +163,26 @@ export const removeCatalogEntry = createServerFn({ method: "POST" })
       console.error("[catalog] removeCatalogEntry FAILED:", err);
       throw err;
     }
+  });
+
+/** No-auth stub: look up mediaTitle/mediaType from any catalog_entry for a wikidataId. */
+export const getMediaStub = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ wikidataId: z.string() }))
+  .handler(async ({ data }) => {
+    const db = getDb();
+    const [entry] = await db
+      .select({
+        mediaTitle: catalogEntries.mediaTitle,
+        mediaType: catalogEntries.mediaType,
+      })
+      .from(catalogEntries)
+      .where(eq(catalogEntries.mediaWikidataId, data.wikidataId))
+      .limit(1);
+
+    if (!entry?.mediaTitle) return null;
+    return {
+      wikidataId: data.wikidataId,
+      title: entry.mediaTitle,
+      mediaType: entry.mediaType,
+    };
   });

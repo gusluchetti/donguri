@@ -3,12 +3,14 @@ import type { ReactNode } from "react";
 import "../app.css";
 import { getAuthState, logout } from "../lib/auth.functions";
 import { getUserTrackedIds } from "../lib/catalog.functions";
+import { clearCachedWatchlist } from "../lib/idb-cache";
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "theme-color", content: "#d4a44a" },
       { title: "donguri" },
       {
         name: "description",
@@ -19,6 +21,10 @@ export const Route = createRootRoute({
       {
         rel: "icon",
         href: "/favicon.ico",
+      },
+      {
+        rel: "manifest",
+        href: "/manifest.json",
       },
     ],
   }),
@@ -88,6 +94,7 @@ function RootComponent() {
                   className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none font-mono"
                   onClick={async () => {
                     await logout();
+                    clearCachedWatchlist();
                     window.location.href = "/";
                   }}
                 >

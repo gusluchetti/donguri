@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { Media } from "../../db/schema";
 import { setCatalogEntry } from "../../lib/catalog.functions";
+import { clearCachedWatchlist } from "../../lib/idb-cache";
 import { getMediaStats, listMedia } from "../../lib/media.functions";
 import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../../lib/media-types";
 
@@ -150,6 +151,7 @@ function CatalogPage() {
       try {
         await setCatalogEntry({ data: { wikidataId, status: "watching" } });
         console.debug("[quick-add] %s → server ok", wikidataId);
+        clearCachedWatchlist();
         router.invalidate();
       } catch (err) {
         console.error("[quick-add] %s → FAILED:", wikidataId, err);

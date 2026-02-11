@@ -1,7 +1,8 @@
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CatalogEntry } from "../../db/schema";
-import { getCatalogEntry, removeCatalogEntry, setCatalogEntry } from "../../lib/catalog.functions";
+import { getCatalogEntry, getMediaStub, removeCatalogEntry, setCatalogEntry } from "../../lib/catalog.functions";
+import { clearCachedWatchlist } from "../../lib/idb-cache";
 import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../../lib/media-types";
 import { getMedia } from "../../lib/media.functions";
 
@@ -23,25 +24,55 @@ const STATUS_COLORS: Record<string, string> = {
   dropped: "border-dg-anime text-dg-anime bg-dg-anime/10",
 };
 
+type FullLoaderData = {
+  kind: "full";
+  media: NonNullable<Awaited<ReturnType<typeof getMedia>>>;
+};
+
+type StubLoaderData = {
+  kind: "stub";
+  stub: { wikidataId: string; title: string; mediaType: string | null };
+};
+
+type LoaderData = FullLoaderData | StubLoaderData;
+
 export const Route = createFileRoute("/catalog/$wikidataId")({
-  loader: async ({ params }) => {
+  loader: async ({ params }): Promise<LoaderData> => {
     const data = await getMedia({ data: { wikidataId: params.wikidataId } });
-    if (!data) throw new Error("Media not found");
-    return data;
+    if (data) return { kind: "full", media: data };
+
+    const stub = await getMediaStub({ data: { wikidataId: params.wikidataId } });
+    if (stub) return { kind: "stub", stub };
+
+    throw new Error("Media not found");
   },
+  staleTime: 5 * 60 * 1000,
   pendingMs: 0,
   pendingComponent: MediaDetailSkeleton,
-  head: ({ loaderData }) => ({
-    meta: [
-      { title: `${loaderData?.title ?? "Media"} — donguri` },
-      {
-        name: "description",
-        content: loaderData?.description ?? "",
-      },
-    ],
-  }),
-  component: MediaDetailPage,
+  head: ({ loaderData }) => {
+    const title =
+      loaderData?.kind === "full"
+        ? loaderData.media.title
+        : loaderData?.kind === "stub"
+          ? loaderData.stub.title
+          : "Media";
+    const description =
+      loaderData?.kind === "full" ? (loaderData.media.description ?? "") : "";
+    return {
+      meta: [
+        { title: `${title} — donguri` },
+        { name: "description", content: description },
+      ],
+    };
+  },
+  component: MediaDetailRouter,
 });
+
+function MediaDetailRouter() {
+  const data = Route.useLoaderData();
+  if (data.kind === "stub") return <MediaStubPage stub={data.stub} />;
+  return <MediaDetailPage data={data.media} />;
+}
 
 function MediaDetailSkeleton() {
   return (
@@ -70,8 +101,64 @@ function MediaDetailSkeleton() {
   );
 }
 
-function MediaDetailPage() {
-  const data = Route.useLoaderData();
+function MediaStubPage({ stub }: { stub: { wikidataId: string; title: string; mediaType: string | null } }) {
+  const { auth } = rootRoute.useLoaderData();
+  const badgeClass =
+    TYPE_BADGE_CLASSES[stub.mediaType ?? ""] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
+
+  return (
+    <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
+      <div className="max-w-[700px] mx-auto p-6">
+        <button
+          type="button"
+          onClick={() => window.history.back()}
+          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer p-0 mb-6 inline-block"
+        >
+          &larr; back
+        </button>
+
+        <div className="mb-6">
+          {stub.mediaType && (
+            <span
+              className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
+            >
+              {mediaTypeLabel(stub.mediaType)}
+            </span>
+          )}
+          <h1 className="text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
+            {stub.title}
+          </h1>
+        </div>
+
+        <div className="border border-dg-border-subtle rounded p-4 bg-dg-surface mb-6">
+          <p className="text-[0.8rem] text-dg-text-tertiary">
+            This title has not been imported into the catalog yet. Metadata will appear after the next data import.
+          </p>
+        </div>
+
+        {auth && <TrackingPanel wikidataId={stub.wikidataId} />}
+
+        <div className="mb-6">
+          <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+            Links
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={`https://www.wikidata.org/wiki/${stub.wikidataId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-dg-accent no-underline py-1.5 px-2.5 border border-dg-accent/20 rounded-sm transition-all duration-150"
+            >
+              Wikidata {"\u2197"}
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof getMedia>>> }) {
   const { auth } = rootRoute.useLoaderData();
   const badgeClass =
     TYPE_BADGE_CLASSES[data.mediaType] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
@@ -303,6 +390,8 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               id: "",
               userId: "",
               mediaWikidataId: wikidataId,
+              mediaTitle: null,
+              mediaType: null,
               status,
               rating: null,
               note: null,
@@ -326,6 +415,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
         console.debug("[tracking] setStatus %s → server ok, refreshing", wikidataId);
         const fresh = await getCatalogEntry({ data: { wikidataId } });
         setEntry(fresh);
+        clearCachedWatchlist();
         router.invalidate();
       } catch (err) {
         console.error("[tracking] setStatus %s → FAILED:", wikidataId, err);
@@ -359,6 +449,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
         console.debug("[tracking] setRating %s → server ok, refreshing", wikidataId);
         const fresh = await getCatalogEntry({ data: { wikidataId } });
         setEntry(fresh);
+        clearCachedWatchlist();
         router.invalidate();
       } catch (err) {
         console.error("[tracking] setRating %s → FAILED:", wikidataId, err);
@@ -380,6 +471,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
     try {
       await removeCatalogEntry({ data: { wikidataId } });
       console.debug("[tracking] remove %s → server ok", wikidataId);
+      clearCachedWatchlist();
       router.invalidate();
     } catch (err) {
       console.error("[tracking] remove %s → FAILED:", wikidataId, err);
@@ -454,7 +546,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               className="dg-range flex-1"
             />
             <span className="text-[0.85rem] text-dg-accent tabular-nums min-w-[3ch] text-right">
-              {entry.rating != null ? entry.rating.toFixed(1) : "—"}
+              {entry.rating != null ? entry.rating.toFixed(1) : "\u2014"}
             </span>
             {entry.rating != null && (
               <button

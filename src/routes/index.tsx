@@ -1,6 +1,7 @@
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { getUserCatalogEntries } from "../lib/catalog.functions";
+import { getCachedWatchlist, setCachedWatchlist } from "../lib/idb-cache";
 import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../lib/media-types";
 import { initiateLogin } from "../lib/auth.functions";
 
@@ -37,6 +38,22 @@ type CatalogEntryRow = {
 };
 
 export const Route = createFileRoute("/")({
+  loader: async () => {
+    try {
+      const entries = await getUserCatalogEntries({});
+      if (typeof window !== "undefined") {
+        setCachedWatchlist(entries);
+      }
+      return { entries: entries as CatalogEntryRow[], fromCache: false };
+    } catch {
+      if (typeof window !== "undefined") {
+        const cached = await getCachedWatchlist();
+        if (cached) return { entries: cached as CatalogEntryRow[], fromCache: true };
+      }
+      return { entries: [] as CatalogEntryRow[], fromCache: false };
+    }
+  },
+  staleTime: 30_000,
   component: HomePage,
 });
 
@@ -75,30 +92,7 @@ function HomePage() {
 }
 
 function LoggedInView({ handle }: { handle: string }) {
-  const [entries, setEntries] = useState<CatalogEntryRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    console.debug("[watchlist] loading entries...");
-    getUserCatalogEntries({})
-      .then((data) => {
-        if (!cancelled) {
-          console.debug("[watchlist] loaded %d entries", data.length);
-          setEntries(data as CatalogEntryRow[]);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          console.error("[watchlist] load FAILED:", err);
-          setLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { entries, fromCache } = Route.useLoaderData();
 
   // Group by status
   const grouped = new Map<string, CatalogEntryRow[]>();
@@ -115,9 +109,11 @@ function LoggedInView({ handle }: { handle: string }) {
         </p>
       </div>
 
-      {loading ? (
-        <div className="text-dg-text-tertiary text-[0.85rem]">Loading watchlist...</div>
-      ) : grouped.size === 0 ? (
+      {fromCache && (
+        <p className="text-dg-text-tertiary text-[0.75rem] mb-3">Showing cached data</p>
+      )}
+
+      {grouped.size === 0 ? (
         <div className="border border-dg-border-subtle rounded p-5 bg-dg-surface">
           <p className="text-dg-text-secondary text-[0.85rem] leading-relaxed">
             Your watchlist is empty. Browse the catalog to add titles.

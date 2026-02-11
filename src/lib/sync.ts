@@ -13,6 +13,8 @@ export interface CatalogEntryRecord {
   rating?: number;
   note?: string;
   episodeProgress?: number;
+  title?: string;
+  mediaType?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -105,6 +107,8 @@ export async function upsertLocalMirror(
         rating: record.rating ?? null,
         note: record.note ?? null,
         episodeProgress: record.episodeProgress ?? null,
+        mediaTitle: record.title ?? undefined,
+        mediaType: record.mediaType ?? undefined,
         rkey,
         syncedAt: now,
         updatedAt: now,
@@ -115,6 +119,8 @@ export async function upsertLocalMirror(
     await db.insert(catalogEntries).values({
       userId,
       mediaWikidataId: record.mediaRef,
+      mediaTitle: record.title ?? null,
+      mediaType: record.mediaType ?? null,
       status: record.status,
       rating: record.rating ?? null,
       note: record.note ?? null,
