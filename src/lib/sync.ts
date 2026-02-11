@@ -28,6 +28,9 @@ export async function putCatalogEntry(
   const rkey = entry.mediaRef;
   console.debug("[sync] putCatalogEntry did=%s rkey=%s status=%s", did, rkey, entry.status);
 
+  // Strip local-only metadata fields before PDS write
+  const { title: _title, mediaType: _mediaType, ...pdsRecord } = entry;
+
   let response: Awaited<ReturnType<typeof agent.com.atproto.repo.putRecord>>;
   try {
     response = await agent.com.atproto.repo.putRecord({
@@ -36,7 +39,7 @@ export async function putCatalogEntry(
       rkey,
       record: {
         $type: COLLECTION,
-        ...entry,
+        ...pdsRecord,
       },
       validate: false, // PDS can't validate custom lexicons
     });
