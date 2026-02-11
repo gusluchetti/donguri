@@ -44,8 +44,13 @@ function CatalogPage() {
   const searchTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const parentRef = useRef<HTMLDivElement>(null);
 
-  // Fetch data when search params change
+  // Fetch data when search params change (only if logged in)
   useEffect(() => {
+    if (!auth) {
+      setInitialLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setInitialLoading(true);
     setError(null);
@@ -73,7 +78,7 @@ function CatalogPage() {
     return () => {
       cancelled = true;
     };
-  }, [q, mediaType]);
+  }, [auth, q, mediaType]);
 
   // Sync search input when URL param changes externally (e.g. back/forward)
   useEffect(() => {
