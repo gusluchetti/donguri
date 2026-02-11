@@ -174,7 +174,7 @@ function MediaDetailPage() {
             />
           )}
           {data.countryOfOrigin && <MetaItem label="Country" value={data.countryOfOrigin} />}
-          {data.runtimeMinutes && (
+          {data.runtimeMinutes && data.mediaType === "movie" && (
             <MetaItem label="Runtime" value={`${data.runtimeMinutes} min`} />
           )}
           {data.seasonCount && <MetaItem label="Seasons" value={String(data.seasonCount)} />}
@@ -250,7 +250,7 @@ function MediaDetailPage() {
                 rel="noopener noreferrer"
                 className="text-xs text-dg-accent no-underline py-1.5 px-2.5 border border-dg-accent/20 rounded-sm transition-all duration-150"
               >
-                {link.label} &nearr;
+                {link.label} {"\u2197"}
               </a>
             ))}
           </div>
@@ -434,25 +434,41 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
           <h4 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
             Rating
           </h4>
-          <div className="flex flex-wrap gap-1">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => {
-              const isActive = entry.rating === n;
-              return (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => handleSetRating(isActive ? null : n)}
-                  disabled={saving}
-                  className={`w-7 h-7 text-[0.75rem] rounded-sm border font-mono cursor-pointer transition-all duration-150 disabled:opacity-50 ${
-                    isActive
-                      ? "border-dg-accent text-dg-accent bg-dg-accent/10"
-                      : "border-dg-border-subtle text-dg-text-tertiary bg-transparent hover:border-dg-border"
-                  }`}
-                >
-                  {n}
-                </button>
-              );
-            })}
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min="0"
+              max="10"
+              step="0.5"
+              value={entry.rating ?? 0}
+              onChange={(e) => {
+                const val = Number.parseFloat(e.target.value);
+                setEntry((prev) => prev ? { ...prev, rating: val, updatedAt: new Date() } : prev);
+              }}
+              onMouseUp={(e) => {
+                const val = Number.parseFloat((e.target as HTMLInputElement).value);
+                handleSetRating(val || null);
+              }}
+              onTouchEnd={(e) => {
+                const val = Number.parseFloat((e.target as HTMLInputElement).value);
+                handleSetRating(val || null);
+              }}
+              disabled={saving}
+              className="dg-range flex-1"
+            />
+            <span className="text-[0.85rem] text-dg-accent tabular-nums min-w-[3ch] text-right">
+              {entry.rating != null ? entry.rating.toFixed(1) : "—"}
+            </span>
+            {entry.rating != null && (
+              <button
+                type="button"
+                onClick={() => handleSetRating(null)}
+                disabled={saving}
+                className="text-[0.7rem] text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
+              >
+                clear
+              </button>
+            )}
           </div>
         </div>
       )}

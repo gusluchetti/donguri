@@ -145,10 +145,10 @@ function CatalogPage() {
     async (wikidataId: string, e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      console.debug("[quick-add] %s → plan_to_watch (optimistic)", wikidataId);
-      setLocalOverrides((prev) => ({ ...prev, [wikidataId]: "plan_to_watch" }));
+      console.debug("[quick-add] %s → watching (optimistic)", wikidataId);
+      setLocalOverrides((prev) => ({ ...prev, [wikidataId]: "watching" }));
       try {
-        await setCatalogEntry({ data: { wikidataId, status: "plan_to_watch" } });
+        await setCatalogEntry({ data: { wikidataId, status: "watching" } });
         console.debug("[quick-add] %s → server ok", wikidataId);
         router.invalidate();
       } catch (err) {

@@ -4,6 +4,7 @@ import {
   integer,
   pgTable,
   primaryKey,
+  real,
   text,
   timestamp,
   uniqueIndex,
@@ -153,7 +154,7 @@ export const catalogEntries = pgTable(
     status: text("status", {
       enum: ["watching", "completed", "dropped", "plan_to_watch", "paused"],
     }),
-    rating: integer("rating"),
+    rating: real("rating"),
     note: text("note"),
     episodeProgress: integer("episode_progress"),
     rkey: text("rkey"), // nullable — only set for AT Protocol users

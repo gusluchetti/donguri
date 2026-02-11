@@ -177,9 +177,9 @@ function WatchlistSection({
               <span className="text-[0.85rem] text-dg-text truncate flex-1">
                 {item.mediaTitle ?? item.mediaWikidataId}
               </span>
-              {item.rating && (
+              {item.rating != null && (
                 <span className="text-[0.75rem] text-dg-accent tabular-nums shrink-0">
-                  {item.rating}/10
+                  {item.rating.toFixed(1)}/10
                 </span>
               )}
             </Link>
