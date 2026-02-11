@@ -18,8 +18,8 @@ function HomePage() {
           <span className="text-dg-accent">donguri</span>
         </h1>
         <p className="text-dg-text-secondary text-[0.9rem] leading-relaxed mb-8">
-          Track movies, TV, anime, and games across the ATmosphere.
-          Your watchlist, your data, stored on your own AT Protocol PDS.
+          Track movies, TV, anime, and games.
+          Your watchlist, your data, your rules.
         </p>
 
         {auth ? <LoggedInView handle={auth.handle} /> : <LoginForm />}
@@ -93,7 +93,7 @@ function LoginForm() {
           htmlFor="handle"
           className="block text-dg-text-secondary text-[0.8rem] uppercase tracking-wider mb-3"
         >
-          Sign in with AT Protocol
+          Sign in with Bluesky
         </label>
         <div className="flex gap-2">
           <input

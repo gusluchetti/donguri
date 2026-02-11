@@ -1,10 +1,12 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { Media } from "../db/schema";
 import { getMediaStats, listMedia } from "../lib/media.functions";
 import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../lib/media-types";
+
+const rootRoute = getRouteApi("__root__");
 
 const catalogSearchSchema = z.object({
   q: z.string().optional().catch(undefined),
@@ -49,6 +51,7 @@ export const Route = createFileRoute("/catalog")({
 
 function CatalogPage() {
   const { initialData, stats, error } = Route.useLoaderData();
+  const { auth } = rootRoute.useLoaderData();
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog" });
 
@@ -187,6 +190,18 @@ function CatalogPage() {
           })}
         </div>
       </div>
+
+      {/* Login prompt */}
+      {!auth && (
+        <div className="max-w-[1000px] mx-auto w-full px-6 pb-3">
+          <Link
+            to="/"
+            className="block border border-dg-accent/20 bg-dg-accent/[0.04] rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-150"
+          >
+            <span className="text-dg-accent">Sign in</span> to add titles to your watchlist and track your progress.
+          </Link>
+        </div>
+      )}
 
       {/* Error state */}
       {error && (

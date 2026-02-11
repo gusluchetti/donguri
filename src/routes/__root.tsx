@@ -17,7 +17,7 @@ export const Route = createRootRoute({
       { title: "donguri" },
       {
         name: "description",
-        content: "Track movies, TV, anime, and games across the ATmosphere.",
+        content: "Track movies, TV, anime, and games. Your catalog, your data.",
       },
     ],
     links: [
@@ -27,9 +27,12 @@ export const Route = createRootRoute({
       },
     ],
   }),
-  loader: async () => {
+  beforeLoad: async () => {
     const auth = await getAuthState();
     return { auth };
+  },
+  loader: async ({ context }) => {
+    return { auth: (context as { auth: { did: string; handle: string } | null }).auth };
   },
   component: RootComponent,
 });
