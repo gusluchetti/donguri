@@ -3,6 +3,9 @@ primary_region = "iad"
 
 [build]
 
+[deploy]
+  release_command = "bun run db:migrate"
+
 [http_service]
   internal_port = 3000
   force_https = true
