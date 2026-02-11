@@ -10,10 +10,8 @@
  */
 
 import fs from "node:fs";
-import { Transform } from "node:stream";
-import { pipeline } from "node:stream/promises";
-import { eq, sql } from "drizzle-orm";
-import split2 from "split2";
+import readline from "node:readline";
+import { eq, inArray, sql } from "drizzle-orm";
 import { createDb } from "../db";
 import { TRGM_SETUP_SQL } from "../db/fts";
 import {
@@ -28,8 +26,8 @@ import { shouldImportEntity } from "./filters";
 import { parseMediaEntity } from "./parser";
 import type { ParsedMedia, WikidataEntity } from "./types";
 
-const BATCH_SIZE = 500;
-const PROGRESS_LOG_INTERVAL = 10_000;
+const BATCH_SIZE = 1000;
+const PROGRESS_LOG_INTERVAL = 1_000;
 
 function formatDuration(ms: number): string {
   const seconds = Math.floor(ms / 1000) % 60;
@@ -49,14 +47,6 @@ interface ImportStats {
   byType: Record<string, number>;
 }
 
-interface GenreCache {
-  [wikidataId: string]: string;
-}
-
-interface PlatformCache {
-  [wikidataId: string]: string;
-}
-
 function parseJsonLine(line: string): WikidataEntity | null {
   let cleanLine = line.trim();
   if (cleanLine.endsWith(",")) cleanLine = cleanLine.slice(0, -1);
@@ -72,117 +62,82 @@ function parseJsonLine(line: string): WikidataEntity | null {
 
 type DbType = ReturnType<typeof createDb>;
 
-async function getOrCreateGenreIds(
+/**
+ * Batch-ensure genres exist, returning a map of wikidataId → dbId.
+ * Single INSERT ... ON CONFLICT + single SELECT instead of N round trips.
+ */
+async function ensureGenres(
   db: DbType,
-  genreWikidataIds: string[],
-  cache: GenreCache,
-): Promise<string[]> {
-  const result: string[] = [];
+  wikidataIds: string[],
+  cache: Record<string, string>,
+): Promise<void> {
+  const uncached = wikidataIds.filter((id) => !cache[id]);
+  if (uncached.length === 0) return;
 
-  for (const wikidataId of genreWikidataIds) {
-    if (cache[wikidataId]) {
-      result.push(cache[wikidataId]);
-      continue;
-    }
+  // Bulk insert (ignoring conflicts)
+  const values = uncached.map((wikidataId) => ({ wikidataId, name: wikidataId }));
+  await db.insert(genres).values(values).onConflictDoNothing();
 
-    const existing = await db
-      .select({ id: genres.id })
-      .from(genres)
-      .where(eq(genres.wikidataId, wikidataId))
-      .limit(1);
+  // Bulk fetch all IDs we need
+  const rows = await db
+    .select({ id: genres.id, wikidataId: genres.wikidataId })
+    .from(genres)
+    .where(inArray(genres.wikidataId, uncached));
 
-    if (existing.length > 0) {
-      cache[wikidataId] = existing[0].id;
-      result.push(existing[0].id);
-      continue;
-    }
-
-    // Insert with a placeholder name (genre names resolved later or from Wikidata labels)
-    const inserted = await db
-      .insert(genres)
-      .values({ wikidataId, name: wikidataId })
-      .onConflictDoNothing()
-      .returning({ id: genres.id });
-
-    if (inserted.length > 0) {
-      cache[wikidataId] = inserted[0].id;
-      result.push(inserted[0].id);
-    } else {
-      const refetch = await db
-        .select({ id: genres.id })
-        .from(genres)
-        .where(eq(genres.wikidataId, wikidataId))
-        .limit(1);
-      if (refetch.length > 0) {
-        cache[wikidataId] = refetch[0].id;
-        result.push(refetch[0].id);
-      }
-    }
+  for (const row of rows) {
+    cache[row.wikidataId] = row.id;
   }
-
-  return result;
 }
 
-async function getOrCreatePlatformIds(
+/**
+ * Batch-ensure platforms exist, same pattern as genres.
+ */
+async function ensurePlatforms(
   db: DbType,
-  platformWikidataIds: string[],
-  cache: PlatformCache,
-): Promise<string[]> {
-  const result: string[] = [];
+  wikidataIds: string[],
+  cache: Record<string, string>,
+): Promise<void> {
+  const uncached = wikidataIds.filter((id) => !cache[id]);
+  if (uncached.length === 0) return;
 
-  for (const wikidataId of platformWikidataIds) {
-    if (cache[wikidataId]) {
-      result.push(cache[wikidataId]);
-      continue;
-    }
+  const values = uncached.map((wikidataId) => ({ wikidataId, name: wikidataId }));
+  await db.insert(platforms).values(values).onConflictDoNothing();
 
-    const existing = await db
-      .select({ id: platforms.id })
-      .from(platforms)
-      .where(eq(platforms.wikidataId, wikidataId))
-      .limit(1);
+  const rows = await db
+    .select({ id: platforms.id, wikidataId: platforms.wikidataId })
+    .from(platforms)
+    .where(inArray(platforms.wikidataId, uncached));
 
-    if (existing.length > 0) {
-      cache[wikidataId] = existing[0].id;
-      result.push(existing[0].id);
-      continue;
-    }
-
-    const inserted = await db
-      .insert(platforms)
-      .values({ wikidataId, name: wikidataId })
-      .onConflictDoNothing()
-      .returning({ id: platforms.id });
-
-    if (inserted.length > 0) {
-      cache[wikidataId] = inserted[0].id;
-      result.push(inserted[0].id);
-    } else {
-      const refetch = await db
-        .select({ id: platforms.id })
-        .from(platforms)
-        .where(eq(platforms.wikidataId, wikidataId))
-        .limit(1);
-      if (refetch.length > 0) {
-        cache[wikidataId] = refetch[0].id;
-        result.push(refetch[0].id);
-      }
-    }
+  for (const row of rows) {
+    cache[row.wikidataId] = row.id;
   }
-
-  return result;
 }
 
 async function insertBatch(
   db: DbType,
   batch: ParsedMedia[],
-  genreCache: GenreCache,
-  platformCache: PlatformCache,
+  genreCache: Record<string, string>,
+  platformCache: Record<string, string>,
   stats: ImportStats,
 ): Promise<void> {
   if (batch.length === 0) return;
 
   try {
+    // Collect all genre/platform IDs we'll need for this batch
+    const allGenreIds = new Set<string>();
+    const allPlatformIds = new Set<string>();
+    for (const item of batch) {
+      for (const id of item.genreIds) allGenreIds.add(id);
+      for (const id of item.platformIds) allPlatformIds.add(id);
+    }
+
+    // Batch-ensure genres and platforms exist (2 round trips instead of N)
+    await Promise.all([
+      allGenreIds.size > 0 ? ensureGenres(db, [...allGenreIds], genreCache) : undefined,
+      allPlatformIds.size > 0 ? ensurePlatforms(db, [...allPlatformIds], platformCache) : undefined,
+    ]);
+
+    // Insert media
     const mediaValues = batch.map((item) => ({
       wikidataId: item.wikidataId,
       mediaType: item.mediaType as "movie" | "tv_series" | "anime" | "game",
@@ -218,41 +173,40 @@ async function insertBatch(
 
     const wikidataToDbId = new Map(inserted.map((r) => [r.wikidataId, r.id]));
 
-    // Genre relationships
+    // Build all genre + platform relations in one pass
     const genreRelations: { mediaId: string; genreId: string }[] = [];
-    for (const item of batch) {
-      const mediaId = wikidataToDbId.get(item.wikidataId);
-      if (!mediaId || item.genreIds.length === 0) continue;
-
-      const genreDbIds = await getOrCreateGenreIds(db, item.genreIds, genreCache);
-      stats.genresFound += genreDbIds.length;
-
-      for (const genreId of genreDbIds) {
-        genreRelations.push({ mediaId, genreId });
-      }
-    }
-
-    if (genreRelations.length > 0) {
-      await db.insert(mediaGenres).values(genreRelations).onConflictDoNothing();
-    }
-
-    // Platform relationships (games)
     const platformRelations: { mediaId: string; platformId: string }[] = [];
+
     for (const item of batch) {
       const mediaId = wikidataToDbId.get(item.wikidataId);
-      if (!mediaId || item.platformIds.length === 0) continue;
+      if (!mediaId) continue;
 
-      const platformDbIds = await getOrCreatePlatformIds(db, item.platformIds, platformCache);
-      stats.platformsFound += platformDbIds.length;
+      for (const wikidataId of item.genreIds) {
+        const genreId = genreCache[wikidataId];
+        if (genreId) {
+          genreRelations.push({ mediaId, genreId });
+          stats.genresFound++;
+        }
+      }
 
-      for (const platformId of platformDbIds) {
-        platformRelations.push({ mediaId, platformId });
+      for (const wikidataId of item.platformIds) {
+        const platformId = platformCache[wikidataId];
+        if (platformId) {
+          platformRelations.push({ mediaId, platformId });
+          stats.platformsFound++;
+        }
       }
     }
 
-    if (platformRelations.length > 0) {
-      await db.insert(mediaPlatforms).values(platformRelations).onConflictDoNothing();
-    }
+    // Bulk insert relations (2 more round trips max)
+    await Promise.all([
+      genreRelations.length > 0
+        ? db.insert(mediaGenres).values(genreRelations).onConflictDoNothing()
+        : undefined,
+      platformRelations.length > 0
+        ? db.insert(mediaPlatforms).values(platformRelations).onConflictDoNothing()
+        : undefined,
+    ]);
   } catch (error) {
     stats.errors += batch.length;
     console.error("Batch insert error:", error);
@@ -292,7 +246,6 @@ async function main() {
 
   const db = createDb(url);
 
-  // Push schema
   console.log("Ensuring schema...");
 
   if (isClean) {
@@ -336,76 +289,72 @@ async function main() {
     })
     .returning({ id: importProgress.id });
 
-  const genreCache: GenreCache = {};
-  const platformCache: PlatformCache = {};
+  const genreCache: Record<string, string> = {};
+  const platformCache: Record<string, string> = {};
   let batch: ParsedMedia[] = [];
   let skipping = resumeFrom !== null;
   const startTime = Date.now();
 
-  const processStream = new Transform({
-    objectMode: true,
-    async transform(line: string, _encoding: string, callback: (error?: Error | null) => void) {
-      if (stats.entitiesImported >= limit) return callback();
-
-      const entity = parseJsonLine(line);
-      if (!entity) return callback();
-
-      // Resume support
-      if (skipping) {
-        if (entity.id === resumeFrom) {
-          skipping = false;
-          console.log(`Found resume point: ${resumeFrom}`);
-        }
-        return callback();
-      }
-
-      stats.entitiesProcessed++;
-
-      if (stats.entitiesProcessed % PROGRESS_LOG_INTERVAL === 0) {
-        const elapsed = formatDuration(Date.now() - startTime);
-        const rate = (stats.entitiesProcessed / ((Date.now() - startTime) / 1000)).toFixed(0);
-        console.log(
-          `[${elapsed}] Processed: ${stats.entitiesProcessed.toLocaleString()}, ` +
-            `Imported: ${stats.entitiesImported.toLocaleString()}, ` +
-            `Errors: ${stats.errors}, Rate: ${rate}/s`,
-        );
-
-        // Update progress
-        await db
-          .update(importProgress)
-          .set({
-            entitiesProcessed: stats.entitiesProcessed,
-            entitiesImported: stats.entitiesImported,
-            lastEntityId: entity.id,
-          })
-          .where(eq(importProgress.id, progressRecord.id));
-      }
-
-      if (!shouldImportEntity(entity)) return callback();
-
-      const parsed = parseMediaEntity(entity);
-      if (!parsed) return callback();
-
-      stats.byType[parsed.mediaType] = (stats.byType[parsed.mediaType] || 0) + 1;
-      batch.push(parsed);
-
-      if (batch.length >= BATCH_SIZE) {
-        await insertBatch(db, batch, genreCache, platformCache, stats);
-        batch = [];
-      }
-
-      callback();
-    },
-    async flush(callback: (error?: Error | null) => void) {
-      // Insert remaining batch
-      if (batch.length > 0) {
-        await insertBatch(db, batch, genreCache, platformCache, stats);
-      }
-      callback();
-    },
+  const rl = readline.createInterface({
+    input: fs.createReadStream(filePath, { encoding: "utf-8" }),
+    crlfDelay: Infinity,
   });
 
-  await pipeline(fs.createReadStream(filePath, { encoding: "utf-8" }), split2(), processStream);
+  for await (const line of rl) {
+    if (stats.entitiesImported >= limit) break;
+
+    const entity = parseJsonLine(line);
+    if (!entity) continue;
+
+    // Resume support
+    if (skipping) {
+      if (entity.id === resumeFrom) {
+        skipping = false;
+        console.log(`Found resume point: ${resumeFrom}`);
+      }
+      continue;
+    }
+
+    stats.entitiesProcessed++;
+
+    if (stats.entitiesProcessed % PROGRESS_LOG_INTERVAL === 0) {
+      const elapsed = formatDuration(Date.now() - startTime);
+      const rate = (stats.entitiesProcessed / ((Date.now() - startTime) / 1000)).toFixed(0);
+      console.log(
+        `[${elapsed}] Processed: ${stats.entitiesProcessed.toLocaleString()}, ` +
+          `Imported: ${stats.entitiesImported.toLocaleString()}, ` +
+          `Errors: ${stats.errors}, Rate: ${rate}/s`,
+      );
+
+      // Update progress in DB
+      await db
+        .update(importProgress)
+        .set({
+          entitiesProcessed: stats.entitiesProcessed,
+          entitiesImported: stats.entitiesImported,
+          lastEntityId: entity.id,
+        })
+        .where(eq(importProgress.id, progressRecord.id));
+    }
+
+    if (!shouldImportEntity(entity)) continue;
+
+    const parsed = parseMediaEntity(entity);
+    if (!parsed) continue;
+
+    stats.byType[parsed.mediaType] = (stats.byType[parsed.mediaType] || 0) + 1;
+    batch.push(parsed);
+
+    if (batch.length >= BATCH_SIZE) {
+      await insertBatch(db, batch, genreCache, platformCache, stats);
+      batch = [];
+    }
+  }
+
+  // Insert remaining batch
+  if (batch.length > 0) {
+    await insertBatch(db, batch, genreCache, platformCache, stats);
+  }
 
   // Update progress
   await db
