@@ -22,10 +22,10 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
   if (isDev) {
     console.debug("[oauth] creating new client");
     console.debug("[oauth] PUBLIC_URL:", publicUrl);
-    console.debug("[oauth] private key length:", env.OAUTH_PRIVATE_KEY.length);
+    console.debug("[oauth] private key length:", env.OAUTH_PRIVATE_KEY_JWK.length);
   }
 
-  if (!env.OAUTH_PRIVATE_KEY) {
+  if (!env.OAUTH_PRIVATE_KEY_JWK) {
     const msg = "OAUTH_PRIVATE_KEY is empty — set OAUTH_PRIVATE_KEY_JWK in .env (see .env.example)";
     console.error("[oauth]", msg);
     throw new Error(msg);
@@ -33,12 +33,14 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
 
   let keyset: JoseKey[];
   try {
-    const key = await JoseKey.fromImportable(env.OAUTH_PRIVATE_KEY, "donguri-key");
+    const key = await JoseKey.fromImportable(env.OAUTH_PRIVATE_KEY_JWK, "donguri-key");
     keyset = [key];
     if (isDev) console.debug("[oauth] key imported successfully, kid:", key.kid);
   } catch (err) {
     console.error("[oauth] failed to import private key:", err);
-    throw new Error(`Failed to import OAuth private key: ${err instanceof Error ? err.message : err}`);
+    throw new Error(
+      `Failed to import OAuth private key: ${err instanceof Error ? err.message : err}`,
+    );
   }
 
   const clientMetadata = {

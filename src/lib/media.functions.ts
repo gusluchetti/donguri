@@ -39,10 +39,7 @@ export const listMedia = createServerFn({ method: "GET" })
       const searchTerm = `%${search.trim()}%`;
 
       const conditions = [
-        or(
-          ilike(media.title, searchTerm),
-          ilike(media.originalTitle, searchTerm),
-        ),
+        or(ilike(media.title, searchTerm), ilike(media.originalTitle, searchTerm)),
       ];
       if (mediaType) conditions.push(eq(media.mediaType, mediaType));
 

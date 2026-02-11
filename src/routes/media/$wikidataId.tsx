@@ -8,6 +8,8 @@ export const Route = createFileRoute("/media/$wikidataId")({
     if (!data) throw new Error("Media not found");
     return data;
   },
+  pendingMs: 0,
+  pendingComponent: MediaDetailSkeleton,
   head: ({ loaderData }) => ({
     meta: [
       { title: `${loaderData?.title ?? "Media"} — donguri` },
@@ -19,6 +21,33 @@ export const Route = createFileRoute("/media/$wikidataId")({
   }),
   component: MediaDetailPage,
 });
+
+function MediaDetailSkeleton() {
+  return (
+    <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
+      <div className="max-w-[700px] mx-auto p-6">
+        <div className="text-dg-text-tertiary text-[0.8rem] mb-6">← catalog</div>
+        <div className="mb-6">
+          <div className="w-16 h-5 bg-dg-surface rounded-sm mb-3 animate-pulse" />
+          <div className="w-2/3 h-8 bg-dg-surface rounded animate-pulse" />
+        </div>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3 mb-6 p-4 bg-dg-surface rounded border border-dg-border-subtle">
+          {[...Array(4)].map((_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton items
+            <div key={i} className="flex flex-col gap-1">
+              <div className="w-12 h-3 bg-dg-elevated rounded animate-pulse" />
+              <div className="w-16 h-4 bg-dg-elevated rounded animate-pulse" />
+            </div>
+          ))}
+        </div>
+        <div className="space-y-2 mb-6">
+          <div className="w-full h-4 bg-dg-surface rounded animate-pulse" />
+          <div className="w-4/5 h-4 bg-dg-surface rounded animate-pulse" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function MediaDetailPage() {
   const data = Route.useLoaderData();

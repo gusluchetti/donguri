@@ -1,10 +1,4 @@
-import {
-  createRootRoute,
-  HeadContent,
-  Link,
-  Outlet,
-  Scripts,
-} from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Link, Outlet, Scripts } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import "../app.css";
 import { getAuthState, logout } from "../lib/auth.functions";
@@ -27,13 +21,11 @@ export const Route = createRootRoute({
       },
     ],
   }),
-  beforeLoad: async () => {
+  loader: async () => {
     const auth = await getAuthState();
     return { auth };
   },
-  loader: async ({ context }) => {
-    return { auth: (context as { auth: { did: string; handle: string } | null }).auth };
-  },
+  staleTime: 30_000,
   component: RootComponent,
 });
 
@@ -51,11 +43,11 @@ function RootDocument({ children }: { children: ReactNode }) {
   );
 }
 
-const NAV_LINKS = [
+const NAV_LINKS: readonly { to: string; label: string; accent?: boolean }[] = [
   { to: "/", label: "donguri", accent: true },
   { to: "/catalog", label: "catalog" },
   { to: "/roadmap", label: "roadmap" },
-] as const;
+];
 
 function RootComponent() {
   const { auth } = Route.useLoaderData();
@@ -72,24 +64,16 @@ function RootComponent() {
               className="text-[0.85rem] no-underline transition-colors duration-150"
               activeProps={{ className: "text-dg-accent" }}
               inactiveProps={{
-                className: link.accent
-                  ? "text-dg-accent"
-                  : "text-dg-text-secondary",
+                className: link.accent ? "text-dg-accent" : "text-dg-text-secondary",
               }}
             >
-              {link.accent ? (
-                <span className="font-semibold">{link.label}</span>
-              ) : (
-                link.label
-              )}
+              {link.accent ? <span className="font-semibold">{link.label}</span> : link.label}
             </Link>
           ))}
           <div className="ml-auto">
             {auth ? (
               <div className="flex items-center gap-4">
-                <span className="text-[0.8rem] text-dg-text-secondary">
-                  @{auth.handle}
-                </span>
+                <span className="text-[0.8rem] text-dg-text-secondary">@{auth.handle}</span>
                 <button
                   type="button"
                   className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none font-mono"

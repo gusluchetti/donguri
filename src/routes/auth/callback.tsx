@@ -17,11 +17,10 @@ function CallbackPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(
-    search.error
-      ? search.error_description || search.error
-      : null,
+    search.error ? "Authentication was denied or failed." : null,
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once on mount with initial search params
   useEffect(() => {
     if (search.error) return;
 
@@ -29,8 +28,8 @@ function CallbackPage() {
       .then(() => {
         navigate({ to: "/" });
       })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : "Authentication failed");
+      .catch(() => {
+        setError("Authentication failed. Please try again.");
       });
   }, []);
 
@@ -42,22 +41,15 @@ function CallbackPage() {
             <p className="text-dg-movie text-[0.8rem] uppercase tracking-wider mb-3">
               Authentication error
             </p>
-            <p className="text-dg-text-secondary text-[0.85rem] leading-relaxed mb-4">
-              {error}
-            </p>
-            <a
-              href="/"
-              className="text-[0.85rem] text-dg-accent no-underline"
-            >
+            <p className="text-dg-text-secondary text-[0.85rem] leading-relaxed mb-4">{error}</p>
+            <a href="/" className="text-[0.85rem] text-dg-accent no-underline">
               Back to home
             </a>
           </div>
         ) : (
           <div className="flex items-center gap-3">
             <div className="w-4 h-4 border-2 border-dg-accent border-t-transparent rounded-full animate-spin" />
-            <p className="text-dg-text-secondary text-[0.85rem]">
-              Authenticating...
-            </p>
+            <p className="text-dg-text-secondary text-[0.85rem]">Authenticating...</p>
           </div>
         )}
       </div>

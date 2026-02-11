@@ -164,10 +164,7 @@ export const catalogEntries = pgTable(
   (table) => [
     index("idx_catalog_entries_user").on(table.userId),
     index("idx_catalog_entries_media").on(table.mediaWikidataId),
-    uniqueIndex("idx_catalog_entries_user_media").on(
-      table.userId,
-      table.mediaWikidataId,
-    ),
+    uniqueIndex("idx_catalog_entries_user_media").on(table.userId, table.mediaWikidataId),
   ],
 );
 

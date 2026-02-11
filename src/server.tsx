@@ -1,8 +1,5 @@
 import { JoseKey } from "@atproto/jwk-jose";
-import {
-  createStartHandler,
-  defaultStreamHandler,
-} from "@tanstack/react-start/server";
+import { createStartHandler, defaultStreamHandler } from "@tanstack/react-start/server";
 import { getEnv } from "./lib/env";
 
 const startHandler = createStartHandler(defaultStreamHandler);
@@ -41,10 +38,7 @@ const fetch = async (request: Request) => {
   if (url.pathname === "/.well-known/jwks.json") {
     try {
       const env = getEnv();
-      const key = await JoseKey.fromImportable(
-        env.OAUTH_PRIVATE_KEY,
-        "donguri-key",
-      );
+      const key = await JoseKey.fromImportable(env.OAUTH_PRIVATE_KEY_JWK, "donguri-key");
       return Response.json(
         { keys: [key.publicJwk] },
         {

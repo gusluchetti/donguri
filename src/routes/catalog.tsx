@@ -23,50 +23,57 @@ const MEDIA_TYPES = [
 
 export const Route = createFileRoute("/catalog")({
   validateSearch: catalogSearchSchema,
-  loaderDeps: ({ search }) => ({ q: search.q, type: search.type }),
-  loader: async ({ deps }) => {
-    try {
-      const [initialData, stats] = await Promise.all([
-        listMedia({
-          data: {
-            limit: 50,
-            mediaType: deps.type,
-            search: deps.q || undefined,
-          },
-        }),
-        getMediaStats(),
-      ]);
-      return { initialData, stats, error: null };
-    } catch (e) {
-      console.error("[catalog] loader failed:", e);
-      return {
-        initialData: { items: [], nextCursor: null },
-        stats: { total: 0, byType: {} },
-        error: "Could not connect to database",
-      };
-    }
-  },
   component: CatalogPage,
 });
 
 function CatalogPage() {
-  const { initialData, stats, error } = Route.useLoaderData();
   const { auth } = rootRoute.useLoaderData();
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog" });
 
-  const [items, setItems] = useState<Media[]>(initialData.items);
-  const [nextCursor, setNextCursor] = useState<string | null>(initialData.nextCursor);
+  const [items, setItems] = useState<Media[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [stats, setStats] = useState<{ total: number; byType: Record<string, number> }>({
+    total: 0,
+    byType: {},
+  });
+  const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(q ?? "");
-  const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const parentRef = useRef<HTMLDivElement>(null);
 
-  // Reset items when loader data changes (URL params changed)
+  // Fetch data when search params change
   useEffect(() => {
-    setItems(initialData.items);
-    setNextCursor(initialData.nextCursor);
-  }, [initialData]);
+    let cancelled = false;
+    setInitialLoading(true);
+    setError(null);
+
+    Promise.all([
+      listMedia({
+        data: { limit: 50, mediaType, search: q || undefined },
+      }),
+      getMediaStats({}),
+    ])
+      .then(([data, statsData]) => {
+        if (cancelled) return;
+        setItems(data.items);
+        setNextCursor(data.nextCursor);
+        setStats(statsData);
+        setInitialLoading(false);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        console.error("[catalog] fetch failed:", e);
+        setError("Could not connect to database");
+        setInitialLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [q, mediaType]);
 
   // Sync search input when URL param changes externally (e.g. back/forward)
   useEffect(() => {
@@ -147,7 +154,9 @@ function CatalogPage() {
       <header className="px-6 pt-6 pb-4">
         <div className="max-w-[1000px] mx-auto">
           <p className="text-dg-text-tertiary text-[0.8rem]">
-            {stats.total.toLocaleString()} titles across the catalog
+            {stats.total > 0
+              ? `${stats.total.toLocaleString()} titles across the catalog`
+              : "\u00a0"}
           </p>
         </div>
       </header>
@@ -184,7 +193,9 @@ function CatalogPage() {
                 }`}
               >
                 {t.label}
-                <span className="text-[0.65rem] opacity-60">{count.toLocaleString()}</span>
+                {count > 0 && (
+                  <span className="text-[0.65rem] opacity-60">{count.toLocaleString()}</span>
+                )}
               </button>
             );
           })}
@@ -198,7 +209,8 @@ function CatalogPage() {
             to="/"
             className="block border border-dg-accent/20 bg-dg-accent/[0.04] rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-150"
           >
-            <span className="text-dg-accent">Sign in</span> to add titles to your watchlist and track your progress.
+            <span className="text-dg-accent">Sign in</span> to add titles to your watchlist and
+            track your progress.
           </Link>
         </div>
       )}
@@ -214,46 +226,52 @@ function CatalogPage() {
 
       {/* Virtual list */}
       <div ref={parentRef} className="flex-1 overflow-auto max-w-[1000px] mx-auto w-full px-6">
-        <div
-          style={{
-            height: virtualizer.getTotalSize(),
-            width: "100%",
-            position: "relative",
-          }}
-        >
-          {virtualItems.map((virtualRow) => {
-            if (virtualRow.index >= items.length) {
+        {initialLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <span className="text-dg-text-tertiary text-[0.85rem]">Loading catalog...</span>
+          </div>
+        ) : (
+          <div
+            style={{
+              height: virtualizer.getTotalSize(),
+              width: "100%",
+              position: "relative",
+            }}
+          >
+            {virtualItems.map((virtualRow) => {
+              if (virtualRow.index >= items.length) {
+                return (
+                  <div
+                    key="loader"
+                    className="w-full left-0 border-b border-dg-surface absolute flex items-center justify-center"
+                    style={{
+                      top: virtualRow.start,
+                      height: virtualRow.size,
+                    }}
+                  >
+                    <span className="text-dg-text-tertiary">{loading ? "Loading..." : ""}</span>
+                  </div>
+                );
+              }
+
+              const item = items[virtualRow.index];
               return (
-                <div
-                  key="loader"
-                  className="w-full left-0 border-b border-dg-surface absolute flex items-center justify-center"
+                <Link
+                  key={item.id}
+                  to="/media/$wikidataId"
+                  params={{ wikidataId: item.wikidataId }}
+                  className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block"
                   style={{
                     top: virtualRow.start,
                     height: virtualRow.size,
                   }}
                 >
-                  <span className="text-dg-text-tertiary">{loading ? "Loading..." : ""}</span>
-                </div>
+                  <MediaRow item={item} />
+                </Link>
               );
-            }
-
-            const item = items[virtualRow.index];
-            return (
-              <Link
-                key={item.id}
-                to="/media/$wikidataId"
-                params={{ wikidataId: item.wikidataId }}
-                className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block"
-                style={{
-                  top: virtualRow.start,
-                  height: virtualRow.size,
-                }}
-              >
-                <MediaRow item={item} />
-              </Link>
-            );
-          })}
-        </div>
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

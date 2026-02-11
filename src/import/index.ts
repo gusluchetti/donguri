@@ -74,7 +74,9 @@ async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
           err.message.includes("connection") ||
           err.cause?.toString().includes("CONNECTION_CLOSED"));
       if (isConnectionError && attempt < MAX_RETRIES) {
-        console.warn(`[retry] ${label} failed (attempt ${attempt}/${MAX_RETRIES}), retrying in ${RETRY_DELAY_MS}ms...`);
+        console.warn(
+          `[retry] ${label} failed (attempt ${attempt}/${MAX_RETRIES}), retrying in ${RETRY_DELAY_MS}ms...`,
+        );
         await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
         continue;
       }
@@ -157,10 +159,13 @@ async function insertBatch(
 
     // Batch-ensure genres and platforms exist (2 round trips instead of N)
     await withRetry(
-      () => Promise.all([
-        allGenreIds.size > 0 ? ensureGenres(db, [...allGenreIds], genreCache) : undefined,
-        allPlatformIds.size > 0 ? ensurePlatforms(db, [...allPlatformIds], platformCache) : undefined,
-      ]),
+      () =>
+        Promise.all([
+          allGenreIds.size > 0 ? ensureGenres(db, [...allGenreIds], genreCache) : undefined,
+          allPlatformIds.size > 0
+            ? ensurePlatforms(db, [...allPlatformIds], platformCache)
+            : undefined,
+        ]),
       "ensure genres/platforms",
     );
 
@@ -191,11 +196,12 @@ async function insertBatch(
     }));
 
     const inserted = await withRetry(
-      () => db
-        .insert(media)
-        .values(mediaValues)
-        .onConflictDoNothing()
-        .returning({ id: media.id, wikidataId: media.wikidataId }),
+      () =>
+        db
+          .insert(media)
+          .values(mediaValues)
+          .onConflictDoNothing()
+          .returning({ id: media.id, wikidataId: media.wikidataId }),
       "insert media",
     );
 
@@ -230,14 +236,15 @@ async function insertBatch(
 
     // Bulk insert relations (2 more round trips max)
     await withRetry(
-      () => Promise.all([
-        genreRelations.length > 0
-          ? db.insert(mediaGenres).values(genreRelations).onConflictDoNothing()
-          : undefined,
-        platformRelations.length > 0
-          ? db.insert(mediaPlatforms).values(platformRelations).onConflictDoNothing()
-          : undefined,
-      ]),
+      () =>
+        Promise.all([
+          genreRelations.length > 0
+            ? db.insert(mediaGenres).values(genreRelations).onConflictDoNothing()
+            : undefined,
+          platformRelations.length > 0
+            ? db.insert(mediaPlatforms).values(platformRelations).onConflictDoNothing()
+            : undefined,
+        ]),
       "insert relations",
     );
   } catch (error) {

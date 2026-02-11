@@ -1,8 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { marked } from "marked";
 
-const GITHUB_RAW_URL =
-  "https://raw.githubusercontent.com/gusluchetti/donguri/main/ROADMAP.md";
+const GITHUB_RAW_URL = "https://raw.githubusercontent.com/gusluchetti/donguri/main/ROADMAP.md";
 
 export const getRoadmap = createServerFn({ method: "GET" }).handler(async () => {
   let markdown: string;

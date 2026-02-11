@@ -7,7 +7,7 @@
  */
 
 import type { Agent } from "@atproto/api";
-import { eq, and } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "../db";
 import { catalogEntries } from "../db/schema";
 
@@ -73,12 +73,7 @@ export async function deleteCatalogEntry(
   const db = getDb();
   await db
     .delete(catalogEntries)
-    .where(
-      and(
-        eq(catalogEntries.userId, userId),
-        eq(catalogEntries.mediaWikidataId, mediaRef),
-      ),
-    );
+    .where(and(eq(catalogEntries.userId, userId), eq(catalogEntries.mediaWikidataId, mediaRef)));
 }
 
 /**
@@ -97,10 +92,7 @@ export async function upsertLocalMirror(
     .select({ id: catalogEntries.id })
     .from(catalogEntries)
     .where(
-      and(
-        eq(catalogEntries.userId, userId),
-        eq(catalogEntries.mediaWikidataId, record.mediaRef),
-      ),
+      and(eq(catalogEntries.userId, userId), eq(catalogEntries.mediaWikidataId, record.mediaRef)),
     )
     .limit(1);
 
@@ -137,11 +129,7 @@ export async function upsertLocalMirror(
  * Reconcile local mirror with PDS records for an AT Protocol user.
  * Call on login to catch any writes made from other clients.
  */
-export async function reconcileUser(
-  agent: Agent,
-  userId: string,
-  did: string,
-): Promise<void> {
+export async function reconcileUser(agent: Agent, userId: string, did: string): Promise<void> {
   const db = getDb();
 
   let cursor: string | undefined;

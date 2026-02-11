@@ -18,8 +18,7 @@ function HomePage() {
           <span className="text-dg-accent">donguri</span>
         </h1>
         <p className="text-dg-text-secondary text-[0.9rem] leading-relaxed mb-8">
-          Track movies, TV, anime, and games.
-          Your watchlist, your data, your rules.
+          Track movies, TV, anime, and games. Your watchlist, your data, your rules.
         </p>
 
         {auth ? <LoggedInView handle={auth.handle} /> : <LoginForm />}
@@ -47,8 +46,7 @@ function LoggedInView({ handle }: { handle: string }) {
   return (
     <div className="border border-dg-border-subtle rounded p-5 bg-dg-surface">
       <p className="text-dg-text text-[0.9rem] mb-2">
-        Signed in as{" "}
-        <span className="text-dg-accent">@{handle}</span>
+        Signed in as <span className="text-dg-accent">@{handle}</span>
       </p>
       <p className="text-dg-text-secondary text-[0.85rem] leading-relaxed">
         Watchlist features are coming soon. For now, browse the catalog.
@@ -113,9 +111,7 @@ function LoginForm() {
             {loading ? "..." : "Sign in"}
           </button>
         </div>
-        {error && (
-          <p className="text-dg-movie text-[0.8rem] mt-2">{error}</p>
-        )}
+        {error && <p className="text-dg-movie text-[0.8rem] mt-2">{error}</p>}
       </form>
     </div>
   );

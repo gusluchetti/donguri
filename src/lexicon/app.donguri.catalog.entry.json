@@ -19,12 +19,7 @@
           "status": {
             "type": "string",
             "description": "Tracking status.",
-            "knownValues": [
-              "watching",
-              "completed",
-              "dropped",
-              "plan_to_watch"
-            ],
+            "knownValues": ["watching", "completed", "dropped", "plan_to_watch"],
             "maxLength": 32
           },
           "rating": {
