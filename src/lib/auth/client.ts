@@ -10,7 +10,11 @@ let _clientUrl: string | null = null;
 
 export async function getOAuthClient(): Promise<NodeOAuthClient> {
   const publicUrl = (process.env.PUBLIC_URL || "http://localhost:3000").replace(/\/+$/, "");
-  const privateKeyJwk = process.env.OAUTH_PRIVATE_KEY_JWK || "";
+  // trim + strip surrounding quotes (Docker --env-file keeps them literal)
+  const privateKeyJwk = (process.env.OAUTH_PRIVATE_KEY_JWK || "")
+    .trim()
+    .replace(/^['"]/, "")
+    .replace(/['"]$/, "");
 
   // Return cached client if the URL hasn't changed (e.g. tunnel restart)
   if (_client && _clientUrl === publicUrl) {

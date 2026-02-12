@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "concurrently -k -n proxy,tunnel,vite -c blue,magenta,green \"fly proxy 5432 -a donguri-db\" \"cloudflared tunnel run donguri-dev\" \"vite dev --port 3000 --host\"",
     "dev:prod": "concurrently -k -n proxy,tunnel,app -c blue,magenta,yellow \"fly proxy 5432 -a donguri-db\" \"cloudflared tunnel run donguri-dev\" \"bun run dev:prod:app\"",
-    "dev:prod:app": "docker build -t donguri-dev . && docker run --rm --network host --env-file .env -e NODE_ENV=production donguri-dev",
+    "dev:prod:app": "docker rm -f donguri-dev 2>/dev/null; docker build -t donguri-dev . && docker run --rm --init --name donguri-dev --network host --env-file .env -e NODE_ENV=production donguri-dev",
     "dev:vite": "vite dev --port 3000",
     "build": "vite build",
     "start": "node scripts/start.mjs",

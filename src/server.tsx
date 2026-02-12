@@ -44,10 +44,11 @@ const fetch = async (request: Request) => {
 
   if (url.pathname === "/.well-known/jwks.json") {
     try {
-      const key = await JoseKey.fromImportable(
-        process.env.OAUTH_PRIVATE_KEY_JWK || "",
-        "donguri-key",
-      );
+      const jwk = (process.env.OAUTH_PRIVATE_KEY_JWK || "")
+        .trim()
+        .replace(/^['"]/, "")
+        .replace(/['"]$/, "");
+      const key = await JoseKey.fromImportable(jwk, "donguri-key");
       return Response.json(
         { keys: [key.publicJwk] },
         {
