@@ -1,206 +1,153 @@
 # donguri — todos
 
-Working document for planning and prioritization.
-See `ROADMAP.md` for the user-facing version.
+Internal reference. One line per feature, sorted by priority.
+See `ROADMAP.md` for the public version.
+
+Live at **donguri.app**.
 
 ---
 
-## P0 — Data enrichment
+## P0 — Genre normalization + dark/light toggle
 
-Critical foundation work — the catalog needs real genres and per-episode tracking before other features can build on top.
+- [ ] Dark/light theme toggle — how do we not have this yet
+- [ ] Define canonical genre list (~25: action, comedy, drama, horror, sci-fi, romance, thriller, fantasy, mystery, documentary, etc.)
+- [ ] Build mapping table from Wikidata genre Q-IDs → canonical genres (many-to-one)
+- [ ] Migration: reclassify existing `genres` rows using the mapping, drop unmappable junk
+- [ ] Genre chips on detail pages become meaningful
+- [ ] Genre filter in catalog — filter by canonical genre, not just media type
+- [ ] Multi-filter search — combine type + genre + year range + rating
 
-### Episode-per-season data
+## P1 — Episode tracking
 
-Current state: we store total episode count but not per-season breakdowns. Users can't track "I've seen S2E5" — only a flat episode number.
+Core feature gap — half the catalog is TV/anime and users can't track "I watched S2E5" yet.
 
-Source options:
-- **TMDB API** (recommended) — free, excellent season/episode data for TV + anime, well-documented. Rate limit: ~50 req/s with API key.
-- **TVDB** — good data but requires paid subscription for API access.
-- **AniList/Jikan (MAL)** — good for anime specifically, could supplement TMDB.
-- **IGDB** — no episode concept, but useful for DLC/expansion tracking on games (future).
+- [ ] TMDB API client setup (free, ~50 req/s, excellent season/episode data)
+- [ ] New tables: `seasons` + `episodes` linked to `media`
+- [ ] Import pipeline: match by stored TMDB ID → fetch seasons/episodes → insert
+- [ ] Backfill existing TV/anime catalog entries (batch job, rate-limited)
+- [ ] UI: season selector + per-episode checkboxes on detail page
+- [ ] Per-episode watched state in `catalog_entries` (jsonb or `episode_progress` table)
 
-### TODO
+## P2 — Auth + onboarding + UX polish
 
-- [ ] TMDB API key + client setup
-- [ ] New tables: `seasons` (media_id, season_number, episode_count, air_date) and `episodes` (season_id, episode_number, title, air_date, runtime)
-- [ ] Import pipeline: match media by TMDB external ID (already stored) -> fetch season/episode data -> insert
-- [ ] Backfill existing catalog (batch job with rate limiting)
-- [ ] UI: season selector on detail page, per-episode checkboxes for tracking
-- [ ] Update `catalog_entries` to support per-episode watched state (jsonb array or separate `episode_progress` table)
+More auth methods = more users. Polish + onboarding = users that stay.
 
-### Genre normalization
+- [ ] Google OAuth login (biggest reach, lowest friction)
+- [ ] GitHub OAuth login (dev audience)
+- [ ] Unified user model — all auth methods → same `users` table, AT sync opt-in
+- [ ] Onboarding flow — pick media types + favorite genres on first login
+- [ ] Empty state design — smart suggestions when watchlist is empty
+- [ ] Guided tour / tooltips for first-time users
+- [ ] Extract reusable component library (buttons, cards, modals, badges — currently inline)
+- [ ] Loading states, skeleton screens, toast notifications
+- [ ] Responsive design audit (catalog grid, detail pages, forms)
+- [ ] Accessibility pass — keyboard nav, screen reader labels, contrast ratios
 
-Current state: genres come from Wikidata as raw tags (Q-IDs mapped to labels). They're noisy and inconsistent — "anime television series" is a genre alongside "drama".
+## P3 — Monetization
 
-### TODO
+Target: 10 paying users. Get the rails in once the app is worth charging for.
 
-- [ ] Define a canonical genre list (~20-30 genres: action, comedy, drama, horror, sci-fi, romance, thriller, fantasy, mystery, documentary, etc.)
-- [ ] Build mapping from Wikidata genre Q-IDs to canonical genres (many-to-one)
-- [ ] Migration: reclassify existing `genres` table entries using the mapping
-- [ ] Drop unmappable junk genres or bucket them into "other"
-- [ ] UI: genre chips on detail pages become meaningful and filterable
-- [ ] Catalog filtering by canonical genre (not just media type)
+Platform: **Lemon Squeezy** (MoR, handles tax globally, 5%+$0.50/tx, regional pricing built-in).
 
----
-
-## P1 — Monetization
-
-Make it feel like a real product. Accept payments, support regional pricing (USD + BRL).
-
-### Payment platform decision
-
-**Lemon Squeezy** (recommended) — Merchant of Record model:
-- Handles all tax compliance globally, including Brazil's 2026 CBS/IBS VAT reform
-- Built-in regional pricing (USD, BRL, etc.)
-- 5% + $0.50/tx — higher than Stripe but zero tax ops burden
-- Fast integration (~2 hours), good docs, Node.js SDK
-- Solo-dev friendly — no tax entity registration needed
-
-**Paddle** — same MoR model, same fees, supports Pix (Brazil's dominant payment method). Worth considering if Brazilian users need Pix specifically.
-
-**Stripe** — 4% fees but you handle all tax compliance yourself. Only makes sense if volume justifies hiring tax help. Not recommended for now.
-
-### What to monetize (TBD)
-
-- Define free tier vs. paid tier
-- Candidates for paid: statistics, import/export, unlimited lists, custom themes, achievement badges
-- Consider "supporter" tier — pay what you want, cosmetic perks
-- BRL pricing should reflect purchasing power, not just fx conversion
-
-### TODO
-
-- [ ] Create Lemon Squeezy account, configure products + regional pricing
-- [ ] Add `subscription_status` / `subscription_tier` to `users` table
+- [ ] Define free vs paid tiers (candidates: stats, export, unlimited lists, themes, badges)
+- [ ] Lemon Squeezy account + product setup with USD/BRL regional pricing
+- [ ] `subscription_tier` column on `users` table
 - [ ] Checkout flow (hosted or embedded)
 - [ ] Webhook handler for payment lifecycle events
-- [ ] Feature gating based on subscription status
+- [ ] Feature gating middleware based on subscription status
 - [ ] Billing management page (upgrade, cancel, invoices)
 
----
+## P4 — Make the catalog visual
 
-## P2 — User feedback pipeline
+Cosmetic but impactful — cover art makes the product feel real.
 
-Get feedback flowing before scaling features.
+- [ ] Cover art + posters via TMDB/IGDB APIs (match by stored external IDs)
+- [ ] Richer detail pages — directors, cast, studios, episode lists
+- [ ] Inline external ratings on detail pages (IMDb, MAL scores)
 
-### Approach: feedback form -> GitHub Issues API
+## P5 — Data safety
 
-- Floating feedback button in the app
-- Server function creates issues via `POST /repos/{owner}/{repo}/issues`
-- Fine-grained PAT with Issues write scope, stored as `GITHUB_FEEDBACK_TOKEN` env var
-- Rate-limit: 5 submissions/hour/IP, or require auth
-- Auto-label issues (bug, feature-request, feedback)
-- Zero external dependencies
-
-### TODO
-
-- [ ] Feedback form component (title, description, category selector)
-- [ ] TanStack Start server function for GitHub Issues API
-- [ ] `GITHUB_FEEDBACK_TOKEN` env var setup
-- [ ] Rate limiting (Postgres counter or in-memory)
-- [ ] Success/error UI states
-- [ ] Auto-labels on created issues
-
-### Later
-
-- Screenshot capture (HTML2Canvas) for visual bug reports
-- Upgrade to GitHub App if PAT rate limits matter
-- Public "known issues" page sourcing from open issues
-
----
-
-## P3 — Onboarding and UX
-
-Iterative — ships continuously alongside other work.
-
-### Auth expansion
-
-- [ ] Google OAuth login
-- [ ] GitHub OAuth login
-- [ ] Clear messaging: AT Protocol recommended (portability), alternatives available
-- [ ] Unified user model — all auth methods -> same `users` table, AT sync is opt-in
-
-### First-run experience
-
-- [ ] Onboarding flow — pick media types, favorite genres
-- [ ] Empty state design — suggestions when watchlist is empty
-- [ ] Subtle guided tour or tooltips for first interaction
-
-### Data richness
-
-- [ ] More metadata on detail pages (directors, cast, studios, episode lists)
-- [ ] Cover art / posters (TMDB API, IGDB API)
-- [ ] Inline external ratings (IMDb, MAL scores)
-- [ ] Multi-genre filtering, tag-based discovery
-
-### Data safety
-
-- [ ] Export data (JSON/CSV)
+- [ ] Export user data as JSON/CSV
+- [ ] Account deletion flow (GDPR-compliant)
 - [ ] Backup reminders for non-AT users
-- [ ] Account deletion flow (GDPR-style)
 
-### Styling and polish
+## P6 — Feedback + community
 
-- [ ] Design system review — spacing, typography, component consistency
-- [ ] Transitions, loading states, toast notifications
-- [ ] Accessibility audit — keyboard nav, screen readers, contrast
-- [ ] Dark/light theme toggle
-
----
-
-## P4 — Profiles and gamification
-
-Retention through rewarding genuine activity.
-
-### Public profiles
-
-- [ ] `/user/{handle}` profile page
-- [ ] AT Protocol identity display
-- [ ] Privacy controls — choose what's public
-- [ ] Profile card — avatar, bio, top-level stats
-
-### Achievements
-
-- [ ] Achievement system with unlock conditions from tracking data
-- [ ] Examples:
-  - Studio Ghibli Pilgrim — watch 10 Ghibli films
-  - Genre Explorer — track titles in 5+ genres
-  - Century Club — rate 100 titles
-  - Completionist — finish every season of a long-running series
-  - Retro Gamer — play 10 pre-2000 games
-  - World Cinema — watch films from 10+ countries
-  - Speed Runner — complete a game within a week of adding it
-  - Binge Watcher — complete a full series in under 48 hours
-- [ ] Achievement badges on profile
-- [ ] Unlock notifications
-- [ ] Tiered achievements (bronze/silver/gold)
-
-### Streaks and stats
-
-- [ ] Daily/weekly tracking streaks
+- [ ] In-app feedback form → GitHub Issues API (server fn, rate-limited, auto-labeled)
+- [ ] Public profile pages — `/user/{handle}`, avatar, bio, top stats
+- [ ] Privacy controls — choose what's visible on your profile
+- [ ] AT Protocol identity display on profiles
 - [ ] Personal stats dashboard — genre distribution, avg rating, completion rate
-- [ ] Year-in-review (Spotify Wrapped style)
+- [ ] Activity feed — see what people you follow are tracking
+
+## P7 — Gamification + retention
+
+- [ ] Achievement system — unlock conditions derived from tracking data
+- [ ] Achievement badges rendered on profile cards
+- [ ] Tiered achievements (bronze / silver / gold)
+- [ ] Unlock notifications (toast or inbox)
+- [ ] Daily/weekly tracking streaks
+- [ ] Year-in-review (Wrapped-style annual summary)
 - [ ] Opt-in leaderboards
 
----
+## Backlog — no priority yet
 
-## Backlog
+- [ ] Import from MAL, Letterboxd, Trakt (CSV/API ingest)
+- [ ] Offline mutations — queue writes locally, sync when reconnected
+- [ ] Community ratings — aggregate scores across donguri users
+- [ ] Custom lists and collections (themed curation, shareable)
+- [ ] Recommendation engine (collaborative filtering on tracking history)
+- [ ] Multi-language UI + catalog titles (Wikidata already has translations)
+- [ ] DLC/expansion tracking for games via IGDB
+- [ ] Screenshot capture in feedback form (html2canvas)
 
-Carried over from current roadmap — valuable but not prioritized yet.
+## Ideas
 
-- Import from other services (MAL, Letterboxd, Trakt)
-- Offline mutations (queue writes, sync when online)
-- Activity feed (what people you follow are watching)
-- Community ratings (aggregate donguri network scores)
-- Lists and collections (themed curation)
-- Recommendations (based on history and taste)
-- Multi-language support (Wikidata has multilingual titles)
-- Production deployment (custom domain, CI/CD)
+### UX & catalog
+
+- [ ] "Currently watching" shelf on homepage — surface in-progress titles front and center
+- [ ] Quick-rate from catalog view — star rating inline without opening detail page
+- [ ] Trending / recently added section — highlight new entries so the catalog feels alive
+- [ ] "Where to watch" links — JustWatch API for streaming availability by region
+- [ ] Franchise grouping — link sequels/prequels/spinoffs as a navigable tree
+- [ ] Backlog time estimate — "you have 47 hours of unwatched content" stat on dashboard
+- [ ] Keyboard shortcuts — j/k navigation, s to add, r to rate
+- [ ] RSS/Atom feed per user — follow someone's activity without an account
+
+### Gamification — progress & achievements
+
+- [ ] Watching streaks — daily/weekly consistency rewards with streak counters
+- [ ] Genre exploration badges — unlock for watching across genres, decades, or countries
+- [ ] Milestone markers — "100 movies watched", "first anime completed", "500 hours logged"
+- [ ] Completionist tracker — finish entire franchises or director filmographies
+- [ ] Expertise tiers per genre — watch enough sci-fi and become a "Sci-Fi Scholar"
+- [ ] Overall level / rank — "cinephile level" or "otaku rank" from accumulated activity
+
+### Gamification — social (AT Protocol native)
+
+- [ ] Achievement feed — post unlocks as atproto records visible to followers
+- [ ] Watch challenges — issue dares to friends ("5 horror films this October")
+- [ ] Follower leaderboards — compare watch time, genre diversity, streak length among mutuals
+- [ ] Shared watchlists — collaborative lists where groups race to finish together
+- [ ] Review reputation — upvotes on reviews boost a credibility score
+
+### Gamification — discovery & events
+
+- [ ] Curated quests — "Studio Ghibli Journey", "Best Picture Winners" with progress bars
+- [ ] Seasonal events — horror in October, romance in February, anime in spring
+- [ ] Discovery roulette — random pick from your backlog with bonus XP for watching it
+
+### Stats & visualization
+
+- [ ] Year-in-review / Wrapped — genres, hours, favorite directors, top ratings
+- [ ] Heatmap calendar — daily watch activity (GitHub contribution graph style)
+- [ ] Taste radar chart — genre distribution over time, compare with friends
 
 ---
 
 ## Principles
 
-- Your data, your choice — AT Protocol for portability, alternative auth for convenience
+- Your data, your choice — AT Protocol for portability, alternatives for convenience
 - Catalog is shared, tracking is personal
 - Offline-first — reads from cache, writes sync in background
 - Earn engagement, don't manufacture it — no dark patterns, no FOMO
