@@ -69,6 +69,16 @@ export const Route = createFileRoute("/")({
 function HomePage() {
   const { auth } = rootRoute.useLoaderData();
 
+  if (auth) {
+    return (
+      <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
+        <div className="max-w-[1000px] mx-auto px-4 py-10 sm:px-6 sm:py-16">
+          <LoggedInView />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
       <div className="max-w-[1000px] mx-auto px-4 py-10 sm:px-6 sm:py-16">
@@ -79,7 +89,7 @@ function HomePage() {
           Track movies, TV, anime, and games.
         </p>
 
-        {auth ? <LoggedInView /> : <SignInSection />}
+        <SignInSection />
 
         <div className="flex flex-col sm:flex-row gap-3 mt-6 sm:mt-8">
           <Link
@@ -229,16 +239,6 @@ function LoggedInView() {
 
   return (
     <div>
-      <div className="border border-dg-border-subtle rounded p-4 sm:p-5 bg-dg-surface mb-6">
-        <p className="text-dg-text text-[0.9rem]">
-          Signed in as <span className="text-dg-accent">{displayHandle}</span>
-        </p>
-      </div>
-
-      {fromCache && (
-        <p className="text-dg-text-tertiary text-[0.75rem] mb-3">Showing cached data</p>
-      )}
-
       {grouped.size === 0 ? (
         <div className="border border-dg-border-subtle rounded p-4 sm:p-5 bg-dg-surface">
           <p className="text-dg-text-secondary text-[0.85rem] leading-relaxed">

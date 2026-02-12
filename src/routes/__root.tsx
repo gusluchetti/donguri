@@ -106,7 +106,7 @@ function RootComponent() {
               <ThemeToggle />
               {auth ? (
                 <div className="flex items-center gap-4">
-                  <span className="text-[0.8rem] text-dg-text-secondary hidden sm:inline">
+                  <span className="text-[0.8rem] text-dg-accent hidden sm:inline">
                     {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
                   </span>
                   <button
