@@ -11,7 +11,6 @@ import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server
 import { eq } from "drizzle-orm";
 import { getDb } from "../../db";
 import { users } from "../../db/schema";
-import { getEnv } from "../env";
 
 export type SessionData = {
   userId: string;
@@ -24,10 +23,16 @@ const COOKIE_NAME = "donguri-auth";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 async function signPayload(payload: string): Promise<string> {
-  const env = getEnv();
+  const secret =
+    process.env.SESSION_SECRET ||
+    (process.env.NODE_ENV === "production"
+      ? (() => {
+          throw new Error("SESSION_SECRET must be set in production");
+        })()
+      : "dev-secret-change-me");
   const key = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(env.SESSION_SECRET),
+    new TextEncoder().encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"],

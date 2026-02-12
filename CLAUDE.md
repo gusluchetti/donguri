@@ -57,7 +57,6 @@ src/
     index.ts          → Database client (postgres.js)
     fts.ts            → pg_trgm extension + GIN index setup
   lib/
-    env.ts            → Environment variable access (process.env, not used in vite.config.ts)
     media.functions.ts → Server functions (listMedia, getMedia, getMediaStats)
     media-types.ts    → Type labels and badge color mappings
     catalog.functions.ts → Server functions (catalog entries, tracked IDs)

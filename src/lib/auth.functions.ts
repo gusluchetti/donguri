@@ -123,26 +123,45 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
         .where(eq(users.did, did))
         .limit(1);
 
+      // Get authenticated agent (reused for email fetch + PDS reconciliation)
+      let agent: Awaited<ReturnType<typeof getAuthenticatedAgent>> | null = null;
+      let email: string | null = null;
+      try {
+        agent = await getAuthenticatedAgent(did);
+        // Fetch email from PDS (com.atproto.server.getSession includes it)
+        const sessionInfo = await agent.com.atproto.server.getSession();
+        if (sessionInfo.data.email && sessionInfo.data.emailConfirmed) {
+          email = sessionInfo.data.email;
+          if (isDev) console.debug("[callback] got confirmed email from PDS:", email);
+        }
+      } catch (err) {
+        console.error("[callback] agent/email fetch failed (continuing):", err);
+      }
+
       let userId: string;
       if (existing.length > 0) {
         userId = existing[0].id;
-        await db.update(users).set({ handle }).where(eq(users.id, userId));
+        await db
+          .update(users)
+          .set({ handle, ...(email ? { email } : {}) })
+          .where(eq(users.id, userId));
         if (isDev) console.debug("[callback] updated existing user:", userId);
       } else {
         const [newUser] = await db
           .insert(users)
-          .values({ did, handle, authMethod: "atproto" })
+          .values({ did, handle, authMethod: "atproto", ...(email ? { email } : {}) })
           .returning({ id: users.id });
         userId = newUser.id;
         if (isDev) console.debug("[callback] created new user:", userId);
       }
 
-      try {
-        const agent = await getAuthenticatedAgent(did);
-        await reconcileUser(agent, userId, did);
-        if (isDev) console.debug("[callback] PDS reconciliation complete");
-      } catch (err) {
-        console.error("[callback] PDS reconciliation failed (login continues):", err);
+      if (agent) {
+        try {
+          await reconcileUser(agent, userId, did);
+          if (isDev) console.debug("[callback] PDS reconciliation complete");
+        } catch (err) {
+          console.error("[callback] PDS reconciliation failed (login continues):", err);
+        }
       }
 
       await setSessionCookie({ userId, handle, authMethod: "atproto", did });

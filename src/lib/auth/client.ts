@@ -1,6 +1,5 @@
 import { JoseKey } from "@atproto/jwk-jose";
 import { NodeOAuthClient } from "@atproto/oauth-client-node";
-import { getEnv } from "../env";
 import { PgSessionStore, PgStateStore } from "./kv-stores";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -10,8 +9,8 @@ let _client: NodeOAuthClient | null = null;
 let _clientUrl: string | null = null;
 
 export async function getOAuthClient(): Promise<NodeOAuthClient> {
-  const env = getEnv();
-  const publicUrl = env.PUBLIC_URL;
+  const publicUrl = (process.env.PUBLIC_URL || "http://localhost:3000").replace(/\/+$/, "");
+  const privateKeyJwk = process.env.OAUTH_PRIVATE_KEY_JWK || "";
 
   // Return cached client if the URL hasn't changed (e.g. tunnel restart)
   if (_client && _clientUrl === publicUrl) {
@@ -22,10 +21,10 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
   if (isDev) {
     console.debug("[oauth] creating new client");
     console.debug("[oauth] PUBLIC_URL:", publicUrl);
-    console.debug("[oauth] private key length:", env.OAUTH_PRIVATE_KEY_JWK.length);
+    console.debug("[oauth] private key length:", privateKeyJwk.length);
   }
 
-  if (!env.OAUTH_PRIVATE_KEY_JWK) {
+  if (!privateKeyJwk) {
     const msg = "OAUTH_PRIVATE_KEY is empty — set OAUTH_PRIVATE_KEY_JWK in .env (see .env.example)";
     console.error("[oauth]", msg);
     throw new Error(msg);
@@ -33,7 +32,7 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
 
   let keyset: JoseKey[];
   try {
-    const key = await JoseKey.fromImportable(env.OAUTH_PRIVATE_KEY_JWK, "donguri-key");
+    const key = await JoseKey.fromImportable(privateKeyJwk, "donguri-key");
     keyset = [key];
     if (isDev) console.debug("[oauth] key imported successfully, kid:", key.kid);
   } catch (err) {
