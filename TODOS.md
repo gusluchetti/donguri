@@ -36,6 +36,7 @@ Core feature gap — half the catalog is TV/anime and users can't track "I watch
 More auth methods = more users. Polish + onboarding = users that stay.
 
 - [x] Unified user model — all auth methods → same `users` table, AT sync opt-in
+- [ ] Account linking UI — settings page to connect additional providers (Google/GitHub/Bluesky) to an existing account. Email auto-link only works between Google↔GitHub; Bluesky has no email so needs explicit linking.
 - [ ] Onboarding flow — pick media types + favorite genres on first login
 - [ ] Empty state design — smart suggestions when watchlist is empty
 - [ ] Guided tour / tooltips for first-time users
