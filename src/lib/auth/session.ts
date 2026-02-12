@@ -13,7 +13,12 @@ import { getDb } from "../../db";
 import { users } from "../../db/schema";
 import { getEnv } from "../env";
 
-export type SessionData = { did: string; handle: string };
+export type SessionData = {
+  userId: string;
+  handle: string;
+  authMethod: "atproto" | "google" | "github";
+  did?: string;
+};
 
 const COOKIE_NAME = "donguri-auth";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -61,7 +66,10 @@ export async function getSessionData(): Promise<SessionData | null> {
   if (!payload) return null;
 
   try {
-    return JSON.parse(atob(payload)) as SessionData;
+    const data = JSON.parse(atob(payload));
+    // Handle old cookie format (had `did` + `handle` but no `userId`)
+    if (!data.userId) return null;
+    return data as SessionData;
   } catch {
     return null;
   }
@@ -71,7 +79,7 @@ export function clearSessionCookie(): void {
   deleteCookie(COOKIE_NAME, { path: "/" });
 }
 
-export async function requireAuth(): Promise<SessionData & { userId: string }> {
+export async function requireAuth(): Promise<SessionData> {
   const session = await getSessionData();
   if (!session) throw new Error("Not authenticated");
 
@@ -79,16 +87,16 @@ export async function requireAuth(): Promise<SessionData & { userId: string }> {
   const [user] = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.did, session.did))
+    .where(eq(users.id, session.userId))
     .limit(1);
 
   if (!user) {
     console.error(
-      "[auth] session valid but user not found in DB (did=%s), clearing session",
-      session.did,
+      "[auth] session valid but user not found in DB (userId=%s), clearing session",
+      session.userId,
     );
     clearSessionCookie();
     throw new Error("Not authenticated");
   }
-  return { ...session, userId: user.id };
+  return session;
 }

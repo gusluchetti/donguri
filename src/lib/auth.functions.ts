@@ -6,6 +6,7 @@ import { users } from "../db/schema";
 import { getAuthenticatedAgent } from "./auth/agent";
 import { getOAuthClient } from "./auth/client";
 import { clearSessionCookie, getSessionData, setSessionCookie } from "./auth/session";
+import { getGitHubAuthUrl, getGoogleAuthUrl, handleProviderCallback } from "./oauth-providers";
 import { reconcileUser } from "./sync";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -20,13 +21,13 @@ export const getAuthState = createServerFn({ method: "GET" }).handler(async () =
   const [user] = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.did, session.did))
+    .where(eq(users.id, session.userId))
     .limit(1);
 
   if (!user) {
     console.error(
-      "[auth] getAuthState: session valid but user not in DB (did=%s), clearing",
-      session.did,
+      "[auth] getAuthState: session valid but user not in DB (userId=%s), clearing",
+      session.userId,
     );
     clearSessionCookie();
     return null;
@@ -34,6 +35,8 @@ export const getAuthState = createServerFn({ method: "GET" }).handler(async () =
 
   return session;
 });
+
+// ─── Bluesky (AT Protocol) login ──────────────────────────────────────────────
 
 export const initiateLogin = createServerFn({ method: "POST" })
   .inputValidator(z.object({ handle: z.string().min(1) }))
@@ -142,7 +145,7 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
         console.error("[callback] PDS reconciliation failed (login continues):", err);
       }
 
-      await setSessionCookie({ did, handle });
+      await setSessionCookie({ userId, handle, authMethod: "atproto", did });
       if (isDev) console.debug("[callback] session cookie set, login complete");
       return { did, handle };
     } catch (err) {
@@ -151,16 +154,42 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
     }
   });
 
+// ─── Google / GitHub login ────────────────────────────────────────────────────
+
+export const initiateGoogleLogin = createServerFn({ method: "POST" }).handler(async () => {
+  const state = crypto.randomUUID();
+  return { url: getGoogleAuthUrl(state) };
+});
+
+export const initiateGitHubLogin = createServerFn({ method: "POST" }).handler(async () => {
+  const state = crypto.randomUUID();
+  return { url: getGitHubAuthUrl(state) };
+});
+
+export const handleGoogleCallback = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ code: z.string() }))
+  .handler(async ({ data }) => {
+    return handleProviderCallback("google", data.code);
+  });
+
+export const handleGitHubCallback = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ code: z.string() }))
+  .handler(async ({ data }) => {
+    return handleProviderCallback("github", data.code);
+  });
+
+// ─── Logout ───────────────────────────────────────────────────────────────────
+
 export const logout = createServerFn({ method: "POST" }).handler(async () => {
   if (isDev) console.debug("[logout] ─── logout called ───");
   const session = await getSessionData();
-  if (session) {
+  if (session?.authMethod === "atproto" && session.did) {
     try {
       const client = await getOAuthClient();
       await client.revoke(session.did as `did:${string}:${string}`);
-      if (isDev) console.debug("[logout] session revoked for DID:", session.did);
+      if (isDev) console.debug("[logout] AT Protocol session revoked for DID:", session.did);
     } catch (err) {
-      console.error("[logout] revocation failed:", err);
+      console.error("[logout] AT Protocol revocation failed:", err);
     }
   }
   clearSessionCookie();
