@@ -155,7 +155,7 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
               className="flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-2.5 no-underline text-inherit hover:bg-dg-elevated/50 transition-colors duration-100"
             >
               <span
-                className={`text-[0.55rem] font-semibold py-0.5 px-1.5 rounded-sm border uppercase tracking-wide whitespace-nowrap shrink-0 ${badgeClass}`}
+                className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm border uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center ${badgeClass}`}
               >
                 {mediaTypeLabel(item.mediaType ?? "", true)}
               </span>
