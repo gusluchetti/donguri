@@ -68,8 +68,8 @@ Cosmetic but impactful — cover art makes the product feel real.
 
 ## P5 — Data safety
 
+- [ ] **Account deletion** — full cascade: delete user row + all catalog_entries + revoke AT Protocol tokens for Bluesky users. Settings page button with confirmation. Non-negotiable.
 - [ ] Export user data as JSON/CSV
-- [ ] Account deletion flow (GDPR-compliant)
 - [ ] Backup reminders for non-AT users
 
 ## P6 — Feedback + community

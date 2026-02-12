@@ -157,9 +157,9 @@ export async function handleProviderCallback(
   const db = getDb();
   const idColumn = provider === "google" ? users.googleId : users.githubId;
 
-  // Look up existing user by provider ID
-  const [existing] = await db
-    .select({ id: users.id, handle: users.handle })
+  // 1. Look up existing user by provider ID (exact match)
+  const [byProviderId] = await db
+    .select({ id: users.id })
     .from(users)
     .where(eq(idColumn, profile.providerId))
     .limit(1);
@@ -167,8 +167,9 @@ export async function handleProviderCallback(
   let userId: string;
   let handle: string;
 
-  if (existing) {
-    userId = existing.id;
+  if (byProviderId) {
+    // Returning user — update profile
+    userId = byProviderId.id;
     handle = profile.name;
     await db
       .update(users)
@@ -178,12 +179,55 @@ export async function handleProviderCallback(
         avatarUrl: profile.avatarUrl,
       })
       .where(eq(users.id, userId));
-    if (isDev) console.debug("[oauth:%s] updated existing user: %s", provider, userId);
+    if (isDev) console.debug("[oauth:%s] returning user: %s", provider, userId);
+  } else if (profile.email) {
+    // 2. Try email-based auto-link: attach this provider to an existing account
+    const [byEmail] = await db
+      .select({ id: users.id, authMethod: users.authMethod })
+      .from(users)
+      .where(eq(users.email, profile.email))
+      .limit(1);
+
+    if (byEmail) {
+      userId = byEmail.id;
+      handle = profile.name;
+      const update: Record<string, unknown> = {
+        avatarUrl: profile.avatarUrl,
+      };
+      if (provider === "google") update.googleId = profile.providerId;
+      else update.githubId = profile.providerId;
+      await db.update(users).set(update).where(eq(users.id, userId));
+      if (isDev)
+        console.debug(
+          "[oauth:%s] linked to existing user %s (matched by email %s)",
+          provider,
+          userId,
+          profile.email,
+        );
+    } else {
+      // 3. Brand new user
+      const values: Record<string, unknown> = {
+        handle: profile.name,
+        authMethod: provider,
+        email: profile.email,
+        avatarUrl: profile.avatarUrl,
+      };
+      if (provider === "google") values.googleId = profile.providerId;
+      else values.githubId = profile.providerId;
+
+      const [newUser] = await db
+        .insert(users)
+        .values(values as typeof users.$inferInsert)
+        .returning({ id: users.id });
+      userId = newUser.id;
+      handle = profile.name;
+      if (isDev) console.debug("[oauth:%s] created new user: %s", provider, userId);
+    }
   } else {
+    // No email from provider — create new user without linking
     const values: Record<string, unknown> = {
       handle: profile.name,
       authMethod: provider,
-      email: profile.email,
       avatarUrl: profile.avatarUrl,
     };
     if (provider === "google") values.googleId = profile.providerId;
@@ -195,7 +239,7 @@ export async function handleProviderCallback(
       .returning({ id: users.id });
     userId = newUser.id;
     handle = profile.name;
-    if (isDev) console.debug("[oauth:%s] created new user: %s", provider, userId);
+    if (isDev) console.debug("[oauth:%s] created new user (no email): %s", provider, userId);
   }
 
   const session: SessionData = { userId, handle, authMethod: provider };
