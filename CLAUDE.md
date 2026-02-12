@@ -43,23 +43,29 @@ src/
   router.tsx          → TanStack Router setup
   server.tsx          → SSR handler (well-known routes + TanStack Start)
   routes/
-    __root.tsx        → Root layout (HTML shell)
-    index.tsx         → Catalog page (virtual list, search, filter)
-    media/
-      $wikidataId.tsx → Media detail page (SSR)
-    api/
-      health.ts       → Health check endpoint
+    __root.tsx        → Root layout (nav, auth state)
+    index.tsx         → Home page (login form, watchlist grouped by status)
+    roadmap.tsx       → Static roadmap page
+    catalog/
+      index.tsx       → Catalog browse (virtual list, search, type filter)
+      $wikidataId.tsx → Media detail page (SSR, tracking controls)
   db/
     schema.ts         → Drizzle schema (media, genres, platforms, users, catalog_entries, oauth)
     index.ts          → Database client (postgres.js)
     fts.ts            → pg_trgm extension + GIN index setup
   lib/
-    env.ts            → Environment variable access (process.env)
-    media.functions.ts → Server functions (listMedia, getMedia, etc.)
-    styles.ts         → Design tokens
+    env.ts            → Environment variable access (process.env, not used in vite.config.ts)
+    media.functions.ts → Server functions (listMedia, getMedia, getMediaStats)
+    media-types.ts    → Type labels and badge color mappings
+    catalog.functions.ts → Server functions (catalog entries, tracked IDs)
+    auth.functions.ts → Server functions (login, logout, auth state)
+    prefetch.ts       → Background catalog prefetch for perf
+    swr-loader.ts     → Stale-while-revalidate loader with IDB cache
+    idb-cache.ts      → IndexedDB cache layer for client-side data
     sync.ts           → AT Protocol PDS sync helpers
     auth/
-      client.ts       → AT Protocol OAuth client
+      client.ts       → AT Protocol OAuth client (Bluesky only)
+      session.ts      → Cookie-based session (HMAC-signed)
       kv-stores.ts    → Postgres-backed OAuth state/session stores
   import/
     subset.ts         → Pass 1: filter Wikidata dump to media NDJSON
@@ -80,8 +86,8 @@ drizzle.config.ts     → Drizzle Kit config for Postgres
 - `media` — Unified table for movies, TV, anime, games. Sparse columns for type-specific fields.
 - `genres` / `media_genres` — Many-to-many genre relationships
 - `platforms` / `media_platforms` — Many-to-many platform relationships (games)
-- `users` — User accounts (AT Protocol or local)
-- `catalog_entries` — User tracking data (watchlist, ratings, progress)
+- `users` — User accounts (AT Protocol via Bluesky OAuth)
+- `catalog_entries` — User tracking data (status, ratings, episode progress, notes)
 - `oauth_states` / `oauth_sessions` — AT Protocol OAuth state (replaces KV)
 - `import_progress` — Import job tracking with resume support
 
@@ -100,6 +106,15 @@ OAUTH_PRIVATE_KEY_JWK= # ES256 private key in JWK format
 SESSION_SECRET=        # Session cookie signing secret
 PUBLIC_URL=            # Public-facing URL (e.g., https://donguri.fly.dev)
 ```
+
+## Current Features
+
+- **Catalog**: 100k+ titles (movies, TV, anime, games) with full-text search and type filtering
+- **Detail pages**: genres, platforms, external links (IMDb, TMDB, MAL, AniList, IGDB, etc.)
+- **Tracking**: status (watching/completed/dropped/paused/plan to watch), 0-100 ratings, episode progress count
+- **Auth**: Bluesky OAuth only. Account required to browse the catalog.
+- **Caching**: IDB-backed stale-while-revalidate on client, background prefetch
+- **Not yet built**: per-episode tracking UI, genre filtering in catalog, cover art display, notes UI, additional login methods, data import/export
 
 ## Frontend Aesthetics
 
