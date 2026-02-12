@@ -33,6 +33,10 @@ bun run src/import/index.ts media-subset.ndjson --full --limit=1000 # Limited im
 bun run src/import/index.ts media-subset.ndjson --full --resumeFrom=Q123
 bun run src/import/index.ts media-subset.ndjson --clean             # Clean DB first
 
+# Production bundle test (Docker)
+bun run dev:prod       # proxy + tunnel + Docker build+run
+bun run dev:prod:app   # Docker build+run only (if proxy/tunnel already up)
+
 # Deploy to Fly.io
 bun run build && fly deploy
 ```
