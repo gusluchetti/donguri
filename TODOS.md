@@ -7,8 +7,10 @@ Live at **donguri.app**.
 
 ---
 
-## P0 — Genre normalization + dark/light toggle
+## P0 — Quick wins with big impact
 
+- [ ] Make the GitHub repo public — open source it, get eyes on it
+- [ ] Open Graph meta tags — link previews on WhatsApp, Discord, Twitter, iMessage (per-page: title, description, cover art)
 - [ ] Dark/light theme toggle — how do we not have this yet
 - [ ] Define canonical genre list (~25: action, comedy, drama, horror, sci-fi, romance, thriller, fantasy, mystery, documentary, etc.)
 - [ ] Build mapping table from Wikidata genre Q-IDs → canonical genres (many-to-one)

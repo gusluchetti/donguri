@@ -2,8 +2,8 @@ node_modules/
 .output/
 dist/
 .vinxi/
-.env
-.env.local
+.env*
+!.env.example
 .dev.vars
 *.local
 bun.lock
