@@ -5,7 +5,7 @@ import { ogTags } from "../lib/og";
 import { getUserCatalogEntries } from "../lib/catalog.functions";
 import { mediaTypeLabel, ratingColor, TYPE_BADGE_CLASSES } from "../lib/media-types";
 import { scheduleCatalogPrefetch } from "../lib/prefetch";
-import { swrLoadWithFallback } from "../lib/swr-loader";
+import { swrLoad } from "../lib/swr-loader";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -53,7 +53,7 @@ export const Route = createFileRoute("/")({
   }),
   loader: async () => {
     try {
-      const { data, fromCache } = await swrLoadWithFallback(() => getUserCatalogEntries({}), {
+      const { data, fromCache } = await swrLoad(() => getUserCatalogEntries({}), {
         key: "watchlist",
         maxAgeMs: 30_000,
       });
