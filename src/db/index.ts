@@ -3,11 +3,17 @@ import postgres from "postgres";
 import * as schema from "./schema";
 
 function getConnectionString() {
-  const url = process.env.DATABASE_URL;
+  const url = cleanEnv(process.env.DATABASE_URL);
   if (!url) {
     throw new Error("DATABASE_URL environment variable is required");
   }
   return url;
+}
+
+/** Strip surrounding quotes that Docker --env-file keeps literal. */
+export function cleanEnv(value: string | undefined): string {
+  if (!value) return "";
+  return value.trim().replace(/^['"]/, "").replace(/['"]$/, "");
 }
 
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;

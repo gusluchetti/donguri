@@ -5,7 +5,7 @@
  * Each provider is 2 HTTP calls: exchange code → get profile.
  */
 import { eq } from "drizzle-orm";
-import { getDb } from "../db";
+import { cleanEnv, getDb } from "../db";
 import { users } from "../db/schema";
 import type { SessionData } from "./auth/session";
 import { setSessionCookie } from "./auth/session";
@@ -21,9 +21,9 @@ interface UserProfile {
 // ─── Auth URL builders ──────────────────────────────────────────────────────
 
 export function getGoogleAuthUrl(state: string): string {
-  const publicUrl = (process.env.PUBLIC_URL || "http://localhost:3000").replace(/\/+$/, "");
+  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(/\/+$/, "");
   const params = new URLSearchParams({
-    client_id: process.env.GOOGLE_CLIENT_ID || "",
+    client_id: cleanEnv(process.env.GOOGLE_CLIENT_ID),
     redirect_uri: `${publicUrl}/auth/google/callback`,
     response_type: "code",
     scope: "openid email profile",
@@ -35,9 +35,9 @@ export function getGoogleAuthUrl(state: string): string {
 }
 
 export function getGitHubAuthUrl(state: string): string {
-  const publicUrl = (process.env.PUBLIC_URL || "http://localhost:3000").replace(/\/+$/, "");
+  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(/\/+$/, "");
   const params = new URLSearchParams({
-    client_id: process.env.GITHUB_CLIENT_ID || "",
+    client_id: cleanEnv(process.env.GITHUB_CLIENT_ID),
     redirect_uri: `${publicUrl}/auth/github/callback`,
     scope: "read:user user:email",
     state,
@@ -48,15 +48,15 @@ export function getGitHubAuthUrl(state: string): string {
 // ─── Token exchange + profile fetch ──────────────────────────────────────────
 
 async function exchangeGoogleCode(code: string): Promise<UserProfile> {
-  const publicUrl = (process.env.PUBLIC_URL || "http://localhost:3000").replace(/\/+$/, "");
+  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(/\/+$/, "");
 
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       code,
-      client_id: process.env.GOOGLE_CLIENT_ID || "",
-      client_secret: process.env.GOOGLE_CLIENT_SECRET || "",
+      client_id: cleanEnv(process.env.GOOGLE_CLIENT_ID),
+      client_secret: cleanEnv(process.env.GOOGLE_CLIENT_SECRET),
       redirect_uri: `${publicUrl}/auth/google/callback`,
       grant_type: "authorization_code",
     }),
@@ -85,7 +85,7 @@ async function exchangeGoogleCode(code: string): Promise<UserProfile> {
 }
 
 async function exchangeGitHubCode(code: string): Promise<UserProfile> {
-  const publicUrl = (process.env.PUBLIC_URL || "http://localhost:3000").replace(/\/+$/, "");
+  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(/\/+$/, "");
 
   const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
@@ -94,8 +94,8 @@ async function exchangeGitHubCode(code: string): Promise<UserProfile> {
       Accept: "application/json",
     },
     body: JSON.stringify({
-      client_id: process.env.GITHUB_CLIENT_ID || "",
-      client_secret: process.env.GITHUB_CLIENT_SECRET || "",
+      client_id: cleanEnv(process.env.GITHUB_CLIENT_ID),
+      client_secret: cleanEnv(process.env.GITHUB_CLIENT_SECRET),
       code,
       redirect_uri: `${publicUrl}/auth/github/callback`,
     }),

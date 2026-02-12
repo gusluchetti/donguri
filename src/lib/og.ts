@@ -5,7 +5,10 @@
  * Reads PUBLIC_URL from process.env (safe — `head()` runs during SSR).
  */
 
-const PUBLIC_URL = (process.env.PUBLIC_URL || "http://localhost:3000").replace(/\/+$/, "");
+const PUBLIC_URL = (process.env.PUBLIC_URL || "https://dev.donguri.app")
+  .trim()
+  .replace(/^['"]|['"]$/g, "")
+  .replace(/\/+$/, "");
 
 interface OgTagsOptions {
   title: string;

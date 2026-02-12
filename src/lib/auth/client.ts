@@ -1,5 +1,6 @@
 import { JoseKey } from "@atproto/jwk-jose";
 import { NodeOAuthClient } from "@atproto/oauth-client-node";
+import { cleanEnv } from "../../db";
 import { PgSessionStore, PgStateStore } from "./kv-stores";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -9,12 +10,8 @@ let _client: NodeOAuthClient | null = null;
 let _clientUrl: string | null = null;
 
 export async function getOAuthClient(): Promise<NodeOAuthClient> {
-  const publicUrl = (process.env.PUBLIC_URL || "http://localhost:3000").replace(/\/+$/, "");
-  // trim + strip surrounding quotes (Docker --env-file keeps them literal)
-  const privateKeyJwk = (process.env.OAUTH_PRIVATE_KEY_JWK || "")
-    .trim()
-    .replace(/^['"]/, "")
-    .replace(/['"]$/, "");
+  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(/\/+$/, "");
+  const privateKeyJwk = cleanEnv(process.env.OAUTH_PRIVATE_KEY_JWK);
 
   // Return cached client if the URL hasn't changed (e.g. tunnel restart)
   if (_client && _clientUrl === publicUrl) {

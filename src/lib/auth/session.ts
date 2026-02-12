@@ -9,7 +9,7 @@
  */
 import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server";
 import { eq } from "drizzle-orm";
-import { getDb } from "../../db";
+import { cleanEnv, getDb } from "../../db";
 import { users } from "../../db/schema";
 
 export type SessionData = {
@@ -24,7 +24,7 @@ const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 async function signPayload(payload: string): Promise<string> {
   const secret =
-    process.env.SESSION_SECRET ||
+    cleanEnv(process.env.SESSION_SECRET) ||
     (process.env.NODE_ENV === "production"
       ? (() => {
           throw new Error("SESSION_SECRET must be set in production");

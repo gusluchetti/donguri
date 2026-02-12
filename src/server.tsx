@@ -1,5 +1,6 @@
 import { JoseKey } from "@atproto/jwk-jose";
 import { createStartHandler, defaultStreamHandler } from "@tanstack/react-start/server";
+import { cleanEnv } from "./db";
 
 const startHandler = createStartHandler(defaultStreamHandler);
 
@@ -7,7 +8,7 @@ const fetch = async (request: Request) => {
   const url = new URL(request.url);
 
   if (url.pathname === "/.well-known/oauth-client-metadata.json") {
-    const publicUrl = (process.env.PUBLIC_URL || "http://localhost:3000").replace(/\/+$/, "");
+    const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(/\/+$/, "");
     return Response.json(
       {
         client_id: `${publicUrl}/.well-known/oauth-client-metadata.json`,
@@ -44,11 +45,10 @@ const fetch = async (request: Request) => {
 
   if (url.pathname === "/.well-known/jwks.json") {
     try {
-      const jwk = (process.env.OAUTH_PRIVATE_KEY_JWK || "")
-        .trim()
-        .replace(/^['"]/, "")
-        .replace(/['"]$/, "");
-      const key = await JoseKey.fromImportable(jwk, "donguri-key");
+      const key = await JoseKey.fromImportable(
+        cleanEnv(process.env.OAUTH_PRIVATE_KEY_JWK),
+        "donguri-key",
+      );
       return Response.json(
         { keys: [key.publicJwk] },
         {
