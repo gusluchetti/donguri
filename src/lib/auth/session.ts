@@ -52,7 +52,8 @@ async function verifyPayload(signed: string): Promise<string | null> {
 }
 
 export async function setSessionCookie(data: SessionData): Promise<void> {
-  const payload = btoa(JSON.stringify(data));
+  // Encode via TextEncoder so UTF-8 names (e.g. "Luís") survive the btoa round-trip
+  const payload = btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(data))));
   const signed = await signPayload(payload);
   setCookie(COOKIE_NAME, signed, {
     httpOnly: true,
@@ -71,7 +72,8 @@ export async function getSessionData(): Promise<SessionData | null> {
   if (!payload) return null;
 
   try {
-    const data = JSON.parse(atob(payload));
+    const bytes = Uint8Array.from(atob(payload), (c) => c.charCodeAt(0));
+    const data = JSON.parse(new TextDecoder().decode(bytes));
     // Handle old cookie format (had `did` + `handle` but no `userId`)
     if (!data.userId) return null;
     return data as SessionData;

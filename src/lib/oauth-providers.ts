@@ -71,7 +71,10 @@ async function exchangeGoogleCode(code: string): Promise<UserProfile> {
   const { id_token } = (await tokenRes.json()) as { id_token: string };
 
   // Decode JWT payload (no verification needed — we trust Google's TLS + we just fetched it)
-  const payload = JSON.parse(atob(id_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+  // Use TextDecoder to handle UTF-8 names correctly (atob mangles multi-byte chars like í)
+  const b64 = id_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+  const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const payload = JSON.parse(new TextDecoder().decode(bytes));
 
   return {
     providerId: payload.sub,
