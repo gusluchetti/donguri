@@ -1,4 +1,4 @@
-# donguri roadmap
+# roadmap
 
 Your personal catalog for movies, TV shows, anime, and games. Track what you've watched, what you're playing, and what's next — all in one place. Sign in with Bluesky and your data stays yours, synced to your own server. No account needed to browse.
 
