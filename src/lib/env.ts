@@ -1,6 +1,8 @@
 /**
- * Environment access — reads from process.env.
- * Works for both local dev (.env) and production (Fly.io secrets).
+ * Environment access — reads from process.env on every call.
+ * Works for both local dev (.env via Vite) and production (Fly.io secrets).
+ *
+ * No caching — avoids stale values if env isn't loaded yet at import time.
  */
 
 interface AppEnv {
@@ -14,12 +16,8 @@ interface AppEnv {
   GITHUB_CLIENT_SECRET: string;
 }
 
-let _env: AppEnv | null = null;
-
 export function getEnv(): AppEnv {
-  if (_env) return _env;
-
-  _env = {
+  return {
     OAUTH_PRIVATE_KEY_JWK: process.env.OAUTH_PRIVATE_KEY_JWK || "",
     SESSION_SECRET:
       process.env.SESSION_SECRET ||
@@ -34,6 +32,4 @@ export function getEnv(): AppEnv {
     GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID || "",
     GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET || "",
   };
-
-  return _env;
 }
