@@ -17,7 +17,9 @@ export function getEnv(): AppEnv {
 
   _env = {
     OAUTH_PRIVATE_KEY_JWK: process.env.OAUTH_PRIVATE_KEY_JWK || "",
-    SESSION_SECRET: process.env.SESSION_SECRET || "dev-secret-change-me-in-production-please",
+    SESSION_SECRET: process.env.SESSION_SECRET || (process.env.NODE_ENV === "production"
+      ? (() => { throw new Error("SESSION_SECRET must be set in production"); })()
+      : "dev-secret-change-me"),
     PUBLIC_URL: (process.env.PUBLIC_URL || "http://localhost:3000").replace(/\/+$/, ""),
   };
 
