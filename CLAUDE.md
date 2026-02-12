@@ -7,8 +7,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Runtime**: Bun (dev/build), Fly.io (production)
 
 ```bash
-# Development server (port 3000)
+# Development (starts fly proxy + cloudflared tunnel + vite dev server)
 bun run dev
+
+# Vite only (no proxy/tunnel)
+bun run dev:vite
 
 # Production build
 bun run build

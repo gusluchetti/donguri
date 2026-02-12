@@ -11,20 +11,11 @@ Live at [donguri.app](https://donguri.app)
 **Prerequisites**: [Bun](https://bun.sh), [flyctl](https://fly.io/docs/flyctl/install/), [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
 
 ```bash
-# Install dependencies
 bun install
-
-# Connect to the Fly.io Postgres database via flyctl proxy
-fly proxy 15432:5432 -a <your-db-app>
-
-# In another terminal, start a Cloudflare Tunnel for external access
-cloudflared tunnel run <your-tunnel>
-
-# Start the dev server
-bun run dev
+bun run dev    # starts fly proxy, cloudflared tunnel, and vite dev server
 ```
 
-The development workflow uses `fly proxy` to forward the remote Postgres database locally and `cloudflared` to expose the dev server via a tunnel.
+`bun run dev` uses `concurrently` to launch all three processes (DB proxy, Cloudflare tunnel, Vite) with color-coded output. Use `bun run dev:vite` to run only Vite.
 
 ## Build & Deploy
 
