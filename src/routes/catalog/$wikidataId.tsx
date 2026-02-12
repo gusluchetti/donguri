@@ -84,7 +84,7 @@ function MediaDetailRouter() {
 function MediaDetailSkeleton() {
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[700px] mx-auto p-4 sm:p-6">
+      <div className="max-w-[1000px] mx-auto p-4 sm:p-6">
         <div className="text-dg-text-tertiary text-[0.8rem] mb-6">&larr; catalog</div>
         <div className="mb-6">
           <div className="w-16 h-5 bg-dg-surface rounded-sm mb-3 animate-pulse" />
@@ -120,7 +120,7 @@ function MediaStubPage({
 
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[700px] mx-auto p-4 sm:p-6">
+      <div className="max-w-[1000px] mx-auto p-4 sm:p-6">
         <button
           type="button"
           onClick={() => window.history.back()}
@@ -236,7 +236,7 @@ function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof
 
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[700px] mx-auto p-4 sm:p-6">
+      <div className="max-w-[1000px] mx-auto p-4 sm:p-6">
         {/* Back link */}
         <button
           type="button"

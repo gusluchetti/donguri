@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
-const publicUrl = process.env.PUBLIC_URL || "http://localhost:3000";
+const publicUrl = process.env.PUBLIC_URL || "https://dev.donguri.app";
 const publicHost = new URL(publicUrl).hostname;
 
 export default defineConfig({

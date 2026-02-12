@@ -95,8 +95,8 @@ export async function upsertLocalMirror(
 ): Promise<void> {
   const db = getDb();
 
-  const existing = await db
-    .select({ id: catalogEntries.id })
+  const rows = await db
+    .select()
     .from(catalogEntries)
     .where(
       and(eq(catalogEntries.userId, userId), eq(catalogEntries.mediaWikidataId, record.mediaRef)),
@@ -104,8 +104,24 @@ export async function upsertLocalMirror(
     .limit(1);
 
   const now = new Date();
+  const recordUpdatedAt = record.updatedAt ? new Date(record.updatedAt) : now;
 
-  if (existing.length > 0) {
+  if (rows.length > 0) {
+    const existing = rows[0];
+
+    // Skip update if nothing meaningful changed
+    const unchanged =
+      existing.status === record.status &&
+      existing.rating === (record.rating ?? null) &&
+      existing.note === (record.note ?? null) &&
+      existing.episodeProgress === (record.episodeProgress ?? null) &&
+      existing.rkey === rkey;
+
+    if (unchanged) {
+      console.debug("[sync] upsertLocalMirror userId=%s rkey=%s → no changes, skipping", userId, rkey);
+      return;
+    }
+
     console.debug("[sync] upsertLocalMirror userId=%s rkey=%s → update existing", userId, rkey);
     await db
       .update(catalogEntries)
@@ -118,9 +134,9 @@ export async function upsertLocalMirror(
         mediaType: record.mediaType ?? undefined,
         rkey,
         syncedAt: now,
-        updatedAt: now,
+        updatedAt: recordUpdatedAt,
       })
-      .where(eq(catalogEntries.id, existing[0].id));
+      .where(eq(catalogEntries.id, existing.id));
   } else {
     console.debug("[sync] upsertLocalMirror userId=%s rkey=%s → insert new", userId, rkey);
     await db.insert(catalogEntries).values({
@@ -134,6 +150,7 @@ export async function upsertLocalMirror(
       episodeProgress: record.episodeProgress ?? null,
       rkey,
       syncedAt: now,
+      updatedAt: recordUpdatedAt,
     });
   }
 }
@@ -144,43 +161,56 @@ export async function reconcileUser(agent: Agent, userId: string, did: string): 
   const db = getDb();
 
   let cursor: string | undefined;
+  let fetchComplete = false;
   const pdsRecords = new Map<string, CatalogEntryRecord>();
 
-  do {
-    const response = await agent.com.atproto.repo.listRecords({
-      repo: did,
-      collection: COLLECTION,
-      limit: 100,
-      cursor,
-    });
+  try {
+    do {
+      const response = await agent.com.atproto.repo.listRecords({
+        repo: did,
+        collection: COLLECTION,
+        limit: 100,
+        cursor,
+      });
 
-    for (const record of response.data.records) {
-      const rkey = record.uri.split("/").pop()!;
-      pdsRecords.set(rkey, record.value as unknown as CatalogEntryRecord);
-    }
+      for (const record of response.data.records) {
+        const rkey = record.uri.split("/").pop()!;
+        pdsRecords.set(rkey, record.value as unknown as CatalogEntryRecord);
+      }
 
-    cursor = response.data.cursor;
-  } while (cursor);
+      cursor = response.data.cursor;
+    } while (cursor);
 
-  console.debug("[sync] reconcileUser fetched %d records from PDS", pdsRecords.size);
+    fetchComplete = true;
+  } catch (err) {
+    console.error("[sync] reconcileUser PDS fetch incomplete (got %d records):", pdsRecords.size, err);
+  }
+
+  console.debug("[sync] reconcileUser fetched %d records from PDS (complete=%s)", pdsRecords.size, fetchComplete);
 
   for (const [rkey, record] of pdsRecords) {
     await upsertLocalMirror(userId, rkey, record);
   }
   console.debug("[sync] reconcileUser upserted %d records to local DB", pdsRecords.size);
 
-  const localEntries = await db
-    .select({ id: catalogEntries.id, rkey: catalogEntries.rkey })
-    .from(catalogEntries)
-    .where(eq(catalogEntries.userId, userId));
+  // Only prune entries missing from PDS if the fetch completed fully
+  if (fetchComplete) {
+    const localEntries = await db
+      .select({ id: catalogEntries.id, rkey: catalogEntries.rkey })
+      .from(catalogEntries)
+      .where(eq(catalogEntries.userId, userId));
 
-  let pruned = 0;
-  for (const local of localEntries) {
-    if (local.rkey && !pdsRecords.has(local.rkey)) {
-      await db.delete(catalogEntries).where(eq(catalogEntries.id, local.id));
-      pruned++;
+    let pruned = 0;
+    for (const local of localEntries) {
+      if (local.rkey && !pdsRecords.has(local.rkey)) {
+        await db.delete(catalogEntries).where(eq(catalogEntries.id, local.id));
+        pruned++;
+      }
     }
+    console.debug("[sync] reconcileUser pruned %d stale local entries", pruned);
+  } else {
+    console.debug("[sync] reconcileUser skipped pruning — PDS fetch was incomplete");
   }
-  console.debug("[sync] reconcileUser pruned %d stale local entries", pruned);
+
   console.debug("[sync] reconcileUser → done");
 }
