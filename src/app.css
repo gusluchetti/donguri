@@ -34,6 +34,45 @@ html {
   --color-dg-game: #6a9f5a;
 }
 
+/* Light theme overrides */
+[data-theme="light"] {
+  --color-dg-bg: #f5f0e8;
+  --color-dg-surface: #ebe5d9;
+  --color-dg-elevated: #dfd8ca;
+  --color-dg-border-subtle: #d4cbb8;
+  --color-dg-border: #c2b69e;
+
+  --color-dg-text: #1a1815;
+  --color-dg-text-secondary: #5c5141;
+  --color-dg-text-tertiary: #8a7d68;
+
+  --color-dg-accent: #b08930;
+
+  --color-dg-movie: #a86638;
+  --color-dg-tv: #3d7589;
+  --color-dg-anime: #a84968;
+  --color-dg-game: #4e8540;
+}
+
+/* Dev mode accent — red tint so you never confuse dev with prod */
+[data-env="dev"] {
+  --color-dg-accent: #e05555;
+}
+[data-env="dev"][data-theme="light"] {
+  --color-dg-accent: #c43535;
+}
+
+/* Theme transition (applied temporarily during toggle) */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition:
+    background-color 200ms ease,
+    color 200ms ease,
+    border-color 200ms ease !important;
+}
+
 /* Range input styling */
 input[type="range"].dg-range {
   -webkit-appearance: none;

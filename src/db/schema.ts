@@ -131,9 +131,13 @@ export const users = pgTable("users", {
     .primaryKey()
     .$defaultFn(() => ulid()),
   did: text("did").unique(), // nullable — only set for AT Protocol users
+  googleId: text("google_id").unique(), // nullable — Google `sub` claim
+  githubId: text("github_id").unique(), // nullable — GitHub user ID
   handle: text("handle").notNull(),
+  email: text("email"), // from provider profile
+  avatarUrl: text("avatar_url"), // from provider profile
   authMethod: text("auth_method", {
-    enum: ["atproto", "local"],
+    enum: ["atproto", "google", "github"],
   }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });

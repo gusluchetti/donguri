@@ -1,10 +1,11 @@
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { initiateLogin } from "../lib/auth.functions";
+import { initiateLogin, initiateOAuthLogin } from "../lib/auth.functions";
 import { getUserCatalogEntries } from "../lib/catalog.functions";
 import { mediaTypeLabel, ratingColor, TYPE_BADGE_CLASSES } from "../lib/media-types";
+import { ogTags } from "../lib/og";
 import { scheduleCatalogPrefetch } from "../lib/prefetch";
-import { swrLoadWithFallback } from "../lib/swr-loader";
+import { swrLoad } from "../lib/swr-loader";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -39,9 +40,20 @@ type CatalogEntryRow = {
 };
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "donguri — track movies, TV, anime, and games" },
+      ...ogTags({
+        title: "donguri — track movies, TV, anime, and games",
+        description:
+          "Your personal catalog for movies, TV shows, anime, and games. Track what you've watched, rate titles, and keep your watchlist organized.",
+        path: "/",
+      }),
+    ],
+  }),
   loader: async () => {
     try {
-      const { data, fromCache } = await swrLoadWithFallback(() => getUserCatalogEntries({}), {
+      const { data, fromCache } = await swrLoad(() => getUserCatalogEntries({}), {
         key: "watchlist",
         maxAgeMs: 30_000,
       });
@@ -57,17 +69,27 @@ export const Route = createFileRoute("/")({
 function HomePage() {
   const { auth } = rootRoute.useLoaderData();
 
+  if (auth) {
+    return (
+      <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
+        <div className="max-w-[1000px] mx-auto px-4 py-10 sm:px-6 sm:py-16">
+          <LoggedInView />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[700px] mx-auto px-4 py-10 sm:px-6 sm:py-16">
+      <div className="max-w-[1000px] mx-auto px-4 py-10 sm:px-6 sm:py-16">
         <h1 className="text-[1.6rem] sm:text-[2rem] font-semibold -tracking-[0.02em] mb-2">
           <span className="text-dg-accent">donguri</span>
         </h1>
         <p className="text-dg-text-secondary text-[0.9rem] leading-relaxed mb-6 sm:mb-8">
-          Track movies, TV, anime, and games. Your watchlist, your data, your rules.
+          Track movies, TV, anime, and games.
         </p>
 
-        {auth ? <LoggedInView handle={auth.handle} /> : <LoginForm />}
+        <SignInSection />
 
         <div className="flex flex-col sm:flex-row gap-3 mt-6 sm:mt-8">
           <Link
@@ -88,8 +110,117 @@ function HomePage() {
   );
 }
 
-function LoggedInView({ handle }: { handle: string }) {
-  const { entries, fromCache } = Route.useLoaderData();
+function SignInSection() {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="text-[0.8rem] text-dg-text-secondary uppercase tracking-wider">Sign in</div>
+
+      {/* Bluesky — primary */}
+      <BlueskyLoginForm />
+
+      {/* Divider */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 border-t border-dg-border-subtle" />
+        <span className="text-[0.75rem] text-dg-text-tertiary">or</span>
+        <div className="flex-1 border-t border-dg-border-subtle" />
+      </div>
+
+      {/* Google + GitHub */}
+      <div className="flex flex-col gap-2">
+        <OAuthButton provider="google" label="Continue with Google" />
+        <OAuthButton provider="github" label="Continue with GitHub" />
+      </div>
+    </div>
+  );
+}
+
+function BlueskyLoginForm() {
+  const [handle, setHandle] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!handle.trim()) return;
+
+    setLoading(true);
+    setError(null);
+
+    const trimmed = handle.trim();
+
+    try {
+      const result = await initiateLogin({ data: { handle: trimmed } });
+      window.location.href = result.url;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to initiate login";
+      setError(msg);
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="border border-dg-border-subtle rounded p-4 sm:p-5 bg-dg-surface">
+      <form onSubmit={onSubmit}>
+        <label
+          htmlFor="handle"
+          className="block text-dg-text-secondary text-[0.8rem] uppercase tracking-wider mb-3"
+        >
+          Bluesky
+        </label>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            id="handle"
+            type="text"
+            value={handle}
+            onChange={(e) => setHandle(e.target.value)}
+            placeholder="handle.bsky.social"
+            disabled={loading}
+            className="flex-1 bg-dg-bg border border-dg-border rounded px-3 py-2.5 sm:py-2 text-base sm:text-[0.85rem] text-dg-text font-mono placeholder:text-dg-text-tertiary focus:outline-none focus:border-dg-accent/50 disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={loading || !handle.trim()}
+            className="bg-transparent border border-dg-accent/30 text-dg-accent px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-mono cursor-pointer transition-all duration-150 hover:border-dg-accent/60 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {loading ? <span className="dg-ellipsis">Signing in</span> : "Sign in"}
+          </button>
+        </div>
+        {error && <p className="text-dg-movie text-[0.8rem] mt-2">{error}</p>}
+      </form>
+      <p className="text-[0.75rem] text-dg-text-tertiary mt-3">
+        Your data syncs to your own PDS. Portable and private by design.
+      </p>
+    </div>
+  );
+}
+
+function OAuthButton({ provider, label }: { provider: "google" | "github"; label: string }) {
+  const [loading, setLoading] = useState(false);
+
+  const onClick = async () => {
+    setLoading(true);
+    try {
+      const result = await initiateOAuthLogin({ data: { provider } });
+      window.location.href = result.url;
+    } catch {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={loading}
+      className="w-full bg-transparent border border-dg-border-subtle text-dg-text-secondary px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-mono cursor-pointer transition-all duration-150 hover:border-dg-border hover:text-dg-text disabled:opacity-40 disabled:cursor-not-allowed text-center"
+    >
+      {loading ? <span className="dg-ellipsis">Redirecting</span> : label}
+    </button>
+  );
+}
+
+function LoggedInView() {
+  const { entries } = Route.useLoaderData();
 
   useEffect(() => {
     scheduleCatalogPrefetch();
@@ -104,16 +235,6 @@ function LoggedInView({ handle }: { handle: string }) {
 
   return (
     <div>
-      <div className="border border-dg-border-subtle rounded p-4 sm:p-5 bg-dg-surface mb-6">
-        <p className="text-dg-text text-[0.9rem]">
-          Signed in as <span className="text-dg-accent">@{handle}</span>
-        </p>
-      </div>
-
-      {fromCache && (
-        <p className="text-dg-text-tertiary text-[0.75rem] mb-3">Showing cached data</p>
-      )}
-
       {grouped.size === 0 ? (
         <div className="border border-dg-border-subtle rounded p-4 sm:p-5 bg-dg-surface">
           <p className="text-dg-text-secondary text-[0.85rem] leading-relaxed">
@@ -174,68 +295,6 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
           );
         })}
       </div>
-    </div>
-  );
-}
-
-function LoginForm() {
-  const [handle, setHandle] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!handle.trim()) return;
-
-    setLoading(true);
-    setError(null);
-
-    const trimmed = handle.trim();
-    console.debug("[login-ui] submitting handle:", trimmed);
-
-    try {
-      console.debug("[login-ui] calling initiateLogin...");
-      const result = await initiateLogin({ data: { handle: trimmed } });
-      console.debug("[login-ui] got redirect URL:", result.url);
-      window.location.href = result.url;
-    } catch (err) {
-      console.error("[login-ui] initiateLogin failed:", err);
-      const msg = err instanceof Error ? err.message : "Failed to initiate login";
-      console.error("[login-ui] error message shown to user:", msg);
-      setError(msg);
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="border border-dg-border-subtle rounded p-4 sm:p-5 bg-dg-surface">
-      <form onSubmit={onSubmit}>
-        <label
-          htmlFor="handle"
-          className="block text-dg-text-secondary text-[0.8rem] uppercase tracking-wider mb-3"
-        >
-          Sign in with Bluesky
-        </label>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            id="handle"
-            type="text"
-            value={handle}
-            onChange={(e) => setHandle(e.target.value)}
-            placeholder="handle.bsky.social"
-            disabled={loading}
-            className="flex-1 bg-dg-bg border border-dg-border rounded px-3 py-2.5 sm:py-2 text-base sm:text-[0.85rem] text-dg-text font-mono placeholder:text-dg-text-tertiary focus:outline-none focus:border-dg-accent/50 disabled:opacity-50"
-          />
-          <button
-            type="submit"
-            disabled={loading || !handle.trim()}
-            className="bg-transparent border border-dg-accent/30 text-dg-accent px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-mono cursor-pointer transition-all duration-150 hover:border-dg-accent/60 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {loading ? <span className="dg-ellipsis">Signing in</span> : "Sign in"}
-          </button>
-        </div>
-        {error && <p className="text-dg-movie text-[0.8rem] mt-2">{error}</p>}
-      </form>
     </div>
   );
 }

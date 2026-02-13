@@ -11,6 +11,7 @@ import {
 import { cacheDelete, cacheGet, cacheSet, invalidateUserCaches } from "../../lib/idb-cache";
 import { getMedia } from "../../lib/media.functions";
 import { mediaTypeLabel, ratingColor, TYPE_BADGE_CLASSES } from "../../lib/media-types";
+import { ogTags } from "../../lib/og";
 import { swrLoad } from "../../lib/swr-loader";
 import { useAction } from "../../lib/use-action";
 
@@ -67,9 +68,44 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
         : loaderData?.kind === "stub"
           ? loaderData.stub.title
           : "Media";
-    const description = loaderData?.kind === "full" ? (loaderData.media.description ?? "") : "";
+
+    let description = "";
+    let ogType = "website";
+    let wikidataId = "";
+
+    if (loaderData?.kind === "full") {
+      const m = loaderData.media;
+      wikidataId = m.wikidataId;
+      description = m.description ?? "";
+
+      // Build fallback description from structured data
+      if (!description) {
+        const parts: string[] = [];
+        if (m.startYear) parts.push(String(m.startYear));
+        parts.push(mediaTypeLabel(m.mediaType));
+        if (m.genres?.length > 0) parts.push(m.genres.map((g) => g.name).join(", "));
+        description = `${parts.join(" \u00b7 ")} \u2014 Track on donguri`;
+      }
+
+      // Map media type to OG type
+      if (m.mediaType === "movie") ogType = "video.movie";
+      else if (m.mediaType === "tv_series" || m.mediaType === "anime") ogType = "video.tv_show";
+    } else if (loaderData?.kind === "stub") {
+      wikidataId = loaderData.stub.wikidataId;
+      description = `Track on donguri`;
+    }
+
     return {
-      meta: [{ title: `${title} — donguri` }, { name: "description", content: description }],
+      meta: [
+        { title: `${title} — donguri` },
+        { name: "description", content: description },
+        ...ogTags({
+          title: `${title} — donguri`,
+          description,
+          path: wikidataId ? `/catalog/${wikidataId}` : "/catalog",
+          type: ogType,
+        }),
+      ],
     };
   },
   component: MediaDetailRouter,
@@ -84,7 +120,7 @@ function MediaDetailRouter() {
 function MediaDetailSkeleton() {
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[700px] mx-auto p-4 sm:p-6">
+      <div className="max-w-[1000px] mx-auto p-4 sm:p-6">
         <div className="text-dg-text-tertiary text-[0.8rem] mb-6">&larr; catalog</div>
         <div className="mb-6">
           <div className="w-16 h-5 bg-dg-surface rounded-sm mb-3 animate-pulse" />
@@ -120,7 +156,7 @@ function MediaStubPage({
 
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[700px] mx-auto p-4 sm:p-6">
+      <div className="max-w-[1000px] mx-auto p-4 sm:p-6">
         <button
           type="button"
           onClick={() => window.history.back()}
@@ -236,7 +272,7 @@ function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof
 
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[700px] mx-auto p-4 sm:p-6">
+      <div className="max-w-[1000px] mx-auto p-4 sm:p-6">
         {/* Back link */}
         <button
           type="button"

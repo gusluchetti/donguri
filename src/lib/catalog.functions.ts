@@ -76,7 +76,7 @@ export const getUserTrackedIds = createServerFn({ method: "GET" }).handler(async
   return Object.fromEntries(entries.map((e) => [e.mediaWikidataId, e.status]));
 });
 
-/** PDS-first write, then mirror to DB. */
+/** Write catalog entry — PDS-first for AT Protocol users, direct DB for others. */
 export const setCatalogEntry = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
@@ -95,14 +95,17 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
       data.rating ?? "null",
     );
     try {
-      const { userId, did } = await requireAuth();
-      console.debug("[catalog] setCatalogEntry auth ok userId=%s did=%s", userId, did);
-      const agent = await getAuthenticatedAgent(did);
-      console.debug("[catalog] setCatalogEntry agent obtained");
+      const auth = await requireAuth();
+      const { userId } = auth;
+      console.debug(
+        "[catalog] setCatalogEntry auth ok userId=%s method=%s",
+        userId,
+        auth.authMethod,
+      );
 
       const now = new Date().toISOString();
-
       const db = getDb();
+
       const [existing] = await db
         .select({
           createdAt: catalogEntries.createdAt,
@@ -133,23 +136,48 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
         }
       }
 
-      console.debug(
-        "[catalog] setCatalogEntry existing entry: %s",
-        existing ? `yes (created ${existing.createdAt?.toISOString()})` : "no",
-      );
-      console.debug("[catalog] setCatalogEntry → calling putCatalogEntry");
+      if (auth.authMethod === "atproto" && auth.did) {
+        // PDS-first flow for AT Protocol users
+        const agent = await getAuthenticatedAgent(auth.did);
+        await putCatalogEntry(agent, userId, auth.did, {
+          mediaRef: data.wikidataId,
+          status: data.status,
+          rating: data.rating ?? undefined,
+          note: data.note ?? undefined,
+          episodeProgress: data.episodeProgress ?? undefined,
+          title,
+          mediaType: entryMediaType,
+          createdAt: existing?.createdAt?.toISOString() ?? now,
+          updatedAt: now,
+        });
+      } else {
+        // Direct DB upsert for Google/GitHub users
+        const values = {
+          userId,
+          mediaWikidataId: data.wikidataId,
+          mediaTitle: title ?? null,
+          mediaType: (entryMediaType ?? null) as typeof catalogEntries.$inferInsert.mediaType,
+          status: data.status,
+          rating: data.rating ?? null,
+          note: data.note ?? null,
+          episodeProgress: data.episodeProgress ?? null,
+          updatedAt: new Date(now),
+        };
 
-      await putCatalogEntry(agent, userId, did, {
-        mediaRef: data.wikidataId,
-        status: data.status,
-        rating: data.rating ?? undefined,
-        note: data.note ?? undefined,
-        episodeProgress: data.episodeProgress ?? undefined,
-        title,
-        mediaType: entryMediaType,
-        createdAt: existing?.createdAt?.toISOString() ?? now,
-        updatedAt: now,
-      });
+        if (existing) {
+          await db
+            .update(catalogEntries)
+            .set(values)
+            .where(
+              and(
+                eq(catalogEntries.userId, userId),
+                eq(catalogEntries.mediaWikidataId, data.wikidataId),
+              ),
+            );
+        } else {
+          await db.insert(catalogEntries).values(values);
+        }
+      }
 
       console.debug("[catalog] setCatalogEntry → ok");
       return { ok: true };
@@ -164,12 +192,30 @@ export const removeCatalogEntry = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     console.debug("[catalog] removeCatalogEntry wikidataId=%s", data.wikidataId);
     try {
-      const { userId, did } = await requireAuth();
-      console.debug("[catalog] removeCatalogEntry auth ok userId=%s did=%s", userId, did);
-      const agent = await getAuthenticatedAgent(did);
-      console.debug("[catalog] removeCatalogEntry → calling deleteCatalogEntry");
+      const auth = await requireAuth();
+      const { userId } = auth;
+      console.debug(
+        "[catalog] removeCatalogEntry auth ok userId=%s method=%s",
+        userId,
+        auth.authMethod,
+      );
 
-      await deleteCatalogEntry(agent, userId, did, data.wikidataId);
+      if (auth.authMethod === "atproto" && auth.did) {
+        // PDS-first flow for AT Protocol users
+        const agent = await getAuthenticatedAgent(auth.did);
+        await deleteCatalogEntry(agent, userId, auth.did, data.wikidataId);
+      } else {
+        // Direct DB delete for Google/GitHub users
+        const db = getDb();
+        await db
+          .delete(catalogEntries)
+          .where(
+            and(
+              eq(catalogEntries.userId, userId),
+              eq(catalogEntries.mediaWikidataId, data.wikidataId),
+            ),
+          );
+      }
 
       console.debug("[catalog] removeCatalogEntry → ok");
       return { ok: true };
