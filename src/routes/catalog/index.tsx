@@ -71,12 +71,15 @@ function CatalogPage() {
   const trackedIds: Record<string, string | null> = { ...rootTrackedIds, ...localOverrides };
 
   // Fetch data when search params change (only if logged in)
+  // Use auth?.userId (primitive) as dependency instead of auth object —
+  // prevents re-fetching when router.invalidate() creates a new auth reference
+  const isLoggedIn = auth?.userId;
   const isSearch = !!q;
   const catalogCacheKey = `catalog:${mediaType ?? "all"}:0`;
   const prefetchTriggered = useRef(false);
 
   useEffect(() => {
-    if (!auth) {
+    if (!isLoggedIn) {
       setInitialLoading(false);
       return;
     }
@@ -143,7 +146,7 @@ function CatalogPage() {
     return () => {
       cancelled = true;
     };
-  }, [auth, q, mediaType, isSearch, catalogCacheKey]);
+  }, [isLoggedIn, q, mediaType, isSearch, catalogCacheKey]);
 
   // Sync search input when URL param changes externally (e.g. back/forward)
   useEffect(() => {

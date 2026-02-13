@@ -1,6 +1,13 @@
-import { createRootRoute, HeadContent, Link, Outlet, Scripts } from "@tanstack/react-router";
+import {
+  createRootRoute,
+  HeadContent,
+  Link,
+  Outlet,
+  Scripts,
+  useRouter,
+} from "@tanstack/react-router";
 import { Moon, Sun } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import "../app.css";
 import { getAuthState, logout } from "../lib/auth.functions";
 import { getUserTrackedIds } from "../lib/catalog.functions";
@@ -84,6 +91,31 @@ const NAV_LINKS: readonly { to: string; label: string; accent?: boolean; exact?:
 
 function RootComponent() {
   const { auth, theme } = Route.useLoaderData();
+  const router = useRouter();
+
+  // Re-check auth when tab becomes visible (handles cross-tab login/logout)
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        router.invalidate();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [router]);
+
+  // Auto-reload on stale server function IDs (client/server version mismatch after deploy)
+  useEffect(() => {
+    const onError = (e: PromiseRejectionEvent) => {
+      const msg = e.reason?.message ?? String(e.reason ?? "");
+      if (/server function/i.test(msg) || /Invalid server function ID/i.test(msg)) {
+        console.warn("[version] stale client detected, reloading…");
+        window.location.reload();
+      }
+    };
+    window.addEventListener("unhandledrejection", onError);
+    return () => window.removeEventListener("unhandledrejection", onError);
+  }, []);
 
   return (
     <RootDocument theme={theme}>
