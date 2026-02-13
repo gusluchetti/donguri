@@ -9,6 +9,7 @@ import { cleanEnv, getDb } from "../db";
 import { users } from "../db/schema";
 import type { SessionData } from "./auth/session";
 import { setSessionCookie } from "./auth/session";
+
 type Provider = "google" | "github";
 
 interface UserProfile {
@@ -21,7 +22,10 @@ interface UserProfile {
 // ─── Auth URL builders ──────────────────────────────────────────────────────
 
 export function getGoogleAuthUrl(state: string): string {
-  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(/\/+$/, "");
+  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
+    /\/+$/,
+    "",
+  );
   const params = new URLSearchParams({
     client_id: cleanEnv(process.env.GOOGLE_CLIENT_ID),
     redirect_uri: `${publicUrl}/auth/google/callback`,
@@ -35,7 +39,10 @@ export function getGoogleAuthUrl(state: string): string {
 }
 
 export function getGitHubAuthUrl(state: string): string {
-  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(/\/+$/, "");
+  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
+    /\/+$/,
+    "",
+  );
   const params = new URLSearchParams({
     client_id: cleanEnv(process.env.GITHUB_CLIENT_ID),
     redirect_uri: `${publicUrl}/auth/github/callback`,
@@ -48,7 +55,10 @@ export function getGitHubAuthUrl(state: string): string {
 // ─── Token exchange + profile fetch ──────────────────────────────────────────
 
 async function exchangeGoogleCode(code: string): Promise<UserProfile> {
-  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(/\/+$/, "");
+  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
+    /\/+$/,
+    "",
+  );
 
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -85,7 +95,10 @@ async function exchangeGoogleCode(code: string): Promise<UserProfile> {
 }
 
 async function exchangeGitHubCode(code: string): Promise<UserProfile> {
-  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(/\/+$/, "");
+  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
+    /\/+$/,
+    "",
+  );
 
   const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",

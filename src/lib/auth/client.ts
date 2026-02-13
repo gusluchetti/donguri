@@ -10,7 +10,10 @@ let _client: NodeOAuthClient | null = null;
 let _clientUrl: string | null = null;
 
 export async function getOAuthClient(): Promise<NodeOAuthClient> {
-  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(/\/+$/, "");
+  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
+    /\/+$/,
+    "",
+  );
   const privateKeyJwk = cleanEnv(process.env.OAUTH_PRIVATE_KEY_JWK);
 
   // Return cached client if the URL hasn't changed (e.g. tunnel restart)

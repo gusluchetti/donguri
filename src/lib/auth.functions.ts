@@ -176,13 +176,15 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
 // ─── Google / GitHub login ────────────────────────────────────────────────────
 
 export const initiateGoogleLogin = createServerFn({ method: "POST" }).handler(async () => {
-  if (!cleanEnv(process.env.GOOGLE_CLIENT_ID)) throw new Error("GOOGLE_CLIENT_ID is not configured");
+  if (!cleanEnv(process.env.GOOGLE_CLIENT_ID))
+    throw new Error("GOOGLE_CLIENT_ID is not configured");
   const state = crypto.randomUUID();
   return { url: getGoogleAuthUrl(state) };
 });
 
 export const initiateGitHubLogin = createServerFn({ method: "POST" }).handler(async () => {
-  if (!cleanEnv(process.env.GITHUB_CLIENT_ID)) throw new Error("GITHUB_CLIENT_ID is not configured");
+  if (!cleanEnv(process.env.GITHUB_CLIENT_ID))
+    throw new Error("GITHUB_CLIENT_ID is not configured");
   const state = crypto.randomUUID();
   return { url: getGitHubAuthUrl(state) };
 });

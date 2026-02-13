@@ -1,9 +1,9 @@
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { initiateGitHubLogin, initiateGoogleLogin, initiateLogin } from "../lib/auth.functions";
-import { ogTags } from "../lib/og";
 import { getUserCatalogEntries } from "../lib/catalog.functions";
 import { mediaTypeLabel, ratingColor, TYPE_BADGE_CLASSES } from "../lib/media-types";
+import { ogTags } from "../lib/og";
 import { scheduleCatalogPrefetch } from "../lib/prefetch";
 import { swrLoad } from "../lib/swr-loader";
 

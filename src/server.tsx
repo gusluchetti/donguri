@@ -8,7 +8,10 @@ const fetch = async (request: Request) => {
   const url = new URL(request.url);
 
   if (url.pathname === "/.well-known/oauth-client-metadata.json") {
-    const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(/\/+$/, "");
+    const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
+      /\/+$/,
+      "",
+    );
     return Response.json(
       {
         client_id: `${publicUrl}/.well-known/oauth-client-metadata.json`,

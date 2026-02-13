@@ -4,10 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { Media } from "../../db/schema";
 import { setCatalogEntry } from "../../lib/catalog.functions";
-import { ogTags } from "../../lib/og";
 import { cacheGet, cacheSet, invalidateUserCaches, isStale } from "../../lib/idb-cache";
 import { getMediaStats, listMedia } from "../../lib/media.functions";
 import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../../lib/media-types";
+import { ogTags } from "../../lib/og";
 import { scheduleCatalogPrefetch } from "../../lib/prefetch";
 
 const rootRoute = getRouteApi("__root__");
