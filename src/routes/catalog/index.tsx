@@ -3,7 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { Media } from "../../db/schema";
-import { getCatalogEntry, setCatalogEntry } from "../../lib/catalog.functions";
+import { setCatalogEntry } from "../../lib/catalog.functions";
 import { cacheGet, cacheSet, invalidateUserCaches, isStale } from "../../lib/idb-cache";
 import { getMediaStats, listMedia } from "../../lib/media.functions";
 import {
@@ -150,17 +150,7 @@ function CatalogPage() {
           // If fresh, skip network entirely
           if (!isStale(cachedCatalog.timestamp, 30 * 60 * 1000)) return;
 
-          // Stale: revalidate in background (update IDB only, don't replace state)
-          const dataPromise = listMedia({ data: { limit: 50, mediaType, search: undefined } });
-          const statsPromise = getMediaStats({});
-          Promise.all([dataPromise, statsPromise])
-            .then(([data, statsData]) => {
-              if (cancelled) return;
-              cacheSet(catalogCacheKey, data).catch(() => {});
-              if (statsData) cacheSet("mediaStats", statsData).catch(() => {});
-            })
-            .catch(() => {});
-
+          // Stale: let the background prefetch handle revalidation
           if (!prefetchTriggered.current) {
             prefetchTriggered.current = true;
             scheduleCatalogPrefetch();
@@ -253,19 +243,6 @@ function CatalogPage() {
       });
     },
     [navigate],
-  );
-
-  // Prefetch catalog entry into IDB on hover so TrackingPanel loads instantly
-  const prefetchedEntries = useRef(new Set<string>());
-  const handlePrefetchEntry = useCallback(
-    (wikidataId: string) => {
-      if (!isLoggedIn || prefetchedEntries.current.has(wikidataId)) return;
-      prefetchedEntries.current.add(wikidataId);
-      getCatalogEntry({ data: { wikidataId } })
-        .then((entry) => cacheSet(`entry:${wikidataId}`, entry))
-        .catch(() => {});
-    },
-    [isLoggedIn],
   );
 
   const handleQuickAdd = useCallback(
@@ -439,9 +416,7 @@ function CatalogPage() {
                   key={item.id}
                   to="/catalog/$wikidataId"
                   params={{ wikidataId: item.wikidataId }}
-                  preload="intent"
-                  onMouseEnter={() => handlePrefetchEntry(item.wikidataId)}
-                  onTouchStart={() => handlePrefetchEntry(item.wikidataId)}
+                  preload={false}
                   className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group overflow-hidden"
                   style={{
                     top: virtualRow.start,
