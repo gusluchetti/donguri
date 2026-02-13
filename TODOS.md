@@ -44,6 +44,8 @@ More auth methods = more users. Polish + onboarding = users that stay.
 - [ ] Loading states, skeleton screens, toast notifications
 - [ ] Responsive design audit (catalog grid, detail pages, forms)
 - [ ] Accessibility pass — keyboard nav, screen reader labels, contrast ratios
+- [ ] Changelog / "What's new" page — render from a static list (markdown or JSON), link from footer
+- [ ] Version display in footer or settings — semver from `package.json` injected at build time
 
 ## P3 — Monetization
 
