@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { handleGoogleCallback } from "../../../lib/auth.functions";
+import { handleOAuthProviderCallback } from "../../../lib/auth.functions";
 
 export const Route = createFileRoute("/auth/google/callback")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -23,7 +23,7 @@ function GoogleCallbackPage() {
       return;
     }
 
-    handleGoogleCallback({ data: { code } })
+    handleOAuthProviderCallback({ data: { provider: "google", code } })
       .then(() => {
         window.location.href = "/";
       })

@@ -6,7 +6,7 @@ import { users } from "../db/schema";
 import { getAuthenticatedAgent } from "./auth/agent";
 import { getOAuthClient } from "./auth/client";
 import { clearSessionCookie, getSessionData, setSessionCookie } from "./auth/session";
-import { getGitHubAuthUrl, getGoogleAuthUrl, handleProviderCallback } from "./oauth-providers";
+import { getAuthUrl, handleProviderCallback, type Provider } from "./oauth-providers";
 import { reconcileUser } from "./sync";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -175,30 +175,26 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
 
 // ─── Google / GitHub login ────────────────────────────────────────────────────
 
-export const initiateGoogleLogin = createServerFn({ method: "POST" }).handler(async () => {
-  if (!cleanEnv(process.env.GOOGLE_CLIENT_ID))
-    throw new Error("GOOGLE_CLIENT_ID is not configured");
-  const state = crypto.randomUUID();
-  return { url: getGoogleAuthUrl(state) };
-});
+const providerSchema = z.enum(["google", "github"]);
 
-export const initiateGitHubLogin = createServerFn({ method: "POST" }).handler(async () => {
-  if (!cleanEnv(process.env.GITHUB_CLIENT_ID))
-    throw new Error("GITHUB_CLIENT_ID is not configured");
-  const state = crypto.randomUUID();
-  return { url: getGitHubAuthUrl(state) };
-});
+const ENV_FOR_PROVIDER: Record<Provider, string> = {
+  google: "GOOGLE_CLIENT_ID",
+  github: "GITHUB_CLIENT_ID",
+};
 
-export const handleGoogleCallback = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ code: z.string() }))
+export const initiateOAuthLogin = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ provider: providerSchema }))
   .handler(async ({ data }) => {
-    return handleProviderCallback("google", data.code);
+    const envVar = ENV_FOR_PROVIDER[data.provider];
+    if (!cleanEnv(process.env[envVar])) throw new Error(`${envVar} is not configured`);
+    const state = crypto.randomUUID();
+    return { url: getAuthUrl(data.provider, state) };
   });
 
-export const handleGitHubCallback = createServerFn({ method: "GET" })
-  .inputValidator(z.object({ code: z.string() }))
+export const handleOAuthProviderCallback = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ provider: providerSchema, code: z.string() }))
   .handler(async ({ data }) => {
-    return handleProviderCallback("github", data.code);
+    return handleProviderCallback(data.provider, data.code);
   });
 
 // ─── Logout ───────────────────────────────────────────────────────────────────

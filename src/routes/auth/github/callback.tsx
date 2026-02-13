@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { handleGitHubCallback } from "../../../lib/auth.functions";
+import { handleOAuthProviderCallback } from "../../../lib/auth.functions";
 
 export const Route = createFileRoute("/auth/github/callback")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -23,7 +23,7 @@ function GitHubCallbackPage() {
       return;
     }
 
-    handleGitHubCallback({ data: { code } })
+    handleOAuthProviderCallback({ data: { provider: "github", code } })
       .then(() => {
         window.location.href = "/";
       })

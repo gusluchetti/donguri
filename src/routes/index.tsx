@@ -1,6 +1,6 @@
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { initiateGitHubLogin, initiateGoogleLogin, initiateLogin } from "../lib/auth.functions";
+import { initiateLogin, initiateOAuthLogin } from "../lib/auth.functions";
 import { getUserCatalogEntries } from "../lib/catalog.functions";
 import { mediaTypeLabel, ratingColor, TYPE_BADGE_CLASSES } from "../lib/media-types";
 import { ogTags } from "../lib/og";
@@ -200,8 +200,7 @@ function OAuthButton({ provider, label }: { provider: "google" | "github"; label
   const onClick = async () => {
     setLoading(true);
     try {
-      const fn = provider === "google" ? initiateGoogleLogin : initiateGitHubLogin;
-      const result = await fn();
+      const result = await initiateOAuthLogin({ data: { provider } });
       window.location.href = result.url;
     } catch {
       setLoading(false);

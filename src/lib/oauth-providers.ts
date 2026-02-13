@@ -1,16 +1,19 @@
 /**
- * Google + GitHub OAuth helpers.
+ * Generic OAuth provider config + flow.
  *
- * Lightweight Authorization Code flow — no heavy libraries.
- * Each provider is 2 HTTP calls: exchange code → get profile.
+ * Each provider is described by a config object. The authorization URL is
+ * built generically; code exchange stays provider-specific because the
+ * token responses genuinely differ (Google: JWT id_token, GitHub: bearer +
+ * API call).
  */
+import type { Column } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 import { cleanEnv, getDb } from "../db";
 import { users } from "../db/schema";
 import type { SessionData } from "./auth/session";
 import { setSessionCookie } from "./auth/session";
 
-type Provider = "google" | "github";
+export type Provider = "google" | "github";
 
 interface UserProfile {
   providerId: string;
@@ -19,47 +22,23 @@ interface UserProfile {
   avatarUrl: string | null;
 }
 
-// ─── Auth URL builders ──────────────────────────────────────────────────────
-
-export function getGoogleAuthUrl(state: string): string {
-  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
-    /\/+$/,
-    "",
-  );
-  const params = new URLSearchParams({
-    client_id: cleanEnv(process.env.GOOGLE_CLIENT_ID),
-    redirect_uri: `${publicUrl}/auth/google/callback`,
-    response_type: "code",
-    scope: "openid email profile",
-    state,
-    access_type: "online",
-    prompt: "select_account",
-  });
-  return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+interface OAuthProviderConfig {
+  name: Provider;
+  label: string;
+  authEndpoint: string;
+  tokenEndpoint: string;
+  scope: string;
+  clientIdEnv: string;
+  clientSecretEnv: string;
+  callbackPath: string;
+  idColumn: Column;
+  extraAuthParams?: Record<string, string>;
+  exchangeCode: (code: string, redirectUri: string) => Promise<UserProfile>;
 }
 
-export function getGitHubAuthUrl(state: string): string {
-  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
-    /\/+$/,
-    "",
-  );
-  const params = new URLSearchParams({
-    client_id: cleanEnv(process.env.GITHUB_CLIENT_ID),
-    redirect_uri: `${publicUrl}/auth/github/callback`,
-    scope: "read:user user:email",
-    state,
-  });
-  return `https://github.com/login/oauth/authorize?${params}`;
-}
+// ─── Provider-specific code exchange ────────────────────────────────────────
 
-// ─── Token exchange + profile fetch ──────────────────────────────────────────
-
-async function exchangeGoogleCode(code: string): Promise<UserProfile> {
-  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
-    /\/+$/,
-    "",
-  );
-
+async function exchangeGoogleCode(code: string, redirectUri: string): Promise<UserProfile> {
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -67,7 +46,7 @@ async function exchangeGoogleCode(code: string): Promise<UserProfile> {
       code,
       client_id: cleanEnv(process.env.GOOGLE_CLIENT_ID),
       client_secret: cleanEnv(process.env.GOOGLE_CLIENT_SECRET),
-      redirect_uri: `${publicUrl}/auth/google/callback`,
+      redirect_uri: redirectUri,
       grant_type: "authorization_code",
     }),
   });
@@ -94,12 +73,7 @@ async function exchangeGoogleCode(code: string): Promise<UserProfile> {
   };
 }
 
-async function exchangeGitHubCode(code: string): Promise<UserProfile> {
-  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
-    /\/+$/,
-    "",
-  );
-
+async function exchangeGitHubCode(code: string, redirectUri: string): Promise<UserProfile> {
   const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: {
@@ -110,7 +84,7 @@ async function exchangeGitHubCode(code: string): Promise<UserProfile> {
       client_id: cleanEnv(process.env.GITHUB_CLIENT_ID),
       client_secret: cleanEnv(process.env.GITHUB_CLIENT_SECRET),
       code,
-      redirect_uri: `${publicUrl}/auth/github/callback`,
+      redirect_uri: redirectUri,
     }),
   });
 
@@ -156,20 +130,76 @@ async function exchangeGitHubCode(code: string): Promise<UserProfile> {
   };
 }
 
-// ─── Unified callback handler ────────────────────────────────────────────────
+// ─── Provider configs ───────────────────────────────────────────────────────
+
+const PROVIDERS: Record<Provider, OAuthProviderConfig> = {
+  google: {
+    name: "google",
+    label: "Google",
+    authEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
+    tokenEndpoint: "https://oauth2.googleapis.com/token",
+    scope: "openid email profile",
+    clientIdEnv: "GOOGLE_CLIENT_ID",
+    clientSecretEnv: "GOOGLE_CLIENT_SECRET",
+    callbackPath: "/auth/google/callback",
+    idColumn: users.googleId,
+    extraAuthParams: { access_type: "online", prompt: "select_account" },
+    exchangeCode: exchangeGoogleCode,
+  },
+  github: {
+    name: "github",
+    label: "GitHub",
+    authEndpoint: "https://github.com/login/oauth/authorize",
+    tokenEndpoint: "https://github.com/login/oauth/access_token",
+    scope: "read:user user:email",
+    clientIdEnv: "GITHUB_CLIENT_ID",
+    clientSecretEnv: "GITHUB_CLIENT_SECRET",
+    callbackPath: "/auth/github/callback",
+    idColumn: users.githubId,
+    exchangeCode: exchangeGitHubCode,
+  },
+};
+
+// ─── Generic auth URL builder ───────────────────────────────────────────────
+
+export function getAuthUrl(provider: Provider, state: string): string {
+  const config = PROVIDERS[provider];
+  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
+    /\/+$/,
+    "",
+  );
+  const params = new URLSearchParams({
+    client_id: cleanEnv(process.env[config.clientIdEnv]),
+    redirect_uri: `${publicUrl}${config.callbackPath}`,
+    scope: config.scope,
+    state,
+    ...config.extraAuthParams,
+  });
+  // Google expects response_type
+  if (provider === "google") params.set("response_type", "code");
+  return `${config.authEndpoint}?${params}`;
+}
+
+// ─── Unified callback handler ───────────────────────────────────────────────
 
 export async function handleProviderCallback(
   provider: Provider,
   code: string,
 ): Promise<SessionData> {
-  const profile =
-    provider === "google" ? await exchangeGoogleCode(code) : await exchangeGitHubCode(code);
+  const config = PROVIDERS[provider];
+  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
+    /\/+$/,
+    "",
+  );
+  const redirectUri = `${publicUrl}${config.callbackPath}`;
+
+  const profile = await config.exchangeCode(code, redirectUri);
 
   const isDev = process.env.NODE_ENV === "development";
   if (isDev) console.debug("[oauth:%s] profile: %o", provider, { ...profile, avatarUrl: "..." });
 
   const db = getDb();
-  const idColumn = provider === "google" ? users.googleId : users.githubId;
+  const { idColumn } = config;
 
   // 1. Look up existing user by provider ID (exact match)
   const [byProviderId] = await db
@@ -205,12 +235,10 @@ export async function handleProviderCallback(
     if (byEmail) {
       userId = byEmail.id;
       handle = profile.name;
-      const update: Record<string, unknown> = {
-        avatarUrl: profile.avatarUrl,
-      };
-      if (provider === "google") update.googleId = profile.providerId;
-      else update.githubId = profile.providerId;
-      await db.update(users).set(update).where(eq(users.id, userId));
+      await db
+        .update(users)
+        .set({ avatarUrl: profile.avatarUrl, [idColumn.name]: profile.providerId })
+        .where(eq(users.id, userId));
       if (isDev)
         console.debug(
           "[oauth:%s] linked to existing user %s (matched by email %s)",
@@ -220,18 +248,15 @@ export async function handleProviderCallback(
         );
     } else {
       // 3. Brand new user
-      const values: Record<string, unknown> = {
-        handle: profile.name,
-        authMethod: provider,
-        email: profile.email,
-        avatarUrl: profile.avatarUrl,
-      };
-      if (provider === "google") values.googleId = profile.providerId;
-      else values.githubId = profile.providerId;
-
       const [newUser] = await db
         .insert(users)
-        .values(values as typeof users.$inferInsert)
+        .values({
+          handle: profile.name,
+          authMethod: provider,
+          email: profile.email,
+          avatarUrl: profile.avatarUrl,
+          [idColumn.name]: profile.providerId,
+        } as typeof users.$inferInsert)
         .returning({ id: users.id });
       userId = newUser.id;
       handle = profile.name;
@@ -239,17 +264,14 @@ export async function handleProviderCallback(
     }
   } else {
     // No email from provider — create new user without linking
-    const values: Record<string, unknown> = {
-      handle: profile.name,
-      authMethod: provider,
-      avatarUrl: profile.avatarUrl,
-    };
-    if (provider === "google") values.googleId = profile.providerId;
-    else values.githubId = profile.providerId;
-
     const [newUser] = await db
       .insert(users)
-      .values(values as typeof users.$inferInsert)
+      .values({
+        handle: profile.name,
+        authMethod: provider,
+        avatarUrl: profile.avatarUrl,
+        [idColumn.name]: profile.providerId,
+      } as typeof users.$inferInsert)
       .returning({ id: users.id });
     userId = newUser.id;
     handle = profile.name;
