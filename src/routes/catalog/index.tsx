@@ -3,7 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { Media } from "../../db/schema";
-import { setCatalogEntry } from "../../lib/catalog.functions";
+import { getCatalogEntry, setCatalogEntry } from "../../lib/catalog.functions";
 import { cacheGet, cacheSet, invalidateUserCaches, isStale } from "../../lib/idb-cache";
 import { getMediaStats, listMedia } from "../../lib/media.functions";
 import {
@@ -79,8 +79,6 @@ function CatalogPage() {
   // Use auth?.userId (primitive) as dependency instead of auth object —
   // prevents re-fetching when router.invalidate() creates a new auth reference
   const isLoggedIn = auth?.userId;
-  const isSearch = !!q;
-  const catalogCacheKey = `catalog:${mediaType ?? "all"}:0`;
   const prefetchTriggered = useRef(false);
 
   useEffect(() => {
@@ -91,6 +89,9 @@ function CatalogPage() {
 
     let cancelled = false;
     setError(null);
+
+    const isSearch = !!q;
+    const catalogCacheKey = `catalog:${mediaType ?? "all"}:0`;
 
     const load = async () => {
       // Try IDB cache first (only for browse, not search)
@@ -114,23 +115,23 @@ function CatalogPage() {
         setInitialLoading(true);
       }
 
-      // Fetch fresh data
+      // Fetch fresh data — skip stats refetch during search (they don't change)
       try {
-        const [data, statsData] = await Promise.all([
-          listMedia({ data: { limit: 50, mediaType, search: q || undefined } }),
-          getMediaStats({}),
-        ]);
+        const dataPromise = listMedia({ data: { limit: 50, mediaType, search: q || undefined } });
+        const statsPromise = isSearch ? null : getMediaStats({});
+
+        const [data, statsData] = await Promise.all([dataPromise, statsPromise]);
         if (cancelled) return;
         setItems(data.items);
         setNextCursor(data.nextCursor);
-        setStats(statsData);
+        if (statsData) setStats(statsData);
         setInitialLoading(false);
         parentRef.current?.scrollTo(0, 0);
 
         // Cache browse results (not search)
         if (!isSearch) {
           cacheSet(catalogCacheKey, data).catch(() => {});
-          cacheSet("mediaStats", statsData).catch(() => {});
+          if (statsData) cacheSet("mediaStats", statsData).catch(() => {});
 
           // Trigger prefetch after first successful load
           if (!prefetchTriggered.current) {
@@ -151,7 +152,7 @@ function CatalogPage() {
     return () => {
       cancelled = true;
     };
-  }, [isLoggedIn, q, mediaType, isSearch, catalogCacheKey]);
+  }, [isLoggedIn, q, mediaType]);
 
   // Sync search input when URL param changes externally (e.g. back/forward)
   useEffect(() => {
@@ -206,6 +207,19 @@ function CatalogPage() {
       });
     },
     [navigate],
+  );
+
+  // Prefetch catalog entry into IDB on hover so TrackingPanel loads instantly
+  const prefetchedEntries = useRef(new Set<string>());
+  const handlePrefetchEntry = useCallback(
+    (wikidataId: string) => {
+      if (!auth || prefetchedEntries.current.has(wikidataId)) return;
+      prefetchedEntries.current.add(wikidataId);
+      getCatalogEntry({ data: { wikidataId } })
+        .then((entry) => cacheSet(`entry:${wikidataId}`, entry))
+        .catch(() => {});
+    },
+    [auth],
   );
 
   const handleQuickAdd = useCallback(
@@ -385,6 +399,9 @@ function CatalogPage() {
                   key={item.id}
                   to="/catalog/$wikidataId"
                   params={{ wikidataId: item.wikidataId }}
+                  preload="intent"
+                  onMouseEnter={() => handlePrefetchEntry(item.wikidataId)}
+                  onTouchStart={() => handlePrefetchEntry(item.wikidataId)}
                   className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group overflow-hidden"
                   style={{
                     top: virtualRow.start,
