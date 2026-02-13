@@ -7,22 +7,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Runtime**: Bun (dev/build), Fly.io (production)
 
 ```bash
-# Development (starts fly proxy + cloudflared tunnel + vite dev server)
-bun run dev
+# ─── First-time setup ───────────────────────────────────────────────────────
+cp .env.example .env          # Edit with your secrets
+bun install
+bun run dev                   # Starts local Postgres + Vite dev server
 
-# Vite only (no proxy/tunnel)
-bun run dev:vite
+# On first run, push the schema to the local DB:
+bun run db:push
 
-# Production build
-bun run build
+# ─── Development ─────────────────────────────────────────────────────────────
+bun run dev                   # Local Postgres (Docker) + cloudflared tunnel + Vite
 
-# Database commands (Drizzle + Postgres)
-bun run db:generate    # Generate migrations from schema
-bun run db:migrate     # Run pending migrations
-bun run db:push        # Push schema changes directly
-bun run db:studio      # Open Drizzle Studio
+# ─── Local Database (Docker Compose) ────────────────────────────────────────
+bun run db:up                 # Start local Postgres (idempotent)
+bun run db:down               # Stop local Postgres (data preserved)
+bun run db:reset              # Destroy and recreate local Postgres (data lost)
 
-# Wikidata import (two-pass pipeline)
+# ─── Database commands (Drizzle + Postgres) ──────────────────────────────────
+bun run db:generate           # Generate migrations from schema
+bun run db:migrate            # Run pending migrations
+bun run db:push               # Push schema changes directly
+bun run db:studio             # Open Drizzle Studio
+
+# ─── Production build ───────────────────────────────────────────────────────
+bun run build                 # Vite build → .output/
+bun run dev:prod              # Tunnel + Docker build+run (test prod bundle locally)
+fly deploy                    # Deploy to Fly.io
+
+# ─── Wikidata import ────────────────────────────────────────────────────────
 # Pass 1: Extract media subset from full dump
 lbzip2 -dc /path/to/latest-all.json.bz2 | bun run src/import/subset.ts > media-subset.ndjson
 
@@ -33,12 +45,8 @@ bun run src/import/index.ts media-subset.ndjson --full --limit=1000 # Limited im
 bun run src/import/index.ts media-subset.ndjson --full --resumeFrom=Q123
 bun run src/import/index.ts media-subset.ndjson --clean             # Clean DB first
 
-# Production bundle test (Docker)
-bun run dev:prod       # proxy + tunnel + Docker build+run
-bun run dev:prod:app   # Docker build+run only (if proxy/tunnel already up)
-
-# Deploy to Fly.io
-bun run build && fly deploy
+# ─── Production DB access (manual) ──────────────────────────────────────────
+# fly proxy 5432 -a donguri-db   # Then connect with a different DATABASE_URL
 ```
 
 ## Architecture
