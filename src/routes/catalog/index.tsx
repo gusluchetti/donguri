@@ -97,6 +97,7 @@ function CatalogPage() {
           setNextCursor(cachedCatalog.data.nextCursor);
           if (cachedStats) setStats(cachedStats.data);
           setInitialLoading(false);
+          parentRef.current?.scrollTo(0, 0);
 
           // If fresh, skip network
           if (!isStale(cachedCatalog.timestamp, 10 * 60 * 1000)) return;
@@ -116,6 +117,7 @@ function CatalogPage() {
         setNextCursor(data.nextCursor);
         setStats(statsData);
         setInitialLoading(false);
+        parentRef.current?.scrollTo(0, 0);
 
         // Cache browse results (not search)
         if (!isSearch) {
@@ -351,7 +353,7 @@ function CatalogPage() {
                 return (
                   <div
                     key="loader"
-                    className="w-full left-0 border-b border-dg-surface absolute flex items-center justify-center"
+                    className="w-full left-0 border-b border-dg-surface absolute flex items-center justify-center overflow-hidden"
                     style={{
                       top: virtualRow.start,
                       height: virtualRow.size,
@@ -373,7 +375,7 @@ function CatalogPage() {
                   key={item.id}
                   to="/catalog/$wikidataId"
                   params={{ wikidataId: item.wikidataId }}
-                  className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group"
+                  className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group overflow-hidden"
                   style={{
                     top: virtualRow.start,
                     height: virtualRow.size,
