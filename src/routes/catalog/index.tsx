@@ -204,14 +204,15 @@ function CatalogPage() {
   );
 
   const handleQuickAdd = useCallback(
-    async (wikidataId: string, e: React.MouseEvent) => {
+    async (wikidataId: string, itemMediaType: string, e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      console.debug("[quick-add] %s → watching (optimistic)", wikidataId);
-      setLocalOverrides((prev) => ({ ...prev, [wikidataId]: "watching" }));
+      const defaultStatus = itemMediaType === "movie" ? "planned" : "in_progress";
+      console.debug("[quick-add] %s → %s (optimistic)", wikidataId, defaultStatus);
+      setLocalOverrides((prev) => ({ ...prev, [wikidataId]: defaultStatus }));
       setQuickAddState((prev) => ({ ...prev, [wikidataId]: "pending" }));
       try {
-        await setCatalogEntry({ data: { wikidataId, status: "watching" } });
+        await setCatalogEntry({ data: { wikidataId, status: defaultStatus as "planned" | "in_progress" } });
         console.debug("[quick-add] %s → server ok", wikidataId);
         setQuickAddState((prev) => ({ ...prev, [wikidataId]: "done" }));
         setTimeout(() => {
@@ -402,11 +403,12 @@ function CatalogPage() {
 }
 
 const TRACKED_ASTERISK_COLORS: Record<string, string> = {
-  watching: "text-dg-accent",
-  plan_to_watch: "text-dg-tv",
-  paused: "text-dg-text-tertiary",
+  in_progress: "text-dg-accent",
+  planned: "text-dg-tv",
+  on_hold: "text-dg-text-tertiary",
   dropped: "text-dg-anime",
   completed: "text-dg-game",
+  mastered: "text-dg-accent",
 };
 
 function formatMeta(item: Media): string {
@@ -437,7 +439,7 @@ function MediaRow({
   trackedStatus: string | null;
   showAdd: boolean;
   addState: "pending" | "done" | null;
-  onQuickAdd: (wikidataId: string, e: React.MouseEvent) => void;
+  onQuickAdd: (wikidataId: string, mediaType: string, e: React.MouseEvent) => void;
 }) {
   const badgeClass =
     TYPE_BADGE_CLASSES[item.mediaType] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
@@ -456,7 +458,7 @@ function MediaRow({
         ) : showAdd ? (
           <button
             type="button"
-            onClick={(e) => onQuickAdd(item.wikidataId, e)}
+            onClick={(e) => onQuickAdd(item.wikidataId, item.mediaType, e)}
             className="text-[0.75rem] font-bold text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent"
           >
             [+]

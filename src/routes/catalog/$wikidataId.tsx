@@ -10,28 +10,22 @@ import {
 } from "../../lib/catalog.functions";
 import { cacheDelete, cacheGet, cacheSet, invalidateUserCaches } from "../../lib/idb-cache";
 import { getMedia } from "../../lib/media.functions";
-import { mediaTypeLabel, ratingColor, TYPE_BADGE_CLASSES } from "../../lib/media-types";
+import {
+  availableStatuses,
+  mediaTypeLabel,
+  ratingColor,
+  replayCountLabel,
+  STATUS_BUTTON_COLORS,
+  statusLabel,
+  type StatusValue,
+  TYPE_BADGE_CLASSES,
+} from "../../lib/media-types";
 import { ogTags } from "../../lib/og";
 import { swrLoad } from "../../lib/swr-loader";
 import { useAction } from "../../lib/use-action";
 
 const rootRoute = getRouteApi("__root__");
 
-const STATUSES = [
-  { value: "watching", label: "Watching" },
-  { value: "plan_to_watch", label: "Plan to Watch" },
-  { value: "paused", label: "Paused" },
-  { value: "completed", label: "Completed" },
-  { value: "dropped", label: "Dropped" },
-] as const;
-
-const STATUS_COLORS: Record<string, string> = {
-  watching: "border-dg-accent text-dg-accent bg-dg-accent/10",
-  plan_to_watch: "border-dg-tv text-dg-tv bg-dg-tv/10",
-  paused: "border-dg-text-tertiary text-dg-text-tertiary bg-dg-text-tertiary/10",
-  completed: "border-dg-game text-dg-game bg-dg-game/10",
-  dropped: "border-dg-anime text-dg-anime bg-dg-anime/10",
-};
 
 type FullLoaderData = {
   kind: "full";
@@ -185,7 +179,7 @@ function MediaStubPage({
           </p>
         </div>
 
-        {auth && <TrackingPanel wikidataId={stub.wikidataId} />}
+        {auth && <TrackingPanel wikidataId={stub.wikidataId} mediaType={stub.mediaType ?? undefined} />}
 
         <div className="mb-5 sm:mb-6">
           <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
@@ -315,17 +309,11 @@ function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof
           )}
           {data.seasonCount && <MetaItem label="Seasons" value={String(data.seasonCount)} />}
           {data.episodeCount && <MetaItem label="Episodes" value={String(data.episodeCount)} />}
-          {data.status && (
-            <MetaItem
-              label="Status"
-              value={data.status.charAt(0).toUpperCase() + data.status.slice(1)}
-            />
-          )}
           <MetaItem label="Popularity" value={`${data.sitelinksCount ?? 0} sitelinks`} />
         </div>
 
         {/* Tracking panel (inline) */}
-        {auth && <TrackingPanel wikidataId={data.wikidataId} />}
+        {auth && <TrackingPanel wikidataId={data.wikidataId} mediaType={data.mediaType} />}
 
         {/* Description */}
         {data.description && (
@@ -396,7 +384,7 @@ function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof
   );
 }
 
-function TrackingPanel({ wikidataId }: { wikidataId: string }) {
+function TrackingPanel({ wikidataId, mediaType }: { wikidataId: string; mediaType?: string }) {
   const router = useRouter();
   const [entry, setEntry] = useState<CatalogEntry | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -404,8 +392,12 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
   // Local state tracks UI; saved* refs track what the server has
   const [localRating, setLocalRating] = useState<number | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
+  const [localIsFavorite, setLocalIsFavorite] = useState(false);
+  const [localReplayCount, setLocalReplayCount] = useState(0);
   const savedRating = useRef<number | null>(null);
   const savedStatus = useRef<string | null>(null);
+  const savedIsFavorite = useRef(false);
+  const savedReplayCount = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -415,8 +407,12 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
       setEntry(e);
       setLocalRating(e?.rating ?? null);
       setLocalStatus(e?.status ?? null);
+      setLocalIsFavorite(e?.isFavorite ?? false);
+      setLocalReplayCount(e?.replayCount ?? 0);
       savedRating.current = e?.rating ?? null;
       savedStatus.current = e?.status ?? null;
+      savedIsFavorite.current = e?.isFavorite ?? false;
+      savedReplayCount.current = e?.replayCount ?? 0;
       setLoaded(true);
     };
 
@@ -451,7 +447,9 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
   const ratingDirty =
     localRating !== savedRating.current && !(localRating === null && savedRating.current === null);
   const statusDirty = localStatus !== savedStatus.current;
-  const isDirty = ratingDirty || statusDirty;
+  const favoriteDirty = localIsFavorite !== savedIsFavorite.current;
+  const replayDirty = localReplayCount !== savedReplayCount.current;
+  const isDirty = ratingDirty || statusDirty || favoriteDirty || replayDirty;
 
   const handleSave = useCallback(async () => {
     const status = localStatus as NonNullable<CatalogEntry["status"]>;
@@ -460,7 +458,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
     const prev = entry;
     setEntry((e) =>
       e
-        ? { ...e, status, rating: localRating, updatedAt: new Date() }
+        ? { ...e, status, rating: localRating, isFavorite: localIsFavorite, replayCount: localReplayCount, updatedAt: new Date() }
         : ({
             id: "",
             userId: "",
@@ -471,6 +469,10 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
             rating: localRating,
             note: null,
             episodeProgress: null,
+            isFavorite: localIsFavorite,
+            replayCount: localReplayCount,
+            completedAt: null,
+            watchedEpisodes: null,
             rkey: null,
             syncedAt: null,
             createdAt: new Date(),
@@ -486,6 +488,8 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
             rating: localRating,
             note: prev?.note,
             episodeProgress: prev?.episodeProgress,
+            isFavorite: localIsFavorite,
+            replayCount: localReplayCount,
           },
         });
         console.debug("[tracking] save %s → server ok, refreshing", wikidataId);
@@ -493,8 +497,12 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
         setEntry(fresh);
         setLocalRating(fresh?.rating ?? null);
         setLocalStatus(fresh?.status ?? null);
+        setLocalIsFavorite(fresh?.isFavorite ?? false);
+        setLocalReplayCount(fresh?.replayCount ?? 0);
         savedRating.current = fresh?.rating ?? null;
         savedStatus.current = fresh?.status ?? null;
+        savedIsFavorite.current = fresh?.isFavorite ?? false;
+        savedReplayCount.current = fresh?.replayCount ?? 0;
         invalidateUserCaches();
         cacheDelete(`entry:${wikidataId}`);
         router.invalidate();
@@ -503,10 +511,12 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
         setEntry(prev);
         setLocalRating(prev?.rating ?? null);
         setLocalStatus(prev?.status ?? null);
+        setLocalIsFavorite(prev?.isFavorite ?? false);
+        setLocalReplayCount(prev?.replayCount ?? 0);
         throw err;
       }
     });
-  }, [entry, localStatus, localRating, wikidataId, router, action]);
+  }, [entry, localStatus, localRating, localIsFavorite, localReplayCount, wikidataId, router, action]);
 
   const handleRemove = useCallback(async () => {
     console.debug("[tracking] remove %s (optimistic)", wikidataId);
@@ -526,6 +536,8 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
       }
     });
   }, [entry, wikidataId, router, action]);
+
+  const statuses = availableStatuses(mediaType);
 
   if (!loaded) {
     return (
@@ -555,14 +567,15 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
 
       {/* Status buttons — horizontal scroll on mobile, wrap on desktop */}
       <div className="flex flex-nowrap overflow-x-auto sm:flex-wrap gap-1.5 mb-4 scrollbar-hide">
-        {STATUSES.map((s) => {
-          const isActive = localStatus === s.value;
-          const colorClass = STATUS_COLORS[s.value];
+        {statuses.map((s) => {
+          const isActive = localStatus === s;
+          const colorClass = STATUS_BUTTON_COLORS[s];
+          const label = statusLabel(s, mediaType);
           return (
             <button
-              key={s.value}
+              key={s}
               type="button"
-              onClick={() => setLocalStatus(s.value)}
+              onClick={() => setLocalStatus(s)}
               disabled={action.state === "pending"}
               className={`text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-mono cursor-pointer shrink-0 transition-all duration-150 disabled:opacity-50 ${
                 isActive
@@ -570,7 +583,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
                   : "border-dg-border-subtle text-dg-text-secondary bg-transparent hover:border-dg-border"
               }`}
             >
-              {s.label}
+              {label}
             </button>
           );
         })}
@@ -613,6 +626,46 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Favorite toggle + Replay count (when status is set) */}
+      {localStatus && (
+        <div className="flex items-center gap-4 mb-4">
+          <button
+            type="button"
+            onClick={() => setLocalIsFavorite(!localIsFavorite)}
+            disabled={action.state === "pending"}
+            className={`text-[1rem] bg-transparent border-none cursor-pointer p-1 -m-1 transition-colors duration-150 disabled:opacity-50 ${
+              localIsFavorite ? "text-dg-accent" : "text-dg-text-tertiary hover:text-dg-accent/60"
+            }`}
+            title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
+          >
+            {localIsFavorite ? "\u2605" : "\u2606"}
+          </button>
+          {localStatus === "completed" && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setLocalReplayCount(Math.max(0, localReplayCount - 1))}
+                disabled={action.state === "pending" || localReplayCount <= 0}
+                className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30"
+              >
+                -
+              </button>
+              <span className="text-[0.75rem] text-dg-text-secondary min-w-[5rem] text-center">
+                {replayCountLabel(localReplayCount, mediaType) ?? "First time"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setLocalReplayCount(localReplayCount + 1)}
+                disabled={action.state === "pending"}
+                className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30"
+              >
+                +
+              </button>
+            </div>
+          )}
         </div>
       )}
 

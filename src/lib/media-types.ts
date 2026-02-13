@@ -28,3 +28,83 @@ export function ratingColor(value: number | null): string | undefined {
   }
   return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`;
 }
+
+// ─── Status Vocabulary ──────────────────────────────────────────────────────
+
+export const STATUS_ORDER = ["in_progress", "planned", "on_hold", "completed", "dropped", "mastered"] as const;
+export type StatusValue = (typeof STATUS_ORDER)[number];
+
+export const STATUS_LABELS_GENERIC: Record<StatusValue, string> = {
+  in_progress: "In Progress",
+  planned: "Planned",
+  on_hold: "On Hold",
+  completed: "Completed",
+  dropped: "Dropped",
+  mastered: "Mastered",
+};
+
+// Legacy status normalization (for PDS sync of old records)
+const LEGACY_STATUS_MAP: Record<string, StatusValue> = {
+  watching: "in_progress",
+  plan_to_watch: "planned",
+  paused: "on_hold",
+};
+
+export function normalizeStatus(s: string): StatusValue {
+  return (LEGACY_STATUS_MAP[s] ?? s) as StatusValue;
+}
+
+// Per-type label map: null = status hidden for that type
+type MediaTypeKey = "movie" | "tv_series" | "anime" | "game";
+
+const STATUS_LABELS_BY_TYPE: Record<StatusValue, Partial<Record<MediaTypeKey, string | null>>> = {
+  planned:     { movie: "Plan to Watch", tv_series: "Plan to Watch", anime: "Plan to Watch", game: "Plan to Play" },
+  in_progress: { movie: null,            tv_series: "Watching",      anime: "Watching",       game: "Playing" },
+  on_hold:     { movie: null,            tv_series: "Paused",        anime: "Paused",         game: "Paused" },
+  completed:   { movie: "Watched",       tv_series: "Completed",     anime: "Completed",      game: "Completed" },
+  dropped:     { movie: "Dropped",       tv_series: "Dropped",       anime: "Dropped",        game: "Dropped" },
+  mastered:    { movie: null,            tv_series: null,             anime: null,              game: "100%" },
+};
+
+/** Type-specific label or generic fallback. Returns null if hidden for that type. */
+export function statusLabel(status: StatusValue, mediaType?: string): string | null {
+  if (mediaType && mediaType in (STATUS_LABELS_BY_TYPE[status] ?? {})) {
+    return STATUS_LABELS_BY_TYPE[status][mediaType as MediaTypeKey] ?? null;
+  }
+  return STATUS_LABELS_GENERIC[status];
+}
+
+/** Filters STATUS_ORDER to visible statuses for the given media type. */
+export function availableStatuses(mediaType?: string): StatusValue[] {
+  if (!mediaType) return [...STATUS_ORDER];
+  return STATUS_ORDER.filter((s) => statusLabel(s, mediaType) !== null);
+}
+
+/** "Watched x3" / "Replayed x2" / "Rewatched x2" */
+export function replayCountLabel(count: number, mediaType?: string): string | null {
+  if (count <= 0) return null;
+  const verb = mediaType === "game" ? "Replayed" : mediaType === "movie" ? "Watched" : "Rewatched";
+  return `${verb} x${count + 1}`;
+}
+
+// ─── Status Colors ──────────────────────────────────────────────────────────
+
+/** Text color per status (homepage section headers) */
+export const STATUS_ACCENT: Record<StatusValue, string> = {
+  in_progress: "text-dg-accent",
+  planned: "text-dg-tv",
+  on_hold: "text-dg-text-tertiary",
+  completed: "text-dg-game",
+  dropped: "text-dg-anime",
+  mastered: "text-dg-accent",
+};
+
+/** Border + bg + text per status (detail page buttons) */
+export const STATUS_BUTTON_COLORS: Record<StatusValue, string> = {
+  in_progress: "border-dg-accent text-dg-accent bg-dg-accent/10",
+  planned: "border-dg-tv text-dg-tv bg-dg-tv/10",
+  on_hold: "border-dg-text-tertiary text-dg-text-tertiary bg-dg-text-tertiary/10",
+  completed: "border-dg-game text-dg-game bg-dg-game/10",
+  dropped: "border-dg-anime text-dg-anime bg-dg-anime/10",
+  mastered: "border-dg-accent text-dg-accent bg-dg-accent/10",
+};

@@ -41,6 +41,7 @@ const EXTERNAL_ID_PROPERTIES = [
   P.IGDB_ID,
   P.ANN_ID,
   P.TVDB_ID,
+  P.TVMAZE_ID,
 ];
 
 /**

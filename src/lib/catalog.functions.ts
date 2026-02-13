@@ -8,7 +8,7 @@ import { getAuthenticatedAgent } from "./auth/agent";
 import { requireAuth } from "./auth/session";
 import { deleteCatalogEntry, putCatalogEntry } from "./sync";
 
-const StatusEnum = z.enum(["watching", "completed", "dropped", "plan_to_watch", "paused"]);
+const StatusEnum = z.enum(["planned", "in_progress", "on_hold", "completed", "dropped", "mastered"]);
 
 export const getCatalogEntry = createServerFn({ method: "GET" })
   .inputValidator(z.object({ wikidataId: z.string() }))
@@ -46,6 +46,8 @@ export const getUserCatalogEntries = createServerFn({ method: "GET" }).handler(a
       rating: catalogEntries.rating,
       note: catalogEntries.note,
       episodeProgress: catalogEntries.episodeProgress,
+      isFavorite: catalogEntries.isFavorite,
+      replayCount: catalogEntries.replayCount,
       updatedAt: catalogEntries.updatedAt,
       mediaTitle: sql<string | null>`COALESCE(${catalogEntries.mediaTitle}, ${media.title})`,
       mediaType: sql<string | null>`COALESCE(${catalogEntries.mediaType}, ${media.mediaType})`,
@@ -85,6 +87,9 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
       rating: z.number().int().min(0).max(100).nullish(),
       note: z.string().max(10000).nullish(),
       episodeProgress: z.number().int().min(0).nullish(),
+      isFavorite: z.boolean().nullish(),
+      replayCount: z.number().int().min(0).nullish(),
+      watchedEpisodes: z.record(z.string(), z.array(z.number())).nullish(),
     }),
   )
   .handler(async ({ data }) => {
@@ -111,6 +116,8 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
           createdAt: catalogEntries.createdAt,
           mediaTitle: catalogEntries.mediaTitle,
           mediaType: catalogEntries.mediaType,
+          status: catalogEntries.status,
+          completedAt: catalogEntries.completedAt,
         })
         .from(catalogEntries)
         .where(
@@ -145,6 +152,9 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
           rating: data.rating ?? undefined,
           note: data.note ?? undefined,
           episodeProgress: data.episodeProgress ?? undefined,
+          isFavorite: data.isFavorite ?? undefined,
+          replayCount: data.replayCount ?? undefined,
+          watchedEpisodes: data.watchedEpisodes ?? undefined,
           title,
           mediaType: entryMediaType,
           createdAt: existing?.createdAt?.toISOString() ?? now,
@@ -152,6 +162,13 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
         });
       } else {
         // Direct DB upsert for Google/GitHub users
+        const completedAt =
+          data.status === "completed"
+            ? existing?.status === "completed"
+              ? existing.completedAt ?? new Date(now)
+              : new Date(now)
+            : null;
+
         const values = {
           userId,
           mediaWikidataId: data.wikidataId,
@@ -161,6 +178,10 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
           rating: data.rating ?? null,
           note: data.note ?? null,
           episodeProgress: data.episodeProgress ?? null,
+          isFavorite: data.isFavorite ?? false,
+          replayCount: data.replayCount ?? 0,
+          completedAt,
+          watchedEpisodes: data.watchedEpisodes ?? null,
           updatedAt: new Date(now),
         };
 
