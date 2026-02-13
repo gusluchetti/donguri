@@ -221,8 +221,7 @@ function OAuthButton({ provider, label }: { provider: "google" | "github"; label
 }
 
 function LoggedInView() {
-  const { auth } = rootRoute.useLoaderData();
-  const { entries, fromCache } = Route.useLoaderData();
+  const { entries } = Route.useLoaderData();
 
   useEffect(() => {
     scheduleCatalogPrefetch();
@@ -234,8 +233,6 @@ function LoggedInView() {
     const items = entries.filter((e) => e.status === status);
     if (items.length > 0) grouped.set(status, items);
   }
-
-  const displayHandle = auth?.authMethod === "atproto" ? `@${auth.handle}` : auth?.handle;
 
   return (
     <div>
