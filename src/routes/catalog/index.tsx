@@ -7,6 +7,7 @@ import { setCatalogEntry } from "../../lib/catalog.functions";
 import { cacheGet, cacheSet, invalidateUserCaches, isStale } from "../../lib/idb-cache";
 import { getMediaStats, listMedia } from "../../lib/media.functions";
 import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../../lib/media-types";
+import { ogTags } from "../../lib/og";
 import { scheduleCatalogPrefetch } from "../../lib/prefetch";
 
 const rootRoute = getRouteApi("__root__");
@@ -26,6 +27,22 @@ const MEDIA_TYPES = [
 
 export const Route = createFileRoute("/catalog/")({
   validateSearch: catalogSearchSchema,
+  head: () => ({
+    meta: [
+      { title: "Catalog — donguri" },
+      {
+        name: "description",
+        content:
+          "Browse 100k+ movies, TV shows, anime, and games. Search, filter, and add titles to your watchlist.",
+      },
+      ...ogTags({
+        title: "Catalog — donguri",
+        description:
+          "Browse 100k+ movies, TV shows, anime, and games. Search, filter, and add titles to your watchlist.",
+        path: "/catalog",
+      }),
+    ],
+  }),
   component: CatalogPage,
 });
 
@@ -313,7 +330,10 @@ function CatalogPage() {
       )}
 
       {/* Virtual list */}
-      <div ref={parentRef} className="flex-1 overflow-auto max-w-[1000px] mx-auto w-full px-4 sm:px-6">
+      <div
+        ref={parentRef}
+        className="flex-1 overflow-auto max-w-[1000px] mx-auto w-full px-4 sm:px-6"
+      >
         {initialLoading ? (
           <div className="flex items-center justify-center py-12">
             <span className="text-dg-text-tertiary text-[0.85rem]">Loading catalog...</span>
@@ -452,7 +472,9 @@ function MediaRow({
             </span>
           )}
           {item.originalTitle && (
-            <span className="text-xs text-dg-text-tertiary truncate hidden sm:inline">{item.originalTitle}</span>
+            <span className="text-xs text-dg-text-tertiary truncate hidden sm:inline">
+              {item.originalTitle}
+            </span>
           )}
         </div>
       </div>

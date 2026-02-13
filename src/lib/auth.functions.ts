@@ -1,11 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { getDb } from "../db";
+import { cleanEnv, getDb } from "../db";
 import { users } from "../db/schema";
 import { getAuthenticatedAgent } from "./auth/agent";
 import { getOAuthClient } from "./auth/client";
 import { clearSessionCookie, getSessionData, setSessionCookie } from "./auth/session";
+import { getGitHubAuthUrl, getGoogleAuthUrl, handleProviderCallback } from "./oauth-providers";
 import { reconcileUser } from "./sync";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -20,13 +21,13 @@ export const getAuthState = createServerFn({ method: "GET" }).handler(async () =
   const [user] = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.did, session.did))
+    .where(eq(users.id, session.userId))
     .limit(1);
 
   if (!user) {
     console.error(
-      "[auth] getAuthState: session valid but user not in DB (did=%s), clearing",
-      session.did,
+      "[auth] getAuthState: session valid but user not in DB (userId=%s), clearing",
+      session.userId,
     );
     clearSessionCookie();
     return null;
@@ -34,6 +35,8 @@ export const getAuthState = createServerFn({ method: "GET" }).handler(async () =
 
   return session;
 });
+
+// ─── Bluesky (AT Protocol) login ──────────────────────────────────────────────
 
 export const initiateLogin = createServerFn({ method: "POST" })
   .inputValidator(z.object({ handle: z.string().min(1) }))
@@ -120,29 +123,48 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
         .where(eq(users.did, did))
         .limit(1);
 
+      // Get authenticated agent (reused for email fetch + PDS reconciliation)
+      let agent: Awaited<ReturnType<typeof getAuthenticatedAgent>> | null = null;
+      let email: string | null = null;
+      try {
+        agent = await getAuthenticatedAgent(did);
+        // Fetch email from PDS (com.atproto.server.getSession includes it)
+        const sessionInfo = await agent.com.atproto.server.getSession();
+        if (sessionInfo.data.email && sessionInfo.data.emailConfirmed) {
+          email = sessionInfo.data.email;
+          if (isDev) console.debug("[callback] got confirmed email from PDS:", email);
+        }
+      } catch (err) {
+        console.error("[callback] agent/email fetch failed (continuing):", err);
+      }
+
       let userId: string;
       if (existing.length > 0) {
         userId = existing[0].id;
-        await db.update(users).set({ handle }).where(eq(users.id, userId));
+        await db
+          .update(users)
+          .set({ handle, ...(email ? { email } : {}) })
+          .where(eq(users.id, userId));
         if (isDev) console.debug("[callback] updated existing user:", userId);
       } else {
         const [newUser] = await db
           .insert(users)
-          .values({ did, handle, authMethod: "atproto" })
+          .values({ did, handle, authMethod: "atproto", ...(email ? { email } : {}) })
           .returning({ id: users.id });
         userId = newUser.id;
         if (isDev) console.debug("[callback] created new user:", userId);
       }
 
-      try {
-        const agent = await getAuthenticatedAgent(did);
-        await reconcileUser(agent, userId, did);
-        if (isDev) console.debug("[callback] PDS reconciliation complete");
-      } catch (err) {
-        console.error("[callback] PDS reconciliation failed (login continues):", err);
+      if (agent) {
+        try {
+          await reconcileUser(agent, userId, did);
+          if (isDev) console.debug("[callback] PDS reconciliation complete");
+        } catch (err) {
+          console.error("[callback] PDS reconciliation failed (login continues):", err);
+        }
       }
 
-      await setSessionCookie({ did, handle });
+      await setSessionCookie({ userId, handle, authMethod: "atproto", did });
       if (isDev) console.debug("[callback] session cookie set, login complete");
       return { did, handle };
     } catch (err) {
@@ -151,16 +173,46 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
     }
   });
 
+// ─── Google / GitHub login ────────────────────────────────────────────────────
+
+export const initiateGoogleLogin = createServerFn({ method: "POST" }).handler(async () => {
+  if (!cleanEnv(process.env.GOOGLE_CLIENT_ID))
+    throw new Error("GOOGLE_CLIENT_ID is not configured");
+  const state = crypto.randomUUID();
+  return { url: getGoogleAuthUrl(state) };
+});
+
+export const initiateGitHubLogin = createServerFn({ method: "POST" }).handler(async () => {
+  if (!cleanEnv(process.env.GITHUB_CLIENT_ID))
+    throw new Error("GITHUB_CLIENT_ID is not configured");
+  const state = crypto.randomUUID();
+  return { url: getGitHubAuthUrl(state) };
+});
+
+export const handleGoogleCallback = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ code: z.string() }))
+  .handler(async ({ data }) => {
+    return handleProviderCallback("google", data.code);
+  });
+
+export const handleGitHubCallback = createServerFn({ method: "GET" })
+  .inputValidator(z.object({ code: z.string() }))
+  .handler(async ({ data }) => {
+    return handleProviderCallback("github", data.code);
+  });
+
+// ─── Logout ───────────────────────────────────────────────────────────────────
+
 export const logout = createServerFn({ method: "POST" }).handler(async () => {
   if (isDev) console.debug("[logout] ─── logout called ───");
   const session = await getSessionData();
-  if (session) {
+  if (session?.authMethod === "atproto" && session.did) {
     try {
       const client = await getOAuthClient();
       await client.revoke(session.did as `did:${string}:${string}`);
-      if (isDev) console.debug("[logout] session revoked for DID:", session.did);
+      if (isDev) console.debug("[logout] AT Protocol session revoked for DID:", session.did);
     } catch (err) {
-      console.error("[logout] revocation failed:", err);
+      console.error("[logout] AT Protocol revocation failed:", err);
     }
   }
   clearSessionCookie();

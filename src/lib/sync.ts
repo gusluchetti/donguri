@@ -118,7 +118,11 @@ export async function upsertLocalMirror(
       existing.rkey === rkey;
 
     if (unchanged) {
-      console.debug("[sync] upsertLocalMirror userId=%s rkey=%s → no changes, skipping", userId, rkey);
+      console.debug(
+        "[sync] upsertLocalMirror userId=%s rkey=%s → no changes, skipping",
+        userId,
+        rkey,
+      );
       return;
     }
 
@@ -183,10 +187,18 @@ export async function reconcileUser(agent: Agent, userId: string, did: string): 
 
     fetchComplete = true;
   } catch (err) {
-    console.error("[sync] reconcileUser PDS fetch incomplete (got %d records):", pdsRecords.size, err);
+    console.error(
+      "[sync] reconcileUser PDS fetch incomplete (got %d records):",
+      pdsRecords.size,
+      err,
+    );
   }
 
-  console.debug("[sync] reconcileUser fetched %d records from PDS (complete=%s)", pdsRecords.size, fetchComplete);
+  console.debug(
+    "[sync] reconcileUser fetched %d records from PDS (complete=%s)",
+    pdsRecords.size,
+    fetchComplete,
+  );
 
   for (const [rkey, record] of pdsRecords) {
     await upsertLocalMirror(userId, rkey, record);

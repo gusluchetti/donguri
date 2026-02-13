@@ -9,9 +9,10 @@ Live at **donguri.app**.
 
 ## P0 — Quick wins with big impact
 
-- [ ] Make the GitHub repo public — open source it, get eyes on it
-- [ ] Open Graph meta tags — link previews on WhatsApp, Discord, Twitter, iMessage (per-page: title, description, cover art)
-- [ ] Dark/light theme toggle — how do we not have this yet
+- [x] Open Graph meta tags — link previews on WhatsApp, Discord, Twitter, iMessage (per-page: title, description, cover art)
+- [x] Dark/light theme toggle
+- [x] Google OAuth login (biggest reach, lowest friction)
+- [x] GitHub OAuth login (dev audience)
 - [ ] Define canonical genre list (~25: action, comedy, drama, horror, sci-fi, romance, thriller, fantasy, mystery, documentary, etc.)
 - [ ] Build mapping table from Wikidata genre Q-IDs → canonical genres (many-to-one)
 - [ ] Migration: reclassify existing `genres` rows using the mapping, drop unmappable junk
@@ -34,9 +35,8 @@ Core feature gap — half the catalog is TV/anime and users can't track "I watch
 
 More auth methods = more users. Polish + onboarding = users that stay.
 
-- [ ] Google OAuth login (biggest reach, lowest friction)
-- [ ] GitHub OAuth login (dev audience)
-- [ ] Unified user model — all auth methods → same `users` table, AT sync opt-in
+- [x] Unified user model — all auth methods → same `users` table, AT sync opt-in
+- [ ] Account linking UI — settings page to connect additional providers (Google/GitHub/Bluesky) to an existing account. Email auto-link only works between Google↔GitHub; Bluesky has no email so needs explicit linking.
 - [ ] Onboarding flow — pick media types + favorite genres on first login
 - [ ] Empty state design — smart suggestions when watchlist is empty
 - [ ] Guided tour / tooltips for first-time users
@@ -44,6 +44,8 @@ More auth methods = more users. Polish + onboarding = users that stay.
 - [ ] Loading states, skeleton screens, toast notifications
 - [ ] Responsive design audit (catalog grid, detail pages, forms)
 - [ ] Accessibility pass — keyboard nav, screen reader labels, contrast ratios
+- [ ] Changelog / "What's new" page — render from a static list (markdown or JSON), link from footer
+- [ ] Version display in footer or settings — semver from `package.json` injected at build time
 
 ## P3 — Monetization
 
@@ -69,8 +71,8 @@ Cosmetic but impactful — cover art makes the product feel real.
 
 ## P5 — Data safety
 
+- [ ] **Account deletion** — full cascade: delete user row + all catalog_entries + revoke AT Protocol tokens for Bluesky users. Settings page button with confirmation. Non-negotiable.
 - [ ] Export user data as JSON/CSV
-- [ ] Account deletion flow (GDPR-compliant)
 - [ ] Backup reminders for non-AT users
 
 ## P6 — Feedback + community

@@ -1,10 +1,16 @@
 import { createRootRoute, HeadContent, Link, Outlet, Scripts } from "@tanstack/react-router";
+import { Moon, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import "../app.css";
 import { getAuthState, logout } from "../lib/auth.functions";
 import { getUserTrackedIds } from "../lib/catalog.functions";
 import { cacheClearAll } from "../lib/idb-cache";
+import { ogTags } from "../lib/og";
 import { swrLoad } from "../lib/swr-loader";
+import { getThemeCookie, ThemeProvider, useTheme } from "../lib/theme";
+
+// Sets data-theme before first paint. Also syncs the cookie for SSR on next visit.
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('dg-theme');if(!t){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.setAttribute('data-theme',t);document.cookie='dg-theme='+t+';path=/;max-age=34560000;samesite=lax'}catch(e){document.documentElement.setAttribute('data-theme','dark')}})()`;
 
 export const Route = createRootRoute({
   head: () => ({
@@ -17,6 +23,11 @@ export const Route = createRootRoute({
         name: "description",
         content: "Track movies, TV, anime, and games. Your catalog, your data.",
       },
+      ...ogTags({
+        title: "donguri",
+        description: "Track movies, TV, anime, and games. Your catalog, your data.",
+        path: "/",
+      }),
     ],
     links: [
       {
@@ -30,7 +41,7 @@ export const Route = createRootRoute({
     ],
   }),
   loader: async () => {
-    const auth = await getAuthState();
+    const [auth, theme] = await Promise.all([getAuthState(), getThemeCookie()]);
     let trackedIds: Record<string, string | null> = {};
     if (auth) {
       try {
@@ -43,16 +54,18 @@ export const Route = createRootRoute({
         console.error("[root] getUserTrackedIds FAILED:", err, "(continuing with empty)");
       }
     }
-    return { auth, trackedIds };
+    return { auth, trackedIds, theme };
   },
   staleTime: 30_000,
   component: RootComponent,
 });
 
-function RootDocument({ children }: { children: ReactNode }) {
+function RootDocument({ children, theme }: { children: ReactNode; theme: string }) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme={theme} {...(import.meta.env.DEV ? { "data-env": "dev" } : {})}>
       <head>
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static inline script for theme init before paint */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
       <body className="bg-dg-bg m-0 p-0">
@@ -70,54 +83,76 @@ const NAV_LINKS: readonly { to: string; label: string; accent?: boolean; exact?:
 ];
 
 function RootComponent() {
-  const { auth } = Route.useLoaderData();
+  const { auth, theme } = Route.useLoaderData();
 
   return (
-    <RootDocument>
-      <nav className="border-b border-dg-border-subtle px-4 sm:px-6 py-3 font-mono">
-        <div className="max-w-[1000px] mx-auto flex items-center min-h-[44px] gap-4 sm:gap-6">
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.to}
-              to={link.to}
-              activeOptions={{ exact: link.exact !== false }}
-              className="text-[0.85rem] no-underline transition-colors duration-150 min-h-[44px] flex items-center"
-              activeProps={{ className: "text-dg-accent" }}
-              inactiveProps={{
-                className: link.accent ? "text-dg-accent" : "text-dg-text-secondary",
-              }}
-            >
-              {link.accent ? <span className="font-semibold">{link.label}</span> : link.label}
-            </Link>
-          ))}
-          <div className="ml-auto">
-            {auth ? (
-              <div className="flex items-center gap-4">
-                <span className="text-[0.8rem] text-dg-text-secondary hidden sm:inline">@{auth.handle}</span>
-                <button
-                  type="button"
-                  className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none font-mono min-h-[44px] flex items-center"
-                  onClick={async () => {
-                    await logout();
-                    cacheClearAll();
-                    window.location.href = "/";
-                  }}
-                >
-                  logout
-                </button>
-              </div>
-            ) : (
+    <RootDocument theme={theme}>
+      <ThemeProvider initialTheme={theme}>
+        <nav className="border-b border-dg-border-subtle px-4 sm:px-6 py-3 font-mono">
+          <div className="max-w-[1000px] mx-auto flex items-center min-h-[44px] gap-4 sm:gap-6">
+            {NAV_LINKS.map((link) => (
               <Link
-                to="/"
-                className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-150 min-h-[44px] flex items-center"
+                key={link.to}
+                to={link.to}
+                activeOptions={{ exact: link.exact !== false }}
+                className="text-[0.85rem] no-underline transition-colors duration-150 min-h-[44px] flex items-center"
+                activeProps={{ className: "text-dg-accent" }}
+                inactiveProps={{
+                  className: link.accent ? "text-dg-accent" : "text-dg-text-secondary",
+                }}
               >
-                login
+                {link.accent ? <span className="font-semibold">{link.label}</span> : link.label}
               </Link>
-            )}
+            ))}
+            <div className="ml-auto flex items-center gap-3">
+              <ThemeToggle />
+              {auth ? (
+                <div className="flex items-center gap-4">
+                  <span className="text-[0.8rem] text-dg-accent hidden sm:inline">
+                    {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
+                  </span>
+                  <button
+                    type="button"
+                    className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none font-mono min-h-[44px] flex items-center"
+                    onClick={async () => {
+                      await logout();
+                      cacheClearAll();
+                      window.location.href = "/";
+                    }}
+                  >
+                    logout
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  to="/"
+                  className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-150 min-h-[44px] flex items-center"
+                >
+                  login
+                </Link>
+              )}
+            </div>
           </div>
-        </div>
-      </nav>
-      <Outlet />
+        </nav>
+        <Outlet />
+      </ThemeProvider>
     </RootDocument>
+  );
+}
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+  const Icon = theme === "dark" ? Sun : Moon;
+
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      className="text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none p-2 -m-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+      title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+    >
+      <Icon size={16} />
+    </button>
   );
 }

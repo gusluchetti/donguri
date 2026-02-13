@@ -7,22 +7,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Runtime**: Bun (dev/build), Fly.io (production)
 
 ```bash
-# Development (starts fly proxy + cloudflared tunnel + vite dev server)
-bun run dev
+# ─── First-time setup ───────────────────────────────────────────────────────
+cp .env.example .env          # Edit with your secrets
+bun install
+bun run dev                   # Starts local Postgres + Vite dev server
 
-# Vite only (no proxy/tunnel)
-bun run dev:vite
+# On first run, push the schema to the local DB:
+bun run db:push
 
-# Production build
-bun run build
+# ─── Development ─────────────────────────────────────────────────────────────
+bun run dev                   # Local Postgres (Docker) + cloudflared tunnel + Vite
 
-# Database commands (Drizzle + Postgres)
-bun run db:generate    # Generate migrations from schema
-bun run db:migrate     # Run pending migrations
-bun run db:push        # Push schema changes directly
-bun run db:studio      # Open Drizzle Studio
+# ─── Local Database (Docker Compose) ────────────────────────────────────────
+bun run db:up                 # Start local Postgres (idempotent)
+bun run db:down               # Stop local Postgres (data preserved)
+bun run db:reset              # Destroy and recreate local Postgres (data lost)
 
-# Wikidata import (two-pass pipeline)
+# ─── Database commands (Drizzle + Postgres) ──────────────────────────────────
+bun run db:generate           # Generate migrations from schema
+bun run db:migrate            # Run pending migrations
+bun run db:push               # Push schema changes directly
+bun run db:studio             # Open Drizzle Studio
+
+# ─── Production build ───────────────────────────────────────────────────────
+bun run build                 # Vite build → .output/
+bun run dev:prod              # Tunnel + Docker build+run (test prod bundle locally)
+fly deploy                    # Deploy to Fly.io
+
+# ─── Wikidata import ────────────────────────────────────────────────────────
 # Pass 1: Extract media subset from full dump
 lbzip2 -dc /path/to/latest-all.json.bz2 | bun run src/import/subset.ts > media-subset.ndjson
 
@@ -33,8 +45,8 @@ bun run src/import/index.ts media-subset.ndjson --full --limit=1000 # Limited im
 bun run src/import/index.ts media-subset.ndjson --full --resumeFrom=Q123
 bun run src/import/index.ts media-subset.ndjson --clean             # Clean DB first
 
-# Deploy to Fly.io
-bun run build && fly deploy
+# ─── Production DB access (manual) ──────────────────────────────────────────
+# fly proxy 5432 -a donguri-db   # Then connect with a different DATABASE_URL
 ```
 
 ## Architecture
@@ -57,11 +69,13 @@ src/
     index.ts          → Database client (postgres.js)
     fts.ts            → pg_trgm extension + GIN index setup
   lib/
-    env.ts            → Environment variable access (process.env, not used in vite.config.ts)
     media.functions.ts → Server functions (listMedia, getMedia, getMediaStats)
     media-types.ts    → Type labels and badge color mappings
     catalog.functions.ts → Server functions (catalog entries, tracked IDs)
-    auth.functions.ts → Server functions (login, logout, auth state)
+    auth.functions.ts → Server functions (login, logout, auth state, Google/GitHub OAuth)
+    oauth-providers.ts → Google + GitHub OAuth flow helpers
+    og.ts             → Open Graph + Twitter Card meta tag helper
+    theme.tsx         → ThemeProvider + useTheme hook (dark/light toggle)
     prefetch.ts       → Background catalog prefetch for perf
     swr-loader.ts     → Stale-while-revalidate loader with IDB cache
     idb-cache.ts      → IndexedDB cache layer for client-side data
@@ -89,7 +103,7 @@ drizzle.config.ts     → Drizzle Kit config for Postgres
 - `media` — Unified table for movies, TV, anime, games. Sparse columns for type-specific fields.
 - `genres` / `media_genres` — Many-to-many genre relationships
 - `platforms` / `media_platforms` — Many-to-many platform relationships (games)
-- `users` — User accounts (AT Protocol via Bluesky OAuth)
+- `users` — User accounts (Bluesky via AT Protocol, Google, GitHub)
 - `catalog_entries` — User tracking data (status, ratings, episode progress, notes)
 - `oauth_states` / `oauth_sessions` — AT Protocol OAuth state (replaces KV)
 - `import_progress` — Import job tracking with resume support
@@ -108,6 +122,10 @@ DATABASE_URL=          # Postgres connection string (e.g., postgresql://user:pas
 OAUTH_PRIVATE_KEY_JWK= # ES256 private key in JWK format
 SESSION_SECRET=        # Session cookie signing secret
 PUBLIC_URL=            # Public-facing URL (e.g., https://donguri.fly.dev)
+GOOGLE_CLIENT_ID=      # Google OAuth client ID
+GOOGLE_CLIENT_SECRET=  # Google OAuth client secret
+GITHUB_CLIENT_ID=      # GitHub OAuth client ID (App)
+GITHUB_CLIENT_SECRET=  # GitHub OAuth client secret
 ```
 
 ## Current Features
@@ -115,13 +133,13 @@ PUBLIC_URL=            # Public-facing URL (e.g., https://donguri.fly.dev)
 - **Catalog**: 100k+ titles (movies, TV, anime, games) with full-text search and type filtering
 - **Detail pages**: genres, platforms, external links (IMDb, TMDB, MAL, AniList, IGDB, etc.)
 - **Tracking**: status (watching/completed/dropped/paused/plan to watch), 0-100 ratings, episode progress count
-- **Auth**: Bluesky OAuth only. Account required to browse the catalog.
+- **Auth**: Bluesky OAuth (with PDS sync), Google OAuth, GitHub OAuth
 - **Caching**: IDB-backed stale-while-revalidate on client, background prefetch
-- **Not yet built**: per-episode tracking UI, genre filtering in catalog, cover art display, notes UI, additional login methods, data import/export
+- **Not yet built**: per-episode tracking UI, genre filtering in catalog, cover art display, notes UI, data import/export
 
 ## Frontend Aesthetics
 
-Dark theme with warm, earthy tones (donguri = acorn in Japanese).
+Dark/light theme toggle with warm, earthy tones (donguri = acorn in Japanese).
 IBM Plex Mono for a technical, catalog-like feel.
 Amber/ochre accent (#d4a44a) on dark background (#0f0e0c).
 Type badges color-coded: movie (copper), TV (teal), anime (rose), game (sage).
