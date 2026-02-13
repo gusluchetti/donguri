@@ -1,7 +1,7 @@
 const DB_NAME = "donguri";
 const DB_VERSION = 2;
 const STORE_NAME = "cache";
-const MAX_BYTES = 25 * 1024 * 1024; // 25MB budget
+const MAX_BYTES = 10 * 1024 * 1024; // 10MB budget
 
 // Keys that should survive LRU eviction
 const PROTECTED_KEYS = new Set(["trackedIds", "watchlist", "mediaStats"]);

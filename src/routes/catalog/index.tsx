@@ -111,6 +111,9 @@ function CatalogPage() {
   // prevents re-fetching when router.invalidate() creates a new auth reference
   const isLoggedIn = auth?.userId;
   const prefetchTriggered = useRef(false);
+  const prevParamsRef = useRef<{ q: string | undefined; mediaType: string | undefined } | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -123,6 +126,11 @@ function CatalogPage() {
 
     const isSearch = !!q;
     const catalogCacheKey = `catalog:${mediaType ?? "all"}:0`;
+
+    // Detect whether params actually changed (vs. remount with same params)
+    const prev = prevParamsRef.current;
+    const paramsChanged = !prev || prev.q !== q || prev.mediaType !== mediaType;
+    prevParamsRef.current = { q, mediaType };
 
     const load = async () => {
       // Try IDB cache first (only for browse, not search)
@@ -137,10 +145,27 @@ function CatalogPage() {
           setNextCursor(cachedCatalog.data.nextCursor);
           if (cachedStats) setStats(cachedStats.data);
           setInitialLoading(false);
-          parentRef.current?.scrollTo(0, 0);
+          if (paramsChanged) parentRef.current?.scrollTo(0, 0);
 
-          // If fresh, skip network
+          // If fresh, skip network entirely
           if (!isStale(cachedCatalog.timestamp, 30 * 60 * 1000)) return;
+
+          // Stale: revalidate in background (update IDB only, don't replace state)
+          const dataPromise = listMedia({ data: { limit: 50, mediaType, search: undefined } });
+          const statsPromise = getMediaStats({});
+          Promise.all([dataPromise, statsPromise])
+            .then(([data, statsData]) => {
+              if (cancelled) return;
+              cacheSet(catalogCacheKey, data).catch(() => {});
+              if (statsData) cacheSet("mediaStats", statsData).catch(() => {});
+            })
+            .catch(() => {});
+
+          if (!prefetchTriggered.current) {
+            prefetchTriggered.current = true;
+            scheduleCatalogPrefetch();
+          }
+          return;
         }
       } else {
         setInitialLoading(true);
@@ -157,7 +182,7 @@ function CatalogPage() {
         setNextCursor(data.nextCursor);
         if (statsData) setStats(statsData);
         setInitialLoading(false);
-        parentRef.current?.scrollTo(0, 0);
+        if (paramsChanged) parentRef.current?.scrollTo(0, 0);
 
         // Cache browse results (not search)
         if (!isSearch) {

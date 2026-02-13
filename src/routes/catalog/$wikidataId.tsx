@@ -127,7 +127,13 @@ function MediaDetailSkeleton() {
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
       <div className="max-w-[1000px] mx-auto p-4 sm:p-6">
-        <div className="text-dg-text-tertiary text-[0.8rem] mb-6">&larr; catalog</div>
+        <button
+          type="button"
+          onClick={() => window.history.back()}
+          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-4 sm:mb-6 inline-block"
+        >
+          &larr; back
+        </button>
         <div className="mb-6">
           <div className="w-16 h-5 bg-dg-surface rounded-sm mb-3 animate-pulse" />
           <div className="w-2/3 h-8 bg-dg-surface rounded animate-pulse" />

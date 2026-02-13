@@ -51,17 +51,7 @@ async function runPrefetch(): Promise<void> {
 
     try {
       const page0 = await listMedia({ data: { limit: 50, mediaType } });
-      if (page0.nextCursor) {
-        const page1 = await listMedia({
-          data: { limit: 50, mediaType, cursor: page0.nextCursor },
-        });
-        await cacheSet(cacheKey, {
-          items: [...page0.items, ...page1.items],
-          nextCursor: page1.nextCursor,
-        });
-      } else {
-        await cacheSet(cacheKey, page0);
-      }
+      await cacheSet(cacheKey, page0);
     } catch {
       // Non-critical
     }
