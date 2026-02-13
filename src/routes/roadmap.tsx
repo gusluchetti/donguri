@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ogTags } from "../lib/og";
+import { ogTags, pageTitle } from "../lib/og";
 
 export const Route = createFileRoute("/roadmap")({
   head: () => ({
     meta: [
-      { title: "Roadmap — donguri" },
+      { title: pageTitle("roadmap — donguri") },
       {
         name: "description",
         content:

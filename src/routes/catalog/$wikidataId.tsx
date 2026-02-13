@@ -19,7 +19,7 @@ import {
   statusLabel,
   typeBadgeClass,
 } from "../../lib/media-types";
-import { ogTags } from "../../lib/og";
+import { ogTags, pageTitle } from "../../lib/og";
 import { swrLoad } from "../../lib/swr-loader";
 import { useAction } from "../../lib/use-action";
 
@@ -103,7 +103,7 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
 
     return {
       meta: [
-        { title: `${title} — donguri` },
+        { title: pageTitle(`${title} — donguri`) },
         { name: "description", content: description },
         ...ogTags({
           title: `${title} — donguri`,

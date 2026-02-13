@@ -12,7 +12,7 @@ import {
   type StatusValue,
   typeBadgeClass,
 } from "../../lib/media-types";
-import { ogTags } from "../../lib/og";
+import { ogTags, pageTitle } from "../../lib/og";
 import { swrLoad } from "../../lib/swr-loader";
 
 const rootRoute = getRouteApi("__root__");
@@ -62,7 +62,7 @@ export const Route = createFileRoute("/catalog/")({
   staleTime: 5 * 60 * 1000,
   head: () => ({
     meta: [
-      { title: "Catalog — donguri" },
+      { title: pageTitle("catalog — donguri") },
       {
         name: "description",
         content:

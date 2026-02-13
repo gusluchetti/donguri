@@ -12,7 +12,7 @@ import "../app.css";
 import { getAuthState, logout } from "../lib/auth.functions";
 import { getUserTrackedIds } from "../lib/catalog.functions";
 import { cacheClearAll } from "../lib/idb-cache";
-import { ogTags } from "../lib/og";
+import { ogTags, pageTitle } from "../lib/og";
 import { swrLoad } from "../lib/swr-loader";
 import { getThemeCookie, ThemeProvider, useTheme } from "../lib/theme";
 
@@ -25,7 +25,7 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1" },
       { name: "theme-color", content: "#d4a44a" },
-      { title: "donguri" },
+      { title: pageTitle("donguri") },
       {
         name: "description",
         content: "Track movies, TV, anime, and games. Your catalog, your data.",

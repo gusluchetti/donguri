@@ -12,7 +12,7 @@ import {
   type StatusValue,
   typeBadgeClass,
 } from "../lib/media-types";
-import { ogTags } from "../lib/og";
+import { ogTags, pageTitle } from "../lib/og";
 import { swrLoad } from "../lib/swr-loader";
 
 const rootRoute = getRouteApi("__root__");
@@ -34,7 +34,7 @@ type CatalogEntryRow = {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "donguri — track movies, TV, anime, and games" },
+      { title: pageTitle("donguri") },
       ...ogTags({
         title: "donguri — track movies, TV, anime, and games",
         description:
