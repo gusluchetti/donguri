@@ -9,34 +9,83 @@ Live at **donguri.app**.
 
 ## P0 — Quick wins with big impact
 
-- [x] Open Graph meta tags — link previews on WhatsApp, Discord, Twitter, iMessage (per-page: title, description, cover art)
-- [x] Dark/light theme toggle
-- [x] Google OAuth login (biggest reach, lowest friction)
-- [x] GitHub OAuth login (dev audience)
-- [x] Unified OAuth provider config — generic flow, adding a new provider is one config entry
-- [ ] Define canonical genre list (~25: action, comedy, drama, horror, sci-fi, romance, thriller, fantasy, mystery, documentary, etc.)
-- [ ] Build mapping table from Wikidata genre Q-IDs → canonical genres (many-to-one)
-- [ ] Migration: reclassify existing `genres` rows using the mapping, drop unmappable junk
-- [ ] Genre chips on detail pages become meaningful
-- [ ] Genre filter in catalog — filter by canonical genre, not just media type
+- [ ] **Unified status vocab + data model overhaul** — schema-level changes, do in one migration batch
+  - **Status enum** → neutral DB values: `planned`, `in_progress`, `on_hold`, `completed`, `dropped`, `mastered`
+    - Movies: only `planned`, `completed`, `dropped` shown in UI (no "watching" a movie)
+    - Games: `mastered` shown as "100%" — hidden for all other types
+    - `in_progress` / `on_hold` hidden for movies — valid in DB but not offered in UI
+    - Migration: `watching` → `in_progress`, `plan_to_watch` → `planned`, `paused` → `on_hold`
+  - **New columns on `catalog_entries`**:
+    - `is_favorite` boolean DEFAULT false
+    - `replay_count` integer DEFAULT 0 — only incrementable from `completed` status, no separate "revisiting" status
+    - `completed_at` timestamp — set when status changes to `completed`, null otherwise (for stats, year-in-review, recommendation freshness)
+    - `watched_episodes` JSONB — per-episode checkboxes: `{"1": [1,2,3,4,5,6,7], "2": [1,2,3]}` (season → watched ep numbers)
+    - Keep `episode_progress` integer as denormalized total for quick display/sorting
+  - **New `seasons` table**: `media_id` FK, `season_number`, `episode_count`, `title` (optional), `data_source` enum (`wikidata`/`tvmaze`/`anime_offline_db`), unique on (media_id, season_number)
+  - **New column on `media`**: `tvmaze_id` text + index — Wikidata P4372, for TVMaze season import matching
+  - **Display label map** in `media-types.ts` keyed by media type — returns null for hidden combos (e.g. movie + in_progress)
+    - Movie: Planned → "Plan to Watch", Completed → "Watched", Dropped → "Dropped"
+    - TV/Anime: Planned/Watching/Paused/Completed/Dropped per type
+    - Game: adds "Playing", "Plan to Play", "100%"
+    - Book/Manga/Music: ready in map for future media types
+    - `replay_count` display: "Watched x3" / "Replayed x2" / "Reread x2" per type
+  - **AT Protocol Lexicon update** — add `isFavorite`, `replayCount`, `watchedEpisodes` to catalog entry record schema; update sync.ts read/write mappers
+  - **Import parser** — extract P4372 (TVMaze ID) alongside existing 8 external IDs
+- [ ] **Genre normalization (two-tier)** — current `genres.name` stores raw Wikidata Q-IDs ("Q18518" instead of "Action")
+  - **Schema**: self-referencing `canonical_genres` table: `slug`, `name`, `parent_id` (NULL = main genre, FK = sub-genre), `sort_order`
+  - **Mapping table**: `genre_mappings` — `wikidata_id` → `canonical_genre_id` (many-to-many), `source` (`manual`/`p279_auto`)
+  - **Main genres (~18)**: Action, Adventure, Comedy, Crime, Documentary, Drama, Family, Fantasy, Historical, Horror, Music, Mystery, Romance, Sci-Fi, Sports, Thriller, War, Western
+  - **Sub-genres (~47)**, each parented to a main genre:
+    - Action → Martial Arts, Mecha, Superhero
+    - Adventure → Survival, Exploration
+    - Comedy → Parody, Satire, Romantic Comedy
+    - Crime → Noir, Heist
+    - Drama → Slice of Life, Coming of Age, Tragedy
+    - Fantasy → Dark Fantasy, High Fantasy, Isekai, Urban Fantasy, Mahou Shoujo
+    - Historical → Samurai, Medieval
+    - Horror → Psychological Horror, Slasher, Gothic, Body Horror, Survival Horror
+    - Mystery → Detective
+    - Sci-Fi → Cyberpunk, Space Opera, Dystopian, Post-Apocalyptic, Time Travel
+    - Thriller → Psychological Thriller, Espionage
+    - Game mechanics → RPG, Platformer, FPS, TPS, Strategy, Puzzle, Simulation, Racing, Fighting, Visual Novel
+    - Floating → Musical (pairs with any main genre)
+  - **Mapping rules**: sub-genre implies its parent — "Romantic Comedy" maps to Main: Comedy | Sub: Romantic Comedy, NOT Comedy + Romance. Avoids repetition. Compound Wikidata genres (e.g., "comedy horror" Q108466999) map to multiple main genres only when no sub-genre captures the combo.
+  - **Mapping strategy (hybrid)**:
+    - Phase 1: Manual core map (~100-150 most common Wikidata Q-IDs). Covers ~90% of assignments.
+    - Phase 2: P279 auto-resolve — walk Wikidata `subclass of` hierarchy (max 3 hops) for unmapped Q-IDs. Batch SPARQL query.
+    - Phase 3: Unmapped after 3 hops → drop from display. Keep raw Q-IDs in `media_genres` for traceability.
+  - **Import pipeline**: after `ensureGenres()`, resolve Q-IDs via mapping → populate `media` ↔ `canonical_genres` links. Fix `genres.name` to store English labels (fetch from Wikidata).
+  - **Genre vectors for recommendations**: binary multi-hot encoding against canonical genres. Cosine similarity for content-based filtering. Pre-compute user preference profile from highly-rated items.
+- [ ] Genre chips on detail pages — show main + sub-genre with hierarchy (e.g., "Sci-Fi > Cyberpunk"), not Q-IDs
+- [ ] Genre filter in catalog — filter by main genre and/or sub-genre, scoped by media type where relevant
 - [ ] Multi-filter search — combine type + genre + year range + rating
 
-## P1 — Episode tracking
+## P1 — Episode data import
 
-Core feature gap — half the catalog is TV/anime and users can't track "I watched S2E5" yet.
+`seasons` table and `watched_episodes` JSONB created in P0. This section is about populating season data.
 
-- [ ] TMDB API client setup (free, ~50 req/s, excellent season/episode data)
-- [ ] New tables: `seasons` + `episodes` linked to `media`
-- [ ] Import pipeline: match by stored TMDB ID → fetch seasons/episodes → insert
-- [ ] Backfill existing TV/anime catalog entries (batch job, rate-limited)
-- [ ] UI: season selector + per-episode checkboxes on detail page
-- [ ] Per-episode watched state in `catalog_entries` (jsonb or `episode_progress` table)
+**Open data only.** No TMDB (proprietary, commercial license issues). Wikidata is always the primary source.
+
+Data sources (researched Feb 2026):
+- **Wikidata** (CC0, primary) — season entities are Q3464665 (TV season) and Q100269041 (anime season). ~36% have episode counts, but we should extract everything available. Expand the dump filter in `subset.ts` to also capture season entities, then link to parent series via P179 (part of series) with P1545 ordinal qualifier. Episode counts via P1113 on season entities.
+- **TVMaze** (CC BY-SA) — gap-fill for TV series where Wikidata seasons are missing. Per-season episode counts, explicit caching allowed, `/updates/shows` for incremental sync. Attribute with footer link.
+- **anime-offline-database** (ODbL) — gap-fill for anime. 40k+ entries, weekly JSON dump, match via MAL/AniList IDs. Total episode count only (no per-season), but most anime don't have Western-style seasons → single "Season 1" with all episodes.
+
+Pipeline:
+- [ ] Expand `subset.ts` filter to capture Q3464665 + Q100269041 (season entities) alongside media entities
+- [ ] Expand `parser.ts` to extract season data: P179 (parent series link), P1545 (season ordinal), P1113 (episode count), P527 (has parts / episodes)
+- [ ] Import pipeline: link season entities to parent `media` rows via wikidata_id → insert into `seasons` table with `data_source: "wikidata"`
+- [ ] TVMaze gap-fill script — for TV series with no Wikidata seasons, match by `tvmaze_id` or IMDB ID → fetch `/shows/{id}/seasons` → insert with `data_source: "tvmaze"`
+- [ ] anime-offline-database gap-fill — download weekly JSON, match by `mal_id`/`anilist_id` → insert single season per anime with total episode count, `data_source: "anime_offline_db"`
+- [ ] Backfill: run Wikidata season import first, then gap-fill with TVMaze + anime-offline-db
+- [ ] Periodic refresh (monthly) to pick up new seasons and corrections
+- [ ] UI: season accordion + per-episode checkboxes on detail page, "mark through episode X" bulk toggle
+- [ ] Attribution: TVMaze link + ODbL notice in footer/about page (Wikidata is CC0, no attribution required)
 
 ## P2 — Auth + onboarding + UX polish
 
 More auth methods = more users. Polish + onboarding = users that stay.
 
-- [x] Unified user model — all auth methods → same `users` table, AT sync opt-in
 - [ ] Account linking UI — settings page to connect additional providers (Google/GitHub/Bluesky) to an existing account. Email auto-link only works between Google↔GitHub; Bluesky has no email so needs explicit linking.
 - [ ] Onboarding flow — pick media types + favorite genres on first login
 - [ ] Empty state design — smart suggestions when watchlist is empty
