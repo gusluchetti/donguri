@@ -1,7 +1,7 @@
 import { cacheGet, cacheSet, isStale } from "./idb-cache";
 import { getMediaStats, listMedia } from "./media.functions";
 
-const CATALOG_MAX_AGE = 10 * 60 * 1000; // 10 min
+const CATALOG_MAX_AGE = 30 * 60 * 1000; // 30 min
 let prefetchScheduled = false;
 
 /**
@@ -50,8 +50,18 @@ async function runPrefetch(): Promise<void> {
     if (cached && !isStale(cached.timestamp, CATALOG_MAX_AGE)) continue;
 
     try {
-      const result = await listMedia({ data: { limit: 50, mediaType } });
-      await cacheSet(cacheKey, result);
+      const page0 = await listMedia({ data: { limit: 50, mediaType } });
+      if (page0.nextCursor) {
+        const page1 = await listMedia({
+          data: { limit: 50, mediaType, cursor: page0.nextCursor },
+        });
+        await cacheSet(cacheKey, {
+          items: [...page0.items, ...page1.items],
+          nextCursor: page1.nextCursor,
+        });
+      } else {
+        await cacheSet(cacheKey, page0);
+      }
     } catch {
       // Non-critical
     }

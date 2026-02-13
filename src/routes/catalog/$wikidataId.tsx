@@ -42,7 +42,7 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
   loader: async ({ params }): Promise<LoaderData> => {
     const mediaPromise = swrLoad(() => getMedia({ data: { wikidataId: params.wikidataId } }), {
       key: `media:${params.wikidataId}`,
-      maxAgeMs: 10 * 60 * 1000,
+      maxAgeMs: 60 * 60 * 1000,
     });
     const entryPromise = swrLoad(
       () => getCatalogEntry({ data: { wikidataId: params.wikidataId } }),
@@ -64,7 +64,7 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
 
     throw new Error("Media not found");
   },
-  staleTime: 5 * 60 * 1000,
+  staleTime: 30 * 60 * 1000,
   pendingMs: 0,
   pendingComponent: MediaDetailSkeleton,
   head: ({ loaderData }) => {

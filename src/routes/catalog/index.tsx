@@ -140,7 +140,7 @@ function CatalogPage() {
           parentRef.current?.scrollTo(0, 0);
 
           // If fresh, skip network
-          if (!isStale(cachedCatalog.timestamp, 10 * 60 * 1000)) return;
+          if (!isStale(cachedCatalog.timestamp, 30 * 60 * 1000)) return;
         }
       } else {
         setInitialLoading(true);
@@ -197,8 +197,20 @@ function CatalogPage() {
             search: q || undefined,
           },
         });
-        setItems((prev) => [...prev, ...result.items]);
+        let merged: Media[] = [];
+        setItems((prev) => {
+          merged = [...prev, ...result.items];
+          return merged;
+        });
         setNextCursor(result.nextCursor);
+
+        // Cache accumulated browse data (not search)
+        if (!q) {
+          cacheSet(`catalog:${mediaType ?? "all"}:0`, {
+            items: merged,
+            nextCursor: result.nextCursor,
+          }).catch(() => {});
+        }
       } finally {
         setLoading(false);
       }
