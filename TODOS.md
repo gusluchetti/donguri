@@ -13,6 +13,7 @@ Live at **donguri.app**.
 - [x] Dark/light theme toggle
 - [x] Google OAuth login (biggest reach, lowest friction)
 - [x] GitHub OAuth login (dev audience)
+- [x] Unified OAuth provider config — generic flow, adding a new provider is one config entry
 - [ ] Define canonical genre list (~25: action, comedy, drama, horror, sci-fi, romance, thriller, fantasy, mystery, documentary, etc.)
 - [ ] Build mapping table from Wikidata genre Q-IDs → canonical genres (many-to-one)
 - [ ] Migration: reclassify existing `genres` rows using the mapping, drop unmappable junk

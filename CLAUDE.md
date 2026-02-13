@@ -72,8 +72,8 @@ src/
     media.functions.ts → Server functions (listMedia, getMedia, getMediaStats)
     media-types.ts    → Type labels and badge color mappings
     catalog.functions.ts → Server functions (catalog entries, tracked IDs)
-    auth.functions.ts → Server functions (login, logout, auth state, Google/GitHub OAuth)
-    oauth-providers.ts → Google + GitHub OAuth flow helpers
+    auth.functions.ts → Server functions (login, logout, auth state, unified OAuth)
+    oauth-providers.ts → Generic OAuth provider config map + unified flow
     og.ts             → Open Graph + Twitter Card meta tag helper
     theme.tsx         → ThemeProvider + useTheme hook (dark/light toggle)
     prefetch.ts       → Background catalog prefetch for perf
@@ -91,7 +91,7 @@ src/
     filters.ts        → P31 type classification, quality filters
     types.ts          → Wikidata types and constants
 Dockerfile            → Multi-stage Bun build
-fly.toml              → Fly.io app config
+fly.toml              → Fly.io app config (iad + gru regions, suspend idle)
 drizzle.config.ts     → Drizzle Kit config for Postgres
 ```
 
