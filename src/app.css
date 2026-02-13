@@ -54,6 +54,14 @@ html {
   --color-dg-game: #4e8540;
 }
 
+/* Dev mode accent — red tint so you never confuse dev with prod */
+[data-env="dev"] {
+  --color-dg-accent: #e05555;
+}
+[data-env="dev"][data-theme="light"] {
+  --color-dg-accent: #c43535;
+}
+
 /* Theme transition (applied temporarily during toggle) */
 html.theme-transition,
 html.theme-transition *,
