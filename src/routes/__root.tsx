@@ -65,6 +65,7 @@ export const Route = createRootRoute({
   },
   staleTime: 30_000,
   component: RootComponent,
+  notFoundComponent: NotFound,
 });
 
 function RootDocument({ children, theme }: { children: ReactNode; theme: string }) {
@@ -171,6 +172,23 @@ function RootComponent() {
         </div>
       </ThemeProvider>
     </RootDocument>
+  );
+}
+
+function NotFound() {
+  return (
+    <div className="bg-dg-bg text-dg-text flex-1 font-mono flex items-center justify-center">
+      <div className="text-center px-4 py-16">
+        <p className="text-[2rem] font-semibold text-dg-accent mb-2">404</p>
+        <p className="text-[0.9rem] text-dg-text-secondary mb-6">Page not found.</p>
+        <Link
+          to="/"
+          className="text-[0.85rem] text-dg-accent no-underline py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-150"
+        >
+          Go home
+        </Link>
+      </div>
+    </div>
   );
 }
 
