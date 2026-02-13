@@ -5,6 +5,7 @@ regions = ["iad", "gru"]
 [build]
 
 [deploy]
+  strategy = "rolling"
   release_command = "node scripts/migrate.mjs"
 
 [http_service]
@@ -12,7 +13,7 @@ regions = ["iad", "gru"]
   force_https = true
   auto_stop_machines = "suspend"
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   max_machines_per_region = 2
 
 [[vm]]
