@@ -7,9 +7,10 @@ import { getUserTrackedIds } from "../lib/catalog.functions";
 import { cacheClearAll } from "../lib/idb-cache";
 import { ogTags } from "../lib/og";
 import { swrLoad } from "../lib/swr-loader";
-import { ThemeProvider, useTheme } from "../lib/theme";
+import { getThemeCookie, ThemeProvider, useTheme } from "../lib/theme";
 
-const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('dg-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t)}else if(window.matchMedia('(prefers-color-scheme: light)').matches){document.documentElement.setAttribute('data-theme','light')}else{document.documentElement.setAttribute('data-theme','dark')}}catch(e){document.documentElement.setAttribute('data-theme','dark')}})()`;
+// Sets data-theme before first paint. Also syncs the cookie for SSR on next visit.
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('dg-theme');if(!t){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.setAttribute('data-theme',t);document.cookie='dg-theme='+t+';path=/;max-age=34560000;samesite=lax'}catch(e){document.documentElement.setAttribute('data-theme','dark')}})()`;
 
 export const Route = createRootRoute({
   head: () => ({
@@ -40,7 +41,7 @@ export const Route = createRootRoute({
     ],
   }),
   loader: async () => {
-    const auth = await getAuthState();
+    const [auth, theme] = await Promise.all([getAuthState(), getThemeCookie()]);
     let trackedIds: Record<string, string | null> = {};
     if (auth) {
       try {
@@ -53,15 +54,15 @@ export const Route = createRootRoute({
         console.error("[root] getUserTrackedIds FAILED:", err, "(continuing with empty)");
       }
     }
-    return { auth, trackedIds };
+    return { auth, trackedIds, theme };
   },
   staleTime: 30_000,
   component: RootComponent,
 });
 
-function RootDocument({ children }: { children: ReactNode }) {
+function RootDocument({ children, theme }: { children: ReactNode; theme: string }) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme={theme}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
@@ -81,11 +82,11 @@ const NAV_LINKS: readonly { to: string; label: string; accent?: boolean; exact?:
 ];
 
 function RootComponent() {
-  const { auth } = Route.useLoaderData();
+  const { auth, theme } = Route.useLoaderData();
 
   return (
-    <RootDocument>
-      <ThemeProvider>
+    <RootDocument theme={theme}>
+      <ThemeProvider initialTheme={theme}>
         <nav className="border-b border-dg-border-subtle px-4 sm:px-6 py-3 font-mono">
           <div className="max-w-[1000px] mx-auto flex items-center min-h-[44px] gap-4 sm:gap-6">
             {NAV_LINKS.map((link) => (
