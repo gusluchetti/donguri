@@ -349,6 +349,7 @@ export function parseMediaEntity(entity: WikidataEntity): ParsedMedia | null {
     igdbId: getStringClaim(entity, P.IGDB_ID),
     annId: getStringClaim(entity, P.ANN_ID),
     tvdbId: getStringClaim(entity, P.TVDB_ID),
+    tvmazeId: getStringClaim(entity, P.TVMAZE_ID),
     genreIds: getEntityIdClaims(entity, P.GENRE),
     platformIds: getEntityIdClaims(entity, P.PLATFORM),
     searchTitle,

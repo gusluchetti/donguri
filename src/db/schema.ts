@@ -1,7 +1,9 @@
 import { relations } from "drizzle-orm";
 import {
+  boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -37,9 +39,6 @@ export const media = pgTable(
     runtimeMinutes: integer("runtime_minutes"),
     seasonCount: integer("season_count"),
     episodeCount: integer("episode_count"),
-    status: text("status", {
-      enum: ["airing", "ended", "cancelled", "upcoming"],
-    }),
 
     // Popularity
     sitelinksCount: integer("sitelinks_count").default(0),
@@ -56,6 +55,7 @@ export const media = pgTable(
     igdbId: text("igdb_id"),
     annId: text("ann_id"),
     tvdbId: text("tvdb_id"),
+    tvmazeId: text("tvmaze_id"),
 
     // Media image
     posterUrl: text("poster_url"),
@@ -75,6 +75,7 @@ export const media = pgTable(
     index("idx_media_mal").on(table.malId),
     index("idx_media_igdb").on(table.igdbId),
     index("idx_media_tmdb").on(table.tmdbId),
+    index("idx_media_tvmaze").on(table.tvmazeId),
   ],
 );
 
@@ -159,11 +160,15 @@ export const catalogEntries = pgTable(
       enum: ["movie", "tv_series", "anime", "game"],
     }),
     status: text("status", {
-      enum: ["watching", "completed", "dropped", "plan_to_watch", "paused"],
+      enum: ["planned", "in_progress", "on_hold", "completed", "dropped", "mastered"],
     }),
     rating: integer("rating"),
     note: text("note"),
     episodeProgress: integer("episode_progress"),
+    isFavorite: boolean("is_favorite").default(false).notNull(),
+    replayCount: integer("replay_count").default(0).notNull(),
+    completedAt: timestamp("completed_at"),
+    watchedEpisodes: jsonb("watched_episodes").$type<Record<string, number[]>>(),
     rkey: text("rkey"), // nullable — only set for AT Protocol users
     syncedAt: timestamp("synced_at"), // nullable — last PDS sync time
     createdAt: timestamp("created_at").defaultNow(),
@@ -175,6 +180,21 @@ export const catalogEntries = pgTable(
     uniqueIndex("idx_catalog_entries_user_media").on(table.userId, table.mediaWikidataId),
   ],
 );
+
+// ─── Seasons ────────────────────────────────────────────────────────────────
+
+export const seasons = pgTable("seasons", {
+  id: text("id").primaryKey().$defaultFn(() => ulid()),
+  mediaId: text("media_id").notNull().references(() => media.id, { onDelete: "cascade" }),
+  seasonNumber: integer("season_number").notNull(),
+  episodeCount: integer("episode_count"),
+  title: text("title"),
+  dataSource: text("data_source", { enum: ["wikidata", "tvmaze", "anime_offline_db"] }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_seasons_media_number").on(table.mediaId, table.seasonNumber),
+  index("idx_seasons_media").on(table.mediaId),
+]);
 
 // ─── OAuth State (replaces KV) ──────────────────────────────────────────────
 
@@ -214,6 +234,7 @@ export const importProgress = pgTable("import_progress", {
 export const mediaRelations = relations(media, ({ many }) => ({
   mediaGenres: many(mediaGenres),
   mediaPlatforms: many(mediaPlatforms),
+  seasons: many(seasons),
 }));
 
 export const genresRelations = relations(genres, ({ many }) => ({
@@ -254,6 +275,13 @@ export const catalogEntriesRelations = relations(catalogEntries, ({ one }) => ({
   }),
 }));
 
+export const seasonsRelations = relations(seasons, ({ one }) => ({
+  media: one(media, {
+    fields: [seasons.mediaId],
+    references: [media.id],
+  }),
+}));
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export type Media = typeof media.$inferSelect;
@@ -265,3 +293,5 @@ export type NewUser = typeof users.$inferInsert;
 export type CatalogEntry = typeof catalogEntries.$inferSelect;
 export type NewCatalogEntry = typeof catalogEntries.$inferInsert;
 export type ImportProgress = typeof importProgress.$inferSelect;
+export type Season = typeof seasons.$inferSelect;
+export type NewSeason = typeof seasons.$inferInsert;

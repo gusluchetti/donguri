@@ -1,18 +1,21 @@
 import type { Agent } from "@atproto/api";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../db";
-import type { CatalogEntry } from "../db/schema";
 import { catalogEntries } from "../db/schema";
+import { normalizeStatus } from "./media-types";
 
 const COLLECTION = "app.donguri.catalog.entry";
 
 /** PDS wire format — field names differ from DB row (mediaRef vs mediaWikidataId, ISO strings vs timestamps). */
 export interface CatalogEntryRecord {
   mediaRef: string;
-  status: NonNullable<CatalogEntry["status"]>;
+  status: string; // widened for backward compat with old PDS records
   rating?: number;
   note?: string;
   episodeProgress?: number;
+  isFavorite?: boolean;
+  replayCount?: number;
+  watchedEpisodes?: Record<string, number[]>;
   title?: string;
   mediaType?: string;
   createdAt: string;
@@ -28,9 +31,6 @@ export async function putCatalogEntry(
   const rkey = entry.mediaRef;
   console.debug("[sync] putCatalogEntry did=%s rkey=%s status=%s", did, rkey, entry.status);
 
-  // Strip local-only metadata before PDS write
-  const { title: _title, mediaType: _mediaType, ...pdsRecord } = entry;
-
   let response: Awaited<ReturnType<typeof agent.com.atproto.repo.putRecord>>;
   try {
     response = await agent.com.atproto.repo.putRecord({
@@ -39,7 +39,7 @@ export async function putCatalogEntry(
       rkey,
       record: {
         $type: COLLECTION,
-        ...pdsRecord,
+        ...entry,
       },
       validate: false, // PDS can't validate custom lexicons
     });
@@ -93,28 +93,39 @@ export async function upsertLocalMirror(
   rkey: string,
   record: CatalogEntryRecord,
 ): Promise<void> {
+  // Normalize status once at the boundary (handles legacy PDS values)
+  const normalized = { ...record, status: normalizeStatus(record.status) };
+
   const db = getDb();
 
   const rows = await db
     .select()
     .from(catalogEntries)
     .where(
-      and(eq(catalogEntries.userId, userId), eq(catalogEntries.mediaWikidataId, record.mediaRef)),
+      and(eq(catalogEntries.userId, userId), eq(catalogEntries.mediaWikidataId, normalized.mediaRef)),
     )
     .limit(1);
 
   const now = new Date();
-  const recordUpdatedAt = record.updatedAt ? new Date(record.updatedAt) : now;
+  const recordUpdatedAt = normalized.updatedAt ? new Date(normalized.updatedAt) : now;
+  const completedAt =
+    normalized.status === "completed"
+      ? rows[0]?.status === "completed"
+        ? rows[0].completedAt ?? now
+        : now
+      : null;
 
   if (rows.length > 0) {
     const existing = rows[0];
 
     // Skip update if nothing meaningful changed
     const unchanged =
-      existing.status === record.status &&
-      existing.rating === (record.rating ?? null) &&
-      existing.note === (record.note ?? null) &&
-      existing.episodeProgress === (record.episodeProgress ?? null) &&
+      existing.status === normalized.status &&
+      existing.rating === (normalized.rating ?? null) &&
+      existing.note === (normalized.note ?? null) &&
+      existing.episodeProgress === (normalized.episodeProgress ?? null) &&
+      existing.isFavorite === (normalized.isFavorite ?? false) &&
+      existing.replayCount === (normalized.replayCount ?? 0) &&
       existing.rkey === rkey;
 
     if (unchanged) {
@@ -130,12 +141,16 @@ export async function upsertLocalMirror(
     await db
       .update(catalogEntries)
       .set({
-        status: record.status,
-        rating: record.rating ?? null,
-        note: record.note ?? null,
-        episodeProgress: record.episodeProgress ?? null,
-        mediaTitle: record.title ?? undefined,
-        mediaType: record.mediaType ?? undefined,
+        status: normalized.status,
+        rating: normalized.rating ?? null,
+        note: normalized.note ?? null,
+        episodeProgress: normalized.episodeProgress ?? null,
+        isFavorite: normalized.isFavorite ?? false,
+        replayCount: normalized.replayCount ?? 0,
+        completedAt,
+        watchedEpisodes: normalized.watchedEpisodes ?? null,
+        mediaTitle: normalized.title ?? undefined,
+        mediaType: normalized.mediaType ?? undefined,
         rkey,
         syncedAt: now,
         updatedAt: recordUpdatedAt,
@@ -145,13 +160,17 @@ export async function upsertLocalMirror(
     console.debug("[sync] upsertLocalMirror userId=%s rkey=%s → insert new", userId, rkey);
     await db.insert(catalogEntries).values({
       userId,
-      mediaWikidataId: record.mediaRef,
-      mediaTitle: record.title ?? null,
-      mediaType: record.mediaType ?? null,
-      status: record.status,
-      rating: record.rating ?? null,
-      note: record.note ?? null,
-      episodeProgress: record.episodeProgress ?? null,
+      mediaWikidataId: normalized.mediaRef,
+      mediaTitle: normalized.title ?? null,
+      mediaType: normalized.mediaType ?? null,
+      status: normalized.status,
+      rating: normalized.rating ?? null,
+      note: normalized.note ?? null,
+      episodeProgress: normalized.episodeProgress ?? null,
+      isFavorite: normalized.isFavorite ?? false,
+      replayCount: normalized.replayCount ?? 0,
+      completedAt,
+      watchedEpisodes: normalized.watchedEpisodes ?? null,
       rkey,
       syncedAt: now,
       updatedAt: recordUpdatedAt,

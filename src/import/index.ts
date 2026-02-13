@@ -192,6 +192,7 @@ async function insertBatch(
       igdbId: item.igdbId,
       annId: item.annId,
       tvdbId: item.tvdbId,
+      tvmazeId: item.tvmazeId,
       searchTitle: item.searchTitle,
     }));
 
