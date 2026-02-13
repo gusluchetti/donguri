@@ -214,7 +214,7 @@ function OAuthButton({ provider, label }: { provider: "google" | "github"; label
 }
 
 function LoggedInView() {
-  const { entries } = Route.useLoaderData();
+  const { entries = [] } = Route.useLoaderData();
 
   useEffect(() => {
     scheduleCatalogPrefetch();
