@@ -10,7 +10,7 @@ import {
   STATUS_LABELS_GENERIC,
   STATUS_ORDER,
   type StatusValue,
-  TYPE_BADGE_CLASSES,
+  typeBadgeClass,
 } from "../lib/media-types";
 import { ogTags } from "../lib/og";
 import { scheduleCatalogPrefetch } from "../lib/prefetch";
@@ -52,7 +52,8 @@ export const Route = createFileRoute("/")({
       });
       return { entries: data as CatalogEntryRow[], fromCache };
     } catch {
-      return { entries: [] as CatalogEntryRow[], fromCache: false };
+      const entries: CatalogEntryRow[] = [];
+      return { entries, fromCache: false };
     }
   },
   staleTime: 30_000,
@@ -265,9 +266,7 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
       </h2>
       <div className="border border-dg-border-subtle rounded bg-dg-surface divide-y divide-dg-border-subtle">
         {items.map((item) => {
-          const badgeClass =
-            TYPE_BADGE_CLASSES[item.mediaType ?? ""] ??
-            "bg-dg-elevated text-dg-text-tertiary border-dg-border";
+          const badgeClass = typeBadgeClass(item.mediaType);
           const replay = replayCountLabel(item.replayCount, item.mediaType ?? undefined);
           return (
             <Link
@@ -282,7 +281,11 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
                 {mediaTypeLabel(item.mediaType ?? "", true)}
               </span>
               <span className="text-[0.85rem] text-dg-text truncate flex-1">
-                {item.isFavorite && <span className="text-dg-accent mr-1" title="Favorite">&#9733;</span>}
+                {item.isFavorite && (
+                  <span className="text-dg-accent mr-1" title="Favorite">
+                    &#9733;
+                  </span>
+                )}
                 {item.mediaTitle ?? item.mediaWikidataId}
               </span>
               {replay && (

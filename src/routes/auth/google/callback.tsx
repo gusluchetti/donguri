@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { z } from "zod";
 import { handleOAuthProviderCallback } from "../../../lib/auth.functions";
 
 export const Route = createFileRoute("/auth/google/callback")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    code: search.code as string | undefined,
-    error: search.error as string | undefined,
+  validateSearch: z.object({
+    code: z.string().optional(),
+    error: z.string().optional(),
   }),
   component: GoogleCallbackPage,
 });

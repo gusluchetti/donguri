@@ -19,7 +19,14 @@
           "status": {
             "type": "string",
             "description": "Tracking status.",
-            "knownValues": ["planned", "in_progress", "on_hold", "completed", "dropped", "mastered"],
+            "knownValues": [
+              "planned",
+              "in_progress",
+              "on_hold",
+              "completed",
+              "dropped",
+              "mastered"
+            ],
             "maxLength": 32
           },
           "rating": {

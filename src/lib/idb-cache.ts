@@ -102,30 +102,6 @@ export async function cacheDelete(key: string): Promise<void> {
   }
 }
 
-export async function cacheDeleteByPrefix(prefix: string): Promise<void> {
-  try {
-    const db = await openDb();
-    return new Promise((resolve) => {
-      const tx = db.transaction(STORE_NAME, "readwrite");
-      const store = tx.objectStore(STORE_NAME);
-      const request = store.openCursor();
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (cursor) {
-          if (typeof cursor.key === "string" && cursor.key.startsWith(prefix)) {
-            cursor.delete();
-          }
-          cursor.continue();
-        }
-      };
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => resolve();
-    });
-  } catch {
-    // Silent fail
-  }
-}
-
 export async function cacheClearAll(): Promise<void> {
   try {
     const db = await openDb();

@@ -6,7 +6,12 @@ import type { Media } from "../../db/schema";
 import { setCatalogEntry } from "../../lib/catalog.functions";
 import { cacheGet, cacheSet, invalidateUserCaches, isStale } from "../../lib/idb-cache";
 import { getMediaStats, listMedia } from "../../lib/media.functions";
-import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../../lib/media-types";
+import {
+  mediaTypeLabel,
+  STATUS_ACCENT,
+  type StatusValue,
+  typeBadgeClass,
+} from "../../lib/media-types";
 import { ogTags } from "../../lib/og";
 import { scheduleCatalogPrefetch } from "../../lib/prefetch";
 
@@ -207,12 +212,13 @@ function CatalogPage() {
     async (wikidataId: string, itemMediaType: string, e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      const defaultStatus = itemMediaType === "movie" ? "planned" : "in_progress";
+      const defaultStatus: "planned" | "in_progress" =
+        itemMediaType === "movie" ? "planned" : "in_progress";
       console.debug("[quick-add] %s → %s (optimistic)", wikidataId, defaultStatus);
       setLocalOverrides((prev) => ({ ...prev, [wikidataId]: defaultStatus }));
       setQuickAddState((prev) => ({ ...prev, [wikidataId]: "pending" }));
       try {
-        await setCatalogEntry({ data: { wikidataId, status: defaultStatus as "planned" | "in_progress" } });
+        await setCatalogEntry({ data: { wikidataId, status: defaultStatus } });
         console.debug("[quick-add] %s → server ok", wikidataId);
         setQuickAddState((prev) => ({ ...prev, [wikidataId]: "done" }));
         setTimeout(() => {
@@ -402,15 +408,6 @@ function CatalogPage() {
   );
 }
 
-const TRACKED_ASTERISK_COLORS: Record<string, string> = {
-  in_progress: "text-dg-accent",
-  planned: "text-dg-tv",
-  on_hold: "text-dg-text-tertiary",
-  dropped: "text-dg-anime",
-  completed: "text-dg-game",
-  mastered: "text-dg-accent",
-};
-
 function formatMeta(item: Media): string {
   const { mediaType, seasonCount, episodeCount, runtimeMinutes } = item;
   if (mediaType === "tv_series" || mediaType === "anime") {
@@ -441,8 +438,7 @@ function MediaRow({
   addState: "pending" | "done" | null;
   onQuickAdd: (wikidataId: string, mediaType: string, e: React.MouseEvent) => void;
 }) {
-  const badgeClass =
-    TYPE_BADGE_CLASSES[item.mediaType] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
+  const badgeClass = typeBadgeClass(item.mediaType);
 
   const meta = formatMeta(item);
 
@@ -473,7 +469,7 @@ function MediaRow({
           <span className="text-[0.85rem] font-medium truncate text-dg-text">{item.title}</span>
           {trackedStatus && (
             <span
-              className={`text-sm shrink-0 ${TRACKED_ASTERISK_COLORS[trackedStatus] ?? "text-dg-text-tertiary"}`}
+              className={`text-sm shrink-0 ${STATUS_ACCENT[trackedStatus as StatusValue] ?? "text-dg-text-tertiary"}`}
             >
               *
             </span>
