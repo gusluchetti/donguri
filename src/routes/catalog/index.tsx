@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { Media } from "../../db/schema";
 import { setCatalogEntry } from "../../lib/catalog.functions";
-import { cacheGet, cacheSet, invalidateUserCaches, isStale } from "../../lib/idb-cache";
+import { cacheSet, invalidateUserCaches } from "../../lib/idb-cache";
 import { getMediaStats, listMedia } from "../../lib/media.functions";
 import {
   mediaTypeLabel,
@@ -13,7 +13,7 @@ import {
   typeBadgeClass,
 } from "../../lib/media-types";
 import { ogTags } from "../../lib/og";
-import { scheduleCatalogPrefetch } from "../../lib/prefetch";
+import { swrLoad } from "../../lib/swr-loader";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -32,6 +32,34 @@ const MEDIA_TYPES = [
 
 export const Route = createFileRoute("/catalog/")({
   validateSearch: catalogSearchSchema,
+  loaderDeps: ({ search }) => ({ q: search.q, mediaType: search.type }),
+  loader: async ({ deps }) => {
+    const { q, mediaType } = deps;
+
+    // Stats always use SWR (they rarely change, cache is cheap)
+    const statsResult = await swrLoad(() => getMediaStats({}), {
+      key: "mediaStats",
+      maxAgeMs: 30 * 60 * 1000,
+    });
+
+    if (q) {
+      // Search: always fresh, no IDB cache (too many unique queries)
+      const data = await listMedia({ data: { limit: 50, mediaType, search: q } });
+      return { items: data.items, nextCursor: data.nextCursor, stats: statsResult.data };
+    }
+
+    // Browse: SWR with IDB cache (instant tab switches on revisit)
+    const catalogResult = await swrLoad(() => listMedia({ data: { limit: 50, mediaType } }), {
+      key: `catalog:${mediaType ?? "all"}:0`,
+      maxAgeMs: 5 * 60 * 1000,
+    });
+    return {
+      items: catalogResult.data.items,
+      nextCursor: catalogResult.data.nextCursor,
+      stats: statsResult.data,
+    };
+  },
+  staleTime: 5 * 60 * 1000,
   head: () => ({
     meta: [
       { title: "Catalog — donguri" },
@@ -85,120 +113,31 @@ function SearchInput({ initialValue }: { initialValue: string }) {
 }
 
 function CatalogPage() {
+  const loaderData = Route.useLoaderData();
   const { auth, trackedIds: rootTrackedIds } = rootRoute.useLoaderData();
   const router = useRouter();
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog" });
 
-  const [items, setItems] = useState<Media[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [stats, setStats] = useState<{ total: number; byType: Record<string, number> }>({
-    total: 0,
-    byType: {},
-  });
-  const [initialLoading, setInitialLoading] = useState(true);
+  // Local state for infinite scroll only
+  const [extraItems, setExtraItems] = useState<Media[]>([]);
+  const [nextCursor, setNextCursor] = useState(loaderData.nextCursor);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
   const [quickAddState, setQuickAddState] = useState<Record<string, "pending" | "done">>({});
   const parentRef = useRef<HTMLDivElement>(null);
 
-  // Merge root tracked IDs with local optimistic overrides
+  // Reset when loader data changes (tab switch, search)
+  const prevRef = useRef(loaderData);
+  if (prevRef.current !== loaderData) {
+    prevRef.current = loaderData;
+    setExtraItems([]);
+    setNextCursor(loaderData.nextCursor);
+  }
+
+  const items = [...loaderData.items, ...extraItems];
   const trackedIds: Record<string, string | null> = { ...rootTrackedIds, ...localOverrides };
-
-  // Fetch data when search params change (only if logged in)
-  // Use auth?.userId (primitive) as dependency instead of auth object —
-  // prevents re-fetching when router.invalidate() creates a new auth reference
-  const isLoggedIn = auth?.userId;
-  const prefetchTriggered = useRef(false);
-  const prevParamsRef = useRef<{ q: string | undefined; mediaType: string | undefined } | null>(
-    null,
-  );
-
-  useEffect(() => {
-    if (!isLoggedIn) {
-      setInitialLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setError(null);
-
-    const isSearch = !!q;
-    const catalogCacheKey = `catalog:${mediaType ?? "all"}:0`;
-
-    // Detect whether params actually changed (vs. remount with same params)
-    const prev = prevParamsRef.current;
-    const paramsChanged = !prev || prev.q !== q || prev.mediaType !== mediaType;
-    prevParamsRef.current = { q, mediaType };
-
-    const load = async () => {
-      // Try IDB cache first (only for browse, not search)
-      if (!isSearch) {
-        const [cachedCatalog, cachedStats] = await Promise.all([
-          cacheGet<{ items: Media[]; nextCursor: string | null }>(catalogCacheKey),
-          cacheGet<{ total: number; byType: Record<string, number> }>("mediaStats"),
-        ]);
-
-        if (cachedCatalog && !cancelled) {
-          setItems(cachedCatalog.data.items);
-          setNextCursor(cachedCatalog.data.nextCursor);
-          if (cachedStats) setStats(cachedStats.data);
-          setInitialLoading(false);
-          if (paramsChanged) parentRef.current?.scrollTo(0, 0);
-
-          // If fresh, skip network entirely
-          if (!isStale(cachedCatalog.timestamp, 30 * 60 * 1000)) return;
-
-          // Stale: let the background prefetch handle revalidation
-          if (!prefetchTriggered.current) {
-            prefetchTriggered.current = true;
-            scheduleCatalogPrefetch();
-          }
-          return;
-        }
-      } else {
-        setInitialLoading(true);
-      }
-
-      // Fetch fresh data — skip stats refetch during search (they don't change)
-      try {
-        const dataPromise = listMedia({ data: { limit: 50, mediaType, search: q || undefined } });
-        const statsPromise = isSearch ? null : getMediaStats({});
-
-        const [data, statsData] = await Promise.all([dataPromise, statsPromise]);
-        if (cancelled) return;
-        setItems(data.items);
-        setNextCursor(data.nextCursor);
-        if (statsData) setStats(statsData);
-        setInitialLoading(false);
-        if (paramsChanged) parentRef.current?.scrollTo(0, 0);
-
-        // Cache browse results (not search)
-        if (!isSearch) {
-          cacheSet(catalogCacheKey, data).catch(() => {});
-          if (statsData) cacheSet("mediaStats", statsData).catch(() => {});
-
-          // Trigger prefetch after first successful load
-          if (!prefetchTriggered.current) {
-            prefetchTriggered.current = true;
-            scheduleCatalogPrefetch();
-          }
-        }
-      } catch (e) {
-        if (cancelled) return;
-        console.error("[catalog] fetch failed:", e);
-        setError("Could not connect to database");
-        setInitialLoading(false);
-      }
-    };
-
-    load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isLoggedIn, q, mediaType]);
+  const stats = loaderData.stats;
 
   const fetchMore = useCallback(
     async (cursor: string) => {
@@ -213,7 +152,7 @@ function CatalogPage() {
           },
         });
         let merged: Media[] = [];
-        setItems((prev) => {
+        setExtraItems((prev) => {
           merged = [...prev, ...result.items];
           return merged;
         });
@@ -222,7 +161,7 @@ function CatalogPage() {
         // Cache accumulated browse data (not search)
         if (!q) {
           cacheSet(`catalog:${mediaType ?? "all"}:0`, {
-            items: merged,
+            items: [...loaderData.items, ...merged],
             nextCursor: result.nextCursor,
           }).catch(() => {});
         }
@@ -230,7 +169,7 @@ function CatalogPage() {
         setLoading(false);
       }
     },
-    [mediaType, q],
+    [mediaType, q, loaderData.items],
   );
 
   const handleTypeChange = useCallback(
@@ -363,78 +302,62 @@ function CatalogPage() {
         </div>
       )}
 
-      {/* Error state */}
-      {error && (
-        <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 pb-4">
-          <div className="border border-dg-accent/30 bg-dg-accent/[0.05] rounded px-4 py-3 text-sm text-dg-accent">
-            {error}
-          </div>
-        </div>
-      )}
-
       {/* Virtual list */}
       <div
         ref={parentRef}
         className="flex-1 overflow-auto max-w-[1000px] mx-auto w-full px-4 sm:px-6"
       >
-        {initialLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <span className="text-dg-text-tertiary text-[0.85rem]">Loading catalog...</span>
-          </div>
-        ) : (
-          <div
-            style={{
-              height: virtualizer.getTotalSize(),
-              width: "100%",
-              position: "relative",
-            }}
-          >
-            {virtualItems.map((virtualRow) => {
-              if (virtualRow.index >= items.length) {
-                return (
-                  <div
-                    key="loader"
-                    className="w-full left-0 border-b border-dg-surface absolute flex items-center justify-center overflow-hidden"
-                    style={{
-                      top: virtualRow.start,
-                      height: virtualRow.size,
-                    }}
-                  >
-                    <span className="text-dg-text-tertiary">{loading ? "Loading..." : ""}</span>
-                  </div>
-                );
-              }
-
-              const item = items[virtualRow.index];
-              const status = trackedIds[item.wikidataId] ?? null;
-              const isTracked = status !== null;
-              const showAdd = auth && !isTracked;
-              const addState = quickAddState[item.wikidataId] ?? null;
-
+        <div
+          style={{
+            height: virtualizer.getTotalSize(),
+            width: "100%",
+            position: "relative",
+          }}
+        >
+          {virtualItems.map((virtualRow) => {
+            if (virtualRow.index >= items.length) {
               return (
-                <Link
-                  key={item.id}
-                  to="/catalog/$wikidataId"
-                  params={{ wikidataId: item.wikidataId }}
-                  preload={false}
-                  className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group overflow-hidden"
+                <div
+                  key="loader"
+                  className="w-full left-0 border-b border-dg-surface absolute flex items-center justify-center overflow-hidden"
                   style={{
                     top: virtualRow.start,
                     height: virtualRow.size,
                   }}
                 >
-                  <MediaRow
-                    item={item}
-                    trackedStatus={status}
-                    showAdd={!!showAdd}
-                    addState={addState}
-                    onQuickAdd={handleQuickAdd}
-                  />
-                </Link>
+                  <span className="text-dg-text-tertiary">{loading ? "Loading..." : ""}</span>
+                </div>
               );
-            })}
-          </div>
-        )}
+            }
+
+            const item = items[virtualRow.index];
+            const status = trackedIds[item.wikidataId] ?? null;
+            const isTracked = status !== null;
+            const showAdd = auth && !isTracked;
+            const addState = quickAddState[item.wikidataId] ?? null;
+
+            return (
+              <Link
+                key={item.id}
+                to="/catalog/$wikidataId"
+                params={{ wikidataId: item.wikidataId }}
+                className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group overflow-hidden"
+                style={{
+                  top: virtualRow.start,
+                  height: virtualRow.size,
+                }}
+              >
+                <MediaRow
+                  item={item}
+                  trackedStatus={status}
+                  showAdd={!!showAdd}
+                  addState={addState}
+                  onQuickAdd={handleQuickAdd}
+                />
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { initiateLogin, initiateOAuthLogin } from "../lib/auth.functions";
 import { getUserCatalogEntries } from "../lib/catalog.functions";
 import {
@@ -13,7 +13,6 @@ import {
   typeBadgeClass,
 } from "../lib/media-types";
 import { ogTags } from "../lib/og";
-import { scheduleCatalogPrefetch } from "../lib/prefetch";
 import { swrLoad } from "../lib/swr-loader";
 
 const rootRoute = getRouteApi("__root__");
@@ -215,10 +214,6 @@ function OAuthButton({ provider, label }: { provider: "google" | "github"; label
 
 function LoggedInView() {
   const { entries = [] } = Route.useLoaderData();
-
-  useEffect(() => {
-    scheduleCatalogPrefetch();
-  }, []);
 
   // Group by status, sort within sections by updatedAt desc then mediaType alpha
   const grouped = new Map<string, CatalogEntryRow[]>();

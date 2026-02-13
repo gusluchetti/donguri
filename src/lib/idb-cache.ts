@@ -4,7 +4,7 @@ const STORE_NAME = "cache";
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB budget
 
 // Keys that should survive LRU eviction
-const PROTECTED_KEYS = new Set(["trackedIds", "watchlist", "mediaStats"]);
+const PROTECTED_KEYS = new Set(["trackedIds", "watchlist"]);
 
 export type CacheRecord<T = unknown> = {
   key: string;
