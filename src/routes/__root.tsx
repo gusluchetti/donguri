@@ -88,53 +88,55 @@ function RootComponent() {
   return (
     <RootDocument theme={theme}>
       <ThemeProvider initialTheme={theme}>
-        <nav className="border-b border-dg-border-subtle px-4 sm:px-6 py-3 font-mono">
-          <div className="max-w-[1000px] mx-auto flex items-center min-h-[44px] gap-4 sm:gap-6">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                activeOptions={{ exact: link.exact !== false }}
-                className="text-[0.85rem] no-underline transition-colors duration-150 min-h-[44px] flex items-center"
-                activeProps={{ className: "text-dg-accent" }}
-                inactiveProps={{
-                  className: link.accent ? "text-dg-accent" : "text-dg-text-secondary",
-                }}
-              >
-                {link.accent ? <span className="font-semibold">{link.label}</span> : link.label}
-              </Link>
-            ))}
-            <div className="ml-auto flex items-center gap-3">
-              <ThemeToggle />
-              {auth ? (
-                <div className="flex items-center gap-4">
-                  <span className="text-[0.8rem] text-dg-accent hidden sm:inline">
-                    {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
-                  </span>
-                  <button
-                    type="button"
-                    className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none font-mono min-h-[44px] flex items-center"
-                    onClick={async () => {
-                      await logout();
-                      cacheClearAll();
-                      window.location.href = "/";
-                    }}
-                  >
-                    logout
-                  </button>
-                </div>
-              ) : (
+        <div className="min-h-dvh flex flex-col">
+          <nav className="border-b border-dg-border-subtle px-4 sm:px-6 py-3 font-mono shrink-0">
+            <div className="max-w-[1000px] mx-auto flex items-center min-h-[44px] gap-4 sm:gap-6">
+              {NAV_LINKS.map((link) => (
                 <Link
-                  to="/"
-                  className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-150 min-h-[44px] flex items-center"
+                  key={link.to}
+                  to={link.to}
+                  activeOptions={{ exact: link.exact !== false }}
+                  className="text-[0.85rem] no-underline transition-colors duration-150 min-h-[44px] flex items-center"
+                  activeProps={{ className: "text-dg-accent" }}
+                  inactiveProps={{
+                    className: link.accent ? "text-dg-accent" : "text-dg-text-secondary",
+                  }}
                 >
-                  login
+                  {link.accent ? <span className="font-semibold">{link.label}</span> : link.label}
                 </Link>
-              )}
+              ))}
+              <div className="ml-auto flex items-center gap-3">
+                <ThemeToggle />
+                {auth ? (
+                  <div className="flex items-center gap-4">
+                    <span className="text-[0.8rem] text-dg-accent hidden sm:inline">
+                      {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
+                    </span>
+                    <button
+                      type="button"
+                      className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none font-mono min-h-[44px] flex items-center"
+                      onClick={async () => {
+                        await logout();
+                        cacheClearAll();
+                        window.location.href = "/";
+                      }}
+                    >
+                      logout
+                    </button>
+                  </div>
+                ) : (
+                  <Link
+                    to="/"
+                    className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-150 min-h-[44px] flex items-center"
+                  >
+                    login
+                  </Link>
+                )}
+              </div>
             </div>
-          </div>
-        </nav>
-        <Outlet />
+          </nav>
+          <Outlet />
+        </div>
       </ThemeProvider>
     </RootDocument>
   );

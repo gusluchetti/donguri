@@ -254,7 +254,7 @@ function CatalogPage() {
   }, [virtualItems, items.length, nextCursor, loading, fetchMore]);
 
   return (
-    <div className="bg-dg-bg text-dg-text h-screen font-mono flex flex-col overflow-hidden">
+    <div className="bg-dg-bg text-dg-text flex-1 font-mono flex flex-col overflow-hidden">
       {/* Header */}
       <header className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2 sm:pb-4">
         <div className="max-w-[1000px] mx-auto">
