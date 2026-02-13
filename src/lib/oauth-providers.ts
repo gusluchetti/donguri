@@ -32,6 +32,7 @@ interface OAuthProviderConfig {
   clientSecretEnv: string;
   callbackPath: string;
   idColumn: Column;
+  idKey: keyof typeof users.$inferInsert;
   extraAuthParams?: Record<string, string>;
   exchangeCode: (code: string, redirectUri: string) => Promise<UserProfile>;
 }
@@ -122,10 +123,33 @@ async function exchangeGitHubCode(code: string, redirectUri: string): Promise<Us
     avatar_url: string | null;
   };
 
+  // /user only returns public email — fetch primary verified email if missing
+  let email = user.email;
+  if (!email) {
+    try {
+      const emailsRes = await fetch("https://api.github.com/user/emails", {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          Accept: "application/vnd.github+json",
+        },
+      });
+      if (emailsRes.ok) {
+        const emails = (await emailsRes.json()) as {
+          email: string;
+          primary: boolean;
+          verified: boolean;
+        }[];
+        email = emails.find((e) => e.primary && e.verified)?.email ?? null;
+      }
+    } catch {
+      // Non-critical — continue without email
+    }
+  }
+
   return {
     providerId: String(user.id),
     name: user.name || user.login,
-    email: user.email,
+    email,
     avatarUrl: user.avatar_url,
   };
 }
@@ -143,6 +167,7 @@ const PROVIDERS: Record<Provider, OAuthProviderConfig> = {
     clientSecretEnv: "GOOGLE_CLIENT_SECRET",
     callbackPath: "/auth/google/callback",
     idColumn: users.googleId,
+    idKey: "googleId",
     extraAuthParams: { access_type: "online", prompt: "select_account" },
     exchangeCode: exchangeGoogleCode,
   },
@@ -156,6 +181,7 @@ const PROVIDERS: Record<Provider, OAuthProviderConfig> = {
     clientSecretEnv: "GITHUB_CLIENT_SECRET",
     callbackPath: "/auth/github/callback",
     idColumn: users.githubId,
+    idKey: "githubId",
     exchangeCode: exchangeGitHubCode,
   },
 };
@@ -237,7 +263,7 @@ export async function handleProviderCallback(
       handle = profile.name;
       await db
         .update(users)
-        .set({ avatarUrl: profile.avatarUrl, [idColumn.name]: profile.providerId })
+        .set({ avatarUrl: profile.avatarUrl, [config.idKey]: profile.providerId })
         .where(eq(users.id, userId));
       if (isDev)
         console.debug(
@@ -255,7 +281,7 @@ export async function handleProviderCallback(
           authMethod: provider,
           email: profile.email,
           avatarUrl: profile.avatarUrl,
-          [idColumn.name]: profile.providerId,
+          [config.idKey]: profile.providerId,
         } as typeof users.$inferInsert)
         .returning({ id: users.id });
       userId = newUser.id;
@@ -270,7 +296,7 @@ export async function handleProviderCallback(
         handle: profile.name,
         authMethod: provider,
         avatarUrl: profile.avatarUrl,
-        [idColumn.name]: profile.providerId,
+        [config.idKey]: profile.providerId,
       } as typeof users.$inferInsert)
       .returning({ id: users.id });
     userId = newUser.id;
