@@ -68,7 +68,12 @@ Pipeline:
 
 More auth methods = more users. Polish + onboarding = users that stay.
 
-- [ ] Account linking UI — settings page to connect additional providers (Google/GitHub/Bluesky) to an existing account. Email auto-link only works between Google↔GitHub; Bluesky has no email so needs explicit linking.
+- [ ] **Account linking + AT Protocol migration** — let Google/GitHub users connect a Bluesky account and become PDS-synced
+  - **UI**: settings page to initiate Bluesky OAuth, link `did` to existing `users` row, set `authMethod` to `atproto`
+  - **Data migration (one-time push)**: on link, bulk-push all `catalog_entries` to PDS via `putCatalogEntry`. Postgres data is authoritative for non-AT users, so no conflict — just push everything.
+  - **Post-link**: normal PDS-first flow kicks in. `reconcileUser` on login handles ongoing sync.
+  - **Edge case to revisit later**: if a user somehow has a pre-existing PDS collection (e.g., they used Bluesky on another instance first), need a delta/merge strategy — compare `updatedAt` timestamps, keep the newer version per entry. Not needed for v1 since no one can write to PDS without linking first.
+  - **Reverse direction**: AT Protocol user linking Google/GitHub is simpler — just populate `googleId`/`githubId` on the `users` row, no data migration needed since PDS remains source of truth.
 - [ ] Onboarding flow — pick media types + favorite genres on first login
 - [ ] Empty state design — smart suggestions when watchlist is empty
 - [ ] Guided tour / tooltips for first-time users
