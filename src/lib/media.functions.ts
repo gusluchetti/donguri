@@ -93,19 +93,19 @@ export const getMedia = createServerFn({ method: "GET" })
 
     if (item.length === 0) return null;
 
-    // Fetch genres
-    const itemGenres = await db
-      .select({ id: genres.id, name: genres.name, wikidataId: genres.wikidataId })
-      .from(mediaGenres)
-      .innerJoin(genres, eq(mediaGenres.genreId, genres.id))
-      .where(eq(mediaGenres.mediaId, item[0].id));
-
-    // Fetch platforms
-    const itemPlatforms = await db
-      .select({ id: platforms.id, name: platforms.name, wikidataId: platforms.wikidataId })
-      .from(mediaPlatforms)
-      .innerJoin(platforms, eq(mediaPlatforms.platformId, platforms.id))
-      .where(eq(mediaPlatforms.mediaId, item[0].id));
+    // Fetch genres and platforms in parallel
+    const [itemGenres, itemPlatforms] = await Promise.all([
+      db
+        .select({ id: genres.id, name: genres.name, wikidataId: genres.wikidataId })
+        .from(mediaGenres)
+        .innerJoin(genres, eq(mediaGenres.genreId, genres.id))
+        .where(eq(mediaGenres.mediaId, item[0].id)),
+      db
+        .select({ id: platforms.id, name: platforms.name, wikidataId: platforms.wikidataId })
+        .from(mediaPlatforms)
+        .innerJoin(platforms, eq(mediaPlatforms.platformId, platforms.id))
+        .where(eq(mediaPlatforms.mediaId, item[0].id)),
+    ]);
 
     return {
       ...item[0],

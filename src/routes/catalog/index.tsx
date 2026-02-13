@@ -1,6 +1,6 @@
 import { createFileRoute, getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { Media } from "../../db/schema";
 import { getCatalogEntry, setCatalogEntry } from "../../lib/catalog.functions";
@@ -51,6 +51,39 @@ export const Route = createFileRoute("/catalog/")({
   component: CatalogPage,
 });
 
+function SearchInput({ initialValue }: { initialValue: string }) {
+  const navigate = useNavigate({ from: "/catalog" });
+  const { q } = Route.useSearch();
+  const [value, setValue] = useState(initialValue);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Sync when URL changes externally (e.g. back/forward)
+  useEffect(() => {
+    setValue(q ?? "");
+  }, [q]);
+
+  const handleChange = (input: string) => {
+    setValue(input);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      navigate({
+        search: (prev) => ({ ...prev, q: input || undefined }),
+        replace: true,
+      });
+    }, 300);
+  };
+
+  return (
+    <input
+      type="text"
+      placeholder="Search titles..."
+      value={value}
+      onChange={(e) => handleChange(e.target.value)}
+      className="w-full py-2.5 px-3 bg-dg-surface border border-dg-border rounded text-dg-text font-mono text-base sm:text-[0.85rem] outline-none box-border"
+    />
+  );
+}
+
 function CatalogPage() {
   const { auth, trackedIds: rootTrackedIds } = rootRoute.useLoaderData();
   const router = useRouter();
@@ -66,10 +99,8 @@ function CatalogPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchInput, setSearchInput] = useState(q ?? "");
   const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
   const [quickAddState, setQuickAddState] = useState<Record<string, "pending" | "done">>({});
-  const searchTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const parentRef = useRef<HTMLDivElement>(null);
 
   // Merge root tracked IDs with local optimistic overrides
@@ -154,11 +185,6 @@ function CatalogPage() {
     };
   }, [isLoggedIn, q, mediaType]);
 
-  // Sync search input when URL param changes externally (e.g. back/forward)
-  useEffect(() => {
-    setSearchInput(q ?? "");
-  }, [q]);
-
   const fetchMore = useCallback(
     async (cursor: string) => {
       setLoading(true);
@@ -180,23 +206,6 @@ function CatalogPage() {
     [mediaType, q],
   );
 
-  const handleSearchInput = useCallback(
-    (value: string) => {
-      setSearchInput(value);
-      if (searchTimeout.current) clearTimeout(searchTimeout.current);
-      searchTimeout.current = setTimeout(() => {
-        navigate({
-          search: (prev) => ({
-            ...prev,
-            q: value || undefined,
-          }),
-          replace: true,
-        });
-      }, 300);
-    },
-    [navigate],
-  );
-
   const handleTypeChange = useCallback(
     (type: "movie" | "tv_series" | "anime" | "game" | undefined) => {
       navigate({
@@ -213,13 +222,13 @@ function CatalogPage() {
   const prefetchedEntries = useRef(new Set<string>());
   const handlePrefetchEntry = useCallback(
     (wikidataId: string) => {
-      if (!auth || prefetchedEntries.current.has(wikidataId)) return;
+      if (!isLoggedIn || prefetchedEntries.current.has(wikidataId)) return;
       prefetchedEntries.current.add(wikidataId);
       getCatalogEntry({ data: { wikidataId } })
         .then((entry) => cacheSet(`entry:${wikidataId}`, entry))
         .catch(() => {});
     },
-    [auth],
+    [isLoggedIn],
   );
 
   const handleQuickAdd = useCallback(
@@ -296,13 +305,7 @@ function CatalogPage() {
       <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 py-3 sm:py-4 flex flex-col gap-3">
         {/* Search */}
         <div className="w-full">
-          <input
-            type="text"
-            placeholder="Search titles..."
-            value={searchInput}
-            onChange={(e) => handleSearchInput(e.target.value)}
-            className="w-full py-2.5 px-3 bg-dg-surface border border-dg-border rounded text-dg-text font-mono text-base sm:text-[0.85rem] outline-none box-border"
-          />
+          <SearchInput initialValue={q ?? ""} />
         </div>
 
         {/* Type filter tabs */}
@@ -442,7 +445,7 @@ function formatMeta(item: Media): string {
   return "";
 }
 
-function MediaRow({
+const MediaRow = memo(function MediaRow({
   item,
   trackedStatus,
   showAdd,
@@ -513,4 +516,4 @@ function MediaRow({
       </div>
     </div>
   );
-}
+});

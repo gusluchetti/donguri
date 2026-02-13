@@ -28,6 +28,7 @@ const rootRoute = getRouteApi("__root__");
 type FullLoaderData = {
   kind: "full";
   media: NonNullable<Awaited<ReturnType<typeof getMedia>>>;
+  initialEntry?: CatalogEntry | null;
 };
 
 type StubLoaderData = {
@@ -39,11 +40,24 @@ type LoaderData = FullLoaderData | StubLoaderData;
 
 export const Route = createFileRoute("/catalog/$wikidataId")({
   loader: async ({ params }): Promise<LoaderData> => {
-    const { data } = await swrLoad(() => getMedia({ data: { wikidataId: params.wikidataId } }), {
+    const mediaPromise = swrLoad(() => getMedia({ data: { wikidataId: params.wikidataId } }), {
       key: `media:${params.wikidataId}`,
       maxAgeMs: 10 * 60 * 1000,
     });
-    if (data) return { kind: "full", media: data };
+    const entryPromise = swrLoad(
+      () => getCatalogEntry({ data: { wikidataId: params.wikidataId } }),
+      { key: `entry:${params.wikidataId}`, maxAgeMs: 30_000 },
+    ).catch(() => null);
+
+    const [mediaResult, entryResult] = await Promise.all([mediaPromise, entryPromise]);
+
+    if (mediaResult.data) {
+      return {
+        kind: "full",
+        media: mediaResult.data,
+        initialEntry: entryResult?.data,
+      };
+    }
 
     const stub = await getMediaStub({ data: { wikidataId: params.wikidataId } });
     if (stub) return { kind: "stub", stub };
@@ -106,7 +120,7 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
 function MediaDetailRouter() {
   const data = Route.useLoaderData();
   if (data.kind === "stub") return <MediaStubPage stub={data.stub} />;
-  return <MediaDetailPage data={data.media} />;
+  return <MediaDetailPage data={data.media} initialEntry={data.initialEntry} />;
 }
 
 function MediaDetailSkeleton() {
@@ -199,7 +213,13 @@ function MediaStubPage({
   );
 }
 
-function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof getMedia>>> }) {
+function MediaDetailPage({
+  data,
+  initialEntry,
+}: {
+  data: NonNullable<Awaited<ReturnType<typeof getMedia>>>;
+  initialEntry?: CatalogEntry | null;
+}) {
   const { auth } = rootRoute.useLoaderData();
   const badgeClass = typeBadgeClass(data.mediaType);
 
@@ -310,7 +330,13 @@ function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof
         </div>
 
         {/* Tracking panel (inline) */}
-        {auth && <TrackingPanel wikidataId={data.wikidataId} mediaType={data.mediaType} />}
+        {auth && (
+          <TrackingPanel
+            wikidataId={data.wikidataId}
+            mediaType={data.mediaType}
+            initialEntry={initialEntry}
+          />
+        )}
 
         {/* Description */}
         {data.description && (
@@ -381,22 +407,42 @@ function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof
   );
 }
 
-function TrackingPanel({ wikidataId, mediaType }: { wikidataId: string; mediaType?: string }) {
+function TrackingPanel({
+  wikidataId,
+  mediaType,
+  initialEntry,
+}: {
+  wikidataId: string;
+  mediaType?: string;
+  initialEntry?: CatalogEntry | null;
+}) {
   const router = useRouter();
-  const [entry, setEntry] = useState<CatalogEntry | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const hasInitial = initialEntry !== undefined;
+  const [entry, setEntry] = useState<CatalogEntry | null>(hasInitial ? initialEntry : null);
+  const [loaded, setLoaded] = useState(hasInitial);
   const action = useAction();
   // Local state tracks UI; saved* refs track what the server has
-  const [localRating, setLocalRating] = useState<number | null>(null);
-  const [localStatus, setLocalStatus] = useState<string | null>(null);
-  const [localIsFavorite, setLocalIsFavorite] = useState(false);
-  const [localReplayCount, setLocalReplayCount] = useState(0);
-  const savedRating = useRef<number | null>(null);
-  const savedStatus = useRef<string | null>(null);
-  const savedIsFavorite = useRef(false);
-  const savedReplayCount = useRef(0);
+  const [localRating, setLocalRating] = useState<number | null>(
+    hasInitial ? (initialEntry?.rating ?? null) : null,
+  );
+  const [localStatus, setLocalStatus] = useState<string | null>(
+    hasInitial ? (initialEntry?.status ?? null) : null,
+  );
+  const [localIsFavorite, setLocalIsFavorite] = useState(
+    hasInitial ? (initialEntry?.isFavorite ?? false) : false,
+  );
+  const [localReplayCount, setLocalReplayCount] = useState(
+    hasInitial ? (initialEntry?.replayCount ?? 0) : 0,
+  );
+  const savedRating = useRef<number | null>(hasInitial ? (initialEntry?.rating ?? null) : null);
+  const savedStatus = useRef<string | null>(hasInitial ? (initialEntry?.status ?? null) : null);
+  const savedIsFavorite = useRef(hasInitial ? (initialEntry?.isFavorite ?? false) : false);
+  const savedReplayCount = useRef(hasInitial ? (initialEntry?.replayCount ?? 0) : 0);
 
   useEffect(() => {
+    // Skip fetch when loader already provided the entry
+    if (hasInitial) return;
+
     let cancelled = false;
     const entryCacheKey = `entry:${wikidataId}`;
 
@@ -439,7 +485,7 @@ function TrackingPanel({ wikidataId, mediaType }: { wikidataId: string; mediaTyp
     return () => {
       cancelled = true;
     };
-  }, [wikidataId]);
+  }, [wikidataId, hasInitial]);
 
   const ratingDirty =
     localRating !== savedRating.current && !(localRating === null && savedRating.current === null);
