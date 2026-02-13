@@ -1,26 +1,29 @@
 import type { Agent } from "@atproto/api";
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import { getDb } from "../db";
 import { catalogEntries } from "../db/schema";
 import { normalizeStatus } from "./media-types";
 
 const COLLECTION = "app.donguri.catalog.entry";
 
+const CatalogEntryRecordSchema = z.object({
+  mediaRef: z.string(),
+  status: z.string(),
+  rating: z.number().optional(),
+  note: z.string().optional(),
+  episodeProgress: z.number().optional(),
+  isFavorite: z.boolean().optional(),
+  replayCount: z.number().optional(),
+  watchedEpisodes: z.record(z.string(), z.array(z.number())).optional(),
+  title: z.string().optional(),
+  mediaType: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string().optional(),
+});
+
 /** PDS wire format — field names differ from DB row (mediaRef vs mediaWikidataId, ISO strings vs timestamps). */
-export interface CatalogEntryRecord {
-  mediaRef: string;
-  status: string; // widened for backward compat with old PDS records
-  rating?: number;
-  note?: string;
-  episodeProgress?: number;
-  isFavorite?: boolean;
-  replayCount?: number;
-  watchedEpisodes?: Record<string, number[]>;
-  title?: string;
-  mediaType?: string;
-  createdAt: string;
-  updatedAt?: string;
-}
+export type CatalogEntryRecord = z.infer<typeof CatalogEntryRecordSchema>;
 
 export async function putCatalogEntry(
   agent: Agent,
@@ -102,7 +105,10 @@ export async function upsertLocalMirror(
     .select()
     .from(catalogEntries)
     .where(
-      and(eq(catalogEntries.userId, userId), eq(catalogEntries.mediaWikidataId, normalized.mediaRef)),
+      and(
+        eq(catalogEntries.userId, userId),
+        eq(catalogEntries.mediaWikidataId, normalized.mediaRef),
+      ),
     )
     .limit(1);
 
@@ -111,7 +117,7 @@ export async function upsertLocalMirror(
   const completedAt =
     normalized.status === "completed"
       ? rows[0]?.status === "completed"
-        ? rows[0].completedAt ?? now
+        ? (rows[0].completedAt ?? now)
         : now
       : null;
 
@@ -197,8 +203,13 @@ export async function reconcileUser(agent: Agent, userId: string, did: string): 
       });
 
       for (const record of response.data.records) {
-        const rkey = record.uri.split("/").pop()!;
-        pdsRecords.set(rkey, record.value as unknown as CatalogEntryRecord);
+        const rkey = record.uri.split("/").pop() ?? "";
+        const parsed = CatalogEntryRecordSchema.safeParse(record.value);
+        if (parsed.success) {
+          pdsRecords.set(rkey, parsed.data);
+        } else {
+          console.debug("[sync] reconcileUser skipping invalid record rkey=%s", rkey);
+        }
       }
 
       cursor = response.data.cursor;

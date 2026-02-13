@@ -5,6 +5,12 @@ export const TYPE_BADGE_CLASSES: Record<string, string> = {
   game: "bg-dg-game/20 text-dg-game border-dg-game/40",
 };
 
+const BADGE_FALLBACK = "bg-dg-elevated text-dg-text-tertiary border-dg-border";
+
+export function typeBadgeClass(mediaType?: string | null): string {
+  return TYPE_BADGE_CLASSES[mediaType ?? ""] ?? BADGE_FALLBACK;
+}
+
 export function mediaTypeLabel(type: string, short = false): string {
   if (type === "tv_series") return short ? "TV" : "TV Series";
   return type.charAt(0).toUpperCase() + type.slice(1);
@@ -31,7 +37,14 @@ export function ratingColor(value: number | null): string | undefined {
 
 // ─── Status Vocabulary ──────────────────────────────────────────────────────
 
-export const STATUS_ORDER = ["in_progress", "planned", "on_hold", "completed", "dropped", "mastered"] as const;
+export const STATUS_ORDER = [
+  "in_progress",
+  "planned",
+  "on_hold",
+  "completed",
+  "dropped",
+  "mastered",
+] as const;
 export type StatusValue = (typeof STATUS_ORDER)[number];
 
 export const STATUS_LABELS_GENERIC: Record<StatusValue, string> = {
@@ -58,12 +71,17 @@ export function normalizeStatus(s: string): StatusValue {
 type MediaTypeKey = "movie" | "tv_series" | "anime" | "game";
 
 const STATUS_LABELS_BY_TYPE: Record<StatusValue, Partial<Record<MediaTypeKey, string | null>>> = {
-  planned:     { movie: "Plan to Watch", tv_series: "Plan to Watch", anime: "Plan to Watch", game: "Plan to Play" },
-  in_progress: { movie: null,            tv_series: "Watching",      anime: "Watching",       game: "Playing" },
-  on_hold:     { movie: null,            tv_series: "Paused",        anime: "Paused",         game: "Paused" },
-  completed:   { movie: "Watched",       tv_series: "Completed",     anime: "Completed",      game: "Completed" },
-  dropped:     { movie: "Dropped",       tv_series: "Dropped",       anime: "Dropped",        game: "Dropped" },
-  mastered:    { movie: null,            tv_series: null,             anime: null,              game: "100%" },
+  planned: {
+    movie: "Plan to Watch",
+    tv_series: "Plan to Watch",
+    anime: "Plan to Watch",
+    game: "Plan to Play",
+  },
+  in_progress: { movie: null, tv_series: "Watching", anime: "Watching", game: "Playing" },
+  on_hold: { movie: null, tv_series: "Paused", anime: "Paused", game: "Paused" },
+  completed: { movie: "Watched", tv_series: "Completed", anime: "Completed", game: "Completed" },
+  dropped: { movie: "Dropped", tv_series: "Dropped", anime: "Dropped", game: "Dropped" },
+  mastered: { movie: null, tv_series: null, anime: null, game: "100%" },
 };
 
 /** Type-specific label or generic fallback. Returns null if hidden for that type. */

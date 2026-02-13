@@ -12,15 +12,24 @@
     "rules": {
       "recommended": true,
       "complexity": {
-        "noImportantStyles": "off"
+        "noImportantStyles": "off",
+        "noExcessiveCognitiveComplexity": "warn",
+        "noForEach": "warn"
       },
       "correctness": {
         "noUnusedImports": "warn",
         "useExhaustiveDependencies": "warn"
       },
       "style": {
-        "noNonNullAssertion": "off",
-        "useImportType": "warn"
+        "noNonNullAssertion": "warn",
+        "useImportType": "warn",
+        "useConst": "error"
+      },
+      "suspicious": {
+        "noVar": "error",
+        "noDebugger": "error",
+        "noExplicitAny": "warn",
+        "noImplicitAnyLet": "warn"
       }
     }
   },

@@ -183,18 +183,26 @@ export const catalogEntries = pgTable(
 
 // ─── Seasons ────────────────────────────────────────────────────────────────
 
-export const seasons = pgTable("seasons", {
-  id: text("id").primaryKey().$defaultFn(() => ulid()),
-  mediaId: text("media_id").notNull().references(() => media.id, { onDelete: "cascade" }),
-  seasonNumber: integer("season_number").notNull(),
-  episodeCount: integer("episode_count"),
-  title: text("title"),
-  dataSource: text("data_source", { enum: ["wikidata", "tvmaze", "anime_offline_db"] }).notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => [
-  uniqueIndex("idx_seasons_media_number").on(table.mediaId, table.seasonNumber),
-  index("idx_seasons_media").on(table.mediaId),
-]);
+export const seasons = pgTable(
+  "seasons",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => ulid()),
+    mediaId: text("media_id")
+      .notNull()
+      .references(() => media.id, { onDelete: "cascade" }),
+    seasonNumber: integer("season_number").notNull(),
+    episodeCount: integer("episode_count"),
+    title: text("title"),
+    dataSource: text("data_source", { enum: ["wikidata", "tvmaze", "anime_offline_db"] }).notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("idx_seasons_media_number").on(table.mediaId, table.seasonNumber),
+    index("idx_seasons_media").on(table.mediaId),
+  ],
+);
 
 // ─── OAuth State (replaces KV) ──────────────────────────────────────────────
 

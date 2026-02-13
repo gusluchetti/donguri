@@ -17,15 +17,13 @@ import {
   replayCountLabel,
   STATUS_BUTTON_COLORS,
   statusLabel,
-  type StatusValue,
-  TYPE_BADGE_CLASSES,
+  typeBadgeClass,
 } from "../../lib/media-types";
 import { ogTags } from "../../lib/og";
 import { swrLoad } from "../../lib/swr-loader";
 import { useAction } from "../../lib/use-action";
 
 const rootRoute = getRouteApi("__root__");
-
 
 type FullLoaderData = {
   kind: "full";
@@ -144,9 +142,7 @@ function MediaStubPage({
   stub: { wikidataId: string; title: string; mediaType: string | null };
 }) {
   const { auth } = rootRoute.useLoaderData();
-  const badgeClass =
-    TYPE_BADGE_CLASSES[stub.mediaType ?? ""] ??
-    "bg-dg-elevated text-dg-text-tertiary border-dg-border";
+  const badgeClass = typeBadgeClass(stub.mediaType);
 
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
@@ -179,7 +175,9 @@ function MediaStubPage({
           </p>
         </div>
 
-        {auth && <TrackingPanel wikidataId={stub.wikidataId} mediaType={stub.mediaType ?? undefined} />}
+        {auth && (
+          <TrackingPanel wikidataId={stub.wikidataId} mediaType={stub.mediaType ?? undefined} />
+        )}
 
         <div className="mb-5 sm:mb-6">
           <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
@@ -203,8 +201,7 @@ function MediaStubPage({
 
 function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof getMedia>>> }) {
   const { auth } = rootRoute.useLoaderData();
-  const badgeClass =
-    TYPE_BADGE_CLASSES[data.mediaType] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
+  const badgeClass = typeBadgeClass(data.mediaType);
 
   const isAnime = data.mediaType === "anime";
   const isGame = data.mediaType === "game";
@@ -458,7 +455,14 @@ function TrackingPanel({ wikidataId, mediaType }: { wikidataId: string; mediaTyp
     const prev = entry;
     setEntry((e) =>
       e
-        ? { ...e, status, rating: localRating, isFavorite: localIsFavorite, replayCount: localReplayCount, updatedAt: new Date() }
+        ? {
+            ...e,
+            status,
+            rating: localRating,
+            isFavorite: localIsFavorite,
+            replayCount: localReplayCount,
+            updatedAt: new Date(),
+          }
         : ({
             id: "",
             userId: "",
@@ -516,7 +520,16 @@ function TrackingPanel({ wikidataId, mediaType }: { wikidataId: string; mediaTyp
         throw err;
       }
     });
-  }, [entry, localStatus, localRating, localIsFavorite, localReplayCount, wikidataId, router, action]);
+  }, [
+    entry,
+    localStatus,
+    localRating,
+    localIsFavorite,
+    localReplayCount,
+    wikidataId,
+    router,
+    action,
+  ]);
 
   const handleRemove = useCallback(async () => {
     console.debug("[tracking] remove %s (optimistic)", wikidataId);

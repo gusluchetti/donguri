@@ -8,7 +8,14 @@ import { getAuthenticatedAgent } from "./auth/agent";
 import { requireAuth } from "./auth/session";
 import { deleteCatalogEntry, putCatalogEntry } from "./sync";
 
-const StatusEnum = z.enum(["planned", "in_progress", "on_hold", "completed", "dropped", "mastered"]);
+const StatusEnum = z.enum([
+  "planned",
+  "in_progress",
+  "on_hold",
+  "completed",
+  "dropped",
+  "mastered",
+]);
 
 export const getCatalogEntry = createServerFn({ method: "GET" })
   .inputValidator(z.object({ wikidataId: z.string() }))
@@ -165,7 +172,7 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
         const completedAt =
           data.status === "completed"
             ? existing?.status === "completed"
-              ? existing.completedAt ?? new Date(now)
+              ? (existing.completedAt ?? new Date(now))
               : new Date(now)
             : null;
 
