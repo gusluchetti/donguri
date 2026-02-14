@@ -45,6 +45,9 @@ bun run src/import/index.ts media-subset.ndjson --full --limit=1000 # Limited im
 bun run src/import/index.ts media-subset.ndjson --full --resumeFrom=Q123
 bun run src/import/index.ts media-subset.ndjson --clean             # Clean DB first
 
+# ─── Genre seed ──────────────────────────────────────────────────────────────
+bun run db:seed-genres            # Populate canonical_genres + genre_mappings
+
 # ─── Production DB access (manual) ──────────────────────────────────────────
 # fly proxy 5432 -a donguri-db   # Then connect with a different DATABASE_URL
 ```
@@ -75,18 +78,21 @@ src/
       index.tsx       → Catalog browse (virtual list, search, type filter)
       $wikidataId.tsx → Media detail page (SSR, tracking controls)
   db/
-    schema.ts         → Drizzle schema (media, genres, platforms, users, catalog_entries, oauth)
+    schema.ts         → Drizzle schema (media, genres, platforms, users, catalog_entries, oauth, canonical_genres, genre_mappings, seasons)
     index.ts          → Database client (postgres.js)
     fts.ts            → pg_trgm extension + GIN index setup
+    genre-data.ts     → Canonical genre definitions (18 main + ~47 sub) and ~150 Wikidata Q-ID mappings
+    seed-genres.ts    → Seed script for canonical_genres + genre_mappings tables
   lib/
     media.functions.ts → Server functions (listMedia, getMedia, getMediaStats)
     media-types.ts    → Type labels and badge color mappings
     catalog.functions.ts → Server functions (catalog entries, tracked IDs)
     auth.functions.ts → Server functions (login, logout, auth state, unified OAuth)
     oauth-providers.ts → Generic OAuth provider config map + unified flow
+    oauth-callback.tsx → Shared OAuth callback component (Google/GitHub)
     og.ts             → Open Graph + Twitter Card meta tag helper
     theme.tsx         → ThemeProvider + useTheme hook (dark/light toggle)
-    query.ts          → TanStack Query client + IDB persister setup
+    query.ts          → TanStack Query client + IDB persister + DATA_VERSION for cache busting
     query-options.ts  → Query/infinite-query option factories with versioned keys
     sync.ts           → AT Protocol PDS sync helpers
     auth/
@@ -110,14 +116,17 @@ drizzle.config.ts     → Drizzle Kit config for Postgres
 
 ### Database (Postgres)
 - `media` — Unified table for movies, TV, anime, games. Sparse columns for type-specific fields.
-- `genres` / `media_genres` — Many-to-many genre relationships
+- `genres` / `media_genres` — Raw Wikidata genre relationships (Q-IDs)
+- `canonical_genres` — Two-tier genre hierarchy (18 main + ~47 sub-genres, self-referencing `parent_id`)
+- `genre_mappings` — Wikidata Q-ID → canonical genre resolution (manual Phase 1 done, ~150 mappings)
 - `platforms` / `media_platforms` — Many-to-many platform relationships (games)
+- `seasons` — Per-series season data (season number, episode count, data source)
 - `users` — User accounts (Bluesky via AT Protocol, Google, GitHub)
-- `catalog_entries` — User tracking data (status, ratings, episode progress, notes)
+- `catalog_entries` — User tracking data (status, ratings, episode progress, favorites, replay count)
 - `oauth_states` / `oauth_sessions` — AT Protocol OAuth state (replaces KV)
 - `import_progress` — Import job tracking with resume support
 
-Search uses `pg_trgm` extension with GIN indexes for fast ILIKE on title/original_title.
+Search uses `pg_trgm` with `word_similarity()` and GIN indexes for fuzzy matching on title/original_title.
 
 ### Wikidata Import
 Supports 10 P31 types: Film, TV Film, TV Series, Anime (6 variants), Video Game.
@@ -139,11 +148,11 @@ GITHUB_CLIENT_SECRET=  # GitHub OAuth client secret
 
 ## Current Features
 
-- **Catalog**: 100k+ titles (movies, TV, anime, games) with full-text search and type filtering
-- **Detail pages**: genres, platforms, external links (IMDb, TMDB, MAL, AniList, IGDB, etc.)
-- **Tracking**: status (watching/completed/dropped/paused/plan to watch), 0-100 ratings, episode progress count
+- **Catalog**: 100k+ titles (movies, TV, anime, games) with fuzzy search (pg_trgm word_similarity) and type filtering
+- **Detail pages**: hierarchical genre chips (e.g., "Sci-Fi > Cyberpunk"), platforms, external links (IMDb, TMDB, MAL, AniList, IGDB, etc.)
+- **Tracking**: per-media-type status labels, 0-100 ratings, favorites, replay count, episode progress count
 - **Auth**: Bluesky OAuth (with PDS sync), Google OAuth, GitHub OAuth
-- **Caching**: IDB-persisted TanStack Query cache with versioned keys
+- **Caching**: IDB-persisted TanStack Query cache with DATA_VERSION for cache busting on schema changes, refetchOnWindowFocus for user data
 - **Not yet built**: per-episode tracking UI, genre filtering in catalog, cover art display, notes UI, data import/export
 
 ## Frontend Aesthetics
