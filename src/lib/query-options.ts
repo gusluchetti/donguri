@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import { getCatalogEntry, getUserCatalogEntries, getUserTrackedIds } from "./catalog.functions";
 import { getMedia, getMediaStats, listMedia } from "./media.functions";
 import { idbPersister } from "./query";
@@ -32,10 +32,13 @@ export function mediaStatsOptions() {
   });
 }
 
-export function catalogBrowseOptions(mediaType?: string) {
-  return queryOptions({
-    queryKey: ["catalog", "browse", mediaType ?? "all"],
-    queryFn: () => listMedia({ data: { limit: 50, mediaType } }),
+export function catalogInfiniteOptions(mediaType?: string, search?: string) {
+  return infiniteQueryOptions({
+    queryKey: ["catalog", "browse", mediaType ?? "all", search ?? ""],
+    queryFn: ({ pageParam }) =>
+      listMedia({ data: { cursor: pageParam, limit: 50, mediaType, search } }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: 5 * 60 * 1000,
     persister,
   });

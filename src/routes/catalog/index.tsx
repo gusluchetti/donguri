@@ -1,11 +1,10 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { Media } from "../../db/schema";
 import { setCatalogEntry } from "../../lib/catalog.functions";
-import { listMedia } from "../../lib/media.functions";
 import {
   mediaTypeLabel,
   STATUS_ACCENT,
@@ -13,7 +12,7 @@ import {
   typeBadgeClass,
 } from "../../lib/media-types";
 import { ogTags, pageTitle } from "../../lib/og";
-import { catalogBrowseOptions, mediaStatsOptions } from "../../lib/query-options";
+import { catalogInfiniteOptions, mediaStatsOptions } from "../../lib/query-options";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -37,22 +36,10 @@ export const Route = createFileRoute("/catalog/")({
     const { q, mediaType } = deps;
 
     const stats = await context.queryClient.ensureQueryData(mediaStatsOptions());
-
-    if (q) {
-      // Search: always fresh, no cache (too many unique queries)
-      const data = await listMedia({ data: { limit: 50, mediaType, search: q } });
-      return { items: data.items, nextCursor: data.nextCursor, stats };
-    }
-
-    // Browse: TanStack Query cache (instant tab switches on revisit)
-    const catalogResult = await context.queryClient.ensureQueryData(
-      catalogBrowseOptions(mediaType),
+    await context.queryClient.prefetchInfiniteQuery(
+      catalogInfiniteOptions(mediaType, q || undefined),
     );
-    return {
-      items: catalogResult.items,
-      nextCursor: catalogResult.nextCursor,
-      stats,
-    };
+    return { stats };
   },
   staleTime: 5 * 60 * 1000,
   head: () => ({
@@ -108,57 +95,23 @@ function SearchInput({ initialValue }: { initialValue: string }) {
 }
 
 function CatalogPage() {
-  const loaderData = Route.useLoaderData();
+  const { stats } = Route.useLoaderData();
   const { auth, trackedIds: rootTrackedIds } = rootRoute.useLoaderData();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog" });
 
-  // Local state for infinite scroll only
-  const [extraItems, setExtraItems] = useState<Media[]>([]);
-  const [nextCursor, setNextCursor] = useState(loaderData.nextCursor);
-  const [loading, setLoading] = useState(false);
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery(
+    catalogInfiniteOptions(mediaType, q || undefined),
+  );
+  const allItems = data?.pages.flatMap((p) => p.items) ?? [];
+
   const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
   const [quickAddState, setQuickAddState] = useState<Record<string, "pending" | "done">>({});
   const parentRef = useRef<HTMLDivElement>(null);
 
-  // Reset when loader data changes (tab switch, search)
-  const prevRef = useRef(loaderData);
-  if (prevRef.current !== loaderData) {
-    prevRef.current = loaderData;
-    setExtraItems([]);
-    setNextCursor(loaderData.nextCursor);
-  }
-
-  const items = [...loaderData.items, ...extraItems];
   const trackedIds: Record<string, string | null> = { ...rootTrackedIds, ...localOverrides };
-  const stats = loaderData.stats;
-
-  const fetchMore = useCallback(
-    async (cursor: string) => {
-      setLoading(true);
-      try {
-        const result = await listMedia({
-          data: {
-            cursor,
-            limit: 50,
-            mediaType,
-            search: q || undefined,
-          },
-        });
-        let merged: Media[] = [];
-        setExtraItems((prev) => {
-          merged = [...prev, ...result.items];
-          return merged;
-        });
-        setNextCursor(result.nextCursor);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [mediaType, q],
-  );
 
   const handleTypeChange = useCallback(
     (type: "movie" | "tv_series" | "anime" | "game" | undefined) => {
@@ -212,7 +165,7 @@ function CatalogPage() {
   );
 
   const virtualizer = useVirtualizer({
-    count: items.length + (nextCursor ? 1 : 0),
+    count: hasNextPage ? allItems.length + 1 : allItems.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 64,
     overscan: 10,
@@ -224,10 +177,10 @@ function CatalogPage() {
   useEffect(() => {
     const lastItem = virtualItems[virtualItems.length - 1];
     if (!lastItem) return;
-    if (lastItem.index >= items.length - 5 && nextCursor && !loading) {
-      fetchMore(nextCursor);
+    if (lastItem.index >= allItems.length - 5 && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
-  }, [virtualItems, items.length, nextCursor, loading, fetchMore]);
+  }, [virtualItems, allItems.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
     <div className="bg-dg-bg text-dg-text flex-1 font-mono flex flex-col overflow-hidden">
@@ -303,7 +256,7 @@ function CatalogPage() {
           }}
         >
           {virtualItems.map((virtualRow) => {
-            if (virtualRow.index >= items.length) {
+            if (virtualRow.index >= allItems.length) {
               return (
                 <div
                   key="loader"
@@ -313,12 +266,14 @@ function CatalogPage() {
                     height: virtualRow.size,
                   }}
                 >
-                  <span className="text-dg-text-tertiary">{loading ? "Loading..." : ""}</span>
+                  <span className="text-dg-text-tertiary">
+                    {isFetchingNextPage ? "Loading..." : ""}
+                  </span>
                 </div>
               );
             }
 
-            const item = items[virtualRow.index];
+            const item = allItems[virtualRow.index];
             const status = trackedIds[item.wikidataId] ?? null;
             const isTracked = status !== null;
             const showAdd = auth && !isTracked;
