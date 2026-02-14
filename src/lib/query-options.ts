@@ -1,16 +1,12 @@
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import { getCatalogEntry, getUserCatalogEntries, getUserTrackedIds } from "./catalog.functions";
 import { getMedia, getMediaStats, listMedia } from "./media.functions";
-import { idbPersister } from "./query";
-
-const persister = idbPersister?.persisterFn;
 
 export function trackedIdsOptions() {
   return queryOptions({
     queryKey: ["user", "trackedIds"],
     queryFn: () => getUserTrackedIds({}),
     staleTime: 30_000,
-    persister,
   });
 }
 
@@ -19,7 +15,6 @@ export function watchlistOptions() {
     queryKey: ["user", "watchlist"],
     queryFn: () => getUserCatalogEntries({}),
     staleTime: 30_000,
-    persister,
   });
 }
 
@@ -28,7 +23,6 @@ export function mediaStatsOptions() {
     queryKey: ["catalog", "stats"],
     queryFn: () => getMediaStats({}),
     staleTime: 30 * 60 * 1000,
-    persister,
   });
 }
 
@@ -40,7 +34,6 @@ export function catalogInfiniteOptions(mediaType?: string, search?: string) {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: 5 * 60 * 1000,
-    persister,
   });
 }
 
@@ -49,7 +42,6 @@ export function mediaDetailOptions(wikidataId: string) {
     queryKey: ["media", wikidataId],
     queryFn: () => getMedia({ data: { wikidataId } }),
     staleTime: 60 * 60 * 1000,
-    persister,
   });
 }
 
@@ -58,6 +50,5 @@ export function catalogEntryOptions(wikidataId: string) {
     queryKey: ["user", "entry", wikidataId],
     queryFn: () => getCatalogEntry({ data: { wikidataId } }),
     staleTime: 30_000,
-    persister,
   });
 }

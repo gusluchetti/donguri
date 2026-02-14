@@ -10,9 +10,8 @@ export function getRouter() {
     createTanStackRouter({
       routeTree,
       scrollRestoration: true,
-      defaultPreload: "viewport",
+      defaultPreload: false,
       defaultStaleTime: 30_000,
-      defaultPreloadStaleTime: 30_000,
       context: { queryClient },
     }),
     queryClient,

@@ -62,7 +62,7 @@ export const Route = createFileRoute("/catalog/")({
 });
 
 function SearchInput({ initialValue }: { initialValue: string }) {
-  const navigate = useNavigate({ from: "/catalog" });
+  const navigate = useNavigate({ from: "/catalog/" });
   const { q } = Route.useSearch();
   const [value, setValue] = useState(initialValue);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -284,7 +284,7 @@ function CatalogPage() {
                 key={item.id}
                 to="/catalog/$wikidataId"
                 params={{ wikidataId: item.wikidataId }}
-                preload="intent"
+                preload={false}
                 className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group overflow-hidden"
                 style={{
                   top: virtualRow.start,
