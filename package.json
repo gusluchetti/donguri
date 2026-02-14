@@ -1,6 +1,6 @@
 {
   "name": "donguri",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -16,6 +16,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "db:seed-genres": "bun run src/db/seed-genres.ts",
     "import:subset": "bun run src/import/subset.ts",
     "import": "bun run src/import/index.ts",
     "lint": "biome check .",

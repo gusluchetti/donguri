@@ -43,6 +43,13 @@
       "when": 1771001910877,
       "tag": "0005_chief_carnage",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1771097361355,
+      "tag": "0006_magical_prism",
+      "breakpoints": true
     }
   ]
 }

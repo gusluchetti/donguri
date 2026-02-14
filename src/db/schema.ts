@@ -102,6 +102,35 @@ export const mediaGenres = pgTable(
   (table) => [primaryKey({ columns: [table.mediaId, table.genreId] })],
 );
 
+// ─── Canonical Genres (two-tier: main + sub-genres) ─────────────────────────
+
+export const canonicalGenres = pgTable("canonical_genres", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => ulid()),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  parentId: text("parent_id"),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const genreMappings = pgTable(
+  "genre_mappings",
+  {
+    wikidataId: text("wikidata_id").notNull(),
+    canonicalGenreId: text("canonical_genre_id")
+      .notNull()
+      .references(() => canonicalGenres.id, { onDelete: "cascade" }),
+    source: text("source", { enum: ["manual", "p279_auto"] })
+      .notNull()
+      .default("manual"),
+  },
+  (table) => [
+    primaryKey({ columns: [table.wikidataId, table.canonicalGenreId] }),
+    index("idx_genre_mappings_wikidata").on(table.wikidataId),
+  ],
+);
+
 // ─── Platforms (games) ──────────────────────────────────────────────────────
 
 export const platforms = pgTable("platforms", {
@@ -257,6 +286,23 @@ export const mediaGenresRelations = relations(mediaGenres, ({ one }) => ({
   }),
 }));
 
+export const canonicalGenresRelations = relations(canonicalGenres, ({ one, many }) => ({
+  parent: one(canonicalGenres, {
+    fields: [canonicalGenres.parentId],
+    references: [canonicalGenres.id],
+    relationName: "parentChild",
+  }),
+  children: many(canonicalGenres, { relationName: "parentChild" }),
+  mappings: many(genreMappings),
+}));
+
+export const genreMappingsRelations = relations(genreMappings, ({ one }) => ({
+  canonicalGenre: one(canonicalGenres, {
+    fields: [genreMappings.canonicalGenreId],
+    references: [canonicalGenres.id],
+  }),
+}));
+
 export const platformsRelations = relations(platforms, ({ many }) => ({
   mediaPlatforms: many(mediaPlatforms),
 }));
@@ -303,3 +349,5 @@ export type NewCatalogEntry = typeof catalogEntries.$inferInsert;
 export type ImportProgress = typeof importProgress.$inferSelect;
 export type Season = typeof seasons.$inferSelect;
 export type NewSeason = typeof seasons.$inferInsert;
+export type CanonicalGenre = typeof canonicalGenres.$inferSelect;
+export type GenreMapping = typeof genreMappings.$inferSelect;

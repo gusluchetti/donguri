@@ -348,23 +348,7 @@ function MediaDetailPage({
         )}
 
         {/* Genres */}
-        {data.genres.length > 0 && (
-          <div className="mb-5 sm:mb-6">
-            <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-              Genres
-            </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {data.genres.map((g) => (
-                <span
-                  key={g.id}
-                  className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                >
-                  {g.name}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+        {data.genres.length > 0 && <GenreChips genres={data.genres} />}
 
         {/* Platforms (games) */}
         {data.platforms.length > 0 && (
@@ -404,6 +388,49 @@ function MediaDetailPage({
             ))}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function GenreChips({
+  genres,
+}: {
+  genres: {
+    id: string;
+    slug: string;
+    name: string;
+    parentId: string | null;
+    parentName: string | null;
+  }[];
+}) {
+  // Dedup: if a sub-genre is present, suppress its standalone parent from rendering
+  const subGenreParentIds = new Set(genres.filter((g) => g.parentId).map((g) => g.parentId!));
+  const visible = genres.filter((g) => {
+    // Keep sub-genres always. Keep parents only if no sub-genre references them.
+    if (g.parentId) return true;
+    return !subGenreParentIds.has(g.id);
+  });
+
+  return (
+    <div className="mb-5 sm:mb-6">
+      <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">Genres</h3>
+      <div className="flex flex-wrap gap-1.5">
+        {visible.map((g) => (
+          <span
+            key={g.id}
+            className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+          >
+            {g.parentName ? (
+              <>
+                <span className="text-dg-text-tertiary">{g.parentName} &rsaquo; </span>
+                {g.name}
+              </>
+            ) : (
+              g.name
+            )}
+          </span>
+        ))}
       </div>
     </div>
   );

@@ -86,9 +86,8 @@ src/
     oauth-providers.ts → Generic OAuth provider config map + unified flow
     og.ts             → Open Graph + Twitter Card meta tag helper
     theme.tsx         → ThemeProvider + useTheme hook (dark/light toggle)
-    prefetch.ts       → Background catalog prefetch for perf
-    swr-loader.ts     → Stale-while-revalidate loader with IDB cache
-    idb-cache.ts      → IndexedDB cache layer for client-side data
+    query.ts          → TanStack Query client + IDB persister setup
+    query-options.ts  → Query/infinite-query option factories with versioned keys
     sync.ts           → AT Protocol PDS sync helpers
     auth/
       client.ts       → AT Protocol OAuth client (Bluesky only)
@@ -144,7 +143,7 @@ GITHUB_CLIENT_SECRET=  # GitHub OAuth client secret
 - **Detail pages**: genres, platforms, external links (IMDb, TMDB, MAL, AniList, IGDB, etc.)
 - **Tracking**: status (watching/completed/dropped/paused/plan to watch), 0-100 ratings, episode progress count
 - **Auth**: Bluesky OAuth (with PDS sync), Google OAuth, GitHub OAuth
-- **Caching**: IDB-backed stale-while-revalidate on client, background prefetch
+- **Caching**: IDB-persisted TanStack Query cache with versioned keys
 - **Not yet built**: per-episode tracking UI, genre filtering in catalog, cover art display, notes UI, data import/export
 
 ## Frontend Aesthetics

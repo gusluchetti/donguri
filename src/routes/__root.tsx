@@ -166,6 +166,22 @@ function RootComponent() {
             </div>
           </nav>
           <Outlet />
+          <footer className="border-t border-dg-border-subtle px-4 sm:px-6 py-4 font-mono shrink-0">
+            <div className="max-w-[1000px] mx-auto flex items-center justify-between text-[0.7rem] text-dg-text-tertiary">
+              <span>v0.2.0</span>
+              <span>
+                data from{" "}
+                <a
+                  href="https://www.wikidata.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                >
+                  Wikidata
+                </a>
+              </span>
+            </div>
+          </footer>
         </div>
       </ThemeProvider>
     </RootDocument>
