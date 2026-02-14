@@ -177,7 +177,7 @@ function CatalogPage() {
   useEffect(() => {
     const lastItem = virtualItems[virtualItems.length - 1];
     if (!lastItem) return;
-    if (lastItem.index >= allItems.length - 5 && hasNextPage && !isFetchingNextPage) {
+    if (lastItem.index >= allItems.length - 1 && hasNextPage && !isFetchingNextPage) {
       fetchNextPage();
     }
   }, [virtualItems, allItems.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
@@ -185,7 +185,7 @@ function CatalogPage() {
   return (
     <div className="bg-dg-bg text-dg-text flex-1 font-mono flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2 sm:pb-4">
+      <header className="px-4 sm:px-6 pt-3 pb-1">
         <div className="max-w-[1000px] mx-auto">
           <p className="text-dg-text-tertiary text-[0.8rem]">
             {stats.total > 0
@@ -196,7 +196,7 @@ function CatalogPage() {
       </header>
 
       {/* Controls */}
-      <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 py-3 sm:py-4 flex flex-col gap-3">
+      <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 py-2 flex flex-col gap-2">
         {/* Search */}
         <div className="w-full">
           <SearchInput initialValue={q ?? ""} />
@@ -232,7 +232,7 @@ function CatalogPage() {
 
       {/* Login prompt */}
       {!auth && (
-        <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 pb-3">
+        <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 pb-2">
           <Link
             to="/"
             className="block border border-dg-accent/20 bg-dg-accent/[0.04] rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-150"
@@ -243,64 +243,69 @@ function CatalogPage() {
         </div>
       )}
 
-      {/* Virtual list */}
-      <div
-        ref={parentRef}
-        className="flex-1 overflow-auto max-w-[1000px] mx-auto w-full px-4 sm:px-6"
-      >
+      {/* Virtual list — relative+absolute ensures a definite height for the
+           scroll container regardless of the outer flex chain (min-h-dvh on
+           root doesn't give flex children a definite height, which would make
+           the virtualizer think ALL items are visible and fetchNextPage loops) */}
+      <div className="flex-1 relative min-h-0">
         <div
-          style={{
-            height: virtualizer.getTotalSize(),
-            width: "100%",
-            position: "relative",
-          }}
+          ref={parentRef}
+          className="absolute inset-0 overflow-auto max-w-[1000px] mx-auto w-full px-4 sm:px-6"
         >
-          {virtualItems.map((virtualRow) => {
-            if (virtualRow.index >= allItems.length) {
+          <div
+            style={{
+              height: virtualizer.getTotalSize(),
+              width: "100%",
+              position: "relative",
+            }}
+          >
+            {virtualItems.map((virtualRow) => {
+              if (virtualRow.index >= allItems.length) {
+                return (
+                  <div
+                    key="loader"
+                    className="w-full left-0 border-b border-dg-surface absolute flex items-center justify-center overflow-hidden"
+                    style={{
+                      top: virtualRow.start,
+                      height: virtualRow.size,
+                    }}
+                  >
+                    <span className="text-dg-text-tertiary">
+                      {isFetchingNextPage ? "Loading..." : ""}
+                    </span>
+                  </div>
+                );
+              }
+
+              const item = allItems[virtualRow.index];
+              const status = trackedIds[item.wikidataId] ?? null;
+              const isTracked = status !== null;
+              const showAdd = auth && !isTracked;
+              const addState = quickAddState[item.wikidataId] ?? null;
+
               return (
-                <div
-                  key="loader"
-                  className="w-full left-0 border-b border-dg-surface absolute flex items-center justify-center overflow-hidden"
+                <Link
+                  key={item.id}
+                  to="/catalog/$wikidataId"
+                  params={{ wikidataId: item.wikidataId }}
+                  preload={false}
+                  className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group overflow-hidden"
                   style={{
                     top: virtualRow.start,
                     height: virtualRow.size,
                   }}
                 >
-                  <span className="text-dg-text-tertiary">
-                    {isFetchingNextPage ? "Loading..." : ""}
-                  </span>
-                </div>
+                  <MediaRow
+                    item={item}
+                    trackedStatus={status}
+                    showAdd={!!showAdd}
+                    addState={addState}
+                    onQuickAdd={handleQuickAdd}
+                  />
+                </Link>
               );
-            }
-
-            const item = allItems[virtualRow.index];
-            const status = trackedIds[item.wikidataId] ?? null;
-            const isTracked = status !== null;
-            const showAdd = auth && !isTracked;
-            const addState = quickAddState[item.wikidataId] ?? null;
-
-            return (
-              <Link
-                key={item.id}
-                to="/catalog/$wikidataId"
-                params={{ wikidataId: item.wikidataId }}
-                preload={false}
-                className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group overflow-hidden"
-                style={{
-                  top: virtualRow.start,
-                  height: virtualRow.size,
-                }}
-              >
-                <MediaRow
-                  item={item}
-                  trackedStatus={status}
-                  showAdd={!!showAdd}
-                  addState={addState}
-                  onQuickAdd={handleQuickAdd}
-                />
-              </Link>
-            );
-          })}
+            })}
+          </div>
         </div>
       </div>
     </div>
