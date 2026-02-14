@@ -121,7 +121,7 @@ function MediaDetailRouter() {
 
 function MediaDetailSkeleton() {
   return (
-    <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
+    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
       <div className="max-w-[1000px] mx-auto p-4 sm:p-6">
         <button
           type="button"
@@ -161,7 +161,7 @@ function MediaStubPage({
   const badgeClass = typeBadgeClass(stub.mediaType);
 
   return (
-    <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
+    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
       <div className="max-w-[1000px] mx-auto p-4 sm:p-6">
         <button
           type="button"
@@ -284,7 +284,7 @@ function MediaDetailPage({
   });
 
   return (
-    <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
+    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
       <div className="max-w-[1000px] mx-auto p-4 sm:p-6">
         {/* Back link */}
         <button
