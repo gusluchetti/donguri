@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db";
 import { genres, media, mediaGenres, mediaPlatforms, platforms } from "../db/schema";
@@ -22,11 +22,58 @@ const GetMediaByExternalIdInput = z.object({
   value: z.string(),
 });
 
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+async function searchMedia(
+  db: ReturnType<typeof getDb>,
+  searchTerm: string,
+  cursor: string | undefined,
+  limit: number,
+  mediaType?: string,
+) {
+  const offset = cursor ? Number.parseInt(cursor, 10) : 0;
+  const ilikeTerm = `%${searchTerm.replace(/[%_\\]/g, "\\$&")}%`;
+
+  const relevance = sql<number>`GREATEST(
+    word_similarity(${searchTerm}, ${media.title}),
+    word_similarity(${searchTerm}, COALESCE(${media.originalTitle}, ''))
+  )`;
+
+  const fuzzyCondition = sql`(
+    ${searchTerm} <% ${media.title}
+    OR ${searchTerm} <% COALESCE(${media.originalTitle}, '')
+    OR ${media.title} ILIKE ${ilikeTerm}
+    OR ${media.originalTitle} ILIKE ${ilikeTerm}
+  )`;
+
+  const conditions = [fuzzyCondition];
+  if (mediaType) conditions.push(eq(media.mediaType, mediaType));
+
+  const results = await db.transaction(async (tx) => {
+    await tx.execute(sql`SET LOCAL pg_trgm.word_similarity_threshold = 0.2`);
+    return tx
+      .select(getTableColumns(media))
+      .from(media)
+      .where(and(...conditions))
+      .orderBy(sql`${relevance} DESC`, desc(media.sitelinksCount), media.id)
+      .limit(limit + 1)
+      .offset(offset);
+  });
+
+  const hasMore = results.length > limit;
+  const page = hasMore ? results.slice(0, limit) : results;
+  return {
+    items: page,
+    nextCursor: hasMore ? String(offset + limit) : null,
+  };
+}
+
 // ─── Server functions ───────────────────────────────────────────────────────
 
 /**
  * List media with cursor-based pagination, optional type filter and search.
- * Default sort: sitelinks_count DESC (popularity).
+ * Browse mode: keyset pagination sorted by popularity.
+ * Search mode: fuzzy matching via pg_trgm with offset pagination sorted by relevance.
  */
 export const listMedia = createServerFn({ method: "GET" })
   .inputValidator(ListMediaInput)
@@ -34,13 +81,13 @@ export const listMedia = createServerFn({ method: "GET" })
     const db = getDb();
     const { cursor, limit, mediaType, search } = data;
 
-    const conditions = [];
-
-    // Text search (pg_trgm ILIKE)
-    if (search?.trim()) {
-      const searchTerm = `%${search.trim()}%`;
-      conditions.push(or(ilike(media.title, searchTerm), ilike(media.originalTitle, searchTerm)));
+    const trimmedSearch = search?.trim();
+    if (trimmedSearch) {
+      return searchMedia(db, trimmedSearch, cursor, limit, mediaType);
     }
+
+    // ── Browse mode (no search) ─────────────────────────────────────────
+    const conditions = [];
 
     // Type filter
     if (mediaType) conditions.push(eq(media.mediaType, mediaType));
