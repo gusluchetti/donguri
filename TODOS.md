@@ -1,7 +1,7 @@
 # donguri — todos
 
 Internal reference. One line per feature, sorted by priority.
-See `ROADMAP.md` for the public version.
+See `/roadmap` page for the public version.
 
 Live at **donguri.app**.
 
@@ -9,36 +9,9 @@ Live at **donguri.app**.
 
 ## P0 — Quick wins with big impact
 
-- [x] **Unified status vocab + data model overhaul** *(PR #18)*
-  - Status enum → `planned`, `in_progress`, `on_hold`, `completed`, `dropped`, `mastered` with per-media-type display labels
-  - New columns: `is_favorite`, `replay_count`, `completed_at`, `watched_episodes` (JSONB)
-  - `seasons` table, `tvmaze_id` on `media`, AT Protocol lexicon update, TVMaze ID in import parser
-- [ ] **Genre normalization (two-tier)** — current `genres.name` stores raw Wikidata Q-IDs ("Q18518" instead of "Action")
-  - **Schema**: self-referencing `canonical_genres` table: `slug`, `name`, `parent_id` (NULL = main genre, FK = sub-genre), `sort_order`
-  - **Mapping table**: `genre_mappings` — `wikidata_id` → `canonical_genre_id` (many-to-many), `source` (`manual`/`p279_auto`)
-  - **Main genres (~18)**: Action, Adventure, Comedy, Crime, Documentary, Drama, Family, Fantasy, Historical, Horror, Music, Mystery, Romance, Sci-Fi, Sports, Thriller, War, Western
-  - **Sub-genres (~47)**, each parented to a main genre:
-    - Action → Martial Arts, Mecha, Superhero
-    - Adventure → Survival, Exploration
-    - Comedy → Parody, Satire, Romantic Comedy
-    - Crime → Noir, Heist
-    - Drama → Slice of Life, Coming of Age, Tragedy
-    - Fantasy → Dark Fantasy, High Fantasy, Isekai, Urban Fantasy, Mahou Shoujo
-    - Historical → Samurai, Medieval
-    - Horror → Psychological Horror, Slasher, Gothic, Body Horror, Survival Horror
-    - Mystery → Detective
-    - Sci-Fi → Cyberpunk, Space Opera, Dystopian, Post-Apocalyptic, Time Travel
-    - Thriller → Psychological Thriller, Espionage
-    - Game mechanics → RPG, Platformer, FPS, TPS, Strategy, Puzzle, Simulation, Racing, Fighting, Visual Novel
-    - Floating → Musical (pairs with any main genre)
-  - **Mapping rules**: sub-genre implies its parent — "Romantic Comedy" maps to Main: Comedy | Sub: Romantic Comedy, NOT Comedy + Romance. Avoids repetition. Compound Wikidata genres (e.g., "comedy horror" Q108466999) map to multiple main genres only when no sub-genre captures the combo.
-  - **Mapping strategy (hybrid)**:
-    - Phase 1: Manual core map (~100-150 most common Wikidata Q-IDs). Covers ~90% of assignments.
-    - Phase 2: P279 auto-resolve — walk Wikidata `subclass of` hierarchy (max 3 hops) for unmapped Q-IDs. Batch SPARQL query.
-    - Phase 3: Unmapped after 3 hops → drop from display. Keep raw Q-IDs in `media_genres` for traceability.
-  - **Import pipeline**: after `ensureGenres()`, resolve Q-IDs via mapping → populate `media` ↔ `canonical_genres` links. Fix `genres.name` to store English labels (fetch from Wikidata).
-  - **Genre vectors for recommendations**: binary multi-hot encoding against canonical genres. Cosine similarity for content-based filtering. Pre-compute user preference profile from highly-rated items.
-- [x] Genre chips on detail pages — show main + sub-genre with hierarchy (e.g., "Sci-Fi > Cyberpunk"), not Q-IDs
+- [ ] **Genre normalization — Phase 2: P279 auto-resolve** — walk Wikidata `subclass of` hierarchy (max 3 hops) for unmapped Q-IDs via batch SPARQL query
+- [ ] **Genre normalization — Phase 3: unmapped handling + import integration** — unmapped after 3 hops → drop from display (keep raw Q-IDs in `media_genres`). Integrate resolution into import pipeline, fix `genres.name` to store English labels.
+- [ ] **Genre vectors for recommendations** — binary multi-hot encoding against canonical genres. Cosine similarity for content-based filtering. Pre-compute user preference profile from highly-rated items.
 - [ ] Genre filter in catalog — filter by main genre and/or sub-genre, scoped by media type where relevant
 - [ ] Multi-filter search — combine type + genre + year range + rating
 
@@ -82,7 +55,6 @@ More auth methods = more users. Polish + onboarding = users that stay.
 - [ ] Responsive design audit (catalog grid, detail pages, forms)
 - [ ] Accessibility pass — keyboard nav, screen reader labels, contrast ratios
 - [ ] Changelog / "What's new" page — render from a static list (markdown or JSON), link from footer
-- [ ] Version display in footer or settings — semver from `package.json` injected at build time
 
 ## P3 — Monetization
 
