@@ -42,7 +42,7 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
   loader: async ({ params, context }): Promise<LoaderData> => {
     const mediaPromise = context.queryClient.ensureQueryData(mediaDetailOptions(params.wikidataId));
     const entryPromise = context.queryClient
-      .fetchQuery(catalogEntryOptions(params.wikidataId))
+      .ensureQueryData(catalogEntryOptions(params.wikidataId))
       .catch(() => null);
 
     const [media, initialEntry] = await Promise.all([mediaPromise, entryPromise]);
