@@ -284,6 +284,7 @@ function CatalogPage() {
                 key={item.id}
                 to="/catalog/$wikidataId"
                 params={{ wikidataId: item.wikidataId }}
+                preload="intent"
                 className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group overflow-hidden"
                 style={{
                   top: virtualRow.start,
