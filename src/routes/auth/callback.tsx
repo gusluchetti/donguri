@@ -1,14 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { z } from "zod";
 import { handleOAuthCallback } from "../../lib/auth.functions";
 
 export const Route = createFileRoute("/auth/callback")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    code: search.code as string | undefined,
-    state: search.state as string | undefined,
-    iss: search.iss as string | undefined,
-    error: search.error as string | undefined,
-    error_description: search.error_description as string | undefined,
+  validateSearch: z.object({
+    code: z.string().optional(),
+    state: z.string().optional(),
+    iss: z.string().optional(),
+    error: z.string().optional(),
+    error_description: z.string().optional(),
   }),
   component: CallbackPage,
 });

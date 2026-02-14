@@ -1,31 +1,31 @@
+import type { QueryClient } from "@tanstack/react-query";
 import {
-  createRootRoute,
+  createRootRouteWithContext,
   HeadContent,
   Link,
   Outlet,
   Scripts,
   useRouter,
 } from "@tanstack/react-router";
+import { clear } from "idb-keyval";
 import { Moon, Sun } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import "../app.css";
 import { getAuthState, logout } from "../lib/auth.functions";
-import { getUserTrackedIds } from "../lib/catalog.functions";
-import { cacheClearAll } from "../lib/idb-cache";
-import { ogTags } from "../lib/og";
-import { swrLoad } from "../lib/swr-loader";
+import { ogTags, pageTitle } from "../lib/og";
+import { trackedIdsOptions } from "../lib/query-options";
 import { getThemeCookie, ThemeProvider, useTheme } from "../lib/theme";
 
 // Sets data-theme before first paint. Also syncs the cookie for SSR on next visit.
 const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('dg-theme');if(!t){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.setAttribute('data-theme',t);document.cookie='dg-theme='+t+';path=/;max-age=34560000;samesite=lax'}catch(e){document.documentElement.setAttribute('data-theme','dark')}})()`;
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1" },
       { name: "theme-color", content: "#d4a44a" },
-      { title: "donguri" },
+      { title: pageTitle("donguri") },
       {
         name: "description",
         content: "Track movies, TV, anime, and games. Your catalog, your data.",
@@ -47,16 +47,12 @@ export const Route = createRootRoute({
       },
     ],
   }),
-  loader: async () => {
+  loader: async ({ context }) => {
     const [auth, theme] = await Promise.all([getAuthState(), getThemeCookie()]);
     let trackedIds: Record<string, string | null> = {};
     if (auth) {
       try {
-        const result = await swrLoad(() => getUserTrackedIds({}), {
-          key: "trackedIds",
-          maxAgeMs: 30_000,
-        });
-        trackedIds = result.data;
+        trackedIds = await context.queryClient.ensureQueryData(trackedIdsOptions());
       } catch (err) {
         console.error("[root] getUserTrackedIds FAILED:", err, "(continuing with empty)");
       }
@@ -65,6 +61,7 @@ export const Route = createRootRoute({
   },
   staleTime: 30_000,
   component: RootComponent,
+  notFoundComponent: NotFound,
 });
 
 function RootDocument({ children, theme }: { children: ReactNode; theme: string }) {
@@ -92,6 +89,7 @@ const NAV_LINKS: readonly { to: string; label: string; accent?: boolean; exact?:
 function RootComponent() {
   const { auth, theme } = Route.useLoaderData();
   const router = useRouter();
+  const queryClient = Route.useRouteContext().queryClient;
 
   // Re-check auth when tab becomes visible (handles cross-tab login/logout)
   useEffect(() => {
@@ -149,7 +147,8 @@ function RootComponent() {
                       className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none font-mono min-h-[44px] flex items-center"
                       onClick={async () => {
                         await logout();
-                        cacheClearAll();
+                        queryClient.clear();
+                        clear();
                         window.location.href = "/";
                       }}
                     >
@@ -171,6 +170,23 @@ function RootComponent() {
         </div>
       </ThemeProvider>
     </RootDocument>
+  );
+}
+
+function NotFound() {
+  return (
+    <div className="bg-dg-bg text-dg-text flex-1 font-mono flex items-center justify-center">
+      <div className="text-center px-4 py-16">
+        <p className="text-[2rem] font-semibold text-dg-accent mb-2">404</p>
+        <p className="text-[0.9rem] text-dg-text-secondary mb-6">Page not found.</p>
+        <Link
+          to="/"
+          className="text-[0.85rem] text-dg-accent no-underline py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-150"
+        >
+          Go home
+        </Link>
+      </div>
+    </div>
   );
 }
 

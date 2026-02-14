@@ -122,6 +122,7 @@ export const WikidataProperties = {
   IGDB_ID: "P5794",
   ANN_ID: "P1985",
   TVDB_ID: "P4835",
+  TVMAZE_ID: "P4372",
 
   // Dates
   START_TIME: "P580",
@@ -182,6 +183,7 @@ export interface ParsedMedia {
   igdbId: string | null;
   annId: string | null;
   tvdbId: string | null;
+  tvmazeId: string | null;
   genreIds: string[];
   platformIds: string[];
   searchTitle: string;

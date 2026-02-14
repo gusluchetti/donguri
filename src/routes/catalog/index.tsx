@@ -1,14 +1,18 @@
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { Media } from "../../db/schema";
 import { setCatalogEntry } from "../../lib/catalog.functions";
-import { cacheGet, cacheSet, invalidateUserCaches, isStale } from "../../lib/idb-cache";
-import { getMediaStats, listMedia } from "../../lib/media.functions";
-import { mediaTypeLabel, TYPE_BADGE_CLASSES } from "../../lib/media-types";
-import { ogTags } from "../../lib/og";
-import { scheduleCatalogPrefetch } from "../../lib/prefetch";
+import {
+  mediaTypeLabel,
+  STATUS_ACCENT,
+  type StatusValue,
+  typeBadgeClass,
+} from "../../lib/media-types";
+import { ogTags, pageTitle } from "../../lib/og";
+import { catalogInfiniteOptions, mediaStatsOptions } from "../../lib/query-options";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -27,9 +31,20 @@ const MEDIA_TYPES = [
 
 export const Route = createFileRoute("/catalog/")({
   validateSearch: catalogSearchSchema,
+  loaderDeps: ({ search }) => ({ q: search.q, mediaType: search.type }),
+  loader: async ({ deps, context }) => {
+    const { q, mediaType } = deps;
+
+    const stats = await context.queryClient.ensureQueryData(mediaStatsOptions());
+    await context.queryClient.prefetchInfiniteQuery(
+      catalogInfiniteOptions(mediaType, q || undefined),
+    );
+    return { stats };
+  },
+  staleTime: 5 * 60 * 1000,
   head: () => ({
     meta: [
-      { title: "Catalog — donguri" },
+      { title: pageTitle("catalog — donguri") },
       {
         name: "description",
         content:
@@ -46,150 +61,57 @@ export const Route = createFileRoute("/catalog/")({
   component: CatalogPage,
 });
 
+function SearchInput({ initialValue }: { initialValue: string }) {
+  const navigate = useNavigate({ from: "/catalog/" });
+  const { q } = Route.useSearch();
+  const [value, setValue] = useState(initialValue);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Sync when URL changes externally (e.g. back/forward)
+  useEffect(() => {
+    setValue(q ?? "");
+  }, [q]);
+
+  const handleChange = (input: string) => {
+    setValue(input);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      navigate({
+        search: (prev) => ({ ...prev, q: input || undefined }),
+        replace: true,
+      });
+    }, 300);
+  };
+
+  return (
+    <input
+      type="text"
+      placeholder="Search titles..."
+      value={value}
+      onChange={(e) => handleChange(e.target.value)}
+      className="w-full py-2.5 px-3 bg-dg-surface border border-dg-border rounded text-dg-text font-mono text-base sm:text-[0.85rem] outline-none box-border"
+    />
+  );
+}
+
 function CatalogPage() {
+  const { stats } = Route.useLoaderData();
   const { auth, trackedIds: rootTrackedIds } = rootRoute.useLoaderData();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog" });
 
-  const [items, setItems] = useState<Media[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [stats, setStats] = useState<{ total: number; byType: Record<string, number> }>({
-    total: 0,
-    byType: {},
-  });
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [searchInput, setSearchInput] = useState(q ?? "");
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery(
+    catalogInfiniteOptions(mediaType, q || undefined),
+  );
+  const allItems = data?.pages.flatMap((p) => p.items) ?? [];
+
   const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
   const [quickAddState, setQuickAddState] = useState<Record<string, "pending" | "done">>({});
-  const searchTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
   const parentRef = useRef<HTMLDivElement>(null);
 
-  // Merge root tracked IDs with local optimistic overrides
   const trackedIds: Record<string, string | null> = { ...rootTrackedIds, ...localOverrides };
-
-  // Fetch data when search params change (only if logged in)
-  // Use auth?.userId (primitive) as dependency instead of auth object —
-  // prevents re-fetching when router.invalidate() creates a new auth reference
-  const isLoggedIn = auth?.userId;
-  const isSearch = !!q;
-  const catalogCacheKey = `catalog:${mediaType ?? "all"}:0`;
-  const prefetchTriggered = useRef(false);
-
-  useEffect(() => {
-    if (!isLoggedIn) {
-      setInitialLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setError(null);
-
-    const load = async () => {
-      // Try IDB cache first (only for browse, not search)
-      if (!isSearch) {
-        const [cachedCatalog, cachedStats] = await Promise.all([
-          cacheGet<{ items: Media[]; nextCursor: string | null }>(catalogCacheKey),
-          cacheGet<{ total: number; byType: Record<string, number> }>("mediaStats"),
-        ]);
-
-        if (cachedCatalog && !cancelled) {
-          setItems(cachedCatalog.data.items);
-          setNextCursor(cachedCatalog.data.nextCursor);
-          if (cachedStats) setStats(cachedStats.data);
-          setInitialLoading(false);
-          parentRef.current?.scrollTo(0, 0);
-
-          // If fresh, skip network
-          if (!isStale(cachedCatalog.timestamp, 10 * 60 * 1000)) return;
-        }
-      } else {
-        setInitialLoading(true);
-      }
-
-      // Fetch fresh data
-      try {
-        const [data, statsData] = await Promise.all([
-          listMedia({ data: { limit: 50, mediaType, search: q || undefined } }),
-          getMediaStats({}),
-        ]);
-        if (cancelled) return;
-        setItems(data.items);
-        setNextCursor(data.nextCursor);
-        setStats(statsData);
-        setInitialLoading(false);
-        parentRef.current?.scrollTo(0, 0);
-
-        // Cache browse results (not search)
-        if (!isSearch) {
-          cacheSet(catalogCacheKey, data).catch(() => {});
-          cacheSet("mediaStats", statsData).catch(() => {});
-
-          // Trigger prefetch after first successful load
-          if (!prefetchTriggered.current) {
-            prefetchTriggered.current = true;
-            scheduleCatalogPrefetch();
-          }
-        }
-      } catch (e) {
-        if (cancelled) return;
-        console.error("[catalog] fetch failed:", e);
-        setError("Could not connect to database");
-        setInitialLoading(false);
-      }
-    };
-
-    load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isLoggedIn, q, mediaType, isSearch, catalogCacheKey]);
-
-  // Sync search input when URL param changes externally (e.g. back/forward)
-  useEffect(() => {
-    setSearchInput(q ?? "");
-  }, [q]);
-
-  const fetchMore = useCallback(
-    async (cursor: string) => {
-      setLoading(true);
-      try {
-        const result = await listMedia({
-          data: {
-            cursor,
-            limit: 50,
-            mediaType,
-            search: q || undefined,
-          },
-        });
-        setItems((prev) => [...prev, ...result.items]);
-        setNextCursor(result.nextCursor);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [mediaType, q],
-  );
-
-  const handleSearchInput = useCallback(
-    (value: string) => {
-      setSearchInput(value);
-      if (searchTimeout.current) clearTimeout(searchTimeout.current);
-      searchTimeout.current = setTimeout(() => {
-        navigate({
-          search: (prev) => ({
-            ...prev,
-            q: value || undefined,
-          }),
-          replace: true,
-        });
-      }, 300);
-    },
-    [navigate],
-  );
 
   const handleTypeChange = useCallback(
     (type: "movie" | "tv_series" | "anime" | "game" | undefined) => {
@@ -204,14 +126,16 @@ function CatalogPage() {
   );
 
   const handleQuickAdd = useCallback(
-    async (wikidataId: string, e: React.MouseEvent) => {
+    async (wikidataId: string, itemMediaType: string, e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      console.debug("[quick-add] %s → watching (optimistic)", wikidataId);
-      setLocalOverrides((prev) => ({ ...prev, [wikidataId]: "watching" }));
+      const defaultStatus: "planned" | "in_progress" =
+        itemMediaType === "movie" ? "planned" : "in_progress";
+      console.debug("[quick-add] %s → %s (optimistic)", wikidataId, defaultStatus);
+      setLocalOverrides((prev) => ({ ...prev, [wikidataId]: defaultStatus }));
       setQuickAddState((prev) => ({ ...prev, [wikidataId]: "pending" }));
       try {
-        await setCatalogEntry({ data: { wikidataId, status: "watching" } });
+        await setCatalogEntry({ data: { wikidataId, status: defaultStatus } });
         console.debug("[quick-add] %s → server ok", wikidataId);
         setQuickAddState((prev) => ({ ...prev, [wikidataId]: "done" }));
         setTimeout(() => {
@@ -221,7 +145,7 @@ function CatalogPage() {
             return next;
           });
         }, 1500);
-        invalidateUserCaches();
+        queryClient.invalidateQueries({ queryKey: ["user"] });
         router.invalidate();
       } catch (err) {
         console.error("[quick-add] %s → FAILED:", wikidataId, err);
@@ -237,11 +161,11 @@ function CatalogPage() {
         });
       }
     },
-    [router],
+    [router, queryClient],
   );
 
   const virtualizer = useVirtualizer({
-    count: items.length + (nextCursor ? 1 : 0),
+    count: hasNextPage ? allItems.length + 1 : allItems.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 64,
     overscan: 10,
@@ -253,15 +177,15 @@ function CatalogPage() {
   useEffect(() => {
     const lastItem = virtualItems[virtualItems.length - 1];
     if (!lastItem) return;
-    if (lastItem.index >= items.length - 5 && nextCursor && !loading) {
-      fetchMore(nextCursor);
+    if (lastItem.index >= allItems.length - 1 && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
-  }, [virtualItems, items.length, nextCursor, loading, fetchMore]);
+  }, [virtualItems, allItems.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
     <div className="bg-dg-bg text-dg-text flex-1 font-mono flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2 sm:pb-4">
+      <header className="px-4 sm:px-6 pt-3 pb-1">
         <div className="max-w-[1000px] mx-auto">
           <p className="text-dg-text-tertiary text-[0.8rem]">
             {stats.total > 0
@@ -272,16 +196,10 @@ function CatalogPage() {
       </header>
 
       {/* Controls */}
-      <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 py-3 sm:py-4 flex flex-col gap-3">
+      <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 py-2 flex flex-col gap-2">
         {/* Search */}
         <div className="w-full">
-          <input
-            type="text"
-            placeholder="Search titles..."
-            value={searchInput}
-            onChange={(e) => handleSearchInput(e.target.value)}
-            className="w-full py-2.5 px-3 bg-dg-surface border border-dg-border rounded text-dg-text font-mono text-base sm:text-[0.85rem] outline-none box-border"
-          />
+          <SearchInput initialValue={q ?? ""} />
         </div>
 
         {/* Type filter tabs */}
@@ -314,7 +232,7 @@ function CatalogPage() {
 
       {/* Login prompt */}
       {!auth && (
-        <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 pb-3">
+        <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 pb-2">
           <Link
             to="/"
             className="block border border-dg-accent/20 bg-dg-accent/[0.04] rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-150"
@@ -325,25 +243,15 @@ function CatalogPage() {
         </div>
       )}
 
-      {/* Error state */}
-      {error && (
-        <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 pb-4">
-          <div className="border border-dg-accent/30 bg-dg-accent/[0.05] rounded px-4 py-3 text-sm text-dg-accent">
-            {error}
-          </div>
-        </div>
-      )}
-
-      {/* Virtual list */}
-      <div
-        ref={parentRef}
-        className="flex-1 overflow-auto max-w-[1000px] mx-auto w-full px-4 sm:px-6"
-      >
-        {initialLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <span className="text-dg-text-tertiary text-[0.85rem]">Loading catalog...</span>
-          </div>
-        ) : (
+      {/* Virtual list — relative+absolute ensures a definite height for the
+           scroll container regardless of the outer flex chain (min-h-dvh on
+           root doesn't give flex children a definite height, which would make
+           the virtualizer think ALL items are visible and fetchNextPage loops) */}
+      <div className="flex-1 relative min-h-0">
+        <div
+          ref={parentRef}
+          className="absolute inset-0 overflow-auto max-w-[1000px] mx-auto w-full px-4 sm:px-6"
+        >
           <div
             style={{
               height: virtualizer.getTotalSize(),
@@ -352,7 +260,7 @@ function CatalogPage() {
             }}
           >
             {virtualItems.map((virtualRow) => {
-              if (virtualRow.index >= items.length) {
+              if (virtualRow.index >= allItems.length) {
                 return (
                   <div
                     key="loader"
@@ -362,12 +270,14 @@ function CatalogPage() {
                       height: virtualRow.size,
                     }}
                   >
-                    <span className="text-dg-text-tertiary">{loading ? "Loading..." : ""}</span>
+                    <span className="text-dg-text-tertiary">
+                      {isFetchingNextPage ? "Loading..." : ""}
+                    </span>
                   </div>
                 );
               }
 
-              const item = items[virtualRow.index];
+              const item = allItems[virtualRow.index];
               const status = trackedIds[item.wikidataId] ?? null;
               const isTracked = status !== null;
               const showAdd = auth && !isTracked;
@@ -378,6 +288,7 @@ function CatalogPage() {
                   key={item.id}
                   to="/catalog/$wikidataId"
                   params={{ wikidataId: item.wikidataId }}
+                  preload="intent"
                   className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group overflow-hidden"
                   style={{
                     top: virtualRow.start,
@@ -395,19 +306,11 @@ function CatalogPage() {
               );
             })}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
 }
-
-const TRACKED_ASTERISK_COLORS: Record<string, string> = {
-  watching: "text-dg-accent",
-  plan_to_watch: "text-dg-tv",
-  paused: "text-dg-text-tertiary",
-  dropped: "text-dg-anime",
-  completed: "text-dg-game",
-};
 
 function formatMeta(item: Media): string {
   const { mediaType, seasonCount, episodeCount, runtimeMinutes } = item;
@@ -426,7 +329,7 @@ function formatMeta(item: Media): string {
   return "";
 }
 
-function MediaRow({
+const MediaRow = memo(function MediaRow({
   item,
   trackedStatus,
   showAdd,
@@ -437,10 +340,9 @@ function MediaRow({
   trackedStatus: string | null;
   showAdd: boolean;
   addState: "pending" | "done" | null;
-  onQuickAdd: (wikidataId: string, e: React.MouseEvent) => void;
+  onQuickAdd: (wikidataId: string, mediaType: string, e: React.MouseEvent) => void;
 }) {
-  const badgeClass =
-    TYPE_BADGE_CLASSES[item.mediaType] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
+  const badgeClass = typeBadgeClass(item.mediaType);
 
   const meta = formatMeta(item);
 
@@ -456,7 +358,7 @@ function MediaRow({
         ) : showAdd ? (
           <button
             type="button"
-            onClick={(e) => onQuickAdd(item.wikidataId, e)}
+            onClick={(e) => onQuickAdd(item.wikidataId, item.mediaType, e)}
             className="text-[0.75rem] font-bold text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent"
           >
             [+]
@@ -471,7 +373,7 @@ function MediaRow({
           <span className="text-[0.85rem] font-medium truncate text-dg-text">{item.title}</span>
           {trackedStatus && (
             <span
-              className={`text-sm shrink-0 ${TRACKED_ASTERISK_COLORS[trackedStatus] ?? "text-dg-text-tertiary"}`}
+              className={`text-sm shrink-0 ${STATUS_ACCENT[trackedStatus as StatusValue] ?? "text-dg-text-tertiary"}`}
             >
               *
             </span>
@@ -498,4 +400,4 @@ function MediaRow({
       </div>
     </div>
   );
-}
+});

@@ -19,7 +19,14 @@
           "status": {
             "type": "string",
             "description": "Tracking status.",
-            "knownValues": ["watching", "completed", "dropped", "plan_to_watch", "paused"],
+            "knownValues": [
+              "planned",
+              "in_progress",
+              "on_hold",
+              "completed",
+              "dropped",
+              "mastered"
+            ],
             "maxLength": 32
           },
           "rating": {
@@ -38,6 +45,29 @@
             "type": "integer",
             "description": "Number of episodes watched (for series/anime).",
             "minimum": 0
+          },
+          "isFavorite": {
+            "type": "boolean",
+            "description": "Whether this entry is marked as a favorite."
+          },
+          "replayCount": {
+            "type": "integer",
+            "description": "Number of times re-watched/replayed.",
+            "minimum": 0
+          },
+          "watchedEpisodes": {
+            "type": "object",
+            "description": "Map of season number to array of watched episode numbers."
+          },
+          "title": {
+            "type": "string",
+            "description": "Media title (for self-describing records).",
+            "maxLength": 512
+          },
+          "mediaType": {
+            "type": "string",
+            "description": "Media type (movie, tv_series, anime, game).",
+            "maxLength": 32
           },
           "createdAt": {
             "type": "string",

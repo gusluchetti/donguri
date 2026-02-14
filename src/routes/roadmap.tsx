@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ogTags } from "../lib/og";
+import { ogTags, pageTitle } from "../lib/og";
 
 export const Route = createFileRoute("/roadmap")({
   head: () => ({
     meta: [
-      { title: "Roadmap — donguri" },
+      { title: pageTitle("roadmap — donguri") },
       {
         name: "description",
         content:
@@ -32,12 +32,16 @@ const SECTIONS = [
       ],
       [
         "Track your collection",
-        "set status (watching, completed, dropped, paused, plan to watch), rate titles, and track episode progress",
+        "smart status labels per media type (Watching for TV, Playing for games), rate 0\u2013100, mark favorites, and count rewatches",
       ],
       ["One-click add", "see something interesting? Add it to your collection instantly"],
       [
         "Sign in with Bluesky, Google, or GitHub",
         "Bluesky syncs to your own PDS. Google and GitHub for quick access",
+      ],
+      [
+        "Favorites and rewatch tracking",
+        "star your favorites and keep count of rewatches, replays, and rewatches across all media types",
       ],
       [
         "Dark and light themes",

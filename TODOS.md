@@ -9,28 +9,10 @@ Live at **donguri.app**.
 
 ## P0 — Quick wins with big impact
 
-- [ ] **Unified status vocab + data model overhaul** — schema-level changes, do in one migration batch
-  - **Status enum** → neutral DB values: `planned`, `in_progress`, `on_hold`, `completed`, `dropped`, `mastered`
-    - Movies: only `planned`, `completed`, `dropped` shown in UI (no "watching" a movie)
-    - Games: `mastered` shown as "100%" — hidden for all other types
-    - `in_progress` / `on_hold` hidden for movies — valid in DB but not offered in UI
-    - Migration: `watching` → `in_progress`, `plan_to_watch` → `planned`, `paused` → `on_hold`
-  - **New columns on `catalog_entries`**:
-    - `is_favorite` boolean DEFAULT false
-    - `replay_count` integer DEFAULT 0 — only incrementable from `completed` status, no separate "revisiting" status
-    - `completed_at` timestamp — set when status changes to `completed`, null otherwise (for stats, year-in-review, recommendation freshness)
-    - `watched_episodes` JSONB — per-episode checkboxes: `{"1": [1,2,3,4,5,6,7], "2": [1,2,3]}` (season → watched ep numbers)
-    - Keep `episode_progress` integer as denormalized total for quick display/sorting
-  - **New `seasons` table**: `media_id` FK, `season_number`, `episode_count`, `title` (optional), `data_source` enum (`wikidata`/`tvmaze`/`anime_offline_db`), unique on (media_id, season_number)
-  - **New column on `media`**: `tvmaze_id` text + index — Wikidata P4372, for TVMaze season import matching
-  - **Display label map** in `media-types.ts` keyed by media type — returns null for hidden combos (e.g. movie + in_progress)
-    - Movie: Planned → "Plan to Watch", Completed → "Watched", Dropped → "Dropped"
-    - TV/Anime: Planned/Watching/Paused/Completed/Dropped per type
-    - Game: adds "Playing", "Plan to Play", "100%"
-    - Book/Manga/Music: ready in map for future media types
-    - `replay_count` display: "Watched x3" / "Replayed x2" / "Reread x2" per type
-  - **AT Protocol Lexicon update** — add `isFavorite`, `replayCount`, `watchedEpisodes` to catalog entry record schema; update sync.ts read/write mappers
-  - **Import parser** — extract P4372 (TVMaze ID) alongside existing 8 external IDs
+- [x] **Unified status vocab + data model overhaul** *(PR #18)*
+  - Status enum → `planned`, `in_progress`, `on_hold`, `completed`, `dropped`, `mastered` with per-media-type display labels
+  - New columns: `is_favorite`, `replay_count`, `completed_at`, `watched_episodes` (JSONB)
+  - `seasons` table, `tvmaze_id` on `media`, AT Protocol lexicon update, TVMaze ID in import parser
 - [ ] **Genre normalization (two-tier)** — current `genres.name` stores raw Wikidata Q-IDs ("Q18518" instead of "Action")
   - **Schema**: self-referencing `canonical_genres` table: `slug`, `name`, `parent_id` (NULL = main genre, FK = sub-genre), `sort_order`
   - **Mapping table**: `genre_mappings` — `wikidata_id` → `canonical_genre_id` (many-to-many), `source` (`manual`/`p279_auto`)
@@ -86,7 +68,12 @@ Pipeline:
 
 More auth methods = more users. Polish + onboarding = users that stay.
 
-- [ ] Account linking UI — settings page to connect additional providers (Google/GitHub/Bluesky) to an existing account. Email auto-link only works between Google↔GitHub; Bluesky has no email so needs explicit linking.
+- [ ] **Account linking + AT Protocol migration** — let Google/GitHub users connect a Bluesky account and become PDS-synced
+  - **UI**: settings page to initiate Bluesky OAuth, link `did` to existing `users` row, set `authMethod` to `atproto`
+  - **Data migration (one-time push)**: on link, bulk-push all `catalog_entries` to PDS via `putCatalogEntry`. Postgres data is authoritative for non-AT users, so no conflict — just push everything.
+  - **Post-link**: normal PDS-first flow kicks in. `reconcileUser` on login handles ongoing sync.
+  - **Edge case to revisit later**: if a user somehow has a pre-existing PDS collection (e.g., they used Bluesky on another instance first), need a delta/merge strategy — compare `updatedAt` timestamps, keep the newer version per entry. Not needed for v1 since no one can write to PDS without linking first.
+  - **Reverse direction**: AT Protocol user linking Google/GitHub is simpler — just populate `googleId`/`githubId` on the `users` row, no data migration needed since PDS remains source of truth.
 - [ ] Onboarding flow — pick media types + favorite genres on first login
 - [ ] Empty state design — smart suggestions when watchlist is empty
 - [ ] Guided tour / tooltips for first-time users

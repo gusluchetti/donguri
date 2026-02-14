@@ -49,6 +49,16 @@ bun run src/import/index.ts media-subset.ndjson --clean             # Clean DB f
 # fly proxy 5432 -a donguri-db   # Then connect with a different DATABASE_URL
 ```
 
+## Validation (run before every commit)
+
+**Always run these three commands to validate changes. Fix any errors before committing.**
+
+```bash
+bun run lint                  # Biome linter — fix all errors, warnings are OK
+bun run format                # Biome formatter — auto-fixes in place
+bun run build                 # Vite production build — must succeed cleanly
+```
+
 ## Architecture
 
 **Stack**: TanStack Start (React SSR) + Drizzle ORM + Postgres + Fly.io

@@ -1,3 +1,4 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
 import { Save, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -8,34 +9,26 @@ import {
   removeCatalogEntry,
   setCatalogEntry,
 } from "../../lib/catalog.functions";
-import { cacheDelete, cacheGet, cacheSet, invalidateUserCaches } from "../../lib/idb-cache";
-import { getMedia } from "../../lib/media.functions";
-import { mediaTypeLabel, ratingColor, TYPE_BADGE_CLASSES } from "../../lib/media-types";
-import { ogTags } from "../../lib/og";
-import { swrLoad } from "../../lib/swr-loader";
+import type { getMedia } from "../../lib/media.functions";
+import {
+  availableStatuses,
+  mediaTypeLabel,
+  ratingColor,
+  replayCountLabel,
+  STATUS_BUTTON_COLORS,
+  statusLabel,
+  typeBadgeClass,
+} from "../../lib/media-types";
+import { ogTags, pageTitle } from "../../lib/og";
+import { catalogEntryOptions, mediaDetailOptions } from "../../lib/query-options";
 import { useAction } from "../../lib/use-action";
 
 const rootRoute = getRouteApi("__root__");
 
-const STATUSES = [
-  { value: "watching", label: "Watching" },
-  { value: "plan_to_watch", label: "Plan to Watch" },
-  { value: "paused", label: "Paused" },
-  { value: "completed", label: "Completed" },
-  { value: "dropped", label: "Dropped" },
-] as const;
-
-const STATUS_COLORS: Record<string, string> = {
-  watching: "border-dg-accent text-dg-accent bg-dg-accent/10",
-  plan_to_watch: "border-dg-tv text-dg-tv bg-dg-tv/10",
-  paused: "border-dg-text-tertiary text-dg-text-tertiary bg-dg-text-tertiary/10",
-  completed: "border-dg-game text-dg-game bg-dg-game/10",
-  dropped: "border-dg-anime text-dg-anime bg-dg-anime/10",
-};
-
 type FullLoaderData = {
   kind: "full";
   media: NonNullable<Awaited<ReturnType<typeof getMedia>>>;
+  initialEntry?: CatalogEntry | null;
 };
 
 type StubLoaderData = {
@@ -46,19 +39,28 @@ type StubLoaderData = {
 type LoaderData = FullLoaderData | StubLoaderData;
 
 export const Route = createFileRoute("/catalog/$wikidataId")({
-  loader: async ({ params }): Promise<LoaderData> => {
-    const { data } = await swrLoad(() => getMedia({ data: { wikidataId: params.wikidataId } }), {
-      key: `media:${params.wikidataId}`,
-      maxAgeMs: 10 * 60 * 1000,
-    });
-    if (data) return { kind: "full", media: data };
+  loader: async ({ params, context }): Promise<LoaderData> => {
+    const mediaPromise = context.queryClient.ensureQueryData(mediaDetailOptions(params.wikidataId));
+    const entryPromise = context.queryClient
+      .ensureQueryData(catalogEntryOptions(params.wikidataId))
+      .catch(() => null);
+
+    const [media, initialEntry] = await Promise.all([mediaPromise, entryPromise]);
+
+    if (media) {
+      return {
+        kind: "full",
+        media,
+        initialEntry,
+      };
+    }
 
     const stub = await getMediaStub({ data: { wikidataId: params.wikidataId } });
     if (stub) return { kind: "stub", stub };
 
     throw new Error("Media not found");
   },
-  staleTime: 5 * 60 * 1000,
+  staleTime: 30 * 60 * 1000,
   pendingMs: 0,
   pendingComponent: MediaDetailSkeleton,
   head: ({ loaderData }) => {
@@ -97,7 +99,7 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
 
     return {
       meta: [
-        { title: `${title} — donguri` },
+        { title: pageTitle(`${title} — donguri`) },
         { name: "description", content: description },
         ...ogTags({
           title: `${title} — donguri`,
@@ -114,14 +116,20 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
 function MediaDetailRouter() {
   const data = Route.useLoaderData();
   if (data.kind === "stub") return <MediaStubPage stub={data.stub} />;
-  return <MediaDetailPage data={data.media} />;
+  return <MediaDetailPage data={data.media} initialEntry={data.initialEntry} />;
 }
 
 function MediaDetailSkeleton() {
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
       <div className="max-w-[1000px] mx-auto p-4 sm:p-6">
-        <div className="text-dg-text-tertiary text-[0.8rem] mb-6">&larr; catalog</div>
+        <button
+          type="button"
+          onClick={() => window.history.back()}
+          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-4 sm:mb-6 inline-block"
+        >
+          &larr; back
+        </button>
         <div className="mb-6">
           <div className="w-16 h-5 bg-dg-surface rounded-sm mb-3 animate-pulse" />
           <div className="w-2/3 h-8 bg-dg-surface rounded animate-pulse" />
@@ -150,9 +158,7 @@ function MediaStubPage({
   stub: { wikidataId: string; title: string; mediaType: string | null };
 }) {
   const { auth } = rootRoute.useLoaderData();
-  const badgeClass =
-    TYPE_BADGE_CLASSES[stub.mediaType ?? ""] ??
-    "bg-dg-elevated text-dg-text-tertiary border-dg-border";
+  const badgeClass = typeBadgeClass(stub.mediaType);
 
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
@@ -185,7 +191,9 @@ function MediaStubPage({
           </p>
         </div>
 
-        {auth && <TrackingPanel wikidataId={stub.wikidataId} />}
+        {auth && (
+          <TrackingPanel wikidataId={stub.wikidataId} mediaType={stub.mediaType ?? undefined} />
+        )}
 
         <div className="mb-5 sm:mb-6">
           <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
@@ -207,10 +215,15 @@ function MediaStubPage({
   );
 }
 
-function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof getMedia>>> }) {
+function MediaDetailPage({
+  data,
+  initialEntry,
+}: {
+  data: NonNullable<Awaited<ReturnType<typeof getMedia>>>;
+  initialEntry?: CatalogEntry | null;
+}) {
   const { auth } = rootRoute.useLoaderData();
-  const badgeClass =
-    TYPE_BADGE_CLASSES[data.mediaType] ?? "bg-dg-elevated text-dg-text-tertiary border-dg-border";
+  const badgeClass = typeBadgeClass(data.mediaType);
 
   const isAnime = data.mediaType === "anime";
   const isGame = data.mediaType === "game";
@@ -315,17 +328,17 @@ function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof
           )}
           {data.seasonCount && <MetaItem label="Seasons" value={String(data.seasonCount)} />}
           {data.episodeCount && <MetaItem label="Episodes" value={String(data.episodeCount)} />}
-          {data.status && (
-            <MetaItem
-              label="Status"
-              value={data.status.charAt(0).toUpperCase() + data.status.slice(1)}
-            />
-          )}
           <MetaItem label="Popularity" value={`${data.sitelinksCount ?? 0} sitelinks`} />
         </div>
 
         {/* Tracking panel (inline) */}
-        {auth && <TrackingPanel wikidataId={data.wikidataId} />}
+        {auth && (
+          <TrackingPanel
+            wikidataId={data.wikidataId}
+            mediaType={data.mediaType}
+            initialEntry={initialEntry}
+          />
+        )}
 
         {/* Description */}
         {data.description && (
@@ -396,62 +409,66 @@ function MediaDetailPage({ data }: { data: NonNullable<Awaited<ReturnType<typeof
   );
 }
 
-function TrackingPanel({ wikidataId }: { wikidataId: string }) {
+function TrackingPanel({
+  wikidataId,
+  mediaType,
+  initialEntry,
+}: {
+  wikidataId: string;
+  mediaType?: string;
+  initialEntry?: CatalogEntry | null;
+}) {
   const router = useRouter();
-  const [entry, setEntry] = useState<CatalogEntry | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const queryClient = useQueryClient();
+  const hasInitial = initialEntry !== undefined;
+  const [entry, setEntry] = useState<CatalogEntry | null>(hasInitial ? initialEntry : null);
+  const [loaded, setLoaded] = useState(hasInitial);
   const action = useAction();
   // Local state tracks UI; saved* refs track what the server has
-  const [localRating, setLocalRating] = useState<number | null>(null);
-  const [localStatus, setLocalStatus] = useState<string | null>(null);
-  const savedRating = useRef<number | null>(null);
-  const savedStatus = useRef<string | null>(null);
+  const [localRating, setLocalRating] = useState<number | null>(
+    hasInitial ? (initialEntry?.rating ?? null) : null,
+  );
+  const [localStatus, setLocalStatus] = useState<string | null>(
+    hasInitial ? (initialEntry?.status ?? null) : null,
+  );
+  const [localIsFavorite, setLocalIsFavorite] = useState(
+    hasInitial ? (initialEntry?.isFavorite ?? false) : false,
+  );
+  const [localReplayCount, setLocalReplayCount] = useState(
+    hasInitial ? (initialEntry?.replayCount ?? 0) : 0,
+  );
+  const savedRating = useRef<number | null>(hasInitial ? (initialEntry?.rating ?? null) : null);
+  const savedStatus = useRef<string | null>(hasInitial ? (initialEntry?.status ?? null) : null);
+  const savedIsFavorite = useRef(hasInitial ? (initialEntry?.isFavorite ?? false) : false);
+  const savedReplayCount = useRef(hasInitial ? (initialEntry?.replayCount ?? 0) : 0);
+
+  // When loader didn't provide the entry, use TanStack Query to fetch it
+  const entryQuery = useQuery({
+    ...catalogEntryOptions(wikidataId),
+    enabled: !hasInitial,
+  });
 
   useEffect(() => {
-    let cancelled = false;
-    const entryCacheKey = `entry:${wikidataId}`;
-
-    const applyEntry = (e: CatalogEntry | null) => {
-      setEntry(e);
-      setLocalRating(e?.rating ?? null);
-      setLocalStatus(e?.status ?? null);
-      savedRating.current = e?.rating ?? null;
-      savedStatus.current = e?.status ?? null;
-      setLoaded(true);
-    };
-
-    const load = async () => {
-      // Try IDB cache first for instant display
-      const cached = await cacheGet<CatalogEntry | null>(entryCacheKey);
-      if (cached && !cancelled) {
-        applyEntry(cached.data);
-      }
-
-      // Always fetch fresh
-      try {
-        const e = await getCatalogEntry({ data: { wikidataId } });
-        if (!cancelled) {
-          applyEntry(e);
-          cacheSet(entryCacheKey, e).catch(() => {});
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error("[tracking] load FAILED for %s:", wikidataId, err);
-          if (!cached) setLoaded(true);
-        }
-      }
-    };
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [wikidataId]);
+    if (hasInitial || entryQuery.isPending) return;
+    const e = entryQuery.data ?? null;
+    setEntry(e);
+    setLocalRating(e?.rating ?? null);
+    setLocalStatus(e?.status ?? null);
+    setLocalIsFavorite(e?.isFavorite ?? false);
+    setLocalReplayCount(e?.replayCount ?? 0);
+    savedRating.current = e?.rating ?? null;
+    savedStatus.current = e?.status ?? null;
+    savedIsFavorite.current = e?.isFavorite ?? false;
+    savedReplayCount.current = e?.replayCount ?? 0;
+    setLoaded(true);
+  }, [hasInitial, entryQuery.isPending, entryQuery.data]);
 
   const ratingDirty =
     localRating !== savedRating.current && !(localRating === null && savedRating.current === null);
   const statusDirty = localStatus !== savedStatus.current;
-  const isDirty = ratingDirty || statusDirty;
+  const favoriteDirty = localIsFavorite !== savedIsFavorite.current;
+  const replayDirty = localReplayCount !== savedReplayCount.current;
+  const isDirty = ratingDirty || statusDirty || favoriteDirty || replayDirty;
 
   const handleSave = useCallback(async () => {
     const status = localStatus as NonNullable<CatalogEntry["status"]>;
@@ -460,7 +477,14 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
     const prev = entry;
     setEntry((e) =>
       e
-        ? { ...e, status, rating: localRating, updatedAt: new Date() }
+        ? {
+            ...e,
+            status,
+            rating: localRating,
+            isFavorite: localIsFavorite,
+            replayCount: localReplayCount,
+            updatedAt: new Date(),
+          }
         : ({
             id: "",
             userId: "",
@@ -471,6 +495,10 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
             rating: localRating,
             note: null,
             episodeProgress: null,
+            isFavorite: localIsFavorite,
+            replayCount: localReplayCount,
+            completedAt: null,
+            watchedEpisodes: null,
             rkey: null,
             syncedAt: null,
             createdAt: new Date(),
@@ -486,6 +514,8 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
             rating: localRating,
             note: prev?.note,
             episodeProgress: prev?.episodeProgress,
+            isFavorite: localIsFavorite,
+            replayCount: localReplayCount,
           },
         });
         console.debug("[tracking] save %s → server ok, refreshing", wikidataId);
@@ -493,20 +523,35 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
         setEntry(fresh);
         setLocalRating(fresh?.rating ?? null);
         setLocalStatus(fresh?.status ?? null);
+        setLocalIsFavorite(fresh?.isFavorite ?? false);
+        setLocalReplayCount(fresh?.replayCount ?? 0);
         savedRating.current = fresh?.rating ?? null;
         savedStatus.current = fresh?.status ?? null;
-        invalidateUserCaches();
-        cacheDelete(`entry:${wikidataId}`);
+        savedIsFavorite.current = fresh?.isFavorite ?? false;
+        savedReplayCount.current = fresh?.replayCount ?? 0;
+        queryClient.invalidateQueries({ queryKey: ["user"] });
         router.invalidate();
       } catch (err) {
         console.error("[tracking] save %s → FAILED:", wikidataId, err);
         setEntry(prev);
         setLocalRating(prev?.rating ?? null);
         setLocalStatus(prev?.status ?? null);
+        setLocalIsFavorite(prev?.isFavorite ?? false);
+        setLocalReplayCount(prev?.replayCount ?? 0);
         throw err;
       }
     });
-  }, [entry, localStatus, localRating, wikidataId, router, action]);
+  }, [
+    entry,
+    localStatus,
+    localRating,
+    localIsFavorite,
+    localReplayCount,
+    wikidataId,
+    router,
+    queryClient,
+    action,
+  ]);
 
   const handleRemove = useCallback(async () => {
     console.debug("[tracking] remove %s (optimistic)", wikidataId);
@@ -516,8 +561,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
       try {
         await removeCatalogEntry({ data: { wikidataId } });
         console.debug("[tracking] remove %s → server ok", wikidataId);
-        invalidateUserCaches();
-        cacheDelete(`entry:${wikidataId}`);
+        queryClient.invalidateQueries({ queryKey: ["user"] });
         router.invalidate();
       } catch (err) {
         console.error("[tracking] remove %s → FAILED:", wikidataId, err);
@@ -525,7 +569,9 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
         throw err;
       }
     });
-  }, [entry, wikidataId, router, action]);
+  }, [entry, wikidataId, router, queryClient, action]);
+
+  const statuses = availableStatuses(mediaType);
 
   if (!loaded) {
     return (
@@ -555,14 +601,15 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
 
       {/* Status buttons — horizontal scroll on mobile, wrap on desktop */}
       <div className="flex flex-nowrap overflow-x-auto sm:flex-wrap gap-1.5 mb-4 scrollbar-hide">
-        {STATUSES.map((s) => {
-          const isActive = localStatus === s.value;
-          const colorClass = STATUS_COLORS[s.value];
+        {statuses.map((s) => {
+          const isActive = localStatus === s;
+          const colorClass = STATUS_BUTTON_COLORS[s];
+          const label = statusLabel(s, mediaType);
           return (
             <button
-              key={s.value}
+              key={s}
               type="button"
-              onClick={() => setLocalStatus(s.value)}
+              onClick={() => setLocalStatus(s)}
               disabled={action.state === "pending"}
               className={`text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-mono cursor-pointer shrink-0 transition-all duration-150 disabled:opacity-50 ${
                 isActive
@@ -570,7 +617,7 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
                   : "border-dg-border-subtle text-dg-text-secondary bg-transparent hover:border-dg-border"
               }`}
             >
-              {s.label}
+              {label}
             </button>
           );
         })}
@@ -613,6 +660,46 @@ function TrackingPanel({ wikidataId }: { wikidataId: string }) {
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Favorite toggle + Replay count (when status is set) */}
+      {localStatus && (
+        <div className="flex items-center gap-4 mb-4">
+          <button
+            type="button"
+            onClick={() => setLocalIsFavorite(!localIsFavorite)}
+            disabled={action.state === "pending"}
+            className={`text-[1rem] bg-transparent border-none cursor-pointer p-1 -m-1 transition-colors duration-150 disabled:opacity-50 ${
+              localIsFavorite ? "text-dg-accent" : "text-dg-text-tertiary hover:text-dg-accent/60"
+            }`}
+            title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
+          >
+            {localIsFavorite ? "\u2605" : "\u2606"}
+          </button>
+          {localStatus === "completed" && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setLocalReplayCount(Math.max(0, localReplayCount - 1))}
+                disabled={action.state === "pending" || localReplayCount <= 0}
+                className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30"
+              >
+                -
+              </button>
+              <span className="text-[0.75rem] text-dg-text-secondary min-w-[5rem] text-center">
+                {replayCountLabel(localReplayCount, mediaType) ?? "First time"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setLocalReplayCount(localReplayCount + 1)}
+                disabled={action.state === "pending"}
+                className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30"
+              >
+                +
+              </button>
+            </div>
+          )}
         </div>
       )}
 

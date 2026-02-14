@@ -1,31 +1,20 @@
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { initiateLogin, initiateOAuthLogin } from "../lib/auth.functions";
-import { getUserCatalogEntries } from "../lib/catalog.functions";
-import { mediaTypeLabel, ratingColor, TYPE_BADGE_CLASSES } from "../lib/media-types";
-import { ogTags } from "../lib/og";
-import { scheduleCatalogPrefetch } from "../lib/prefetch";
-import { swrLoad } from "../lib/swr-loader";
+import {
+  mediaTypeLabel,
+  ratingColor,
+  replayCountLabel,
+  STATUS_ACCENT,
+  STATUS_LABELS_GENERIC,
+  STATUS_ORDER,
+  type StatusValue,
+  typeBadgeClass,
+} from "../lib/media-types";
+import { ogTags, pageTitle } from "../lib/og";
+import { watchlistOptions } from "../lib/query-options";
 
 const rootRoute = getRouteApi("__root__");
-
-const STATUS_ORDER = ["watching", "plan_to_watch", "paused", "dropped", "completed"] as const;
-
-const STATUS_LABELS: Record<string, string> = {
-  watching: "Watching",
-  plan_to_watch: "Plan to Watch",
-  paused: "Paused",
-  dropped: "Dropped",
-  completed: "Completed",
-};
-
-const STATUS_ACCENT: Record<string, string> = {
-  watching: "text-dg-accent",
-  plan_to_watch: "text-dg-tv",
-  paused: "text-dg-text-tertiary",
-  dropped: "text-dg-anime",
-  completed: "text-dg-game",
-};
 
 type CatalogEntryRow = {
   id: string;
@@ -34,6 +23,8 @@ type CatalogEntryRow = {
   rating: number | null;
   note: string | null;
   episodeProgress: number | null;
+  isFavorite: boolean;
+  replayCount: number;
   updatedAt: Date | null;
   mediaTitle: string | null;
   mediaType: string | null;
@@ -42,7 +33,7 @@ type CatalogEntryRow = {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "donguri — track movies, TV, anime, and games" },
+      { title: pageTitle("donguri") },
       ...ogTags({
         title: "donguri — track movies, TV, anime, and games",
         description:
@@ -51,15 +42,15 @@ export const Route = createFileRoute("/")({
       }),
     ],
   }),
-  loader: async () => {
+  loader: async ({ context }) => {
     try {
-      const { data, fromCache } = await swrLoad(() => getUserCatalogEntries({}), {
-        key: "watchlist",
-        maxAgeMs: 30_000,
-      });
-      return { entries: data as CatalogEntryRow[], fromCache };
+      const entries = (await context.queryClient.ensureQueryData(
+        watchlistOptions(),
+      )) as CatalogEntryRow[];
+      return { entries };
     } catch {
-      return { entries: [] as CatalogEntryRow[], fromCache: false };
+      const entries: CatalogEntryRow[] = [];
+      return { entries };
     }
   },
   staleTime: 30_000,
@@ -220,16 +211,19 @@ function OAuthButton({ provider, label }: { provider: "google" | "github"; label
 }
 
 function LoggedInView() {
-  const { entries } = Route.useLoaderData();
+  const { entries = [] } = Route.useLoaderData();
 
-  useEffect(() => {
-    scheduleCatalogPrefetch();
-  }, []);
-
-  // Group by status
+  // Group by status, sort within sections by updatedAt desc then mediaType alpha
   const grouped = new Map<string, CatalogEntryRow[]>();
   for (const status of STATUS_ORDER) {
-    const items = entries.filter((e) => e.status === status);
+    const items = entries
+      .filter((e) => e.status === status)
+      .sort((a, b) => {
+        const tA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const tB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        if (tB !== tA) return tB - tA;
+        return (a.mediaType ?? "").localeCompare(b.mediaType ?? "");
+      });
     if (items.length > 0) grouped.set(status, items);
   }
 
@@ -255,19 +249,18 @@ function LoggedInView() {
 }
 
 function WatchlistSection({ status, items }: { status: string; items: CatalogEntryRow[] }) {
-  const accentClass = STATUS_ACCENT[status] ?? "text-dg-text-secondary";
+  const accentClass = STATUS_ACCENT[status as StatusValue] ?? "text-dg-text-secondary";
 
   return (
     <div>
       <h2 className={`text-[0.8rem] uppercase tracking-wider mb-2 ${accentClass}`}>
-        {STATUS_LABELS[status] ?? status}{" "}
+        {STATUS_LABELS_GENERIC[status as StatusValue] ?? status}{" "}
         <span className="text-dg-text-tertiary font-normal">({items.length})</span>
       </h2>
       <div className="border border-dg-border-subtle rounded bg-dg-surface divide-y divide-dg-border-subtle">
         {items.map((item) => {
-          const badgeClass =
-            TYPE_BADGE_CLASSES[item.mediaType ?? ""] ??
-            "bg-dg-elevated text-dg-text-tertiary border-dg-border";
+          const badgeClass = typeBadgeClass(item.mediaType);
+          const replay = replayCountLabel(item.replayCount, item.mediaType ?? undefined);
           return (
             <Link
               key={item.id}
@@ -281,8 +274,16 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
                 {mediaTypeLabel(item.mediaType ?? "", true)}
               </span>
               <span className="text-[0.85rem] text-dg-text truncate flex-1">
+                {item.isFavorite && (
+                  <span className="text-dg-accent mr-1" title="Favorite">
+                    &#9733;
+                  </span>
+                )}
                 {item.mediaTitle ?? item.mediaWikidataId}
               </span>
+              {replay && (
+                <span className="text-[0.65rem] text-dg-text-tertiary shrink-0">{replay}</span>
+              )}
               {item.rating != null && (
                 <span
                   className="text-[0.75rem] tabular-nums shrink-0"

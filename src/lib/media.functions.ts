@@ -34,45 +34,27 @@ export const listMedia = createServerFn({ method: "GET" })
     const db = getDb();
     const { cursor, limit, mediaType, search } = data;
 
-    // Search mode: pg_trgm ILIKE
+    const conditions = [];
+
+    // Text search (pg_trgm ILIKE)
     if (search?.trim()) {
       const searchTerm = `%${search.trim()}%`;
-
-      const conditions = [
-        or(ilike(media.title, searchTerm), ilike(media.originalTitle, searchTerm)),
-      ];
-      if (mediaType) conditions.push(eq(media.mediaType, mediaType));
-
-      const items = await db
-        .select()
-        .from(media)
-        .where(and(...conditions))
-        .orderBy(desc(media.sitelinksCount))
-        .limit(limit + 1);
-
-      const hasMore = items.length > limit;
-      const page = hasMore ? items.slice(0, limit) : items;
-
-      return {
-        items: page,
-        nextCursor: hasMore ? page[page.length - 1].id : null,
-      };
+      conditions.push(or(ilike(media.title, searchTerm), ilike(media.originalTitle, searchTerm)));
     }
 
-    // Standard browse mode: cursor-based pagination by sitelinks_count
-    const conditions = [];
+    // Type filter
     if (mediaType) conditions.push(eq(media.mediaType, mediaType));
 
+    // Keyset cursor pagination
     if (cursor) {
-      // Get the sitelinks count of the cursor item for keyset pagination
-      const cursorItem = await db
+      const [cursorItem] = await db
         .select({ sitelinksCount: media.sitelinksCount, id: media.id })
         .from(media)
         .where(eq(media.id, cursor))
         .limit(1);
 
-      if (cursorItem.length > 0) {
-        const sc = cursorItem[0].sitelinksCount ?? 0;
+      if (cursorItem) {
+        const sc = cursorItem.sitelinksCount ?? 0;
         conditions.push(
           sql`(${media.sitelinksCount} < ${sc} OR (${media.sitelinksCount} = ${sc} AND ${media.id} > ${cursor}))`,
         );
@@ -111,19 +93,19 @@ export const getMedia = createServerFn({ method: "GET" })
 
     if (item.length === 0) return null;
 
-    // Fetch genres
-    const itemGenres = await db
-      .select({ id: genres.id, name: genres.name, wikidataId: genres.wikidataId })
-      .from(mediaGenres)
-      .innerJoin(genres, eq(mediaGenres.genreId, genres.id))
-      .where(eq(mediaGenres.mediaId, item[0].id));
-
-    // Fetch platforms
-    const itemPlatforms = await db
-      .select({ id: platforms.id, name: platforms.name, wikidataId: platforms.wikidataId })
-      .from(mediaPlatforms)
-      .innerJoin(platforms, eq(mediaPlatforms.platformId, platforms.id))
-      .where(eq(mediaPlatforms.mediaId, item[0].id));
+    // Fetch genres and platforms in parallel
+    const [itemGenres, itemPlatforms] = await Promise.all([
+      db
+        .select({ id: genres.id, name: genres.name, wikidataId: genres.wikidataId })
+        .from(mediaGenres)
+        .innerJoin(genres, eq(mediaGenres.genreId, genres.id))
+        .where(eq(mediaGenres.mediaId, item[0].id)),
+      db
+        .select({ id: platforms.id, name: platforms.name, wikidataId: platforms.wikidataId })
+        .from(mediaPlatforms)
+        .innerJoin(platforms, eq(mediaPlatforms.platformId, platforms.id))
+        .where(eq(mediaPlatforms.mediaId, item[0].id)),
+    ]);
 
     return {
       ...item[0],
