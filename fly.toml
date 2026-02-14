@@ -1,5 +1,4 @@
 app = "donguri"
-primary_region = "iad"
 regions = ["iad", "gru"]
 
 [build]
