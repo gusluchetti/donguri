@@ -12,7 +12,7 @@ export function getRouter() {
       scrollRestoration: true,
       defaultPreload: "intent",
       defaultStaleTime: 30_000,
-      defaultPreloadStaleTime: 0,
+      defaultPreloadStaleTime: 30_000,
       context: { queryClient },
     }),
     queryClient,

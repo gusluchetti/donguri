@@ -44,6 +44,10 @@ const SECTIONS = [
         "star your favorites and keep count of rewatches, replays, and rewatches across all media types",
       ],
       [
+        "Genre tags on detail pages",
+        "genres displayed with hierarchy \u2014 sub-genres grouped under their parent category",
+      ],
+      [
         "Dark and light themes",
         "toggle between dark and light mode, or follow your system preference",
       ],

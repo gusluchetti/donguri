@@ -42,7 +42,7 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
   loader: async ({ params, context }): Promise<LoaderData> => {
     const mediaPromise = context.queryClient.ensureQueryData(mediaDetailOptions(params.wikidataId));
     const entryPromise = context.queryClient
-      .fetchQuery(catalogEntryOptions(params.wikidataId))
+      .ensureQueryData(catalogEntryOptions(params.wikidataId))
       .catch(() => null);
 
     const [media, initialEntry] = await Promise.all([mediaPromise, entryPromise]);
@@ -348,23 +348,7 @@ function MediaDetailPage({
         )}
 
         {/* Genres */}
-        {data.genres.length > 0 && (
-          <div className="mb-5 sm:mb-6">
-            <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-              Genres
-            </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {data.genres.map((g) => (
-                <span
-                  key={g.id}
-                  className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                >
-                  {g.name}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+        {data.genres.length > 0 && <GenreChips genres={data.genres} />}
 
         {/* Platforms (games) */}
         {data.platforms.length > 0 && (
@@ -409,6 +393,49 @@ function MediaDetailPage({
   );
 }
 
+function GenreChips({
+  genres,
+}: {
+  genres: {
+    id: string;
+    slug: string;
+    name: string;
+    parentId: string | null;
+    parentName: string | null;
+  }[];
+}) {
+  // Dedup: if a sub-genre is present, suppress its standalone parent from rendering
+  const subGenreParentIds = new Set(genres.filter((g) => g.parentId).map((g) => g.parentId!));
+  const visible = genres.filter((g) => {
+    // Keep sub-genres always. Keep parents only if no sub-genre references them.
+    if (g.parentId) return true;
+    return !subGenreParentIds.has(g.id);
+  });
+
+  return (
+    <div className="mb-5 sm:mb-6">
+      <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">Genres</h3>
+      <div className="flex flex-wrap gap-1.5">
+        {visible.map((g) => (
+          <span
+            key={g.id}
+            className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+          >
+            {g.parentName ? (
+              <>
+                <span className="text-dg-text-tertiary">{g.parentName} &rsaquo; </span>
+                {g.name}
+              </>
+            ) : (
+              g.name
+            )}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TrackingPanel({
   wikidataId,
   mediaType,
@@ -437,10 +464,7 @@ function TrackingPanel({
   const [localReplayCount, setLocalReplayCount] = useState(
     hasInitial ? (initialEntry?.replayCount ?? 0) : 0,
   );
-  const savedRating = useRef<number | null>(hasInitial ? (initialEntry?.rating ?? null) : null);
-  const savedStatus = useRef<string | null>(hasInitial ? (initialEntry?.status ?? null) : null);
-  const savedIsFavorite = useRef(hasInitial ? (initialEntry?.isFavorite ?? false) : false);
-  const savedReplayCount = useRef(hasInitial ? (initialEntry?.replayCount ?? 0) : 0);
+  const serverEntry = useRef<CatalogEntry | null>(hasInitial ? (initialEntry ?? null) : null);
 
   // When loader didn't provide the entry, use TanStack Query to fetch it
   const entryQuery = useQuery({
@@ -456,18 +480,14 @@ function TrackingPanel({
     setLocalStatus(e?.status ?? null);
     setLocalIsFavorite(e?.isFavorite ?? false);
     setLocalReplayCount(e?.replayCount ?? 0);
-    savedRating.current = e?.rating ?? null;
-    savedStatus.current = e?.status ?? null;
-    savedIsFavorite.current = e?.isFavorite ?? false;
-    savedReplayCount.current = e?.replayCount ?? 0;
+    serverEntry.current = e;
     setLoaded(true);
   }, [hasInitial, entryQuery.isPending, entryQuery.data]);
 
-  const ratingDirty =
-    localRating !== savedRating.current && !(localRating === null && savedRating.current === null);
-  const statusDirty = localStatus !== savedStatus.current;
-  const favoriteDirty = localIsFavorite !== savedIsFavorite.current;
-  const replayDirty = localReplayCount !== savedReplayCount.current;
+  const ratingDirty = localRating !== (serverEntry.current?.rating ?? null);
+  const statusDirty = localStatus !== (serverEntry.current?.status ?? null);
+  const favoriteDirty = localIsFavorite !== (serverEntry.current?.isFavorite ?? false);
+  const replayDirty = localReplayCount !== (serverEntry.current?.replayCount ?? 0);
   const isDirty = ratingDirty || statusDirty || favoriteDirty || replayDirty;
 
   const handleSave = useCallback(async () => {
@@ -525,10 +545,7 @@ function TrackingPanel({
         setLocalStatus(fresh?.status ?? null);
         setLocalIsFavorite(fresh?.isFavorite ?? false);
         setLocalReplayCount(fresh?.replayCount ?? 0);
-        savedRating.current = fresh?.rating ?? null;
-        savedStatus.current = fresh?.status ?? null;
-        savedIsFavorite.current = fresh?.isFavorite ?? false;
-        savedReplayCount.current = fresh?.replayCount ?? 0;
+        serverEntry.current = fresh;
         queryClient.invalidateQueries({ queryKey: ["user"] });
         router.invalidate();
       } catch (err) {
@@ -717,7 +734,7 @@ function TrackingPanel({
           >
             <Save size={16} />
           </button>
-          {savedStatus.current && (
+          {serverEntry.current?.status && (
             <button
               type="button"
               onClick={handleRemove}
@@ -752,11 +769,8 @@ function RatingInput({
     if (disabled) return;
     setText(value != null ? String(value) : "");
     setEditing(true);
+    queueMicrotask(() => inputRef.current?.select());
   };
-
-  useEffect(() => {
-    if (editing) inputRef.current?.select();
-  }, [editing]);
 
   const commit = () => {
     setEditing(false);

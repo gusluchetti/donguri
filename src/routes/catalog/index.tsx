@@ -109,6 +109,7 @@ function CatalogPage() {
 
   const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
   const [quickAddState, setQuickAddState] = useState<Record<string, "pending" | "done">>({});
+  const quickAddTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const parentRef = useRef<HTMLDivElement>(null);
 
   const trackedIds: Record<string, string | null> = { ...rootTrackedIds, ...localOverrides };
@@ -138,13 +139,18 @@ function CatalogPage() {
         await setCatalogEntry({ data: { wikidataId, status: defaultStatus } });
         console.debug("[quick-add] %s → server ok", wikidataId);
         setQuickAddState((prev) => ({ ...prev, [wikidataId]: "done" }));
-        setTimeout(() => {
-          setQuickAddState((prev) => {
-            const next = { ...prev };
-            delete next[wikidataId];
-            return next;
-          });
-        }, 1500);
+        clearTimeout(quickAddTimers.current.get(wikidataId));
+        quickAddTimers.current.set(
+          wikidataId,
+          setTimeout(() => {
+            quickAddTimers.current.delete(wikidataId);
+            setQuickAddState((prev) => {
+              const next = { ...prev };
+              delete next[wikidataId];
+              return next;
+            });
+          }, 1500),
+        );
         queryClient.invalidateQueries({ queryKey: ["user"] });
         router.invalidate();
       } catch (err) {
@@ -162,6 +168,14 @@ function CatalogPage() {
       }
     },
     [router, queryClient],
+  );
+
+  // Clean up quick-add timers on unmount
+  useEffect(
+    () => () => {
+      for (const t of quickAddTimers.current.values()) clearTimeout(t);
+    },
+    [],
   );
 
   const virtualizer = useVirtualizer({

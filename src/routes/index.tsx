@@ -53,7 +53,7 @@ export const Route = createFileRoute("/")({
       return { entries };
     }
   },
-  staleTime: 30_000,
+  staleTime: 5 * 60 * 1000,
   component: HomePage,
 });
 

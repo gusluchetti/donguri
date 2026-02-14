@@ -2,7 +2,15 @@ import { createServerFn } from "@tanstack/react-start";
 import { and, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db";
-import { genres, media, mediaGenres, mediaPlatforms, platforms } from "../db/schema";
+import {
+  canonicalGenres,
+  genreMappings,
+  genres,
+  media,
+  mediaGenres,
+  mediaPlatforms,
+  platforms,
+} from "../db/schema";
 
 // ─── Input schemas ──────────────────────────────────────────────────────────
 
@@ -140,13 +148,22 @@ export const getMedia = createServerFn({ method: "GET" })
 
     if (item.length === 0) return null;
 
-    // Fetch genres and platforms in parallel
+    // Fetch canonical genres and platforms in parallel
     const [itemGenres, itemPlatforms] = await Promise.all([
       db
-        .select({ id: genres.id, name: genres.name, wikidataId: genres.wikidataId })
+        .selectDistinct({
+          id: canonicalGenres.id,
+          slug: canonicalGenres.slug,
+          name: canonicalGenres.name,
+          parentId: canonicalGenres.parentId,
+          sortOrder: canonicalGenres.sortOrder,
+        })
         .from(mediaGenres)
         .innerJoin(genres, eq(mediaGenres.genreId, genres.id))
-        .where(eq(mediaGenres.mediaId, item[0].id)),
+        .innerJoin(genreMappings, eq(genres.wikidataId, genreMappings.wikidataId))
+        .innerJoin(canonicalGenres, eq(genreMappings.canonicalGenreId, canonicalGenres.id))
+        .where(eq(mediaGenres.mediaId, item[0].id))
+        .orderBy(canonicalGenres.sortOrder),
       db
         .select({ id: platforms.id, name: platforms.name, wikidataId: platforms.wikidataId })
         .from(mediaPlatforms)
@@ -154,9 +171,36 @@ export const getMedia = createServerFn({ method: "GET" })
         .where(eq(mediaPlatforms.mediaId, item[0].id)),
     ]);
 
+    // Resolve parent names for sub-genres
+    const parentIds = [...new Set(itemGenres.filter((g) => g.parentId).map((g) => g.parentId!))];
+    const parentMap = new Map<string, string>();
+    if (parentIds.length > 0) {
+      // Parents are likely already in itemGenres; check there first
+      for (const g of itemGenres) {
+        if (parentIds.includes(g.id)) parentMap.set(g.id, g.name);
+      }
+      // Fetch any missing parents
+      const missing = parentIds.filter((id) => !parentMap.has(id));
+      if (missing.length > 0) {
+        const parents = await db
+          .select({ id: canonicalGenres.id, name: canonicalGenres.name })
+          .from(canonicalGenres)
+          .where(
+            sql`${canonicalGenres.id} IN (${sql.join(
+              missing.map((id) => sql`${id}`),
+              sql`, `,
+            )})`,
+          );
+        for (const p of parents) parentMap.set(p.id, p.name);
+      }
+    }
+
     return {
       ...item[0],
-      genres: itemGenres,
+      genres: itemGenres.map((g) => ({
+        ...g,
+        parentName: g.parentId ? (parentMap.get(g.parentId) ?? null) : null,
+      })),
       platforms: itemPlatforms,
     };
   });
