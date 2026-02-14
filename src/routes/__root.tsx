@@ -5,7 +5,6 @@ import {
   Link,
   Outlet,
   Scripts,
-  useRouter,
 } from "@tanstack/react-router";
 import { clear } from "idb-keyval";
 import { Moon, Sun } from "lucide-react";
@@ -52,7 +51,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     let trackedIds: Record<string, string | null> = {};
     if (auth) {
       try {
-        trackedIds = await context.queryClient.ensureQueryData(trackedIdsOptions());
+        trackedIds = await context.queryClient.fetchQuery(trackedIdsOptions());
       } catch (err) {
         console.error("[root] getUserTrackedIds FAILED:", err, "(continuing with empty)");
       }
@@ -88,19 +87,19 @@ const NAV_LINKS: readonly { to: string; label: string; accent?: boolean; exact?:
 
 function RootComponent() {
   const { auth, theme } = Route.useLoaderData();
-  const router = useRouter();
   const queryClient = Route.useRouteContext().queryClient;
 
   // Re-check auth when tab becomes visible (handles cross-tab login/logout)
+  // Only invalidate user-specific queries — media data doesn't change between tabs
   useEffect(() => {
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        router.invalidate();
+        queryClient.invalidateQueries({ queryKey: ["user"] });
       }
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
-  }, [router]);
+  }, [queryClient]);
 
   // Auto-reload on stale server function IDs (client/server version mismatch after deploy)
   useEffect(() => {

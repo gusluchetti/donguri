@@ -44,7 +44,7 @@ export const Route = createFileRoute("/")({
   }),
   loader: async ({ context }) => {
     try {
-      const entries = (await context.queryClient.ensureQueryData(
+      const entries = (await context.queryClient.fetchQuery(
         watchlistOptions(),
       )) as CatalogEntryRow[];
       return { entries };

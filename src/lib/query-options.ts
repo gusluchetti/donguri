@@ -9,7 +9,7 @@ export function trackedIdsOptions() {
   return queryOptions({
     queryKey: ["user", "trackedIds"],
     queryFn: () => getUserTrackedIds({}),
-    staleTime: 30_000,
+    staleTime: 5 * 60 * 1000,
     persister,
   });
 }
@@ -18,7 +18,7 @@ export function watchlistOptions() {
   return queryOptions({
     queryKey: ["user", "watchlist"],
     queryFn: () => getUserCatalogEntries({}),
-    staleTime: 30_000,
+    staleTime: 5 * 60 * 1000,
     persister,
   });
 }
@@ -56,7 +56,7 @@ export function catalogEntryOptions(wikidataId: string) {
   return queryOptions({
     queryKey: ["user", "entry", wikidataId],
     queryFn: () => getCatalogEntry({ data: { wikidataId } }),
-    staleTime: 30_000,
+    staleTime: 5 * 60 * 1000,
     persister,
   });
 }
