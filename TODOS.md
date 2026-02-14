@@ -38,7 +38,7 @@ Live at **donguri.app**.
     - Phase 3: Unmapped after 3 hops → drop from display. Keep raw Q-IDs in `media_genres` for traceability.
   - **Import pipeline**: after `ensureGenres()`, resolve Q-IDs via mapping → populate `media` ↔ `canonical_genres` links. Fix `genres.name` to store English labels (fetch from Wikidata).
   - **Genre vectors for recommendations**: binary multi-hot encoding against canonical genres. Cosine similarity for content-based filtering. Pre-compute user preference profile from highly-rated items.
-- [ ] Genre chips on detail pages — show main + sub-genre with hierarchy (e.g., "Sci-Fi > Cyberpunk"), not Q-IDs
+- [x] Genre chips on detail pages — show main + sub-genre with hierarchy (e.g., "Sci-Fi > Cyberpunk"), not Q-IDs
 - [ ] Genre filter in catalog — filter by main genre and/or sub-genre, scoped by media type where relevant
 - [ ] Multi-filter search — combine type + genre + year range + rating
 

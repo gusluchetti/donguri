@@ -58,7 +58,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     }
     return { auth, trackedIds, theme };
   },
-  staleTime: 30_000,
+  staleTime: 5 * 60 * 1000,
   component: RootComponent,
   notFoundComponent: NotFound,
 });
@@ -88,18 +88,6 @@ const NAV_LINKS: readonly { to: string; label: string; accent?: boolean; exact?:
 function RootComponent() {
   const { auth, theme } = Route.useLoaderData();
   const queryClient = Route.useRouteContext().queryClient;
-
-  // Re-check auth when tab becomes visible (handles cross-tab login/logout)
-  // Only invalidate user-specific queries — media data doesn't change between tabs
-  useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        queryClient.invalidateQueries({ queryKey: ["user"] });
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
-  }, [queryClient]);
 
   // Auto-reload on stale server function IDs (client/server version mismatch after deploy)
   useEffect(() => {

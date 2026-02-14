@@ -10,6 +10,7 @@ export function trackedIdsOptions() {
     queryKey: ["user", "trackedIds"],
     queryFn: () => getUserTrackedIds({}),
     staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
     persister,
   });
 }
@@ -19,6 +20,7 @@ export function watchlistOptions() {
     queryKey: ["user", "watchlist"],
     queryFn: () => getUserCatalogEntries({}),
     staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
     persister,
   });
 }
@@ -57,6 +59,7 @@ export function catalogEntryOptions(wikidataId: string) {
     queryKey: ["user", "entry", wikidataId],
     queryFn: () => getCatalogEntry({ data: { wikidataId } }),
     staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
     persister,
   });
 }
