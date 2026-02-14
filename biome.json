@@ -13,7 +13,11 @@
       "recommended": true,
       "complexity": {
         "noImportantStyles": "off",
-        "noExcessiveCognitiveComplexity": "warn",
+        "noExcessiveCognitiveComplexity": {
+          "options": {
+            "maxAllowedComplexity": 25
+          }
+        },
         "noForEach": "warn"
       },
       "correctness": {
