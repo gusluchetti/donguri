@@ -1,7 +1,6 @@
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { initiateLogin, initiateOAuthLogin } from "../lib/auth.functions";
-import { getUserCatalogEntries } from "../lib/catalog.functions";
 import {
   mediaTypeLabel,
   ratingColor,
@@ -13,7 +12,7 @@ import {
   typeBadgeClass,
 } from "../lib/media-types";
 import { ogTags, pageTitle } from "../lib/og";
-import { swrLoad } from "../lib/swr-loader";
+import { watchlistOptions } from "../lib/query-options";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -43,16 +42,15 @@ export const Route = createFileRoute("/")({
       }),
     ],
   }),
-  loader: async () => {
+  loader: async ({ context }) => {
     try {
-      const { data, fromCache } = await swrLoad(() => getUserCatalogEntries({}), {
-        key: "watchlist",
-        maxAgeMs: 30_000,
-      });
-      return { entries: data as CatalogEntryRow[], fromCache };
+      const entries = (await context.queryClient.ensureQueryData(
+        watchlistOptions(),
+      )) as CatalogEntryRow[];
+      return { entries };
     } catch {
       const entries: CatalogEntryRow[] = [];
-      return { entries, fromCache: false };
+      return { entries };
     }
   },
   staleTime: 30_000,

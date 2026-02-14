@@ -1,11 +1,11 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { Media } from "../../db/schema";
 import { setCatalogEntry } from "../../lib/catalog.functions";
-import { cacheSet, invalidateUserCaches } from "../../lib/idb-cache";
-import { getMediaStats, listMedia } from "../../lib/media.functions";
+import { listMedia } from "../../lib/media.functions";
 import {
   mediaTypeLabel,
   STATUS_ACCENT,
@@ -13,7 +13,7 @@ import {
   typeBadgeClass,
 } from "../../lib/media-types";
 import { ogTags, pageTitle } from "../../lib/og";
-import { swrLoad } from "../../lib/swr-loader";
+import { catalogBrowseOptions, mediaStatsOptions } from "../../lib/query-options";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -33,30 +33,25 @@ const MEDIA_TYPES = [
 export const Route = createFileRoute("/catalog/")({
   validateSearch: catalogSearchSchema,
   loaderDeps: ({ search }) => ({ q: search.q, mediaType: search.type }),
-  loader: async ({ deps }) => {
+  loader: async ({ deps, context }) => {
     const { q, mediaType } = deps;
 
-    // Stats always use SWR (they rarely change, cache is cheap)
-    const statsResult = await swrLoad(() => getMediaStats({}), {
-      key: "mediaStats",
-      maxAgeMs: 30 * 60 * 1000,
-    });
+    const stats = await context.queryClient.ensureQueryData(mediaStatsOptions());
 
     if (q) {
-      // Search: always fresh, no IDB cache (too many unique queries)
+      // Search: always fresh, no cache (too many unique queries)
       const data = await listMedia({ data: { limit: 50, mediaType, search: q } });
-      return { items: data.items, nextCursor: data.nextCursor, stats: statsResult.data };
+      return { items: data.items, nextCursor: data.nextCursor, stats };
     }
 
-    // Browse: SWR with IDB cache (instant tab switches on revisit)
-    const catalogResult = await swrLoad(() => listMedia({ data: { limit: 50, mediaType } }), {
-      key: `catalog:${mediaType ?? "all"}:0`,
-      maxAgeMs: 5 * 60 * 1000,
-    });
+    // Browse: TanStack Query cache (instant tab switches on revisit)
+    const catalogResult = await context.queryClient.ensureQueryData(
+      catalogBrowseOptions(mediaType),
+    );
     return {
-      items: catalogResult.data.items,
-      nextCursor: catalogResult.data.nextCursor,
-      stats: statsResult.data,
+      items: catalogResult.items,
+      nextCursor: catalogResult.nextCursor,
+      stats,
     };
   },
   staleTime: 5 * 60 * 1000,
@@ -116,6 +111,7 @@ function CatalogPage() {
   const loaderData = Route.useLoaderData();
   const { auth, trackedIds: rootTrackedIds } = rootRoute.useLoaderData();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog" });
 
@@ -157,19 +153,11 @@ function CatalogPage() {
           return merged;
         });
         setNextCursor(result.nextCursor);
-
-        // Cache accumulated browse data (not search)
-        if (!q) {
-          cacheSet(`catalog:${mediaType ?? "all"}:0`, {
-            items: [...loaderData.items, ...merged],
-            nextCursor: result.nextCursor,
-          }).catch(() => {});
-        }
       } finally {
         setLoading(false);
       }
     },
-    [mediaType, q, loaderData.items],
+    [mediaType, q],
   );
 
   const handleTypeChange = useCallback(
@@ -204,7 +192,7 @@ function CatalogPage() {
             return next;
           });
         }, 1500);
-        invalidateUserCaches();
+        queryClient.invalidateQueries({ queryKey: ["user"] });
         router.invalidate();
       } catch (err) {
         console.error("[quick-add] %s → FAILED:", wikidataId, err);
@@ -220,7 +208,7 @@ function CatalogPage() {
         });
       }
     },
-    [router],
+    [router, queryClient],
   );
 
   const virtualizer = useVirtualizer({

@@ -1,3 +1,4 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
 import { Save, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -8,8 +9,7 @@ import {
   removeCatalogEntry,
   setCatalogEntry,
 } from "../../lib/catalog.functions";
-import { cacheDelete, cacheGet, cacheSet, invalidateUserCaches } from "../../lib/idb-cache";
-import { getMedia } from "../../lib/media.functions";
+import type { getMedia } from "../../lib/media.functions";
 import {
   availableStatuses,
   mediaTypeLabel,
@@ -20,7 +20,7 @@ import {
   typeBadgeClass,
 } from "../../lib/media-types";
 import { ogTags, pageTitle } from "../../lib/og";
-import { swrLoad } from "../../lib/swr-loader";
+import { catalogEntryOptions, mediaDetailOptions } from "../../lib/query-options";
 import { useAction } from "../../lib/use-action";
 
 const rootRoute = getRouteApi("__root__");
@@ -39,23 +39,19 @@ type StubLoaderData = {
 type LoaderData = FullLoaderData | StubLoaderData;
 
 export const Route = createFileRoute("/catalog/$wikidataId")({
-  loader: async ({ params }): Promise<LoaderData> => {
-    const mediaPromise = swrLoad(() => getMedia({ data: { wikidataId: params.wikidataId } }), {
-      key: `media:${params.wikidataId}`,
-      maxAgeMs: 60 * 60 * 1000,
-    });
-    const entryPromise = swrLoad(
-      () => getCatalogEntry({ data: { wikidataId: params.wikidataId } }),
-      { key: `entry:${params.wikidataId}`, maxAgeMs: 30_000 },
-    ).catch(() => null);
+  loader: async ({ params, context }): Promise<LoaderData> => {
+    const mediaPromise = context.queryClient.ensureQueryData(mediaDetailOptions(params.wikidataId));
+    const entryPromise = context.queryClient
+      .ensureQueryData(catalogEntryOptions(params.wikidataId))
+      .catch(() => null);
 
-    const [mediaResult, entryResult] = await Promise.all([mediaPromise, entryPromise]);
+    const [media, initialEntry] = await Promise.all([mediaPromise, entryPromise]);
 
-    if (mediaResult.data) {
+    if (media) {
       return {
         kind: "full",
-        media: mediaResult.data,
-        initialEntry: entryResult?.data,
+        media,
+        initialEntry,
       };
     }
 
@@ -423,6 +419,7 @@ function TrackingPanel({
   initialEntry?: CatalogEntry | null;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const hasInitial = initialEntry !== undefined;
   const [entry, setEntry] = useState<CatalogEntry | null>(hasInitial ? initialEntry : null);
   const [loaded, setLoaded] = useState(hasInitial);
@@ -445,53 +442,26 @@ function TrackingPanel({
   const savedIsFavorite = useRef(hasInitial ? (initialEntry?.isFavorite ?? false) : false);
   const savedReplayCount = useRef(hasInitial ? (initialEntry?.replayCount ?? 0) : 0);
 
+  // When loader didn't provide the entry, use TanStack Query to fetch it
+  const entryQuery = useQuery({
+    ...catalogEntryOptions(wikidataId),
+    enabled: !hasInitial,
+  });
+
   useEffect(() => {
-    // Skip fetch when loader already provided the entry
-    if (hasInitial) return;
-
-    let cancelled = false;
-    const entryCacheKey = `entry:${wikidataId}`;
-
-    const applyEntry = (e: CatalogEntry | null) => {
-      setEntry(e);
-      setLocalRating(e?.rating ?? null);
-      setLocalStatus(e?.status ?? null);
-      setLocalIsFavorite(e?.isFavorite ?? false);
-      setLocalReplayCount(e?.replayCount ?? 0);
-      savedRating.current = e?.rating ?? null;
-      savedStatus.current = e?.status ?? null;
-      savedIsFavorite.current = e?.isFavorite ?? false;
-      savedReplayCount.current = e?.replayCount ?? 0;
-      setLoaded(true);
-    };
-
-    const load = async () => {
-      // Try IDB cache first for instant display
-      const cached = await cacheGet<CatalogEntry | null>(entryCacheKey);
-      if (cached && !cancelled) {
-        applyEntry(cached.data);
-      }
-
-      // Always fetch fresh
-      try {
-        const e = await getCatalogEntry({ data: { wikidataId } });
-        if (!cancelled) {
-          applyEntry(e);
-          cacheSet(entryCacheKey, e).catch(() => {});
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error("[tracking] load FAILED for %s:", wikidataId, err);
-          if (!cached) setLoaded(true);
-        }
-      }
-    };
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [wikidataId, hasInitial]);
+    if (hasInitial || entryQuery.isPending) return;
+    const e = entryQuery.data ?? null;
+    setEntry(e);
+    setLocalRating(e?.rating ?? null);
+    setLocalStatus(e?.status ?? null);
+    setLocalIsFavorite(e?.isFavorite ?? false);
+    setLocalReplayCount(e?.replayCount ?? 0);
+    savedRating.current = e?.rating ?? null;
+    savedStatus.current = e?.status ?? null;
+    savedIsFavorite.current = e?.isFavorite ?? false;
+    savedReplayCount.current = e?.replayCount ?? 0;
+    setLoaded(true);
+  }, [hasInitial, entryQuery.isPending, entryQuery.data]);
 
   const ratingDirty =
     localRating !== savedRating.current && !(localRating === null && savedRating.current === null);
@@ -559,8 +529,7 @@ function TrackingPanel({
         savedStatus.current = fresh?.status ?? null;
         savedIsFavorite.current = fresh?.isFavorite ?? false;
         savedReplayCount.current = fresh?.replayCount ?? 0;
-        invalidateUserCaches();
-        cacheDelete(`entry:${wikidataId}`);
+        queryClient.invalidateQueries({ queryKey: ["user"] });
         router.invalidate();
       } catch (err) {
         console.error("[tracking] save %s → FAILED:", wikidataId, err);
@@ -580,6 +549,7 @@ function TrackingPanel({
     localReplayCount,
     wikidataId,
     router,
+    queryClient,
     action,
   ]);
 
@@ -591,8 +561,7 @@ function TrackingPanel({
       try {
         await removeCatalogEntry({ data: { wikidataId } });
         console.debug("[tracking] remove %s → server ok", wikidataId);
-        invalidateUserCaches();
-        cacheDelete(`entry:${wikidataId}`);
+        queryClient.invalidateQueries({ queryKey: ["user"] });
         router.invalidate();
       } catch (err) {
         console.error("[tracking] remove %s → FAILED:", wikidataId, err);
@@ -600,7 +569,7 @@ function TrackingPanel({
         throw err;
       }
     });
-  }, [entry, wikidataId, router, action]);
+  }, [entry, wikidataId, router, queryClient, action]);
 
   const statuses = availableStatuses(mediaType);
 
