@@ -340,6 +340,7 @@ export function parseMediaEntity(entity: WikidataEntity): ParsedMedia | null {
     seasonCount: getQuantityClaim(entity, P.SEASON_COUNT),
     episodeCount: getQuantityClaim(entity, P.EPISODE_COUNT),
     sitelinksCount: getSitelinksCount(entity),
+    qrankScore: null,
     countryOfOrigin: getCountryOfOrigin(entity),
     imdbId: getStringClaim(entity, P.IMDB_ID),
     tmdbId,

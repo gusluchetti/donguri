@@ -153,17 +153,11 @@ export function getSitelinksCount(entity: WikidataEntity): number {
 }
 
 /**
- * Minimum sitelinks count for import. Higher = fewer but more notable entries.
- */
-const MIN_SITELINKS = 5;
-
-/**
- * Quality filter: must be media + have external ID + enough sitelinks
+ * Quality filter: must be media + have ≥1 sitelink OR ≥1 external ID
  */
 export function shouldImportEntity(entity: WikidataEntity): boolean {
   if (entity.type !== "item") return false;
   if (!isMediaEntity(entity)) return false;
-  if (!hasExternalId(entity)) return false;
-  if (getSitelinksCount(entity) < MIN_SITELINKS) return false;
+  if (getSitelinksCount(entity) < 1 && !hasExternalId(entity)) return false;
   return true;
 }

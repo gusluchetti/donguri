@@ -14,6 +14,7 @@
 import fs from "node:fs";
 import readline from "node:readline";
 import { Writable } from "node:stream";
+import zlib from "node:zlib";
 import { eq, inArray, sql } from "drizzle-orm";
 import { ulid } from "ulid";
 import { createDb, createRawClient } from "../db";
@@ -45,6 +46,7 @@ const DROPPABLE_INDEXES = [
   "idx_media_igdb",
   "idx_media_tmdb",
   "idx_media_tvmaze",
+  "idx_media_qrank",
   "idx_media_title_trgm",
   "idx_media_original_title_trgm",
 ];
@@ -59,6 +61,7 @@ const RECREATE_INDEX_SQL = [
   `CREATE INDEX IF NOT EXISTS idx_media_igdb ON media (igdb_id)`,
   `CREATE INDEX IF NOT EXISTS idx_media_tmdb ON media (tmdb_id)`,
   `CREATE INDEX IF NOT EXISTS idx_media_tvmaze ON media (tvmaze_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_media_qrank ON media (qrank_score)`,
 ];
 
 // ─── Staging table columns (matches media table layout) ─────────────────────
@@ -77,6 +80,7 @@ const STAGING_COLUMNS = [
   "season_count",
   "episode_count",
   "sitelinks_count",
+  "qrank_score",
   "country_of_origin",
   "imdb_id",
   "tmdb_id",
@@ -146,6 +150,7 @@ function toTsvRow(item: ParsedMedia, rowId: string): string {
     item.seasonCount != null ? String(item.seasonCount) : "\\N",
     item.episodeCount != null ? String(item.episodeCount) : "\\N",
     String(item.sitelinksCount),
+    item.qrankScore != null ? String(item.qrankScore) : "\\N",
     item.countryOfOrigin ?? "\\N",
     item.imdbId ?? "\\N",
     item.tmdbId ?? "\\N",
@@ -295,6 +300,7 @@ async function processSuperBatch(
 							season_count INTEGER,
 							episode_count INTEGER,
 							sitelinks_count INTEGER DEFAULT 0,
+							qrank_score INTEGER,
 							country_of_origin TEXT,
 							imdb_id TEXT,
 							tmdb_id TEXT,
@@ -343,7 +349,7 @@ async function processSuperBatch(
 						INSERT INTO media (
 							id, wikidata_id, media_type, title, original_title, original_language,
 							description, start_year, end_year, runtime_minutes, season_count,
-							episode_count, sitelinks_count, country_of_origin,
+							episode_count, sitelinks_count, qrank_score, country_of_origin,
 							imdb_id, tmdb_id, mal_id, anilist_id, anidb_id, igdb_id,
 							ann_id, tvdb_id, tvmaze_id, search_title, created_at, updated_at
 						)
@@ -351,7 +357,7 @@ async function processSuperBatch(
 							s.id, s.wikidata_id, s.media_type, s.title, s.original_title,
 							s.original_language, s.description, s.start_year, s.end_year,
 							s.runtime_minutes, s.season_count, s.episode_count, s.sitelinks_count,
-							s.country_of_origin, s.imdb_id, s.tmdb_id, s.mal_id, s.anilist_id,
+							s.qrank_score, s.country_of_origin, s.imdb_id, s.tmdb_id, s.mal_id, s.anilist_id,
 							s.anidb_id, s.igdb_id, s.ann_id, s.tvdb_id, s.tvmaze_id,
 							s.search_title, now(), now()
 						FROM _media_staging s
@@ -366,6 +372,7 @@ async function processSuperBatch(
 							season_count = COALESCE(EXCLUDED.season_count, media.season_count),
 							episode_count = COALESCE(EXCLUDED.episode_count, media.episode_count),
 							sitelinks_count = GREATEST(EXCLUDED.sitelinks_count, media.sitelinks_count),
+							qrank_score = COALESCE(EXCLUDED.qrank_score, media.qrank_score),
 							country_of_origin = COALESCE(EXCLUDED.country_of_origin, media.country_of_origin),
 							imdb_id = COALESCE(EXCLUDED.imdb_id, media.imdb_id),
 							tmdb_id = COALESCE(EXCLUDED.tmdb_id, media.tmdb_id),
@@ -454,6 +461,43 @@ async function recreateIndexes(rawClient: RawClient): Promise<void> {
   console.log("Indexes recreated.");
 }
 
+// ─── QRank loading ──────────────────────────────────────────────────────
+
+/**
+ * Load QRank scores from a gzipped CSV file.
+ * Format: "Entity,Score" header, then "Q123,456" data lines.
+ * Returns a Map<wikidataId, score>.
+ */
+async function loadQRank(filePath: string): Promise<Map<string, number>> {
+  console.log(`Loading QRank from: ${filePath}`);
+  const startTime = Date.now();
+  const map = new Map<string, number>();
+
+  const rl = readline.createInterface({
+    input: fs.createReadStream(filePath).pipe(zlib.createGunzip()),
+    crlfDelay: Infinity,
+  });
+
+  let isHeader = true;
+  for await (const line of rl) {
+    if (isHeader) {
+      isHeader = false;
+      continue;
+    }
+    const commaIdx = line.indexOf(",");
+    if (commaIdx === -1) continue;
+    const entity = line.slice(0, commaIdx);
+    const score = parseInt(line.slice(commaIdx + 1), 10);
+    if (entity.startsWith("Q") && !Number.isNaN(score)) {
+      map.set(entity, score);
+    }
+  }
+
+  const elapsed = formatDuration(Date.now() - startTime);
+  console.log(`QRank loaded: ${map.size.toLocaleString()} entities in ${elapsed}`);
+  return map;
+}
+
 // ─── Main import ────────────────────────────────────────────────────────────
 
 async function main() {
@@ -462,7 +506,7 @@ async function main() {
 
   if (!filePath) {
     console.error(
-      "Usage: bun run src/import/index.ts <file.ndjson> [--full] [--limit=N] [--resumeFrom=QID] [--clean]",
+      "Usage: bun run src/import/index.ts <file.ndjson> [--full] [--limit=N] [--resumeFrom=QID] [--clean] [--qrank=path.csv.gz]",
     );
     process.exit(1);
   }
@@ -478,6 +522,8 @@ async function main() {
   const limit = limitArg ? parseInt(limitArg.split("=")[1], 10) : isFullMode ? Infinity : 100;
   const resumeArg = args.find((a) => a.startsWith("--resumeFrom="));
   const resumeFrom = resumeArg ? resumeArg.split("=")[1] : null;
+  const qrankArg = args.find((a) => a.startsWith("--qrank="));
+  const qrankPath = qrankArg ? qrankArg.split("=")[1] : null;
 
   const url = process.env.DATABASE_URL;
   if (!url) {
@@ -507,6 +553,16 @@ async function main() {
     for (const stmt of TRGM_SETUP_SQL) {
       await db.execute(sql.raw(stmt));
     }
+  }
+
+  // Load QRank scores if provided
+  let qrankMap: Map<string, number> | null = null;
+  if (qrankPath) {
+    if (!fs.existsSync(qrankPath)) {
+      console.error(`QRank file not found: ${qrankPath}`);
+      process.exit(1);
+    }
+    qrankMap = await loadQRank(qrankPath);
   }
 
   console.log(`\nImporting from: ${filePath}`);
@@ -586,6 +642,11 @@ async function main() {
 
     const parsed = parseMediaEntity(entity);
     if (!parsed) continue;
+
+    // Attach QRank score if available
+    if (qrankMap) {
+      parsed.qrankScore = qrankMap.get(entity.id) ?? null;
+    }
 
     stats.byType[parsed.mediaType] = (stats.byType[parsed.mediaType] || 0) + 1;
     batch.push(parsed);

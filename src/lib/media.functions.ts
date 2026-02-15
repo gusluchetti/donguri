@@ -64,7 +64,12 @@ async function searchMedia(
       .select(getTableColumns(media))
       .from(media)
       .where(and(...conditions))
-      .orderBy(sql`${relevance} DESC`, desc(media.sitelinksCount), media.id)
+      .orderBy(
+        sql`${relevance} DESC`,
+        sql`${media.qrankScore} DESC NULLS LAST`,
+        desc(media.sitelinksCount),
+        media.id,
+      )
       .limit(limit + 1)
       .offset(offset);
   });
@@ -101,19 +106,44 @@ export const listMedia = createServerFn({ method: "GET" })
     // Type filter
     if (mediaType) conditions.push(eq(media.mediaType, mediaType));
 
-    // Keyset cursor pagination
+    // Keyset cursor pagination (qrank_score DESC NULLS LAST, sitelinks_count DESC, id ASC)
     if (cursor) {
       const [cursorItem] = await db
-        .select({ sitelinksCount: media.sitelinksCount, id: media.id })
+        .select({
+          qrankScore: media.qrankScore,
+          sitelinksCount: media.sitelinksCount,
+          id: media.id,
+        })
         .from(media)
         .where(eq(media.id, cursor))
         .limit(1);
 
       if (cursorItem) {
+        const qr = cursorItem.qrankScore;
         const sc = cursorItem.sitelinksCount ?? 0;
-        conditions.push(
-          sql`(${media.sitelinksCount} < ${sc} OR (${media.sitelinksCount} = ${sc} AND ${media.id} > ${cursor}))`,
-        );
+        if (qr != null) {
+          // Cursor row has a QRank score
+          conditions.push(
+            sql`(
+              (${media.qrankScore} IS NOT NULL AND (
+                ${media.qrankScore} < ${qr}
+                OR (${media.qrankScore} = ${qr} AND ${media.sitelinksCount} < ${sc})
+                OR (${media.qrankScore} = ${qr} AND ${media.sitelinksCount} = ${sc} AND ${media.id} > ${cursor})
+              ))
+              OR ${media.qrankScore} IS NULL
+            )`,
+          );
+        } else {
+          // Cursor row is in the NULL-qrank tier
+          conditions.push(
+            sql`(
+              ${media.qrankScore} IS NULL AND (
+                ${media.sitelinksCount} < ${sc}
+                OR (${media.sitelinksCount} = ${sc} AND ${media.id} > ${cursor})
+              )
+            )`,
+          );
+        }
       }
     }
 
@@ -121,7 +151,7 @@ export const listMedia = createServerFn({ method: "GET" })
       .select()
       .from(media)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(media.sitelinksCount), media.id)
+      .orderBy(sql`${media.qrankScore} DESC NULLS LAST`, desc(media.sitelinksCount), media.id)
       .limit(limit + 1);
 
     const hasMore = items.length > limit;
