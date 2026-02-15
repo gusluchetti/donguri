@@ -7,7 +7,21 @@ Live at **donguri.app**.
 
 ---
 
+## Deployment checklist — v0.3.0 (seasons + covers)
+
+- [ ] Merge `feat/seasons-and-covers` → `staging` → `main`
+- [ ] Deploy (`fly deploy`) — migrations 0006 + 0007 run automatically
+- [ ] Backfill locally via `fly proxy` (point `DATABASE_URL` at prod):
+  - `bun run src/import/import-all.ts subset.ndjson --full` (media + genre seed + Wikidata seasons)
+  - `bun run src/import/import-seasons.ts tvmaze` (gap-fill TV)
+  - `bun run src/import/import-seasons.ts anime-offline <file.json>` (gap-fill anime)
+  - `bun run import:covers` (needs TMDB_API_KEY, TWITCH_CLIENT_ID/SECRET locally)
+
+---
+
 ## P0 — Quick wins with big impact
+
+Genre normalization Phase 1 done (PR #22 merged) — 18 main + ~47 sub-genres, ~150 Q-ID mappings. Phases 2–3 remain.
 
 - [ ] **Genre normalization — Phase 2: P279 auto-resolve** — walk Wikidata `subclass of` hierarchy (max 3 hops) for unmapped Q-IDs via batch SPARQL query
 - [ ] **Genre normalization — Phase 3: unmapped handling + import integration** — unmapped after 3 hops → drop from display (keep raw Q-IDs in `media_genres`). Integrate resolution into import pipeline, fix `genres.name` to store English labels.

@@ -8,12 +8,12 @@ export const Route = createFileRoute("/roadmap")({
       {
         name: "description",
         content:
-          "See what's coming next for donguri — episode tracking, genre filtering, cover art, and more.",
+          "See what's coming next for donguri — episode tracking, genre filtering, and more.",
       },
       ...ogTags({
         title: "Roadmap — donguri",
         description:
-          "See what's coming next for donguri — episode tracking, genre filtering, cover art, and more.",
+          "See what's coming next for donguri — episode tracking, genre filtering, and more.",
         path: "/roadmap",
       }),
     ],
@@ -29,6 +29,11 @@ const SECTIONS = [
       [
         "Rich detail pages",
         "genres, platforms, and direct links to IMDb, TMDB, MAL, AniList, IGDB, and more",
+      ],
+      ["Cover art", "cover images on detail pages and catalog thumbnails"],
+      [
+        "Season and episode data",
+        "per-season episode counts from Wikidata, TVMaze, and anime-offline-database",
       ],
       [
         "Track your collection",
@@ -55,11 +60,6 @@ const SECTIONS = [
         "Fast and cached",
         "pages load instantly from local cache, with background sync to keep everything up to date",
       ],
-      [
-        "Season and episode data",
-        "per-season episode counts from Wikidata, TVMaze, and anime-offline-database",
-      ],
-      ["Cover art", "cover images on detail pages and catalog thumbnails"],
     ],
   },
   {
