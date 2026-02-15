@@ -1,5 +1,12 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  getRouteApi,
+  Link,
+  useElementScrollRestoration,
+  useNavigate,
+  useRouter,
+} from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
@@ -177,6 +184,23 @@ function CatalogPage() {
     },
     [],
   );
+
+  // Scroll restoration for the custom scroll container via TanStack Router
+  const scrollEntry = useElementScrollRestoration({
+    getElement: () => parentRef.current,
+  });
+
+  // Restore scroll position after data is available and virtualizer has rendered
+  const didRestore = useRef(false);
+  useEffect(() => {
+    if (didRestore.current || !scrollEntry || allItems.length === 0) return;
+    didRestore.current = true;
+    const el = parentRef.current;
+    if (!el || scrollEntry.scrollY === 0) return;
+    requestAnimationFrame(() => {
+      el.scrollTop = scrollEntry.scrollY;
+    });
+  }, [allItems.length, scrollEntry]);
 
   const virtualizer = useVirtualizer({
     count: hasNextPage ? allItems.length + 1 : allItems.length,
