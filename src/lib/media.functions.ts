@@ -214,7 +214,7 @@ export const getMedia = createServerFn({ method: "GET" })
     ]);
 
     // Resolve parent names for sub-genres
-    const parentIds = [...new Set(itemGenres.filter((g) => g.parentId).map((g) => g.parentId!))];
+    const parentIds = [...new Set(itemGenres.flatMap((g) => (g.parentId ? [g.parentId] : [])))];
     const parentMap = new Map<string, string>();
     if (parentIds.length > 0) {
       // Parents are likely already in itemGenres; check there first

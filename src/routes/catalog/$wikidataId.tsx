@@ -422,7 +422,7 @@ function GenreChips({
   }[];
 }) {
   // Dedup: if a sub-genre is present, suppress its standalone parent from rendering
-  const subGenreParentIds = new Set(genres.filter((g) => g.parentId).map((g) => g.parentId!));
+  const subGenreParentIds = new Set(genres.flatMap((g) => (g.parentId ? [g.parentId] : [])));
   const visible = genres.filter((g) => {
     // Keep sub-genres always. Keep parents only if no sub-genre references them.
     if (g.parentId) return true;

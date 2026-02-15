@@ -31,7 +31,8 @@ async function seed() {
   // 3. Insert sub-genres
   const subGenres = CANONICAL_GENRES.filter((g) => g.parentSlug !== null);
   for (const g of subGenres) {
-    const parentId = slugToId.get(g.parentSlug!);
+    if (!g.parentSlug) continue;
+    const parentId = slugToId.get(g.parentSlug);
     if (!parentId) {
       console.warn(`  WARN: parent slug "${g.parentSlug}" not found for "${g.slug}"`);
       continue;
