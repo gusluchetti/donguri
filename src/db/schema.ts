@@ -226,6 +226,7 @@ export const seasons = pgTable(
     title: text("title"),
     dataSource: text("data_source", { enum: ["wikidata", "tvmaze", "anime_offline_db"] }).notNull(),
     createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
   },
   (table) => [
     uniqueIndex("idx_seasons_media_number").on(table.mediaId, table.seasonNumber),

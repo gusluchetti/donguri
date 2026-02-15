@@ -55,6 +55,11 @@ const SECTIONS = [
         "Fast and cached",
         "pages load instantly from local cache, with background sync to keep everything up to date",
       ],
+      [
+        "Season and episode data",
+        "per-season episode counts from Wikidata, TVMaze, and anime-offline-database",
+      ],
+      ["Cover art", "cover images on detail pages and catalog thumbnails"],
     ],
   },
   {
@@ -65,7 +70,6 @@ const SECTIONS = [
         "mark individual episodes as watched, season by season. Never lose your place in a long-running series",
       ],
       ["Genre filtering", "filter the catalog by genre, not just media type"],
-      ["Cover art and posters", "visuals for every title in the catalog and on detail pages"],
       ["Notes", "add personal notes to any title in your collection"],
       ["Import your data", "bring your lists from MyAnimeList, Letterboxd, Trakt, and more"],
     ],

@@ -34,19 +34,22 @@ bun run build                 # Vite build → .output/
 bun run dev:prod              # Tunnel + Docker build+run (test prod bundle locally)
 fly deploy                    # Deploy to Fly.io
 
-# ─── Wikidata import ────────────────────────────────────────────────────────
-# Pass 1: Extract media subset from full dump
-lbzip2 -dc /path/to/latest-all.json.bz2 | bun run src/import/subset.ts > media-subset.ndjson
+# ─── Import pipeline ─────────────────────────────────────────────────────────
+# Step 1: Extract media + season subset from full Wikidata dump (single pass)
+lbzip2 -dc /path/to/latest-all.json.bz2 | bun run import:dump > subset.ndjson
 
-# Pass 2: Import subset into Postgres
-bun run src/import/index.ts media-subset.ndjson                     # Test mode (100 entities)
-bun run src/import/index.ts media-subset.ndjson --full              # Full import
-bun run src/import/index.ts media-subset.ndjson --full --limit=1000 # Limited import
-bun run src/import/index.ts media-subset.ndjson --full --resumeFrom=Q123
-bun run src/import/index.ts media-subset.ndjson --clean             # Clean DB first
+# Step 2: Import subset into Postgres (media → genres → Wikidata seasons)
+bun run import:subset subset.ndjson                     # Test mode (100 media entities)
+bun run import:subset subset.ndjson --full              # Full import
+bun run import:subset subset.ndjson --full --limit=1000 # Limited import
+bun run import:subset subset.ndjson --clean             # Clean DB first
 
-# ─── Genre seed ──────────────────────────────────────────────────────────────
-bun run db:seed-genres            # Populate canonical_genres + genre_mappings
+# Step 3 (optional): Gap-fill seasons from external sources
+bun run src/import/import-seasons.ts tvmaze [--limit=N]               # TVMaze gap-fill
+bun run src/import/import-seasons.ts anime-offline <file.json>        # anime-offline-database gap-fill
+
+# Step 4 (optional): Resolve cover art URLs (needs TMDB_API_KEY)
+bun run import:covers [--limit=N] [--type=movie|tv_series|anime|game]
 
 # ─── Production DB access (manual) ──────────────────────────────────────────
 # fly proxy 5432 -a donguri-db   # Then connect with a different DATABASE_URL
@@ -100,8 +103,10 @@ src/
       session.ts      → Cookie-based session (HMAC-signed)
       kv-stores.ts    → Postgres-backed OAuth state/session stores
   import/
-    subset.ts         → Pass 1: filter Wikidata dump to media NDJSON
-    index.ts          → Pass 2: parse and import into Postgres
+    subset.ts         → Pass 1: filter Wikidata dump to media + season NDJSON
+    index.ts          → Pass 2: parse and import media into Postgres
+    import-seasons.ts → Import seasons from 3 sources (wikidata, tvmaze, anime-offline)
+    covers.ts         → Resolve cover art URLs from TMDB/AniList/IGDB (hotlinked)
     parser.ts         → Entity property extraction
     filters.ts        → P31 type classification, quality filters
     types.ts          → Wikidata types and constants
@@ -128,10 +133,20 @@ drizzle.config.ts     → Drizzle Kit config for Postgres
 
 Search uses `pg_trgm` with `word_similarity()` and GIN indexes for fuzzy matching on title/original_title.
 
+### Data Import Pipeline
+1. **Media + Seasons subset** (Wikidata CC0): `subset.ts` captures both media entities AND season entities in one pass
+2. **Media import**: `index.ts` → `media`, `genres`, `platforms`, `media_genres`, `media_platforms` (skips season entities)
+3. **Genres** (hand-curated): `genre-data.ts` → `seed-genres.ts` → `canonical_genres`, `genre_mappings`
+4. **Seasons** (3 sources, run in order — first source wins via ON CONFLICT DO NOTHING):
+   - Wikidata: `import-seasons.ts wikidata` reads same subset.ndjson (P179/P1545/P1113)
+   - TVMaze (CC BY-SA): `import-seasons.ts tvmaze` (gap-fill TV series)
+   - anime-offline-database (ODbL): `import-seasons.ts anime-offline` (gap-fill anime)
+5. **Cover Art**: `covers.ts` → TMDB → AniList (anime fallback) → IGDB (games) → hotlink URL → `poster_url`
+
 ### Wikidata Import
 Supports 10 P31 types: Film, TV Film, TV Series, Anime (6 variants), Video Game.
-Quality filter: must have external ID + sitelinks >= 1.
-Properties extracted: titles, dates, duration, episodes, seasons, country, 8 external IDs, genres, platforms, sitelinks count.
+Quality filter: must have external ID + sitelinks >= 5.
+Properties extracted: titles, dates, duration, episodes, seasons, country, 9 external IDs, genres, platforms, sitelinks count.
 
 ## Environment Variables
 
@@ -144,6 +159,11 @@ GOOGLE_CLIENT_ID=      # Google OAuth client ID
 GOOGLE_CLIENT_SECRET=  # Google OAuth client secret
 GITHUB_CLIENT_ID=      # GitHub OAuth client ID (App)
 GITHUB_CLIENT_SECRET=  # GitHub OAuth client secret
+
+# Cover art import (optional — only needed for covers.ts)
+TMDB_API_KEY=          # TMDB v3 API key
+TWITCH_CLIENT_ID=      # Twitch app client ID (for IGDB)
+TWITCH_CLIENT_SECRET=  # Twitch app client secret (for IGDB)
 ```
 
 ## Current Features
@@ -153,7 +173,9 @@ GITHUB_CLIENT_SECRET=  # GitHub OAuth client secret
 - **Tracking**: per-media-type status labels, 0-100 ratings, favorites, replay count, episode progress count
 - **Auth**: Bluesky OAuth (with PDS sync), Google OAuth, GitHub OAuth
 - **Caching**: IDB-persisted TanStack Query cache with DATA_VERSION for cache busting on schema changes, refetchOnWindowFocus for user data
-- **Not yet built**: per-episode tracking UI, genre filtering in catalog, cover art display, notes UI, data import/export
+- **Season data**: per-season episode counts from Wikidata, TVMaze, and anime-offline-database, displayed on detail pages
+- **Cover art**: posters hotlinked from TMDB, AniList, and IGDB CDNs, shown on detail pages (160×240) and catalog list (40×60 thumbnails)
+- **Not yet built**: per-episode tracking UI, genre filtering in catalog, notes UI, data import/export
 
 ## Frontend Aesthetics
 

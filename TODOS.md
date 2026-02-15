@@ -17,25 +17,25 @@ Live at **donguri.app**.
 
 ## P1 — Episode data import
 
-`seasons` table and `watched_episodes` JSONB created in P0. This section is about populating season data.
+`seasons` table and `watched_episodes` JSONB created in P0. Season import scripts implemented.
 
-**Open data only.** No TMDB (proprietary, commercial license issues). Wikidata is always the primary source.
+Data sources:
+- **Wikidata** (CC0, primary) — `subset-seasons.ts` extracts Q3464665/Q100269041. `import-seasons.ts wikidata` links to parent series via P179/P1545.
+- **TVMaze** (CC BY-SA) — `import-seasons.ts tvmaze` gap-fills TV series without Wikidata seasons.
+- **anime-offline-database** (ODbL) — `import-seasons.ts anime-offline` gap-fills anime.
 
-Data sources (researched Feb 2026):
-- **Wikidata** (CC0, primary) — season entities are Q3464665 (TV season) and Q100269041 (anime season). ~36% have episode counts, but we should extract everything available. Expand the dump filter in `subset.ts` to also capture season entities, then link to parent series via P179 (part of series) with P1545 ordinal qualifier. Episode counts via P1113 on season entities.
-- **TVMaze** (CC BY-SA) — gap-fill for TV series where Wikidata seasons are missing. Per-season episode counts, explicit caching allowed, `/updates/shows` for incremental sync. Attribute with footer link.
-- **anime-offline-database** (ODbL) — gap-fill for anime. 40k+ entries, weekly JSON dump, match via MAL/AniList IDs. Total episode count only (no per-season), but most anime don't have Western-style seasons → single "Season 1" with all episodes.
+Done:
+- [x] `subset.ts` — now captures both media AND season entities in a single pass
+- [x] `import-seasons.ts wikidata` — parses P179/P1545/P1113, inserts into `seasons` table
+- [x] `import-seasons.ts tvmaze` — API gap-fill for TV series
+- [x] `import-seasons.ts anime-offline` — JSON gap-fill for anime
+- [x] Seasons displayed on detail pages
+- [x] Attribution footer (TMDB, TVMaze, anime-offline-database)
 
-Pipeline:
-- [ ] Expand `subset.ts` filter to capture Q3464665 + Q100269041 (season entities) alongside media entities
-- [ ] Expand `parser.ts` to extract season data: P179 (parent series link), P1545 (season ordinal), P1113 (episode count), P527 (has parts / episodes)
-- [ ] Import pipeline: link season entities to parent `media` rows via wikidata_id → insert into `seasons` table with `data_source: "wikidata"`
-- [ ] TVMaze gap-fill script — for TV series with no Wikidata seasons, match by `tvmaze_id` or IMDB ID → fetch `/shows/{id}/seasons` → insert with `data_source: "tvmaze"`
-- [ ] anime-offline-database gap-fill — download weekly JSON, match by `mal_id`/`anilist_id` → insert single season per anime with total episode count, `data_source: "anime_offline_db"`
-- [ ] Backfill: run Wikidata season import first, then gap-fill with TVMaze + anime-offline-db
+Remaining:
+- [ ] Backfill: run all three sources on production data
 - [ ] Periodic refresh (monthly) to pick up new seasons and corrections
-- [ ] UI: season accordion + per-episode checkboxes on detail page, "mark through episode X" bulk toggle
-- [ ] Attribution: TVMaze link + ODbL notice in footer/about page (Wikidata is CC0, no attribution required)
+- [ ] UI: per-episode checkboxes on detail page, "mark through episode X" bulk toggle
 
 ## P2 — Auth + onboarding + UX polish
 
@@ -72,9 +72,15 @@ Platform: **Lemon Squeezy** (MoR, handles tax globally, 5%+$0.50/tx, regional pr
 
 ## P4 — Make the catalog visual
 
-Cosmetic but impactful — cover art makes the product feel real.
+Cover art URLs hotlinked from source CDNs (TMDB, AniList, IGDB). No image storage — `poster_url` stores the hotlink URL directly. Future plan: user-submitted custom posters with community voting once we have 100+ users.
 
-- [ ] Cover art + posters via TMDB/IGDB APIs (match by stored external IDs)
+Done:
+- [x] Cover art URL resolver (`covers.ts`) with TMDB → AniList → IGDB fallback chain
+- [x] Poster display on detail pages (160×240)
+- [x] Thumbnail display in catalog list (40×60)
+
+Remaining:
+- [ ] Backfill: run cover art import on production data
 - [ ] Richer detail pages — directors, cast, studios, episode lists
 - [ ] Inline external ratings on detail pages (IMDb, MAL scores)
 

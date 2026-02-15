@@ -102,6 +102,20 @@ export function isMediaEntity(entity: WikidataEntity): boolean {
   return instanceOfValues.some((qValue) => ALL_MEDIA_TYPES.has(qValue));
 }
 
+// Season Q-values (TV season + anime season)
+const SEASON_TYPES = new Set<string>([Q.TV_SEASON, Q.ANIME_SEASON]);
+
+/**
+ * Check if an entity is a TV/anime season (P31 = Q3464665 or Q100269041) with P179 (part of series)
+ */
+export function isSeasonEntity(entity: WikidataEntity): boolean {
+  const instanceOfValues = getInstanceOfValues(entity);
+  if (!instanceOfValues.some((qValue) => SEASON_TYPES.has(qValue))) return false;
+  // Must have P179 (part of series) to be linkable to a parent show
+  if (!entity.claims?.[P.PART_OF_SERIES]) return false;
+  return true;
+}
+
 /**
  * Get a string claim value (e.g., external IDs)
  */

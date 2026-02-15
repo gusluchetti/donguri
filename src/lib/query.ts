@@ -3,7 +3,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { del, get, set } from "idb-keyval";
 
 // Bump when server data shape changes (e.g. genre normalization, schema migrations)
-export const DATA_VERSION = 1;
+export const DATA_VERSION = 2;
 
 export function createQueryClient() {
   return new QueryClient({

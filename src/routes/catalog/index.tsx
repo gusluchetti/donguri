@@ -181,7 +181,7 @@ function CatalogPage() {
   const virtualizer = useVirtualizer({
     count: hasNextPage ? allItems.length + 1 : allItems.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 64,
+    estimateSize: () => 68,
     overscan: 10,
   });
 
@@ -363,6 +363,16 @@ const MediaRow = memo(function MediaRow({
   return (
     <div className="flex items-center justify-between py-2 h-full gap-2 sm:gap-4">
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+        {item.posterUrl && (
+          <img
+            src={item.posterUrl}
+            alt=""
+            width={40}
+            height={60}
+            className="rounded-sm border border-dg-border-subtle object-cover shrink-0 hidden sm:block"
+            loading="lazy"
+          />
+        )}
         {addState === "pending" ? (
           <span className="text-[0.75rem] font-bold text-dg-accent font-mono shrink-0">
             [<span className="dg-ellipsis" />]

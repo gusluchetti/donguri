@@ -10,6 +10,7 @@ import {
   mediaGenres,
   mediaPlatforms,
   platforms,
+  seasons,
 } from "../db/schema";
 
 // ─── Input schemas ──────────────────────────────────────────────────────────
@@ -148,8 +149,8 @@ export const getMedia = createServerFn({ method: "GET" })
 
     if (item.length === 0) return null;
 
-    // Fetch canonical genres and platforms in parallel
-    const [itemGenres, itemPlatforms] = await Promise.all([
+    // Fetch canonical genres, platforms, and seasons in parallel
+    const [itemGenres, itemPlatforms, itemSeasons] = await Promise.all([
       db
         .selectDistinct({
           id: canonicalGenres.id,
@@ -169,6 +170,17 @@ export const getMedia = createServerFn({ method: "GET" })
         .from(mediaPlatforms)
         .innerJoin(platforms, eq(mediaPlatforms.platformId, platforms.id))
         .where(eq(mediaPlatforms.mediaId, item[0].id)),
+      db
+        .select({
+          id: seasons.id,
+          seasonNumber: seasons.seasonNumber,
+          episodeCount: seasons.episodeCount,
+          title: seasons.title,
+          dataSource: seasons.dataSource,
+        })
+        .from(seasons)
+        .where(eq(seasons.mediaId, item[0].id))
+        .orderBy(seasons.seasonNumber),
     ]);
 
     // Resolve parent names for sub-genres
@@ -202,6 +214,7 @@ export const getMedia = createServerFn({ method: "GET" })
         parentName: g.parentId ? (parentMap.get(g.parentId) ?? null) : null,
       })),
       platforms: itemPlatforms,
+      seasons: itemSeasons,
     };
   });
 

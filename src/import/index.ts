@@ -196,19 +196,45 @@ async function insertBatch(
       searchTitle: item.searchTitle,
     }));
 
-    const inserted = await withRetry(
+    const upserted = await withRetry(
       () =>
         db
           .insert(media)
           .values(mediaValues)
-          .onConflictDoNothing()
+          .onConflictDoUpdate({
+            target: media.wikidataId,
+            set: {
+              title: sql`COALESCE(EXCLUDED.title, ${media.title})`,
+              originalTitle: sql`COALESCE(EXCLUDED.original_title, ${media.originalTitle})`,
+              originalLanguage: sql`COALESCE(EXCLUDED.original_language, ${media.originalLanguage})`,
+              description: sql`COALESCE(EXCLUDED.description, ${media.description})`,
+              startYear: sql`COALESCE(EXCLUDED.start_year, ${media.startYear})`,
+              endYear: sql`COALESCE(EXCLUDED.end_year, ${media.endYear})`,
+              runtimeMinutes: sql`COALESCE(EXCLUDED.runtime_minutes, ${media.runtimeMinutes})`,
+              seasonCount: sql`COALESCE(EXCLUDED.season_count, ${media.seasonCount})`,
+              episodeCount: sql`COALESCE(EXCLUDED.episode_count, ${media.episodeCount})`,
+              sitelinksCount: sql`GREATEST(EXCLUDED.sitelinks_count, ${media.sitelinksCount})`,
+              countryOfOrigin: sql`COALESCE(EXCLUDED.country_of_origin, ${media.countryOfOrigin})`,
+              imdbId: sql`COALESCE(EXCLUDED.imdb_id, ${media.imdbId})`,
+              tmdbId: sql`COALESCE(EXCLUDED.tmdb_id, ${media.tmdbId})`,
+              malId: sql`COALESCE(EXCLUDED.mal_id, ${media.malId})`,
+              anilistId: sql`COALESCE(EXCLUDED.anilist_id, ${media.anilistId})`,
+              anidbId: sql`COALESCE(EXCLUDED.anidb_id, ${media.anidbId})`,
+              igdbId: sql`COALESCE(EXCLUDED.igdb_id, ${media.igdbId})`,
+              annId: sql`COALESCE(EXCLUDED.ann_id, ${media.annId})`,
+              tvdbId: sql`COALESCE(EXCLUDED.tvdb_id, ${media.tvdbId})`,
+              tvmazeId: sql`COALESCE(EXCLUDED.tvmaze_id, ${media.tvmazeId})`,
+              searchTitle: sql`COALESCE(EXCLUDED.search_title, ${media.searchTitle})`,
+              updatedAt: sql`now()`,
+            },
+          })
           .returning({ id: media.id, wikidataId: media.wikidataId }),
-      "insert media",
+      "upsert media",
     );
 
-    stats.entitiesImported += inserted.length;
+    stats.entitiesImported += upserted.length;
 
-    const wikidataToDbId = new Map(inserted.map((r) => [r.wikidataId, r.id]));
+    const wikidataToDbId = new Map(upserted.map((r) => [r.wikidataId, r.id]));
 
     // Build all genre + platform relations in one pass
     const genreRelations: { mediaId: string; genreId: string }[] = [];

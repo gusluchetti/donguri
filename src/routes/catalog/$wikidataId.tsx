@@ -295,19 +295,31 @@ function MediaDetailPage({
           &larr; back
         </button>
 
-        {/* Header */}
-        <div className="mb-5 sm:mb-6">
-          <span
-            className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
-          >
-            {mediaTypeLabel(data.mediaType)}
-          </span>
-          <h1 className="text-[1.35rem] sm:text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
-            {data.title}
-          </h1>
-          {data.originalTitle && (
-            <p className="text-base text-dg-text-secondary mt-1.5">{data.originalTitle}</p>
+        {/* Header with poster */}
+        <div className="flex gap-4 sm:gap-5 mb-5 sm:mb-6">
+          {data.posterUrl && (
+            <img
+              src={data.posterUrl}
+              alt={`${data.title} poster`}
+              width={160}
+              height={240}
+              className="rounded border border-dg-border-subtle shrink-0 object-cover hidden sm:block"
+              loading="eager"
+            />
           )}
+          <div className="min-w-0">
+            <span
+              className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
+            >
+              {mediaTypeLabel(data.mediaType)}
+            </span>
+            <h1 className="text-[1.35rem] sm:text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
+              {data.title}
+            </h1>
+            {data.originalTitle && (
+              <p className="text-base text-dg-text-secondary mt-1.5">{data.originalTitle}</p>
+            )}
+          </div>
         </div>
 
         {/* Meta info */}
@@ -367,6 +379,11 @@ function MediaDetailPage({
               ))}
             </div>
           </div>
+        )}
+
+        {/* Seasons (TV/anime) */}
+        {isTvOrAnime && data.seasons && data.seasons.length > 0 && (
+          <SeasonsSection seasons={data.seasons} />
         )}
 
         {/* External links */}
@@ -430,6 +447,43 @@ function GenreChips({
               g.name
             )}
           </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SeasonsSection({
+  seasons,
+}: {
+  seasons: {
+    id: string;
+    seasonNumber: number;
+    episodeCount: number | null;
+    title: string | null;
+    dataSource: string;
+  }[];
+}) {
+  return (
+    <div className="mb-5 sm:mb-6">
+      <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">Seasons</h3>
+      <div className="border border-dg-border-subtle rounded bg-dg-surface divide-y divide-dg-border-subtle">
+        {seasons.map((s) => (
+          <div key={s.id} className="px-3 sm:px-4 py-2.5 flex items-center justify-between gap-3">
+            <div className="flex items-baseline gap-2 min-w-0">
+              <span className="text-[0.85rem] text-dg-text font-medium shrink-0">
+                S{String(s.seasonNumber).padStart(2, "0")}
+              </span>
+              {s.title && (
+                <span className="text-xs text-dg-text-secondary truncate">{s.title}</span>
+              )}
+            </div>
+            {s.episodeCount != null && (
+              <span className="text-xs text-dg-text-tertiary tabular-nums shrink-0">
+                {s.episodeCount} ep
+              </span>
+            )}
+          </div>
         ))}
       </div>
     </div>

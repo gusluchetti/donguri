@@ -1,0 +1,1 @@
+ALTER TABLE "seasons" ADD COLUMN "updated_at" timestamp DEFAULT now();
