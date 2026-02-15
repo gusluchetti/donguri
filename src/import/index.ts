@@ -1,6 +1,8 @@
 /**
  * Pass 2: Parse and import media entities from subset NDJSON into Postgres.
  *
+ * Uses COPY → temp table → upsert merge for bulk performance.
+ *
  * Usage:
  *   bun run src/import/index.ts media-subset.ndjson                     # Test mode (100)
  *   bun run src/import/index.ts media-subset.ndjson --full              # Full import
@@ -11,8 +13,10 @@
 
 import fs from "node:fs";
 import readline from "node:readline";
+import { Writable } from "node:stream";
 import { eq, inArray, sql } from "drizzle-orm";
-import { createDb } from "../db";
+import { ulid } from "ulid";
+import { createDb, createRawClient } from "../db";
 import { TRGM_SETUP_SQL } from "../db/fts";
 import {
   genres,
@@ -26,10 +30,65 @@ import { shouldImportEntity } from "./_filters";
 import { parseMediaEntity } from "./_parser";
 import type { ParsedMedia, WikidataEntity } from "./_types";
 
-const BATCH_SIZE = 200;
+const BATCH_SIZE = 5_000;
 const PROGRESS_LOG_INTERVAL = 1_000;
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2_000;
+
+/** Indexes to drop before --clean imports and recreate after. */
+const DROPPABLE_INDEXES = [
+  "idx_media_type",
+  "idx_media_sitelinks",
+  "idx_media_start_year",
+  "idx_media_imdb",
+  "idx_media_mal",
+  "idx_media_igdb",
+  "idx_media_tmdb",
+  "idx_media_tvmaze",
+  "idx_media_title_trgm",
+  "idx_media_original_title_trgm",
+];
+
+/** SQL to recreate the schema-defined indexes (matching schema.ts). */
+const RECREATE_INDEX_SQL = [
+  `CREATE INDEX IF NOT EXISTS idx_media_type ON media (media_type)`,
+  `CREATE INDEX IF NOT EXISTS idx_media_sitelinks ON media (sitelinks_count)`,
+  `CREATE INDEX IF NOT EXISTS idx_media_start_year ON media (start_year)`,
+  `CREATE INDEX IF NOT EXISTS idx_media_imdb ON media (imdb_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_media_mal ON media (mal_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_media_igdb ON media (igdb_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_media_tmdb ON media (tmdb_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_media_tvmaze ON media (tvmaze_id)`,
+];
+
+// ─── Staging table columns (matches media table layout) ─────────────────────
+
+const STAGING_COLUMNS = [
+  "id",
+  "wikidata_id",
+  "media_type",
+  "title",
+  "original_title",
+  "original_language",
+  "description",
+  "start_year",
+  "end_year",
+  "runtime_minutes",
+  "season_count",
+  "episode_count",
+  "sitelinks_count",
+  "country_of_origin",
+  "imdb_id",
+  "tmdb_id",
+  "mal_id",
+  "anilist_id",
+  "anidb_id",
+  "igdb_id",
+  "ann_id",
+  "tvdb_id",
+  "tvmaze_id",
+  "search_title",
+] as const;
 
 function formatDuration(ms: number): string {
   const seconds = Math.floor(ms / 1000) % 60;
@@ -60,6 +119,48 @@ function parseJsonLine(line: string): WikidataEntity | null {
   }
 }
 
+// ─── TSV escaping for COPY ──────────────────────────────────────────────────
+
+/** Escape a string value for tab-delimited COPY format. */
+function escapeTsv(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\t/g, "\\t")
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r");
+}
+
+/** Format a single row as a TSV line for COPY. */
+function toTsvRow(item: ParsedMedia, rowId: string): string {
+  const fields: string[] = [
+    rowId,
+    item.wikidataId,
+    item.mediaType,
+    escapeTsv(item.title),
+    item.originalTitle != null ? escapeTsv(item.originalTitle) : "\\N",
+    item.originalLanguage ?? "\\N",
+    item.description != null ? escapeTsv(item.description) : "\\N",
+    item.startYear != null ? String(item.startYear) : "\\N",
+    item.endYear != null ? String(item.endYear) : "\\N",
+    item.runtimeMinutes != null ? String(item.runtimeMinutes) : "\\N",
+    item.seasonCount != null ? String(item.seasonCount) : "\\N",
+    item.episodeCount != null ? String(item.episodeCount) : "\\N",
+    String(item.sitelinksCount),
+    item.countryOfOrigin ?? "\\N",
+    item.imdbId ?? "\\N",
+    item.tmdbId ?? "\\N",
+    item.malId ?? "\\N",
+    item.anilistId ?? "\\N",
+    item.anidbId ?? "\\N",
+    item.igdbId ?? "\\N",
+    item.annId ?? "\\N",
+    item.tvdbId ?? "\\N",
+    item.tvmazeId ?? "\\N",
+    escapeTsv(item.searchTitle),
+  ];
+  return fields.join("\t");
+}
+
 // ─── DB helpers ─────────────────────────────────────────────────────────────
 
 async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
@@ -87,10 +188,10 @@ async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
 }
 
 type DbType = ReturnType<typeof createDb>;
+type RawClient = ReturnType<typeof createRawClient>;
 
 /**
  * Batch-ensure genres exist, returning a map of wikidataId → dbId.
- * Single INSERT ... ON CONFLICT + single SELECT instead of N round trips.
  */
 async function ensureGenres(
   db: DbType,
@@ -100,11 +201,9 @@ async function ensureGenres(
   const uncached = wikidataIds.filter((id) => !cache[id]);
   if (uncached.length === 0) return;
 
-  // Bulk insert (ignoring conflicts)
   const values = uncached.map((wikidataId) => ({ wikidataId, name: wikidataId }));
   await db.insert(genres).values(values).onConflictDoNothing();
 
-  // Bulk fetch all IDs we need
   const rows = await db
     .select({ id: genres.id, wikidataId: genres.wikidataId })
     .from(genres)
@@ -139,7 +238,12 @@ async function ensurePlatforms(
   }
 }
 
-async function insertBatch(
+/**
+ * COPY batch into a temp staging table, then merge into media via upsert.
+ * Returns the wikidata_id → db id mapping for the batch.
+ */
+async function processSuperBatch(
+  rawClient: RawClient,
   db: DbType,
   batch: ParsedMedia[],
   genreCache: Record<string, string>,
@@ -149,7 +253,7 @@ async function insertBatch(
   if (batch.length === 0) return;
 
   try {
-    // Collect all genre/platform IDs we'll need for this batch
+    // 1. Ensure genres and platforms exist (via Drizzle, cached)
     const allGenreIds = new Set<string>();
     const allPlatformIds = new Set<string>();
     for (const item of batch) {
@@ -157,7 +261,6 @@ async function insertBatch(
       for (const id of item.platformIds) allPlatformIds.add(id);
     }
 
-    // Batch-ensure genres and platforms exist (2 round trips instead of N)
     await withRetry(
       () =>
         Promise.all([
@@ -169,74 +272,125 @@ async function insertBatch(
       "ensure genres/platforms",
     );
 
-    // Insert media
-    const mediaValues = batch.map((item) => ({
-      wikidataId: item.wikidataId,
-      mediaType: item.mediaType as "movie" | "tv_series" | "anime" | "game",
-      title: item.title,
-      originalTitle: item.originalTitle,
-      originalLanguage: item.originalLanguage,
-      description: item.description,
-      startYear: item.startYear,
-      endYear: item.endYear,
-      runtimeMinutes: item.runtimeMinutes,
-      seasonCount: item.seasonCount,
-      episodeCount: item.episodeCount,
-      sitelinksCount: item.sitelinksCount,
-      countryOfOrigin: item.countryOfOrigin,
-      imdbId: item.imdbId,
-      tmdbId: item.tmdbId,
-      malId: item.malId,
-      anilistId: item.anilistId,
-      anidbId: item.anidbId,
-      igdbId: item.igdbId,
-      annId: item.annId,
-      tvdbId: item.tvdbId,
-      tvmazeId: item.tvmazeId,
-      searchTitle: item.searchTitle,
-    }));
+    // 2. Pre-generate ULIDs for each row
+    const rowIds = batch.map(() => ulid());
 
+    // 3. COPY → temp table → upsert merge, all in one transaction
     const upserted = await withRetry(
       () =>
-        db
-          .insert(media)
-          .values(mediaValues)
-          .onConflictDoUpdate({
-            target: media.wikidataId,
-            set: {
-              title: sql`COALESCE(EXCLUDED.title, ${media.title})`,
-              originalTitle: sql`COALESCE(EXCLUDED.original_title, ${media.originalTitle})`,
-              originalLanguage: sql`COALESCE(EXCLUDED.original_language, ${media.originalLanguage})`,
-              description: sql`COALESCE(EXCLUDED.description, ${media.description})`,
-              startYear: sql`COALESCE(EXCLUDED.start_year, ${media.startYear})`,
-              endYear: sql`COALESCE(EXCLUDED.end_year, ${media.endYear})`,
-              runtimeMinutes: sql`COALESCE(EXCLUDED.runtime_minutes, ${media.runtimeMinutes})`,
-              seasonCount: sql`COALESCE(EXCLUDED.season_count, ${media.seasonCount})`,
-              episodeCount: sql`COALESCE(EXCLUDED.episode_count, ${media.episodeCount})`,
-              sitelinksCount: sql`GREATEST(EXCLUDED.sitelinks_count, ${media.sitelinksCount})`,
-              countryOfOrigin: sql`COALESCE(EXCLUDED.country_of_origin, ${media.countryOfOrigin})`,
-              imdbId: sql`COALESCE(EXCLUDED.imdb_id, ${media.imdbId})`,
-              tmdbId: sql`COALESCE(EXCLUDED.tmdb_id, ${media.tmdbId})`,
-              malId: sql`COALESCE(EXCLUDED.mal_id, ${media.malId})`,
-              anilistId: sql`COALESCE(EXCLUDED.anilist_id, ${media.anilistId})`,
-              anidbId: sql`COALESCE(EXCLUDED.anidb_id, ${media.anidbId})`,
-              igdbId: sql`COALESCE(EXCLUDED.igdb_id, ${media.igdbId})`,
-              annId: sql`COALESCE(EXCLUDED.ann_id, ${media.annId})`,
-              tvdbId: sql`COALESCE(EXCLUDED.tvdb_id, ${media.tvdbId})`,
-              tvmazeId: sql`COALESCE(EXCLUDED.tvmaze_id, ${media.tvmazeId})`,
-              searchTitle: sql`COALESCE(EXCLUDED.search_title, ${media.searchTitle})`,
-              updatedAt: sql`now()`,
-            },
-          })
-          .returning({ id: media.id, wikidataId: media.wikidataId }),
-      "upsert media",
+        rawClient.begin(async (tx) => {
+          // Create temp staging table (dropped on commit)
+          await tx.unsafe(`
+						CREATE TEMP TABLE _media_staging (
+							id TEXT NOT NULL,
+							wikidata_id TEXT NOT NULL,
+							media_type TEXT NOT NULL,
+							title TEXT NOT NULL,
+							original_title TEXT,
+							original_language TEXT,
+							description TEXT,
+							start_year INTEGER,
+							end_year INTEGER,
+							runtime_minutes INTEGER,
+							season_count INTEGER,
+							episode_count INTEGER,
+							sitelinks_count INTEGER DEFAULT 0,
+							country_of_origin TEXT,
+							imdb_id TEXT,
+							tmdb_id TEXT,
+							mal_id TEXT,
+							anilist_id TEXT,
+							anidb_id TEXT,
+							igdb_id TEXT,
+							ann_id TEXT,
+							tvdb_id TEXT,
+							tvmaze_id TEXT,
+							search_title TEXT
+						) ON COMMIT DROP
+					`);
+
+          // COPY data into staging table
+          const writable = await tx
+            .unsafe(`COPY _media_staging (${STAGING_COLUMNS.join(", ")}) FROM STDIN`)
+            .writable();
+
+          await new Promise<void>((resolve, reject) => {
+            // Build all TSV data at once and write it
+            const lines: string[] = [];
+            for (let i = 0; i < batch.length; i++) {
+              lines.push(toTsvRow(batch[i], rowIds[i]));
+            }
+            const data = `${lines.join("\n")}\n`;
+
+            const passThrough = new Writable({
+              write(chunk, _encoding, callback) {
+                writable.write(chunk, callback);
+              },
+              final(callback) {
+                writable.end(callback);
+              },
+            });
+
+            writable.on("error", reject);
+            passThrough.on("error", reject);
+            writable.on("close", resolve);
+
+            passThrough.end(data);
+          });
+
+          // Merge staging → media with upsert
+          const result = await tx.unsafe(`
+						INSERT INTO media (
+							id, wikidata_id, media_type, title, original_title, original_language,
+							description, start_year, end_year, runtime_minutes, season_count,
+							episode_count, sitelinks_count, country_of_origin,
+							imdb_id, tmdb_id, mal_id, anilist_id, anidb_id, igdb_id,
+							ann_id, tvdb_id, tvmaze_id, search_title, created_at, updated_at
+						)
+						SELECT
+							s.id, s.wikidata_id, s.media_type, s.title, s.original_title,
+							s.original_language, s.description, s.start_year, s.end_year,
+							s.runtime_minutes, s.season_count, s.episode_count, s.sitelinks_count,
+							s.country_of_origin, s.imdb_id, s.tmdb_id, s.mal_id, s.anilist_id,
+							s.anidb_id, s.igdb_id, s.ann_id, s.tvdb_id, s.tvmaze_id,
+							s.search_title, now(), now()
+						FROM _media_staging s
+						ON CONFLICT (wikidata_id) DO UPDATE SET
+							title = COALESCE(EXCLUDED.title, media.title),
+							original_title = COALESCE(EXCLUDED.original_title, media.original_title),
+							original_language = COALESCE(EXCLUDED.original_language, media.original_language),
+							description = COALESCE(EXCLUDED.description, media.description),
+							start_year = COALESCE(EXCLUDED.start_year, media.start_year),
+							end_year = COALESCE(EXCLUDED.end_year, media.end_year),
+							runtime_minutes = COALESCE(EXCLUDED.runtime_minutes, media.runtime_minutes),
+							season_count = COALESCE(EXCLUDED.season_count, media.season_count),
+							episode_count = COALESCE(EXCLUDED.episode_count, media.episode_count),
+							sitelinks_count = GREATEST(EXCLUDED.sitelinks_count, media.sitelinks_count),
+							country_of_origin = COALESCE(EXCLUDED.country_of_origin, media.country_of_origin),
+							imdb_id = COALESCE(EXCLUDED.imdb_id, media.imdb_id),
+							tmdb_id = COALESCE(EXCLUDED.tmdb_id, media.tmdb_id),
+							mal_id = COALESCE(EXCLUDED.mal_id, media.mal_id),
+							anilist_id = COALESCE(EXCLUDED.anilist_id, media.anilist_id),
+							anidb_id = COALESCE(EXCLUDED.anidb_id, media.anidb_id),
+							igdb_id = COALESCE(EXCLUDED.igdb_id, media.igdb_id),
+							ann_id = COALESCE(EXCLUDED.ann_id, media.ann_id),
+							tvdb_id = COALESCE(EXCLUDED.tvdb_id, media.tvdb_id),
+							tvmaze_id = COALESCE(EXCLUDED.tvmaze_id, media.tvmaze_id),
+							search_title = COALESCE(EXCLUDED.search_title, media.search_title),
+							updated_at = now()
+						RETURNING id, wikidata_id
+					`);
+
+          return result as { id: string; wikidata_id: string }[];
+        }),
+      "COPY + upsert media",
     );
 
     stats.entitiesImported += upserted.length;
 
-    const wikidataToDbId = new Map(upserted.map((r) => [r.wikidataId, r.id]));
+    // 4. Build genre/platform relations from returned id mapping
+    const wikidataToDbId = new Map(upserted.map((r) => [r.wikidata_id, r.id]));
 
-    // Build all genre + platform relations in one pass
     const genreRelations: { mediaId: string; genreId: string }[] = [];
     const platformRelations: { mediaId: string; platformId: string }[] = [];
 
@@ -261,7 +415,7 @@ async function insertBatch(
       }
     }
 
-    // Bulk insert relations (2 more round trips max)
+    // 5. Bulk insert relations via Drizzle (small, COPY overkill)
     await withRetry(
       () =>
         Promise.all([
@@ -276,8 +430,28 @@ async function insertBatch(
     );
   } catch (error) {
     stats.errors += batch.length;
-    console.error("Batch insert error:", error);
+    console.error("Super-batch error:", error);
   }
+}
+
+// ─── Index management ───────────────────────────────────────────────────────
+
+async function dropIndexes(rawClient: RawClient): Promise<void> {
+  console.log("Dropping non-essential indexes for faster import...");
+  for (const idx of DROPPABLE_INDEXES) {
+    await rawClient.unsafe(`DROP INDEX IF EXISTS ${idx}`);
+  }
+}
+
+async function recreateIndexes(rawClient: RawClient): Promise<void> {
+  console.log("Recreating indexes...");
+  for (const stmt of RECREATE_INDEX_SQL) {
+    await rawClient.unsafe(stmt);
+  }
+  for (const stmt of TRGM_SETUP_SQL) {
+    await rawClient.unsafe(stmt);
+  }
+  console.log("Indexes recreated.");
 }
 
 // ─── Main import ────────────────────────────────────────────────────────────
@@ -312,6 +486,7 @@ async function main() {
   }
 
   const db = createDb(url);
+  const rawClient = createRawClient(url);
 
   console.log("Ensuring schema...");
 
@@ -323,12 +498,15 @@ async function main() {
     await db.delete(genres);
     await db.delete(platforms);
     await db.delete(importProgress);
-  }
 
-  // Set up pg_trgm indexes
-  console.log("Setting up trigram indexes...");
-  for (const stmt of TRGM_SETUP_SQL) {
-    await db.execute(sql.raw(stmt));
+    // Drop non-essential indexes for faster bulk import
+    await dropIndexes(rawClient);
+  } else {
+    // Set up pg_trgm indexes (idempotent)
+    console.log("Setting up trigram indexes...");
+    for (const stmt of TRGM_SETUP_SQL) {
+      await db.execute(sql.raw(stmt));
+    }
   }
 
   console.log(`\nImporting from: ${filePath}`);
@@ -413,14 +591,19 @@ async function main() {
     batch.push(parsed);
 
     if (batch.length >= BATCH_SIZE) {
-      await insertBatch(db, batch, genreCache, platformCache, stats);
+      await processSuperBatch(rawClient, db, batch, genreCache, platformCache, stats);
       batch = [];
     }
   }
 
-  // Insert remaining batch
+  // Process remaining batch
   if (batch.length > 0) {
-    await insertBatch(db, batch, genreCache, platformCache, stats);
+    await processSuperBatch(rawClient, db, batch, genreCache, platformCache, stats);
+  }
+
+  // Recreate indexes if they were dropped
+  if (isClean) {
+    await recreateIndexes(rawClient);
   }
 
   // Update progress
@@ -433,6 +616,9 @@ async function main() {
       completedAt: new Date(),
     })
     .where(eq(importProgress.id, progressRecord.id));
+
+  // Clean up raw client
+  await rawClient.end();
 
   const totalTime = formatDuration(Date.now() - startTime);
   console.log(`\n${"=".repeat(60)}`);
