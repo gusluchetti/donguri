@@ -14,8 +14,8 @@ import readline from "node:readline";
 import { eq, sql } from "drizzle-orm";
 import { createDb } from "../db";
 import { media, seasons } from "../db/schema";
-import type { ParsedSeason, WikibaseEntityIdValue, WikidataEntity } from "./types";
-import { WikidataProperties } from "./types";
+import type { ParsedSeason, WikibaseEntityIdValue, WikidataEntity } from "./_types";
+import { WikidataProperties } from "./_types";
 
 const BATCH_SIZE = 200;
 

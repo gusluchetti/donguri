@@ -4,7 +4,7 @@ import {
   type WikibaseEntityIdValue,
   type WikidataEntity,
   WikidataProperties,
-} from "./types";
+} from "./_types";
 
 const P = WikidataProperties;
 const Q = MediaTypeQValues;

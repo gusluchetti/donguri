@@ -22,9 +22,9 @@ import {
   mediaPlatforms,
   platforms,
 } from "../db/schema";
-import { shouldImportEntity } from "./filters";
-import { parseMediaEntity } from "./parser";
-import type { ParsedMedia, WikidataEntity } from "./types";
+import { shouldImportEntity } from "./_filters";
+import { parseMediaEntity } from "./_parser";
+import type { ParsedMedia, WikidataEntity } from "./_types";
 
 const BATCH_SIZE = 200;
 const PROGRESS_LOG_INTERVAL = 1_000;

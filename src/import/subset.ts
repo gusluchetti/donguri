@@ -18,8 +18,8 @@
  */
 
 import { createInterface } from "node:readline";
-import { isMediaEntity, isSeasonEntity } from "./filters";
-import type { WikidataEntity } from "./types";
+import { isMediaEntity, isSeasonEntity } from "./_filters";
+import type { WikidataEntity } from "./_types";
 
 let totalLines = 0;
 let mediaFound = 0;

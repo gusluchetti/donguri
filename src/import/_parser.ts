@@ -1,4 +1,4 @@
-import { determineMediaType, getSitelinksCount, getStringClaim } from "./filters";
+import { determineMediaType, getSitelinksCount, getStringClaim } from "./_filters";
 import {
   type MonolingualTextValue,
   type ParsedMedia,
@@ -7,7 +7,7 @@ import {
   type WikibaseEntityIdValue,
   type WikidataEntity,
   WikidataProperties,
-} from "./types";
+} from "./_types";
 
 const P = WikidataProperties;
 

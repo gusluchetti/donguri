@@ -16,10 +16,6 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed-genres": "bun run src/db/seed-genres.ts",
-    "import:dump": "bun run src/import/subset.ts",
-    "import:subset": "bun run src/import/import-all.ts",
-    "import:covers": "bun run src/import/covers.ts",
     "lint": "biome check .",
     "lint:fix": "biome check --fix .",
     "format": "biome format --fix ."
