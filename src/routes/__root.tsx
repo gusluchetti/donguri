@@ -106,7 +106,7 @@ function RootComponent() {
     <RootDocument theme={theme}>
       <ThemeProvider initialTheme={theme}>
         <div className="min-h-dvh flex flex-col">
-          <nav className="border-b border-dg-border-subtle px-4 sm:px-6 py-3 font-mono shrink-0">
+          <nav className="border-b border-dg-border-subtle px-4 sm:px-6 py-2 font-mono shrink-0">
             <div className="max-w-[1000px] mx-auto flex items-center min-h-[44px] gap-4 sm:gap-6">
               {NAV_LINKS.map((link) => (
                 <Link
@@ -154,7 +154,7 @@ function RootComponent() {
             </div>
           </nav>
           <Outlet />
-          <footer className="border-t border-dg-border-subtle px-4 sm:px-6 py-4 font-mono shrink-0">
+          <footer className="border-t border-dg-border-subtle px-4 sm:px-6 py-3 font-mono shrink-0">
             <div className="max-w-[1000px] mx-auto flex items-center justify-between text-[0.7rem] text-dg-text-tertiary">
               <span>v0.3.0</span>
               <span>

@@ -64,7 +64,12 @@ async function searchMedia(
       .select(getTableColumns(media))
       .from(media)
       .where(and(...conditions))
-      .orderBy(desc(relevance), sql`${media.popularityScore} ASC NULLS LAST`, desc(media.sitelinksCount), asc(media.id))
+      .orderBy(
+        desc(relevance),
+        sql`${media.popularityScore} ASC NULLS LAST`,
+        desc(media.sitelinksCount),
+        asc(media.id),
+      )
       .limit(limit + 1)
       .offset(offset);
   });
@@ -144,7 +149,11 @@ export const listMedia = createServerFn({ method: "GET" })
       .select()
       .from(media)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(sql`${media.popularityScore} ASC NULLS LAST`, desc(media.sitelinksCount), asc(media.id))
+      .orderBy(
+        sql`${media.popularityScore} ASC NULLS LAST`,
+        desc(media.sitelinksCount),
+        asc(media.id),
+      )
       .limit(limit + 1);
 
     const hasMore = items.length > limit;

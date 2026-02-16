@@ -119,17 +119,17 @@ const SECTIONS = [
 function RoadmapPage() {
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[1000px] mx-auto px-4 py-10 sm:px-6 sm:py-16">
+      <div className="max-w-[1000px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
         <h1 className="text-[1.6rem] sm:text-[2rem] font-semibold -tracking-[0.02em] mb-2">
           <span className="text-dg-accent">roadmap</span>
         </h1>
-        <p className="text-dg-text-secondary text-[0.9rem] leading-relaxed mb-6 sm:mb-8">
+        <p className="text-dg-text-secondary text-[0.9rem] leading-relaxed mb-4 sm:mb-5">
           Your personal catalog for movies, TV shows, anime, and games. Track what you've watched,
           what you're playing, and what's next — all in one place. Sign in with Bluesky and your
           data stays yours, synced to your own server.
         </p>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
           {SECTIONS.map((section) => (
             <div key={section.title}>
               <h2 className="text-[0.8rem] uppercase tracking-wider mb-2 text-dg-text-secondary">
