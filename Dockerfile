@@ -17,16 +17,17 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN bun run build
 
-# Runtime — lean Node.js Alpine image
-FROM node:22-alpine
+# Runtime — Bun slim image
+FROM base
 WORKDIR /app
 ENV NODE_ENV=production
 
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY drizzle ./drizzle
+COPY drizzle.config.ts ./
 COPY scripts ./scripts
 COPY package.json ./
 
 EXPOSE 3000
-CMD ["node", "scripts/start.mjs"]
+CMD ["bun", "scripts/start.mjs"]
