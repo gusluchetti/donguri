@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { getDb } from "../db";
 import {
@@ -12,6 +13,30 @@ import {
   platforms,
   seasons,
 } from "../db/schema";
+
+// ─── In-memory TTL cache ──────────────────────────────────────────────────────
+
+type CacheEntry<T> = { data: T; expires: number };
+const mediaCache = new Map<string, CacheEntry<unknown>>();
+const MEDIA_TTL = 10 * 60 * 1000; // 10 minutes
+const STATS_TTL = 30 * 60 * 1000; // 30 minutes
+const STATS_KEY = "__stats__";
+
+function getCached<T>(key: string): T | undefined {
+  const entry = mediaCache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() > entry.expires) {
+    mediaCache.delete(key);
+    return undefined;
+  }
+  return entry.data as T;
+}
+
+function setCache<T>(key: string, data: T, ttl: number): void {
+  mediaCache.set(key, { data, expires: Date.now() + ttl });
+}
+
+const parentGenres = alias(canonicalGenres, "parent_genres");
 
 // ─── Input schemas ──────────────────────────────────────────────────────────
 
@@ -171,6 +196,9 @@ export const listMedia = createServerFn({ method: "GET" })
 export const getMedia = createServerFn({ method: "GET" })
   .inputValidator(GetMediaInput)
   .handler(async ({ data }) => {
+    const cached = getCached<Awaited<ReturnType<typeof getMedia>>>(data.wikidataId);
+    if (cached) return cached;
+
     const db = getDb();
 
     const item = await db
@@ -181,7 +209,7 @@ export const getMedia = createServerFn({ method: "GET" })
 
     if (item.length === 0) return null;
 
-    // Fetch canonical genres, platforms, and seasons in parallel
+    // Fetch genres (with parent names via self-join), platforms, and seasons in parallel
     const [itemGenres, itemPlatforms, itemSeasons] = await Promise.all([
       db
         .selectDistinct({
@@ -190,11 +218,13 @@ export const getMedia = createServerFn({ method: "GET" })
           name: canonicalGenres.name,
           parentId: canonicalGenres.parentId,
           sortOrder: canonicalGenres.sortOrder,
+          parentName: parentGenres.name,
         })
         .from(mediaGenres)
         .innerJoin(genres, eq(mediaGenres.genreId, genres.id))
         .innerJoin(genreMappings, eq(genres.wikidataId, genreMappings.wikidataId))
         .innerJoin(canonicalGenres, eq(genreMappings.canonicalGenreId, canonicalGenres.id))
+        .leftJoin(parentGenres, eq(canonicalGenres.parentId, parentGenres.id))
         .where(eq(mediaGenres.mediaId, item[0].id))
         .orderBy(canonicalGenres.sortOrder),
       db
@@ -215,39 +245,22 @@ export const getMedia = createServerFn({ method: "GET" })
         .orderBy(seasons.seasonNumber),
     ]);
 
-    // Resolve parent names for sub-genres
-    const parentIds = [...new Set(itemGenres.flatMap((g) => (g.parentId ? [g.parentId] : [])))];
-    const parentMap = new Map<string, string>();
-    if (parentIds.length > 0) {
-      // Parents are likely already in itemGenres; check there first
-      for (const g of itemGenres) {
-        if (parentIds.includes(g.id)) parentMap.set(g.id, g.name);
-      }
-      // Fetch any missing parents
-      const missing = parentIds.filter((id) => !parentMap.has(id));
-      if (missing.length > 0) {
-        const parents = await db
-          .select({ id: canonicalGenres.id, name: canonicalGenres.name })
-          .from(canonicalGenres)
-          .where(
-            sql`${canonicalGenres.id} IN (${sql.join(
-              missing.map((id) => sql`${id}`),
-              sql`, `,
-            )})`,
-          );
-        for (const p of parents) parentMap.set(p.id, p.name);
-      }
-    }
-
-    return {
+    const result = {
       ...item[0],
       genres: itemGenres.map((g) => ({
-        ...g,
-        parentName: g.parentId ? (parentMap.get(g.parentId) ?? null) : null,
+        id: g.id,
+        slug: g.slug,
+        name: g.name,
+        parentId: g.parentId,
+        sortOrder: g.sortOrder,
+        parentName: g.parentName ?? null,
       })),
       platforms: itemPlatforms,
       seasons: itemSeasons,
     };
+
+    setCache(data.wikidataId, result, MEDIA_TTL);
+    return result;
   });
 
 /**
@@ -275,6 +288,9 @@ export const getMediaByExternalId = createServerFn({ method: "GET" })
  * Get collection stats.
  */
 export const getMediaStats = createServerFn({ method: "GET" }).handler(async () => {
+  const cached = getCached<{ total: number; byType: Record<string, number> }>(STATS_KEY);
+  if (cached) return cached;
+
   const db = getDb();
 
   const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(media);
@@ -287,8 +303,11 @@ export const getMediaStats = createServerFn({ method: "GET" }).handler(async () 
     .from(media)
     .groupBy(media.mediaType);
 
-  return {
+  const result = {
     total: totalResult.count,
     byType: Object.fromEntries(typeCounts.map((r) => [r.mediaType, r.count])),
   };
+
+  setCache(STATS_KEY, result, STATS_TTL);
+  return result;
 });
