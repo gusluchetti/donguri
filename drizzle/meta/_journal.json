@@ -47,22 +47,8 @@
     {
       "idx": 6,
       "version": "7",
-      "when": 1771097361355,
-      "tag": "0006_magical_prism",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1771172978670,
-      "tag": "0007_dusty_bromley",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1771189474446,
-      "tag": "0008_dazzling_apocalypse",
+      "when": 1771212190627,
+      "tag": "0006_powerful_mentallo",
       "breakpoints": true
     }
   ]
