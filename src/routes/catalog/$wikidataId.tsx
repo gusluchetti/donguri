@@ -60,7 +60,7 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
 
     throw new Error("Media not found");
   },
-  staleTime: 30 * 60 * 1000,
+  staleTime: 5 * 60 * 1000,
   pendingMs: 0,
   pendingComponent: MediaDetailSkeleton,
   head: ({ loaderData }) => {

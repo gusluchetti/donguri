@@ -49,7 +49,7 @@ export function mediaDetailOptions(wikidataId: string) {
   return queryOptions({
     queryKey: ["media", DATA_VERSION, wikidataId],
     queryFn: () => getMedia({ data: { wikidataId } }),
-    staleTime: 60 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     persister,
   });
 }
