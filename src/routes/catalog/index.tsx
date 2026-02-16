@@ -1,3 +1,4 @@
+import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
@@ -8,10 +9,12 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, memo, useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { Media } from "../../db/schema";
 import { setCatalogEntry } from "../../lib/catalog.functions";
+import { isInputFocused } from "../../lib/hotkeys/shortcuts";
+import { useCatalogCursor } from "../../lib/hotkeys/use-catalog-cursor";
 import {
   mediaTypeLabel,
   STATUS_ACCENT,
@@ -68,7 +71,10 @@ export const Route = createFileRoute("/catalog/")({
   component: CatalogPage,
 });
 
-function SearchInput({ initialValue }: { initialValue: string }) {
+const SearchInput = forwardRef<HTMLInputElement, { initialValue: string }>(function SearchInput(
+  { initialValue },
+  ref,
+) {
   const navigate = useNavigate({ from: "/catalog/" });
   const { q } = Route.useSearch();
   const [value, setValue] = useState(initialValue);
@@ -92,6 +98,7 @@ function SearchInput({ initialValue }: { initialValue: string }) {
 
   return (
     <input
+      ref={ref}
       type="text"
       placeholder="Search titles..."
       value={value}
@@ -99,7 +106,7 @@ function SearchInput({ initialValue }: { initialValue: string }) {
       className="w-full py-2.5 px-3 bg-dg-surface border border-dg-border rounded text-dg-text font-mono text-base sm:text-[0.85rem] outline-none box-border"
     />
   );
-}
+});
 
 function CatalogPage() {
   const { stats } = Route.useLoaderData();
@@ -118,6 +125,7 @@ function CatalogPage() {
   const [quickAddState, setQuickAddState] = useState<Record<string, "pending" | "done">>({});
   const quickAddTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const parentRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const trackedIds: Record<string, string | null> = { ...rootTrackedIds, ...localOverrides };
 
@@ -205,11 +213,96 @@ function CatalogPage() {
   const virtualizer = useVirtualizer({
     count: hasNextPage ? allItems.length + 1 : allItems.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 68,
+    estimateSize: () => 60,
     overscan: 10,
   });
 
   const virtualItems = virtualizer.getVirtualItems();
+
+  // ─── Keyboard shortcuts ─────────────────────────────────────────────────
+  const { selectedIndex, setSelectedIndex } = useCatalogCursor({
+    itemCount: allItems.length,
+    virtualizer,
+    fetchNextPage,
+    hasNextPage,
+  });
+
+  // Reset cursor when search/filter changes
+  const prevQ = useRef(q);
+  const prevType = useRef(mediaType);
+  useEffect(() => {
+    if (q !== prevQ.current || mediaType !== prevType.current) {
+      setSelectedIndex(-1);
+      prevQ.current = q;
+      prevType.current = mediaType;
+    }
+  }, [q, mediaType, setSelectedIndex]);
+
+  // Enter — blur search (if focused) or open selected item
+  useHotkey(
+    "Enter",
+    () => {
+      if (document.activeElement === searchRef.current) {
+        searchRef.current?.blur();
+        return;
+      }
+      const item = allItems[selectedIndex];
+      if (item) navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
+    },
+    { ignoreInputs: false },
+  );
+
+  // l / ArrowRight — open selected item
+  const openSelected = () => {
+    const item = allItems[selectedIndex];
+    if (item) navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
+  };
+  useHotkey("l", openSelected, { enabled: selectedIndex >= 0 });
+  useHotkey("ArrowRight", openSelected, { enabled: selectedIndex >= 0 });
+
+  // / — focus search
+  useHotkey("/", () => {
+    searchRef.current?.focus();
+  });
+
+  // Esc — blur search or deselect cursor
+  useHotkey(
+    "Escape",
+    () => {
+      if (document.activeElement === searchRef.current) {
+        searchRef.current?.blur();
+      } else {
+        setSelectedIndex(-1);
+      }
+    },
+    { ignoreInputs: false, conflictBehavior: "allow" },
+  );
+
+  // f + key — type filter sequences
+  const typeFilter = (type: "movie" | "tv_series" | "anime" | "game" | undefined) => () => {
+    if (isInputFocused()) return;
+    handleTypeChange(type);
+  };
+  useHotkeySequence(["f", "f"], typeFilter(undefined));
+  useHotkeySequence(["f", "m"], typeFilter("movie"));
+  useHotkeySequence(["f", "t"], typeFilter("tv_series"));
+  useHotkeySequence(["f", "a"], typeFilter("anime"));
+  useHotkeySequence(["f", "g"], typeFilter("game"));
+
+  // a — quick-add selected item
+  useHotkey(
+    "a",
+    () => {
+      const item = allItems[selectedIndex];
+      if (!item || !auth) return;
+      const status = trackedIds[item.wikidataId] ?? null;
+      if (status !== null) return; // already tracked
+      // Synthesize a mouse event for the existing handler
+      const fakeEvent = { preventDefault: () => {}, stopPropagation: () => {} } as React.MouseEvent;
+      handleQuickAdd(item.wikidataId, item.mediaType, fakeEvent);
+    },
+    { enabled: selectedIndex >= 0 && !!auth },
+  );
 
   // Trigger load more when approaching end
   useEffect(() => {
@@ -237,7 +330,7 @@ function CatalogPage() {
       <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 py-2 flex flex-col gap-2">
         {/* Search */}
         <div className="w-full">
-          <SearchInput initialValue={q ?? ""} />
+          <SearchInput ref={searchRef} initialValue={q ?? ""} />
         </div>
 
         {/* Type filter tabs */}
@@ -321,13 +414,15 @@ function CatalogPage() {
               const showAdd = auth && !isTracked;
               const addState = quickAddState[item.wikidataId] ?? null;
 
+              const isCursorActive = virtualRow.index === selectedIndex;
+
               return (
                 <Link
                   key={item.id}
                   to="/catalog/$wikidataId"
                   params={{ wikidataId: item.wikidataId }}
                   preload="intent"
-                  className="w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group overflow-hidden"
+                  className={`w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group overflow-hidden${isCursorActive ? " dg-cursor-active" : ""}`}
                   style={{
                     top: virtualRow.start,
                     height: virtualRow.size,
@@ -385,7 +480,7 @@ const MediaRow = memo(function MediaRow({
   const meta = formatMeta(item);
 
   return (
-    <div className="flex items-center justify-between py-2 h-full gap-2 sm:gap-4">
+    <div className="flex items-center justify-between py-1.5 px-1 h-full gap-2 sm:gap-4">
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
         {item.posterUrl && (
           <img
