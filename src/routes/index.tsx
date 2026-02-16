@@ -29,8 +29,37 @@ type CatalogEntryRow = {
   updatedAt: Date | null;
   mediaTitle: string | null;
   mediaType: string | null;
+  watchedEpisodes: Record<string, Record<string, string>> | null;
   episodeCount: number | null;
+  seasonCount: number | null;
 };
+
+/** Compute "on s01e05" or "on ep 05" from watchedEpisodes map. */
+function episodePosition(item: CatalogEntryRow): string | null {
+  if (!item.watchedEpisodes) return null;
+  if (item.mediaType !== "tv_series" && item.mediaType !== "anime") return null;
+  // Don't show position for completed entries
+  if (item.status === "completed") return null;
+
+  // Find the highest season with watched episodes
+  const seasons = Object.entries(item.watchedEpisodes)
+    .map(([s, eps]) => ({
+      season: Number.parseInt(s, 10),
+      maxEp: Math.max(...Object.keys(eps).map(Number)),
+    }))
+    .sort((a, b) => b.season - a.season);
+
+  if (seasons.length === 0) return null;
+
+  const { season, maxEp } = seasons[0];
+  const nextEp = maxEp + 1;
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  if ((item.seasonCount ?? 1) > 1) {
+    return `on s${pad(season)}e${pad(nextEp)}`;
+  }
+  return `on ep ${pad(nextEp)}`;
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -285,14 +314,14 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
                 )}
                 {item.mediaTitle ?? item.mediaWikidataId}
               </span>
-              {item.episodeProgress != null &&
-                item.episodeProgress > 0 &&
-                (item.mediaType === "tv_series" || item.mediaType === "anime") && (
+              {(() => {
+                const pos = episodePosition(item);
+                return pos ? (
                   <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums shrink-0">
-                    {item.episodeProgress}
-                    {item.episodeCount ? `/${item.episodeCount}` : ""} ep
+                    {pos}
                   </span>
-                )}
+                ) : null;
+              })()}
               {replay && (
                 <span className="text-[0.65rem] text-dg-text-tertiary shrink-0">{replay}</span>
               )}
