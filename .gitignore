@@ -18,6 +18,8 @@ src/routeTree.gen.ts
 # Import data
 *.ndjson
 media-subset.*
+anime-offline*
+qrank*
 
 # OS
 .DS_Store

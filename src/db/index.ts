@@ -38,3 +38,8 @@ export function createDb(url: string) {
   });
   return drizzle(client, { schema });
 }
+
+/** Raw postgres.js client for COPY and other low-level operations. */
+export function createRawClient(url: string) {
+  return postgres(url, { max: 5, idle_timeout: 30, connect_timeout: 30 });
+}

@@ -50,6 +50,13 @@
       "when": 1771097361355,
       "tag": "0006_magical_prism",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1771213100364,
+      "tag": "0007_yellow_mister_sinister",
+      "breakpoints": true
     }
   ]
 }

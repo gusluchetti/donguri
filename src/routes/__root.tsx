@@ -167,6 +167,33 @@ function RootComponent() {
                 >
                   Wikidata
                 </a>
+                {" \u00b7 "}
+                <a
+                  href="https://www.themoviedb.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                >
+                  TMDB
+                </a>
+                {" \u00b7 "}
+                <a
+                  href="https://www.tvmaze.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                >
+                  TVMaze
+                </a>
+                {" \u00b7 "}
+                <a
+                  href="https://github.com/manami-project/anime-offline-database"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                >
+                  anime-offline-database
+                </a>
               </span>
             </div>
           </footer>
