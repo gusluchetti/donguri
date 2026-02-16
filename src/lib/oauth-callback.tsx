@@ -1,4 +1,3 @@
-import { useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { handleOAuthProviderCallback } from "./auth.functions";
 
@@ -13,7 +12,6 @@ export function OAuthProviderCallback({
   searchError?: string;
   label: string;
 }) {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(
     searchError ? "Authentication was denied or failed." : null,
   );
@@ -26,9 +24,8 @@ export function OAuthProviderCallback({
     }
 
     handleOAuthProviderCallback({ data: { provider, code } })
-      .then(async () => {
-        await router.invalidate();
-        router.navigate({ to: "/" });
+      .then(() => {
+        window.location.href = "/";
       })
       .catch(() => {
         setError("Authentication failed. Please try again.");

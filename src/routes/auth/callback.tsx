@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { handleOAuthCallback } from "../../lib/auth.functions";
@@ -16,7 +16,6 @@ export const Route = createFileRoute("/auth/callback")({
 
 function CallbackPage() {
   const search = Route.useSearch();
-  const router = useRouter();
   const [error, setError] = useState<string | null>(
     search.error ? "Authentication was denied or failed." : null,
   );
@@ -26,9 +25,8 @@ function CallbackPage() {
     if (search.error) return;
 
     handleOAuthCallback({ data: search })
-      .then(async () => {
-        await router.invalidate();
-        router.navigate({ to: "/" });
+      .then(() => {
+        window.location.href = "/";
       })
       .catch(() => {
         setError("Authentication failed. Please try again.");
