@@ -585,19 +585,21 @@ function EpisodeTracker({
   const totalWatched = countWatchedEpisodes(watchedEpisodes);
   const totalPct = totalEps > 0 ? Math.round((totalWatched / totalEps) * 100) : 0;
 
-  // Cross-season awareness
-  const currentSeasonIdx = seasons.findIndex((s) => s.seasonNumber === currentSeason.seasonNumber);
+  // Cross-season navigation
+  const idx = seasons.findIndex((s) => s.seasonNumber === currentSeason.seasonNumber);
   const nextSeason = isMultiSeason
-    ? seasons.slice(currentSeasonIdx + 1).find((s) => (s.episodeCount ?? 0) > 0)
+    ? seasons.slice(idx + 1).find((s) => (s.episodeCount ?? 0) > 0)
     : undefined;
-  const canIncrement = consecutiveEp < seasonEpCount || !!nextSeason;
-  const canDecrement = consecutiveEp > 0;
+  const prevSeason = isMultiSeason
+    ? seasons
+        .slice(0, idx)
+        .reverse()
+        .find((s) => highestConsecutiveEpisode(watchedEpisodes, s.seasonNumber) > 0)
+    : undefined;
 
   const handleIncrement = () => {
-    if (!interactive || !canIncrement) return;
     if (consecutiveEp < seasonEpCount) {
-      // Mark next episode in current season
-      onWatchedChange(
+      onWatchedChange?.(
         markThroughEpisode(
           watchedEpisodes,
           currentSeason.seasonNumber,
@@ -606,17 +608,25 @@ function EpisodeTracker({
         ),
       );
     } else if (nextSeason) {
-      // Season complete → advance to first episode of next season
-      onWatchedChange(markThroughEpisode(watchedEpisodes, nextSeason.seasonNumber, 1, episodeDate));
+      onWatchedChange?.(
+        markThroughEpisode(watchedEpisodes, nextSeason.seasonNumber, 1, episodeDate),
+      );
       setSelectedSeason(nextSeason.seasonNumber);
     }
   };
 
   const handleDecrement = () => {
-    if (!interactive || !canDecrement) return;
-    onWatchedChange(
-      clearSeasonFrom(watchedEpisodes, currentSeason.seasonNumber, consecutiveEp, seasonEpCount),
-    );
+    if (consecutiveEp > 0) {
+      onWatchedChange?.(
+        clearSeasonFrom(watchedEpisodes, currentSeason.seasonNumber, consecutiveEp, seasonEpCount),
+      );
+    } else if (prevSeason) {
+      const pc = highestConsecutiveEpisode(watchedEpisodes, prevSeason.seasonNumber);
+      onWatchedChange?.(
+        clearSeasonFrom(watchedEpisodes, prevSeason.seasonNumber, pc, prevSeason.episodeCount ?? 0),
+      );
+      setSelectedSeason(prevSeason.seasonNumber);
+    }
   };
 
   return (
@@ -691,7 +701,7 @@ function EpisodeTracker({
             <button
               type="button"
               onClick={handleDecrement}
-              disabled={!canDecrement}
+              disabled={consecutiveEp <= 0 && !prevSeason}
               className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-150 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono"
             >
               -
@@ -702,7 +712,7 @@ function EpisodeTracker({
             <button
               type="button"
               onClick={handleIncrement}
-              disabled={!canIncrement}
+              disabled={consecutiveEp >= seasonEpCount && !nextSeason}
               className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-150 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono"
             >
               +
