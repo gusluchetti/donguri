@@ -96,6 +96,7 @@ Done:
 Remaining:
 - [ ] Backfill: run cover art import on production data
 - [ ] Richer detail pages — directors, cast, studios, episode lists
+- [ ] Awards & nominations from Wikidata (P166/P1411) — needs qualifier extraction in parser, new `awards` table, label resolution
 - [ ] Inline external ratings on detail pages (IMDb, MAL scores)
 
 ## P5 — Data safety

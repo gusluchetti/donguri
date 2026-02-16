@@ -134,7 +134,7 @@ function MediaDetailSkeleton() {
           <div className="w-16 h-5 bg-dg-surface rounded-sm mb-3 animate-pulse" />
           <div className="w-2/3 h-8 bg-dg-surface rounded animate-pulse" />
         </div>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3 mb-5 sm:mb-6 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
+        <div className="flex flex-wrap gap-x-6 gap-y-3 mb-5 sm:mb-6 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
           {[...Array(4)].map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton items
             <div key={i} className="flex flex-col gap-1">
@@ -323,7 +323,7 @@ function MediaDetailPage({
         </div>
 
         {/* Meta info */}
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3 mb-5 sm:mb-6 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
+        <div className="flex flex-wrap gap-x-6 gap-y-3 mb-5 sm:mb-6 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
           {data.startYear && (
             <MetaItem
               label="Year"
@@ -340,7 +340,19 @@ function MediaDetailPage({
           )}
           {data.seasonCount && <MetaItem label="Seasons" value={String(data.seasonCount)} />}
           {data.episodeCount && <MetaItem label="Episodes" value={String(data.episodeCount)} />}
-          {data.qrankPct != null && <MetaItem label="Popularity" value={`Top ${data.qrankPct}%`} />}
+          {data.qrankPct != null && (
+            <div className="flex flex-col gap-0.5">
+              <a
+                href="https://qrank.wmcloud.org/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider whitespace-nowrap hover:text-dg-accent transition-colors"
+              >
+                Popularity (QRank) ↗
+              </a>
+              <span className="text-[0.85rem] text-dg-text">Top {data.qrankPct}%</span>
+            </div>
+          )}
           <MetaItem label="Sitelinks" value={String(data.sitelinksCount ?? 0)} />
         </div>
 
