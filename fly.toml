@@ -5,7 +5,7 @@ regions = ["iad", "gru"]
 
 [deploy]
   strategy = "rolling"
-  release_command = "node scripts/migrate.mjs"
+  release_command = "bun run db:migrate"
 
 [http_service]
   internal_port = 3000
