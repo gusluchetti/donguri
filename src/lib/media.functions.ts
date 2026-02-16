@@ -64,7 +64,7 @@ async function searchMedia(
       .select(getTableColumns(media))
       .from(media)
       .where(and(...conditions))
-      .orderBy(desc(relevance), asc(media.popularityScore).nullsLast(), desc(media.sitelinksCount), asc(media.id))
+      .orderBy(desc(relevance), sql`${media.popularityScore} ASC NULLS LAST`, desc(media.sitelinksCount), asc(media.id))
       .limit(limit + 1)
       .offset(offset);
   });
@@ -101,11 +101,12 @@ export const listMedia = createServerFn({ method: "GET" })
     // Type filter
     if (mediaType) conditions.push(eq(media.mediaType, mediaType));
 
-    // Keyset cursor pagination (popularity_score ASC NULLS LAST, id ASC)
+    // Keyset cursor pagination (popularity_score ASC NULLS LAST, sitelinks_count DESC, id ASC)
     if (cursor) {
       const [cursorItem] = await db
         .select({
           popularityScore: media.popularityScore,
+          sitelinksCount: media.sitelinksCount,
           id: media.id,
         })
         .from(media)
@@ -114,12 +115,14 @@ export const listMedia = createServerFn({ method: "GET" })
 
       if (cursorItem) {
         const ps = cursorItem.popularityScore;
+        const sc = cursorItem.sitelinksCount ?? 0;
         if (ps != null) {
           conditions.push(
             sql`(
               (${media.popularityScore} IS NOT NULL AND (
                 ${media.popularityScore} > ${ps}
-                OR (${media.popularityScore} = ${ps} AND ${media.id} > ${cursor})
+                OR (${media.popularityScore} = ${ps} AND COALESCE(${media.sitelinksCount}, 0) < ${sc})
+                OR (${media.popularityScore} = ${ps} AND COALESCE(${media.sitelinksCount}, 0) = ${sc} AND ${media.id} > ${cursor})
               ))
               OR ${media.popularityScore} IS NULL
             )`,
@@ -127,7 +130,10 @@ export const listMedia = createServerFn({ method: "GET" })
         } else {
           conditions.push(
             sql`(
-              ${media.popularityScore} IS NULL AND ${media.id} > ${cursor}
+              ${media.popularityScore} IS NULL AND (
+                COALESCE(${media.sitelinksCount}, 0) < ${sc}
+                OR (COALESCE(${media.sitelinksCount}, 0) = ${sc} AND ${media.id} > ${cursor})
+              )
             )`,
           );
         }
@@ -138,7 +144,7 @@ export const listMedia = createServerFn({ method: "GET" })
       .select()
       .from(media)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(asc(media.popularityScore).nullsLast(), desc(media.sitelinksCount), asc(media.id))
+      .orderBy(sql`${media.popularityScore} ASC NULLS LAST`, desc(media.sitelinksCount), asc(media.id))
       .limit(limit + 1);
 
     const hasMore = items.length > limit;
