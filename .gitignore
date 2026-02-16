@@ -19,6 +19,7 @@ src/routeTree.gen.ts
 *.ndjson
 media-subset.*
 anime-offline*
+qrank*
 
 # OS
 .DS_Store
