@@ -723,23 +723,60 @@ function TrackingPanel({
     });
   }
 
-  // = — rating +5
-  useHotkey(
-    "=",
-    () => {
-      setLocalRating((prev) => Math.min(100, (prev ?? 0) + 5));
-    },
-    { enabled: loaded && notBusy && !!localStatus },
-  );
+  // = N — rating input mode: press =, then type 0–100
+  const [ratingMode, setRatingMode] = useState(false);
+  const ratingBuf = useRef("");
 
-  // - — rating -5
-  useHotkey(
-    "-",
-    () => {
-      setLocalRating((prev) => Math.max(0, (prev ?? 0) - 5));
-    },
-    { enabled: loaded && notBusy && !!localStatus },
-  );
+  useHotkey("=", () => setRatingMode(true), {
+    enabled: loaded && notBusy && !!localStatus && !ratingMode,
+  });
+
+  useEffect(() => {
+    if (!ratingMode) return;
+    ratingBuf.current = "";
+
+    const commit = () => {
+      const val = Number.parseInt(ratingBuf.current, 10);
+      if (!Number.isNaN(val) && val >= 0 && val <= 100) {
+        setLocalRating(val);
+      }
+      ratingBuf.current = "";
+      setRatingMode(false);
+    };
+
+    const cancel = () => {
+      ratingBuf.current = "";
+      setRatingMode(false);
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        cancel();
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commit();
+        return;
+      }
+      if (e.key >= "0" && e.key <= "9") {
+        e.preventDefault();
+        ratingBuf.current += e.key;
+        const val = Number.parseInt(ratingBuf.current, 10);
+        // Auto-commit: 3 digits, or 2+ digits where next digit can't stay ≤100
+        if (ratingBuf.current.length >= 3 || (ratingBuf.current.length === 2 && val > 10)) {
+          commit();
+        }
+        return;
+      }
+      // Non-digit, non-Enter, non-Escape → cancel
+      cancel();
+    };
+
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [ratingMode]);
 
   // s — save
   useHotkey(
@@ -826,6 +863,11 @@ function TrackingPanel({
         <div className="mb-4">
           <h4 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
             Rating
+            {ratingMode && (
+              <span className="ml-2 text-dg-accent normal-case tracking-normal">
+                = <span className="animate-pulse">_</span>
+              </span>
+            )}
           </h4>
           <div className="flex items-center gap-3">
             <input

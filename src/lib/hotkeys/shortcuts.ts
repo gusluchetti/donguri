@@ -52,7 +52,7 @@ export const SHORTCUT_SECTIONS: ShortcutSection[] = [
       { keys: ["s"], description: "Save" },
       { keys: ["D"], description: "Delete" },
       { keys: ["p", "w", "o", "c", "d", "m"], description: "Set status" },
-      { keys: ["=", "-"], description: "Rating ±5" },
+      { keys: ["= N"], description: "Set rating (0–100)" },
     ],
   },
 ];
