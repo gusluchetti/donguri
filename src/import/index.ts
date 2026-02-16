@@ -61,7 +61,7 @@ const RECREATE_INDEX_SQL = [
   `CREATE INDEX IF NOT EXISTS idx_media_igdb ON media (igdb_id)`,
   `CREATE INDEX IF NOT EXISTS idx_media_tmdb ON media (tmdb_id)`,
   `CREATE INDEX IF NOT EXISTS idx_media_tvmaze ON media (tvmaze_id)`,
-  `CREATE INDEX IF NOT EXISTS idx_media_qrank ON media (qrank_score)`,
+  `CREATE INDEX IF NOT EXISTS idx_media_qrank ON media (qrank_pct)`,
 ];
 
 // ─── Staging table columns (matches media table layout) ─────────────────────
@@ -80,7 +80,6 @@ const STAGING_COLUMNS = [
   "season_count",
   "episode_count",
   "sitelinks_count",
-  "qrank_score",
   "country_of_origin",
   "imdb_id",
   "tmdb_id",
@@ -150,7 +149,6 @@ function toTsvRow(item: ParsedMedia, rowId: string): string {
     item.seasonCount != null ? String(item.seasonCount) : "\\N",
     item.episodeCount != null ? String(item.episodeCount) : "\\N",
     String(item.sitelinksCount),
-    item.qrankScore != null ? String(item.qrankScore) : "\\N",
     item.countryOfOrigin ?? "\\N",
     item.imdbId ?? "\\N",
     item.tmdbId ?? "\\N",
@@ -300,7 +298,6 @@ async function processSuperBatch(
 							season_count INTEGER,
 							episode_count INTEGER,
 							sitelinks_count INTEGER DEFAULT 0,
-							qrank_score INTEGER,
 							country_of_origin TEXT,
 							imdb_id TEXT,
 							tmdb_id TEXT,
@@ -349,7 +346,7 @@ async function processSuperBatch(
 						INSERT INTO media (
 							id, wikidata_id, media_type, title, original_title, original_language,
 							description, start_year, end_year, runtime_minutes, season_count,
-							episode_count, sitelinks_count, qrank_score, country_of_origin,
+							episode_count, sitelinks_count, country_of_origin,
 							imdb_id, tmdb_id, mal_id, anilist_id, anidb_id, igdb_id,
 							ann_id, tvdb_id, tvmaze_id, search_title, created_at, updated_at
 						)
@@ -357,7 +354,7 @@ async function processSuperBatch(
 							s.id, s.wikidata_id, s.media_type, s.title, s.original_title,
 							s.original_language, s.description, s.start_year, s.end_year,
 							s.runtime_minutes, s.season_count, s.episode_count, s.sitelinks_count,
-							s.qrank_score, s.country_of_origin, s.imdb_id, s.tmdb_id, s.mal_id, s.anilist_id,
+							s.country_of_origin, s.imdb_id, s.tmdb_id, s.mal_id, s.anilist_id,
 							s.anidb_id, s.igdb_id, s.ann_id, s.tvdb_id, s.tvmaze_id,
 							s.search_title, now(), now()
 						FROM _media_staging s
@@ -372,7 +369,6 @@ async function processSuperBatch(
 							season_count = COALESCE(EXCLUDED.season_count, media.season_count),
 							episode_count = COALESCE(EXCLUDED.episode_count, media.episode_count),
 							sitelinks_count = GREATEST(EXCLUDED.sitelinks_count, media.sitelinks_count),
-							qrank_score = COALESCE(EXCLUDED.qrank_score, media.qrank_score),
 							country_of_origin = COALESCE(EXCLUDED.country_of_origin, media.country_of_origin),
 							imdb_id = COALESCE(EXCLUDED.imdb_id, media.imdb_id),
 							tmdb_id = COALESCE(EXCLUDED.tmdb_id, media.tmdb_id),
@@ -468,11 +464,10 @@ async function recreateIndexes(rawClient: RawClient): Promise<void> {
  * entities that exist in our media table. Streams the CSV so memory usage
  * is proportional to our media count (~100k), not the full QRank file (~100M).
  */
-async function loadQRank(
-  filePath: string,
-  knownIds: Set<string>,
-): Promise<Map<string, number>> {
-  console.log(`Loading QRank from: ${filePath} (filtering to ${knownIds.size.toLocaleString()} known entities)`);
+async function loadQRank(filePath: string, knownIds: Set<string>): Promise<Map<string, number>> {
+  console.log(
+    `Loading QRank from: ${filePath} (filtering to ${knownIds.size.toLocaleString()} known entities)`,
+  );
   const startTime = Date.now();
   const map = new Map<string, number>();
 
@@ -663,33 +658,41 @@ async function main() {
     await recreateIndexes(rawClient);
   }
 
-  // Apply QRank scores after import (DB now has all media entities)
+  // Apply QRank percentiles after import (DB now has all media entities)
   if (qrankPath) {
-    console.log("\nApplying QRank scores...");
+    console.log("\nApplying QRank percentiles...");
     const rows = await db.select({ wid: media.wikidataId }).from(media);
     const knownIds = new Set(rows.map((r) => r.wid));
     console.log(`Found ${knownIds.size.toLocaleString()} media entities in DB`);
     const qrankMap = await loadQRank(qrankPath, knownIds);
 
-    // Batch-update in chunks
+    // Sort by raw score descending, compute percentile rank, batch-update
+    const sorted = [...qrankMap.entries()].sort((a, b) => b[1] - a[1]);
+    const total = sorted.length;
+    console.log(`Computing percentiles for ${total.toLocaleString()} scored entities...`);
+
     const UPDATE_BATCH = 1_000;
-    const entries = [...qrankMap.entries()];
     let updated = 0;
-    for (let i = 0; i < entries.length; i += UPDATE_BATCH) {
-      const chunk = entries.slice(i, i + UPDATE_BATCH);
-      // Build a VALUES list and update via a single query per chunk
-      const values = chunk.map(([wid, score]) => `('${wid}', ${score})`).join(", ");
+    for (let i = 0; i < sorted.length; i += UPDATE_BATCH) {
+      const chunk = sorted.slice(i, i + UPDATE_BATCH);
+      const values = chunk
+        .map(([wid], idx) => {
+          const rank = i + idx; // 0-based position in descending order
+          const pct = total <= 1 ? 0 : (rank / (total - 1)) * 100;
+          return `('${wid}', ${pct.toFixed(2)})`;
+        })
+        .join(", ");
       await rawClient.unsafe(
-        `UPDATE media SET qrank_score = v.score::integer
-         FROM (VALUES ${values}) AS v(wid, score)
+        `UPDATE media SET qrank_pct = v.pct::numeric(5,2)
+         FROM (VALUES ${values}) AS v(wid, pct)
          WHERE media.wikidata_id = v.wid`,
       );
       updated += chunk.length;
-      if (updated % 10_000 === 0 || updated === entries.length) {
-        console.log(`  QRank updated: ${updated.toLocaleString()} / ${entries.length.toLocaleString()}`);
+      if (updated % 10_000 === 0 || updated === sorted.length) {
+        console.log(`  QRank updated: ${updated.toLocaleString()} / ${total.toLocaleString()}`);
       }
     }
-    console.log(`QRank: ${updated.toLocaleString()} media entities scored`);
+    console.log(`QRank: ${updated.toLocaleString()} media entities scored (0.00% = most popular)`);
   }
 
   // Update progress

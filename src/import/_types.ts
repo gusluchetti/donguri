@@ -180,7 +180,6 @@ export interface ParsedMedia {
   seasonCount: number | null;
   episodeCount: number | null;
   sitelinksCount: number;
-  qrankScore: number | null;
   countryOfOrigin: string | null;
   imdbId: string | null;
   tmdbId: string | null;

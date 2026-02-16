@@ -340,7 +340,8 @@ function MediaDetailPage({
           )}
           {data.seasonCount && <MetaItem label="Seasons" value={String(data.seasonCount)} />}
           {data.episodeCount && <MetaItem label="Episodes" value={String(data.episodeCount)} />}
-          <MetaItem label="Popularity" value={`${data.sitelinksCount ?? 0} sitelinks`} />
+          {data.qrankPct != null && <MetaItem label="Popularity" value={`Top ${data.qrankPct}%`} />}
+          <MetaItem label="Sitelinks" value={String(data.sitelinksCount ?? 0)} />
         </div>
 
         {/* Tracking panel (inline) */}

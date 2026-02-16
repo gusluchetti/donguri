@@ -4,6 +4,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -42,7 +43,7 @@ export const media = pgTable(
 
     // Popularity
     sitelinksCount: integer("sitelinks_count").default(0),
-    qrankScore: integer("qrank_score"),
+    qrankPct: numeric("qrank_pct", { precision: 5, scale: 2 }),
 
     // Country
     countryOfOrigin: text("country_of_origin"),
@@ -77,7 +78,7 @@ export const media = pgTable(
     index("idx_media_igdb").on(table.igdbId),
     index("idx_media_tmdb").on(table.tmdbId),
     index("idx_media_tvmaze").on(table.tvmazeId),
-    index("idx_media_qrank").on(table.qrankScore),
+    index("idx_media_qrank").on(table.qrankPct),
   ],
 );
 

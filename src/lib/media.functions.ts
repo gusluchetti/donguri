@@ -66,7 +66,7 @@ async function searchMedia(
       .where(and(...conditions))
       .orderBy(
         sql`${relevance} DESC`,
-        sql`${media.qrankScore} DESC NULLS LAST`,
+        sql`${media.qrankPct} ASC NULLS LAST`,
         desc(media.sitelinksCount),
         media.id,
       )
@@ -106,11 +106,11 @@ export const listMedia = createServerFn({ method: "GET" })
     // Type filter
     if (mediaType) conditions.push(eq(media.mediaType, mediaType));
 
-    // Keyset cursor pagination (qrank_score DESC NULLS LAST, sitelinks_count DESC, id ASC)
+    // Keyset cursor pagination (qrank_pct ASC NULLS LAST, sitelinks_count DESC, id ASC)
     if (cursor) {
       const [cursorItem] = await db
         .select({
-          qrankScore: media.qrankScore,
+          qrankPct: media.qrankPct,
           sitelinksCount: media.sitelinksCount,
           id: media.id,
         })
@@ -119,25 +119,25 @@ export const listMedia = createServerFn({ method: "GET" })
         .limit(1);
 
       if (cursorItem) {
-        const qr = cursorItem.qrankScore;
+        const qr = cursorItem.qrankPct;
         const sc = cursorItem.sitelinksCount ?? 0;
         if (qr != null) {
-          // Cursor row has a QRank score
+          // Cursor row has a QRank percentile
           conditions.push(
             sql`(
-              (${media.qrankScore} IS NOT NULL AND (
-                ${media.qrankScore} < ${qr}
-                OR (${media.qrankScore} = ${qr} AND ${media.sitelinksCount} < ${sc})
-                OR (${media.qrankScore} = ${qr} AND ${media.sitelinksCount} = ${sc} AND ${media.id} > ${cursor})
+              (${media.qrankPct} IS NOT NULL AND (
+                ${media.qrankPct} > ${qr}
+                OR (${media.qrankPct} = ${qr} AND ${media.sitelinksCount} < ${sc})
+                OR (${media.qrankPct} = ${qr} AND ${media.sitelinksCount} = ${sc} AND ${media.id} > ${cursor})
               ))
-              OR ${media.qrankScore} IS NULL
+              OR ${media.qrankPct} IS NULL
             )`,
           );
         } else {
           // Cursor row is in the NULL-qrank tier
           conditions.push(
             sql`(
-              ${media.qrankScore} IS NULL AND (
+              ${media.qrankPct} IS NULL AND (
                 ${media.sitelinksCount} < ${sc}
                 OR (${media.sitelinksCount} = ${sc} AND ${media.id} > ${cursor})
               )
@@ -151,7 +151,7 @@ export const listMedia = createServerFn({ method: "GET" })
       .select()
       .from(media)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(sql`${media.qrankScore} DESC NULLS LAST`, desc(media.sitelinksCount), media.id)
+      .orderBy(sql`${media.qrankPct} ASC NULLS LAST`, desc(media.sitelinksCount), media.id)
       .limit(limit + 1);
 
     const hasMore = items.length > limit;
