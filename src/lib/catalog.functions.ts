@@ -6,7 +6,16 @@ import type { CatalogEntry } from "../db/schema";
 import { catalogEntries, media } from "../db/schema";
 import { getAuthenticatedAgent, isSessionExpired } from "./auth/agent";
 import { clearSessionCookie, getSessionData, requireAuth } from "./auth/session";
+import { countWatchedEpisodes } from "./media-types";
 import { deleteCatalogEntry, putCatalogEntry } from "./sync";
+
+function throwIfSessionExpired(err: unknown): void {
+  if (isSessionExpired(err)) {
+    console.warn("[catalog] AT Protocol session expired, forcing logout");
+    clearSessionCookie();
+    throw new Error("SESSION_EXPIRED");
+  }
+}
 
 const StatusEnum = z.enum([
   "planned",
@@ -154,23 +163,21 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
         }
       }
 
+      // Auto-compute episodeProgress from watchedEpisodes
+      const epProgress = data.watchedEpisodes
+        ? countWatchedEpisodes(data.watchedEpisodes)
+        : data.episodeProgress;
+
       if (auth.authMethod === "atproto" && auth.did) {
         // PDS-first flow for AT Protocol users
         const agent = await getAuthenticatedAgent(auth.did);
-        // Auto-compute episodeProgress from watchedEpisodes
-        const computedEpProgress = data.watchedEpisodes
-          ? Object.values(data.watchedEpisodes).reduce(
-              (sum, eps) => sum + Object.keys(eps).length,
-              0,
-            )
-          : (data.episodeProgress ?? undefined);
 
         await putCatalogEntry(agent, userId, auth.did, {
           mediaRef: data.wikidataId,
           status: data.status,
           rating: data.rating ?? undefined,
           note: data.note ?? undefined,
-          episodeProgress: computedEpProgress,
+          episodeProgress: epProgress ?? undefined,
           isFavorite: data.isFavorite ?? undefined,
           replayCount: data.replayCount ?? undefined,
           watchedEpisodes: data.watchedEpisodes ?? undefined,
@@ -189,14 +196,6 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
               : new Date(now)
             : null;
 
-        // Auto-compute episodeProgress from watchedEpisodes
-        const dbEpProgress = data.watchedEpisodes
-          ? Object.values(data.watchedEpisodes).reduce(
-              (sum, eps) => sum + Object.keys(eps).length,
-              0,
-            )
-          : (data.episodeProgress ?? null);
-
         const values = {
           userId,
           mediaWikidataId: data.wikidataId,
@@ -205,7 +204,7 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
           status: data.status,
           rating: data.rating ?? null,
           note: data.note ?? null,
-          episodeProgress: dbEpProgress,
+          episodeProgress: epProgress ?? null,
           isFavorite: data.isFavorite ?? false,
           replayCount: data.replayCount ?? 0,
           completedAt,
@@ -232,11 +231,7 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
       console.debug("[catalog] setCatalogEntry → ok");
       return { ok: true };
     } catch (err) {
-      if (isSessionExpired(err)) {
-        console.warn("[catalog] AT Protocol session expired, forcing logout");
-        clearSessionCookie();
-        throw new Error("SESSION_EXPIRED");
-      }
+      throwIfSessionExpired(err);
       console.error("[catalog] setCatalogEntry FAILED:", err);
       throw err;
     }
@@ -275,11 +270,7 @@ export const removeCatalogEntry = createServerFn({ method: "POST" })
       console.debug("[catalog] removeCatalogEntry → ok");
       return { ok: true };
     } catch (err) {
-      if (isSessionExpired(err)) {
-        console.warn("[catalog] AT Protocol session expired, forcing logout");
-        clearSessionCookie();
-        throw new Error("SESSION_EXPIRED");
-      }
+      throwIfSessionExpired(err);
       console.error("[catalog] removeCatalogEntry FAILED:", err);
       throw err;
     }
