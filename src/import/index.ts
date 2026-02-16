@@ -464,17 +464,21 @@ async function recreateIndexes(rawClient: RawClient): Promise<void> {
 // ─── QRank loading ──────────────────────────────────────────────────────
 
 /**
- * Load QRank scores from a gzipped CSV file.
- * Format: "Entity,Score" header, then "Q123,456" data lines.
- * Returns a Map<wikidataId, score>.
+ * Load QRank scores from a CSV file (plain or gzipped), filtered to only
+ * entities that exist in our media table. Streams the CSV so memory usage
+ * is proportional to our media count (~100k), not the full QRank file (~100M).
  */
-async function loadQRank(filePath: string): Promise<Map<string, number>> {
-  console.log(`Loading QRank from: ${filePath}`);
+async function loadQRank(
+  filePath: string,
+  knownIds: Set<string>,
+): Promise<Map<string, number>> {
+  console.log(`Loading QRank from: ${filePath} (filtering to ${knownIds.size.toLocaleString()} known entities)`);
   const startTime = Date.now();
   const map = new Map<string, number>();
 
+  const stream = fs.createReadStream(filePath);
   const rl = readline.createInterface({
-    input: fs.createReadStream(filePath).pipe(zlib.createGunzip()),
+    input: filePath.endsWith(".gz") ? stream.pipe(zlib.createGunzip()) : stream,
     crlfDelay: Infinity,
   });
 
@@ -487,14 +491,15 @@ async function loadQRank(filePath: string): Promise<Map<string, number>> {
     const commaIdx = line.indexOf(",");
     if (commaIdx === -1) continue;
     const entity = line.slice(0, commaIdx);
+    if (!knownIds.has(entity)) continue;
     const score = parseInt(line.slice(commaIdx + 1), 10);
-    if (entity.startsWith("Q") && !Number.isNaN(score)) {
+    if (!Number.isNaN(score)) {
       map.set(entity, score);
     }
   }
 
   const elapsed = formatDuration(Date.now() - startTime);
-  console.log(`QRank loaded: ${map.size.toLocaleString()} entities in ${elapsed}`);
+  console.log(`QRank loaded: ${map.size.toLocaleString()} matches in ${elapsed}`);
   return map;
 }
 
@@ -555,14 +560,10 @@ async function main() {
     }
   }
 
-  // Load QRank scores if provided
-  let qrankMap: Map<string, number> | null = null;
-  if (qrankPath) {
-    if (!fs.existsSync(qrankPath)) {
-      console.error(`QRank file not found: ${qrankPath}`);
-      process.exit(1);
-    }
-    qrankMap = await loadQRank(qrankPath);
+  // Validate QRank file early but load after import
+  if (qrankPath && !fs.existsSync(qrankPath)) {
+    console.error(`QRank file not found: ${qrankPath}`);
+    process.exit(1);
   }
 
   console.log(`\nImporting from: ${filePath}`);
@@ -643,11 +644,6 @@ async function main() {
     const parsed = parseMediaEntity(entity);
     if (!parsed) continue;
 
-    // Attach QRank score if available
-    if (qrankMap) {
-      parsed.qrankScore = qrankMap.get(entity.id) ?? null;
-    }
-
     stats.byType[parsed.mediaType] = (stats.byType[parsed.mediaType] || 0) + 1;
     batch.push(parsed);
 
@@ -665,6 +661,35 @@ async function main() {
   // Recreate indexes if they were dropped
   if (isClean) {
     await recreateIndexes(rawClient);
+  }
+
+  // Apply QRank scores after import (DB now has all media entities)
+  if (qrankPath) {
+    console.log("\nApplying QRank scores...");
+    const rows = await db.select({ wid: media.wikidataId }).from(media);
+    const knownIds = new Set(rows.map((r) => r.wid));
+    console.log(`Found ${knownIds.size.toLocaleString()} media entities in DB`);
+    const qrankMap = await loadQRank(qrankPath, knownIds);
+
+    // Batch-update in chunks
+    const UPDATE_BATCH = 1_000;
+    const entries = [...qrankMap.entries()];
+    let updated = 0;
+    for (let i = 0; i < entries.length; i += UPDATE_BATCH) {
+      const chunk = entries.slice(i, i + UPDATE_BATCH);
+      // Build a VALUES list and update via a single query per chunk
+      const values = chunk.map(([wid, score]) => `('${wid}', ${score})`).join(", ");
+      await rawClient.unsafe(
+        `UPDATE media SET qrank_score = v.score::integer
+         FROM (VALUES ${values}) AS v(wid, score)
+         WHERE media.wikidata_id = v.wid`,
+      );
+      updated += chunk.length;
+      if (updated % 10_000 === 0 || updated === entries.length) {
+        console.log(`  QRank updated: ${updated.toLocaleString()} / ${entries.length.toLocaleString()}`);
+      }
+    }
+    console.log(`QRank: ${updated.toLocaleString()} media entities scored`);
   }
 
   // Update progress

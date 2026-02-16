@@ -52,9 +52,13 @@ async function insertSeasonBatch(
   }[],
 ): Promise<number> {
   if (batch.length === 0) return 0;
+  // Dedupe within batch — last occurrence wins (same key can appear multiple times in Wikidata)
+  const deduped = [
+    ...new Map(batch.map((row) => [`${row.mediaId}:${row.seasonNumber}`, row])).values(),
+  ];
   const result = await db
     .insert(seasons)
-    .values(batch)
+    .values(deduped)
     .onConflictDoUpdate({
       target: [seasons.mediaId, seasons.seasonNumber],
       set: {
