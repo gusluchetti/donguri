@@ -57,9 +57,10 @@ bun run import:covers [--limit=N] [--type=movie|tv_series|anime|game]
 
 ## Validation (run before every commit)
 
-**Always run these three commands to validate changes. Fix any errors before committing.**
+**Always run these four commands to validate changes. Fix any errors before committing.**
 
 ```bash
+bun run typecheck             # TypeScript type checking — fix all errors
 bun run lint                  # Biome linter — fix all errors, warnings are OK
 bun run format                # Biome formatter — auto-fixes in place
 bun run build                 # Vite production build — must succeed cleanly

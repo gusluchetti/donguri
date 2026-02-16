@@ -43,14 +43,14 @@ export function useCatalogCursor({
   const moveDown = () => {
     setSelectedIndex((prev) => Math.min(prev + 1, itemCount - 1));
   };
-  useHotkey("j", moveDown, { enabled: enabled && itemCount > 0 });
+  useHotkey("J", moveDown, { enabled: enabled && itemCount > 0 });
   useHotkey("ArrowDown", moveDown, { enabled: enabled && itemCount > 0 });
 
   // k / ArrowUp — move up
   const moveUp = () => {
     setSelectedIndex((prev) => (prev <= 0 ? prev : prev - 1));
   };
-  useHotkey("k", moveUp, { enabled: enabled && itemCount > 0 });
+  useHotkey("K", moveUp, { enabled: enabled && itemCount > 0 });
   useHotkey("ArrowUp", moveUp, { enabled: enabled && itemCount > 0 });
 
   // G (shift+g) — jump to last loaded item
@@ -64,7 +64,7 @@ export function useCatalogCursor({
 
   // gg — jump to first item (sequence, needs manual input guard)
   useHotkeySequence(
-    ["g", "g"],
+    ["G", "G"],
     () => {
       if (isInputFocused()) return;
       if (itemCount > 0) setSelectedIndex(0);
