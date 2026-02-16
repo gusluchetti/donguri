@@ -8,6 +8,8 @@
  *   bun run src/import/index.ts media-subset.ndjson --full              # Full import
  *   bun run src/import/index.ts media-subset.ndjson --full --limit=1000 # Limited
  *   bun run src/import/index.ts media-subset.ndjson --full --resumeFrom=Q123
+ *   bun run src/import/index.ts media-subset.ndjson --resume            # Auto-resume last run
+ *   bun run src/import/index.ts media-subset.ndjson --batch=1000        # Custom batch size
  *   bun run src/import/index.ts media-subset.ndjson --clean             # Clean DB first
  */
 
@@ -17,7 +19,7 @@ import { Writable } from "node:stream";
 import zlib from "node:zlib";
 import { eq, inArray, sql } from "drizzle-orm";
 import { ulid } from "ulid";
-import { createDb, createRawClient } from "../db";
+import { createImportDb } from "../db";
 import { TRGM_SETUP_SQL } from "../db/fts";
 import {
   genres,
@@ -29,12 +31,11 @@ import {
 } from "../db/schema";
 import { shouldImportEntity } from "./_filters";
 import { parseMediaEntity } from "./_parser";
+import { formatDuration, withRetry } from "./_retry";
 import type { ParsedMedia, WikidataEntity } from "./_types";
 
-const BATCH_SIZE = 5_000;
+const DEFAULT_BATCH_SIZE = 5_000;
 const PROGRESS_LOG_INTERVAL = 1_000;
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 2_000;
 
 /** Indexes to drop before --clean imports and recreate after. */
 const DROPPABLE_INDEXES = [
@@ -92,15 +93,6 @@ const STAGING_COLUMNS = [
   "tvmaze_id",
   "search_title",
 ] as const;
-
-function formatDuration(ms: number): string {
-  const seconds = Math.floor(ms / 1000) % 60;
-  const minutes = Math.floor(ms / 60000) % 60;
-  const hours = Math.floor(ms / 3600000);
-  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
-  if (minutes > 0) return `${minutes}m ${seconds}s`;
-  return `${seconds}s`;
-}
 
 interface ImportStats {
   entitiesProcessed: number;
@@ -166,32 +158,9 @@ function toTsvRow(item: ParsedMedia, rowId: string): string {
 
 // ─── DB helpers ─────────────────────────────────────────────────────────────
 
-async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T> {
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      const isConnectionError =
-        err instanceof Error &&
-        (err.message.includes("CONNECTION_CLOSED") ||
-          err.message.includes("CONNECT_TIMEOUT") ||
-          err.message.includes("connection") ||
-          err.cause?.toString().includes("CONNECTION_CLOSED"));
-      if (isConnectionError && attempt < MAX_RETRIES) {
-        console.warn(
-          `[retry] ${label} failed (attempt ${attempt}/${MAX_RETRIES}), retrying in ${RETRY_DELAY_MS}ms...`,
-        );
-        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
-        continue;
-      }
-      throw err;
-    }
-  }
-  throw new Error("unreachable");
-}
-
-type DbType = ReturnType<typeof createDb>;
-type RawClient = ReturnType<typeof createRawClient>;
+type ImportDb = ReturnType<typeof createImportDb>;
+type DbType = ImportDb["db"];
+type RawClient = ImportDb["client"];
 
 /**
  * Batch-ensure genres exist, returning a map of wikidataId → dbId.
@@ -506,7 +475,7 @@ async function main() {
 
   if (!filePath) {
     console.error(
-      "Usage: bun run src/import/index.ts <file.ndjson> [--full] [--limit=N] [--resumeFrom=QID] [--clean] [--qrank=path.csv.gz]",
+      "Usage: bun run src/import/index.ts <file.ndjson> [--full] [--limit=N] [--resumeFrom=QID] [--resume] [--batch=N] [--clean] [--qrank=path.csv.gz]",
     );
     process.exit(1);
   }
@@ -518,10 +487,12 @@ async function main() {
 
   const isFullMode = args.includes("--full") || args.includes("--clean");
   const isClean = args.includes("--clean");
+  const isAutoResume = args.includes("--resume");
   const limitArg = args.find((a) => a.startsWith("--limit="));
   const limit = limitArg ? parseInt(limitArg.split("=")[1], 10) : isFullMode ? Infinity : 100;
   const resumeArg = args.find((a) => a.startsWith("--resumeFrom="));
-  const resumeFrom = resumeArg ? resumeArg.split("=")[1] : null;
+  const batchArg = args.find((a) => a.startsWith("--batch="));
+  const batchSize = batchArg ? parseInt(batchArg.split("=")[1], 10) : DEFAULT_BATCH_SIZE;
   const qrankArg = args.find((a) => a.startsWith("--qrank="));
   const qrankPath = qrankArg ? qrankArg.split("=")[1] : null;
 
@@ -531,8 +502,29 @@ async function main() {
     process.exit(1);
   }
 
-  const db = createDb(url);
-  const rawClient = createRawClient(url);
+  const { db, client: rawClient } = createImportDb(url);
+
+  // Resolve resume point: explicit --resumeFrom=QID takes priority, then --resume (auto)
+  let resumeFrom = resumeArg ? resumeArg.split("=")[1] : null;
+  if (!resumeFrom && isAutoResume) {
+    const [lastRun] = await db
+      .select({
+        lastEntityId: importProgress.lastEntityId,
+        status: importProgress.status,
+      })
+      .from(importProgress)
+      .where(eq(importProgress.sourceFile, filePath))
+      .orderBy(sql`${importProgress.startedAt} DESC`)
+      .limit(1);
+    if (lastRun?.lastEntityId) {
+      resumeFrom = lastRun.lastEntityId;
+      console.log(
+        `Auto-resume: picking up from ${resumeFrom} (last run status: ${lastRun.status})`,
+      );
+    } else {
+      console.log("Auto-resume: no previous run found, starting from beginning");
+    }
+  }
 
   console.log("Ensuring schema...");
 
@@ -563,7 +555,7 @@ async function main() {
 
   console.log(`\nImporting from: ${filePath}`);
   console.log(
-    `Mode: ${isFullMode ? "full" : "test"}, Limit: ${limit === Infinity ? "none" : limit}`,
+    `Mode: ${isFullMode ? "full" : "test"}, Limit: ${limit === Infinity ? "none" : limit}, Batch: ${batchSize}`,
   );
   if (resumeFrom) console.log(`Resuming from: ${resumeFrom}`);
 
@@ -592,132 +584,151 @@ async function main() {
   let skipping = resumeFrom !== null;
   const startTime = Date.now();
 
-  const rl = readline.createInterface({
-    input: fs.createReadStream(filePath, { encoding: "utf-8" }),
-    crlfDelay: Infinity,
-  });
+  try {
+    const rl = readline.createInterface({
+      input: fs.createReadStream(filePath, { encoding: "utf-8" }),
+      crlfDelay: Infinity,
+    });
 
-  for await (const line of rl) {
-    if (stats.entitiesImported >= limit) break;
+    for await (const line of rl) {
+      if (stats.entitiesImported >= limit) break;
 
-    const entity = parseJsonLine(line);
-    if (!entity) continue;
+      const entity = parseJsonLine(line);
+      if (!entity) continue;
 
-    // Resume support
-    if (skipping) {
-      if (entity.id === resumeFrom) {
-        skipping = false;
-        console.log(`Found resume point: ${resumeFrom}`);
+      // Resume support
+      if (skipping) {
+        if (entity.id === resumeFrom) {
+          skipping = false;
+          console.log(`Found resume point: ${resumeFrom}`);
+        }
+        continue;
       }
-      continue;
+
+      stats.entitiesProcessed++;
+
+      if (stats.entitiesProcessed % PROGRESS_LOG_INTERVAL === 0) {
+        const elapsed = formatDuration(Date.now() - startTime);
+        const rate = (stats.entitiesProcessed / ((Date.now() - startTime) / 1000)).toFixed(0);
+        console.log(
+          `[${elapsed}] Processed: ${stats.entitiesProcessed.toLocaleString()}, ` +
+            `Imported: ${stats.entitiesImported.toLocaleString()}, ` +
+            `Errors: ${stats.errors}, Rate: ${rate}/s`,
+        );
+
+        // Update progress in DB
+        await db
+          .update(importProgress)
+          .set({
+            entitiesProcessed: stats.entitiesProcessed,
+            entitiesImported: stats.entitiesImported,
+            lastEntityId: entity.id,
+          })
+          .where(eq(importProgress.id, progressRecord.id));
+      }
+
+      if (!shouldImportEntity(entity)) continue;
+
+      const parsed = parseMediaEntity(entity);
+      if (!parsed) continue;
+
+      stats.byType[parsed.mediaType] = (stats.byType[parsed.mediaType] || 0) + 1;
+      batch.push(parsed);
+
+      if (batch.length >= batchSize) {
+        await processSuperBatch(rawClient, db, batch, genreCache, platformCache, stats);
+        batch = [];
+      }
     }
 
-    stats.entitiesProcessed++;
+    // Process remaining batch
+    if (batch.length > 0) {
+      await processSuperBatch(rawClient, db, batch, genreCache, platformCache, stats);
+    }
 
-    if (stats.entitiesProcessed % PROGRESS_LOG_INTERVAL === 0) {
-      const elapsed = formatDuration(Date.now() - startTime);
-      const rate = (stats.entitiesProcessed / ((Date.now() - startTime) / 1000)).toFixed(0);
+    // Recreate indexes if they were dropped
+    if (isClean) {
+      await recreateIndexes(rawClient);
+    }
+
+    // Apply QRank percentiles after import (DB now has all media entities)
+    if (qrankPath) {
+      console.log("\nApplying QRank percentiles...");
+      const rows = await db.select({ wid: media.wikidataId }).from(media);
+      const knownIds = new Set(rows.map((r) => r.wid));
+      console.log(`Found ${knownIds.size.toLocaleString()} media entities in DB`);
+      const qrankMap = await loadQRank(qrankPath, knownIds);
+
+      // Sort by raw score descending, compute percentile rank, batch-update
+      const sorted = [...qrankMap.entries()].sort((a, b) => b[1] - a[1]);
+      const total = sorted.length;
+      console.log(`Computing percentiles for ${total.toLocaleString()} scored entities...`);
+
+      const UPDATE_BATCH = 1_000;
+      let updated = 0;
+      for (let i = 0; i < sorted.length; i += UPDATE_BATCH) {
+        const chunk = sorted.slice(i, i + UPDATE_BATCH);
+        const values = chunk
+          .map(([wid], idx) => {
+            const rank = i + idx; // 0-based position in descending order
+            const pct = total <= 1 ? 0 : (rank / (total - 1)) * 100;
+            return `('${wid}', ${pct.toFixed(2)})`;
+          })
+          .join(", ");
+        await rawClient.unsafe(
+          `UPDATE media SET qrank_pct = v.pct::numeric(5,2)
+           FROM (VALUES ${values}) AS v(wid, pct)
+           WHERE media.wikidata_id = v.wid`,
+        );
+        updated += chunk.length;
+        if (updated % 10_000 === 0 || updated === sorted.length) {
+          console.log(`  QRank updated: ${updated.toLocaleString()} / ${total.toLocaleString()}`);
+        }
+      }
       console.log(
-        `[${elapsed}] Processed: ${stats.entitiesProcessed.toLocaleString()}, ` +
-          `Imported: ${stats.entitiesImported.toLocaleString()}, ` +
-          `Errors: ${stats.errors}, Rate: ${rate}/s`,
+        `QRank: ${updated.toLocaleString()} media entities scored (0.00% = most popular)`,
       );
+    }
 
-      // Update progress in DB
+    // Compute sitelinks percentile (always, independent of QRank)
+    console.log("\nComputing sitelinks percentiles...");
+    await rawClient.unsafe(`
+      WITH ranked AS (
+        SELECT id, PERCENT_RANK() OVER (ORDER BY sitelinks_count DESC) * 100 AS pct
+        FROM media
+      )
+      UPDATE media SET sitelinks_pct = ranked.pct FROM ranked WHERE media.id = ranked.id
+    `);
+    console.log(
+      "Sitelinks percentiles computed (popularity_score auto-updated via generated column).",
+    );
+
+    // Update progress — completed
+    await db
+      .update(importProgress)
+      .set({
+        entitiesProcessed: stats.entitiesProcessed,
+        entitiesImported: stats.entitiesImported,
+        status: "completed",
+        completedAt: new Date(),
+      })
+      .where(eq(importProgress.id, progressRecord.id));
+  } catch (err) {
+    // Mark progress as failed on crash so --resume can pick up
+    try {
       await db
         .update(importProgress)
         .set({
           entitiesProcessed: stats.entitiesProcessed,
           entitiesImported: stats.entitiesImported,
-          lastEntityId: entity.id,
+          status: "failed",
         })
         .where(eq(importProgress.id, progressRecord.id));
+    } catch {
+      // Best-effort — connection may be dead
     }
-
-    if (!shouldImportEntity(entity)) continue;
-
-    const parsed = parseMediaEntity(entity);
-    if (!parsed) continue;
-
-    stats.byType[parsed.mediaType] = (stats.byType[parsed.mediaType] || 0) + 1;
-    batch.push(parsed);
-
-    if (batch.length >= BATCH_SIZE) {
-      await processSuperBatch(rawClient, db, batch, genreCache, platformCache, stats);
-      batch = [];
-    }
+    throw err;
   }
-
-  // Process remaining batch
-  if (batch.length > 0) {
-    await processSuperBatch(rawClient, db, batch, genreCache, platformCache, stats);
-  }
-
-  // Recreate indexes if they were dropped
-  if (isClean) {
-    await recreateIndexes(rawClient);
-  }
-
-  // Apply QRank percentiles after import (DB now has all media entities)
-  if (qrankPath) {
-    console.log("\nApplying QRank percentiles...");
-    const rows = await db.select({ wid: media.wikidataId }).from(media);
-    const knownIds = new Set(rows.map((r) => r.wid));
-    console.log(`Found ${knownIds.size.toLocaleString()} media entities in DB`);
-    const qrankMap = await loadQRank(qrankPath, knownIds);
-
-    // Sort by raw score descending, compute percentile rank, batch-update
-    const sorted = [...qrankMap.entries()].sort((a, b) => b[1] - a[1]);
-    const total = sorted.length;
-    console.log(`Computing percentiles for ${total.toLocaleString()} scored entities...`);
-
-    const UPDATE_BATCH = 1_000;
-    let updated = 0;
-    for (let i = 0; i < sorted.length; i += UPDATE_BATCH) {
-      const chunk = sorted.slice(i, i + UPDATE_BATCH);
-      const values = chunk
-        .map(([wid], idx) => {
-          const rank = i + idx; // 0-based position in descending order
-          const pct = total <= 1 ? 0 : (rank / (total - 1)) * 100;
-          return `('${wid}', ${pct.toFixed(2)})`;
-        })
-        .join(", ");
-      await rawClient.unsafe(
-        `UPDATE media SET qrank_pct = v.pct::numeric(5,2)
-         FROM (VALUES ${values}) AS v(wid, pct)
-         WHERE media.wikidata_id = v.wid`,
-      );
-      updated += chunk.length;
-      if (updated % 10_000 === 0 || updated === sorted.length) {
-        console.log(`  QRank updated: ${updated.toLocaleString()} / ${total.toLocaleString()}`);
-      }
-    }
-    console.log(`QRank: ${updated.toLocaleString()} media entities scored (0.00% = most popular)`);
-  }
-
-  // Compute sitelinks percentile (always, independent of QRank)
-  console.log("\nComputing sitelinks percentiles...");
-  await rawClient.unsafe(`
-    WITH ranked AS (
-      SELECT id, PERCENT_RANK() OVER (ORDER BY sitelinks_count DESC) * 100 AS pct
-      FROM media
-    )
-    UPDATE media SET sitelinks_pct = ranked.pct FROM ranked WHERE media.id = ranked.id
-  `);
-  console.log(
-    "Sitelinks percentiles computed (popularity_score auto-updated via generated column).",
-  );
-
-  // Update progress
-  await db
-    .update(importProgress)
-    .set({
-      entitiesProcessed: stats.entitiesProcessed,
-      entitiesImported: stats.entitiesImported,
-      status: "completed",
-      completedAt: new Date(),
-    })
-    .where(eq(importProgress.id, progressRecord.id));
 
   // Clean up raw client
   await rawClient.end();

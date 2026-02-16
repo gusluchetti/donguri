@@ -11,19 +11,11 @@
  */
 
 import { eq, sql } from "drizzle-orm";
-import { cleanEnv, createDb } from "../db";
+import { cleanEnv, createImportDb } from "../db";
 import { media } from "../db/schema";
+import { formatDuration } from "./_retry";
 
 const BATCH_SIZE = 50;
-
-function formatDuration(ms: number): string {
-  const seconds = Math.floor(ms / 1000) % 60;
-  const minutes = Math.floor(ms / 60000) % 60;
-  const hours = Math.floor(ms / 3600000);
-  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
-  if (minutes > 0) return `${minutes}m ${seconds}s`;
-  return `${seconds}s`;
-}
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -161,7 +153,7 @@ async function main() {
     process.exit(1);
   }
 
-  const db = createDb(url);
+  const { db } = createImportDb(url);
 
   console.log("Fetching media without cover art...");
 

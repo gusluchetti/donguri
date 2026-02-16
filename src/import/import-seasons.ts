@@ -12,23 +12,15 @@
 import fs from "node:fs";
 import readline from "node:readline";
 import { eq, sql } from "drizzle-orm";
-import { createDb } from "../db";
+import { createImportDb } from "../db";
 import { media, seasons } from "../db/schema";
+import { formatDuration, withRetry } from "./_retry";
 import type { ParsedSeason, WikibaseEntityIdValue, WikidataEntity } from "./_types";
 import { WikidataProperties } from "./_types";
 
 const BATCH_SIZE = 200;
 
-type DbType = ReturnType<typeof createDb>;
-
-function formatDuration(ms: number): string {
-  const seconds = Math.floor(ms / 1000) % 60;
-  const minutes = Math.floor(ms / 60000) % 60;
-  const hours = Math.floor(ms / 3600000);
-  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
-  if (minutes > 0) return `${minutes}m ${seconds}s`;
-  return `${seconds}s`;
-}
+type DbType = ReturnType<typeof createImportDb>["db"];
 
 function parseJsonLine(line: string): WikidataEntity | null {
   let cleanLine = line.trim();
@@ -130,7 +122,7 @@ async function importWikidata(db: DbType, filePath: string, limit: number) {
   let processed = 0;
   let inserted = 0;
   let skipped = 0;
-  let errors = 0;
+  const errors = 0;
 
   // Build a lookup cache: wikidataId → mediaId
   const wikidataToMediaId = new Map<string, string>();
@@ -193,23 +185,13 @@ async function importWikidata(db: DbType, filePath: string, limit: number) {
     });
 
     if (batch.length >= BATCH_SIZE) {
-      try {
-        inserted += await insertSeasonBatch(db, batch);
-      } catch (err) {
-        errors++;
-        console.error("Batch error:", err);
-      }
+      inserted += await withRetry(() => insertSeasonBatch(db, batch), "wikidata season batch");
       batch = [];
     }
   }
 
   if (batch.length > 0) {
-    try {
-      inserted += await insertSeasonBatch(db, batch);
-    } catch (err) {
-      errors++;
-      console.error("Batch error:", err);
-    }
+    inserted += await withRetry(() => insertSeasonBatch(db, batch), "wikidata season batch");
   }
 
   console.log(`\nWikidata seasons done in ${formatDuration(Date.now() - startTime)}`);
@@ -314,7 +296,7 @@ async function processShowSeasons(
     }));
 
   if (batch.length === 0) return 0;
-  return insertSeasonBatch(db, batch);
+  return withRetry(() => insertSeasonBatch(db, batch), "tvmaze season batch");
 }
 
 // ─── anime-offline-database import ──────────────────────────────────────────
@@ -355,7 +337,7 @@ async function importAnimeOffline(db: DbType, filePath: string, limit: number) {
   let processed = 0;
   let inserted = 0;
   let skipped = 0;
-  let errors = 0;
+  const errors = 0;
 
   let batch: {
     mediaId: string;
@@ -431,23 +413,13 @@ async function importAnimeOffline(db: DbType, filePath: string, limit: number) {
     });
 
     if (batch.length >= BATCH_SIZE) {
-      try {
-        inserted += await insertSeasonBatch(db, batch);
-      } catch (err) {
-        errors++;
-        console.error("Batch error:", err);
-      }
+      inserted += await withRetry(() => insertSeasonBatch(db, batch), "anime-offline season batch");
       batch = [];
     }
   }
 
   if (batch.length > 0) {
-    try {
-      inserted += await insertSeasonBatch(db, batch);
-    } catch (err) {
-      errors++;
-      console.error("Batch error:", err);
-    }
+    inserted += await withRetry(() => insertSeasonBatch(db, batch), "anime-offline season batch");
   }
 
   console.log(`\nanime-offline-database done in ${formatDuration(Date.now() - startTime)}`);
@@ -481,7 +453,7 @@ async function main() {
   const limitArg = args.find((a) => a.startsWith("--limit="));
   const limit = limitArg ? Number.parseInt(limitArg.split("=")[1], 10) : Infinity;
 
-  const db = createDb(url);
+  const { db } = createImportDb(url);
 
   switch (subcommand) {
     case "wikidata": {
