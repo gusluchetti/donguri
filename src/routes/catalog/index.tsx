@@ -274,6 +274,17 @@ function CatalogPage() {
     { ignoreInputs: false },
   );
 
+  // Enter in search — blur to return to command mode
+  useHotkey(
+    "Enter",
+    () => {
+      if (document.activeElement === searchRef.current) {
+        searchRef.current?.blur();
+      }
+    },
+    { ignoreInputs: false },
+  );
+
   // 1–5 — type filter
   useHotkey("1", () => handleTypeChange(undefined));
   useHotkey("2", () => handleTypeChange("movie"));
