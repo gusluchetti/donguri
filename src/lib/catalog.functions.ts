@@ -58,6 +58,7 @@ export const getUserCatalogEntries = createServerFn({ method: "GET" }).handler(a
       updatedAt: catalogEntries.updatedAt,
       mediaTitle: sql<string | null>`COALESCE(${catalogEntries.mediaTitle}, ${media.title})`,
       mediaType: sql<string | null>`COALESCE(${catalogEntries.mediaType}, ${media.mediaType})`,
+      episodeCount: media.episodeCount,
     })
     .from(catalogEntries)
     .leftJoin(media, eq(catalogEntries.mediaWikidataId, media.wikidataId))

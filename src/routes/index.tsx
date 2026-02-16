@@ -1,3 +1,4 @@
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { initiateLogin, initiateOAuthLogin } from "../lib/auth.functions";
@@ -28,6 +29,7 @@ type CatalogEntryRow = {
   updatedAt: Date | null;
   mediaTitle: string | null;
   mediaType: string | null;
+  episodeCount: number | null;
 };
 
 export const Route = createFileRoute("/")({
@@ -211,7 +213,9 @@ function OAuthButton({ provider, label }: { provider: "google" | "github"; label
 }
 
 function LoggedInView() {
-  const { entries = [] } = Route.useLoaderData();
+  const { data: entries = [] } = useSuspenseQuery(watchlistOptions()) as {
+    data: CatalogEntryRow[];
+  };
 
   // Group by status, sort within sections by updatedAt desc then mediaType alpha
   const grouped = new Map<string, CatalogEntryRow[]>();
@@ -281,6 +285,14 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
                 )}
                 {item.mediaTitle ?? item.mediaWikidataId}
               </span>
+              {item.episodeProgress != null &&
+                item.episodeProgress > 0 &&
+                (item.mediaType === "tv_series" || item.mediaType === "anime") && (
+                  <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums shrink-0">
+                    {item.episodeProgress}
+                    {item.episodeCount ? `/${item.episodeCount}` : ""} ep
+                  </span>
+                )}
               {replay && (
                 <span className="text-[0.65rem] text-dg-text-tertiary shrink-0">{replay}</span>
               )}
