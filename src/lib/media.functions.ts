@@ -267,6 +267,10 @@ export const getMedia = createServerFn({ method: "GET" })
         .orderBy(seasons.seasonNumber),
     ]);
 
+    // TEMP: hide episode tracking for non-consecutive seasons
+    const isConsecutive =
+      itemSeasons.length === 0 || itemSeasons.every((s, i) => s.seasonNumber === i + 1);
+
     const result = {
       ...item[0],
       genres: itemGenres.map((g) => ({
@@ -278,7 +282,7 @@ export const getMedia = createServerFn({ method: "GET" })
         parentName: g.parentName ?? null,
       })),
       platforms: itemPlatforms,
-      seasons: itemSeasons,
+      seasons: isConsecutive ? itemSeasons : [],
     };
 
     setCache(data.wikidataId, result, MEDIA_TTL);

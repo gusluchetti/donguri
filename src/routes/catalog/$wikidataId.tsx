@@ -470,18 +470,6 @@ function MediaDetailPage({
               </div>
             </div>
           </div>
-          {auth && initialEntry?.status && (
-            <button
-              type="button"
-              onClick={() => setLocalIsFavorite(!localIsFavorite)}
-              className={`absolute top-0 right-0 text-[1.1rem] bg-transparent border-none cursor-pointer p-1 transition-colors duration-150 ${
-                localIsFavorite ? "text-dg-accent" : "text-dg-text-tertiary hover:text-dg-accent/60"
-              }`}
-              title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
-            >
-              {localIsFavorite ? "\u2605" : "\u2606"}
-            </button>
-          )}
         </div>
 
         {/* Tracking + Episodes unified card */}
@@ -951,22 +939,13 @@ function TrackingPanel({
   ]);
 
   const handleRemove = useCallback(async () => {
-    console.debug("[tracking] remove %s (optimistic)", wikidataId);
-    const prev = entry;
-    setEntry(null);
+    console.debug("[tracking] remove %s", wikidataId);
     await action.run(async () => {
-      try {
-        await removeCatalogEntry({ data: { wikidataId } });
-        console.debug("[tracking] remove %s → server ok", wikidataId);
-        queryClient.invalidateQueries({ queryKey: ["user"] });
-        router.invalidate();
-      } catch (err) {
-        console.error("[tracking] remove %s → FAILED:", wikidataId, err);
-        setEntry(prev);
-        throw err;
-      }
+      await removeCatalogEntry({ data: { wikidataId } });
+      console.debug("[tracking] remove %s → server ok, reloading", wikidataId);
+      window.location.reload();
     });
-  }, [entry, wikidataId, router, queryClient, action]);
+  }, [wikidataId, action]);
 
   const statuses = availableStatuses(mediaType);
 
@@ -1084,7 +1063,21 @@ function TrackingPanel({
           : "border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5"
       }
     >
-      <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-3">Status</h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider m-0">Status</h3>
+        {localStatus && (
+          <button
+            type="button"
+            onClick={() => setLocalIsFavorite(!localIsFavorite)}
+            className={`text-[1.1rem] bg-transparent border-none cursor-pointer p-1 -m-1 transition-colors duration-150 ${
+              localIsFavorite ? "text-dg-accent" : "text-dg-text-tertiary hover:text-dg-accent/60"
+            }`}
+            title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
+          >
+            {localIsFavorite ? "\u2605" : "\u2606"}
+          </button>
+        )}
+      </div>
 
       {/* Status buttons — horizontal scroll on mobile, wrap on desktop */}
       <div className="flex flex-nowrap overflow-x-auto sm:flex-wrap gap-1.5 mb-4 scrollbar-hide">
@@ -1110,8 +1103,8 @@ function TrackingPanel({
         })}
       </div>
 
-      {/* Rating (only when a status is selected) */}
-      {localStatus && (
+      {/* Rating (only when watching or completed) */}
+      {(localStatus === "in_progress" || localStatus === "completed") && (
         <div className="mb-4">
           <h4 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
             Rating
@@ -1207,7 +1200,7 @@ function TrackingPanel({
             type="button"
             onClick={handleSave}
             disabled={action.state === "pending" || !isDirty}
-            className={`text-[0.75rem] font-mono rounded-full border px-3 py-1 bg-transparent cursor-pointer transition-all duration-150 disabled:cursor-default ${
+            className={`text-[0.75rem] font-mono rounded-sm border px-3 py-1 bg-transparent cursor-pointer transition-all duration-150 disabled:cursor-default ${
               action.state === "pending"
                 ? "border-dg-accent/50 text-dg-accent/70"
                 : action.state === "error"
@@ -1235,7 +1228,7 @@ function TrackingPanel({
               type="button"
               onClick={handleRemove}
               disabled={action.state === "pending"}
-              className="text-[0.75rem] font-mono rounded-full border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 cursor-pointer transition-all duration-150 hover:text-dg-anime hover:border-dg-anime/40 disabled:opacity-50 disabled:cursor-default"
+              className="text-[0.75rem] font-mono rounded-sm border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 cursor-pointer transition-all duration-150 hover:text-dg-anime hover:border-dg-anime/40 disabled:opacity-50 disabled:cursor-default"
               title="Remove from list"
             >
               delete
