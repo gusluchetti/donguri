@@ -1103,8 +1103,10 @@ function TrackingPanel({
         })}
       </div>
 
-      {/* Rating (only when watching or completed) */}
-      {(localStatus === "in_progress" || localStatus === "completed") && (
+      {/* Rating (only when watching, completed, or mastered) */}
+      {(localStatus === "in_progress" ||
+        localStatus === "completed" ||
+        localStatus === "mastered") && (
         <div className="mb-4">
           <h4 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
             Rating
@@ -1148,8 +1150,8 @@ function TrackingPanel({
         </div>
       )}
 
-      {/* Replay count (when completed) */}
-      {localStatus === "completed" && (
+      {/* Replay count (when completed or mastered) */}
+      {(localStatus === "completed" || localStatus === "mastered") && (
         <div className="flex items-center gap-2 mb-4">
           <button
             type="button"
