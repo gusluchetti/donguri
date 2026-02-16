@@ -1,3 +1,4 @@
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
 import { X } from "lucide-react";
@@ -223,8 +224,19 @@ function MediaDetailPage({
   initialEntry?: CatalogEntry | null;
 }) {
   const { auth } = rootRoute.useLoaderData();
+  const router = useRouter();
   const badgeClass = typeBadgeClass(data.mediaType);
   const [localIsFavorite, setLocalIsFavorite] = useState(initialEntry?.isFavorite ?? false);
+
+  // ─── Detail page shortcuts ──────────────────────────────────────────────
+  // h / ArrowLeft / Backspace — go back
+  useHotkey("h", () => router.history.back());
+  useHotkey("ArrowLeft", () => router.history.back());
+  useHotkey("Backspace", () => router.history.back());
+  // f — toggle favorite
+  useHotkey("f", () => setLocalIsFavorite((v) => !v), {
+    enabled: !!auth && !!initialEntry?.status,
+  });
 
   const isAnime = data.mediaType === "anime";
   const isGame = data.mediaType === "game";
@@ -692,6 +704,98 @@ function TrackingPanel({
 
   const statuses = availableStatuses(mediaType);
 
+  // ─── Tracking shortcuts ───────────────────────────────────────────────
+  const notBusy = action.state !== "pending";
+
+  // Status keys — only fire if the status is visible for this media type
+  const statusKeyMap: Record<string, string> = {
+    p: "planned",
+    w: "in_progress",
+    o: "on_hold",
+    c: "completed",
+    d: "dropped",
+    m: "mastered",
+  };
+  for (const [key, status] of Object.entries(statusKeyMap)) {
+    // biome-ignore lint/correctness/useHookAtTopLevel: static iteration over constant map
+    useHotkey(key, () => setLocalStatus(status), {
+      enabled: loaded && notBusy && statusLabel(status as never, mediaType) !== null,
+    });
+  }
+
+  // = N — rating input mode: press =, then type 0–100
+  const [ratingMode, setRatingMode] = useState(false);
+  const ratingBuf = useRef("");
+
+  useHotkey("=", () => setRatingMode(true), {
+    enabled: loaded && notBusy && !!localStatus && !ratingMode,
+  });
+
+  useEffect(() => {
+    if (!ratingMode) return;
+    ratingBuf.current = "";
+
+    const commit = () => {
+      const val = Number.parseInt(ratingBuf.current, 10);
+      if (!Number.isNaN(val) && val >= 0 && val <= 100) {
+        setLocalRating(val);
+      }
+      ratingBuf.current = "";
+      setRatingMode(false);
+    };
+
+    const cancel = () => {
+      ratingBuf.current = "";
+      setRatingMode(false);
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        cancel();
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commit();
+        return;
+      }
+      if (e.key >= "0" && e.key <= "9") {
+        e.preventDefault();
+        ratingBuf.current += e.key;
+        const val = Number.parseInt(ratingBuf.current, 10);
+        // Auto-commit: 3 digits, or 2+ digits where next digit can't stay ≤100
+        if (ratingBuf.current.length >= 3 || (ratingBuf.current.length === 2 && val > 10)) {
+          commit();
+        }
+        return;
+      }
+      // Non-digit, non-Enter, non-Escape → cancel
+      cancel();
+    };
+
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [ratingMode]);
+
+  // s — save
+  useHotkey(
+    "s",
+    () => {
+      if (isDirty) handleSave();
+    },
+    { enabled: loaded && notBusy && isDirty },
+  );
+
+  // D (shift+d) — delete entry
+  useHotkey(
+    "Shift+D",
+    () => {
+      if (serverEntry.current?.status) handleRemove();
+    },
+    { enabled: loaded && notBusy && !!serverEntry.current?.status },
+  );
+
   if (!loaded) {
     return (
       <div
@@ -759,6 +863,11 @@ function TrackingPanel({
         <div className="mb-4">
           <h4 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
             Rating
+            {ratingMode && (
+              <span className="ml-2 text-dg-accent normal-case tracking-normal">
+                = <span className="animate-pulse">_</span>
+              </span>
+            )}
           </h4>
           <div className="flex items-center gap-3">
             <input

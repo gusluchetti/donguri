@@ -139,6 +139,13 @@ input[type="range"].dg-range:disabled {
   }
 }
 
+/* Cursor highlight for keyboard navigation */
+.dg-cursor-active {
+  background-color: color-mix(in srgb, var(--color-dg-accent) 5%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--color-dg-accent) 20%, transparent);
+  outline-offset: -1px;
+}
+
 /* Ellipsis loading animation */
 .dg-ellipsis::after {
   content: "";
