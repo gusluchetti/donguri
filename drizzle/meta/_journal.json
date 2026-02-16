@@ -57,6 +57,13 @@
       "when": 1771213100364,
       "tag": "0007_yellow_mister_sinister",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1771269445889,
+      "tag": "0008_melted_agent_brand",
+      "breakpoints": true
     }
   ]
 }

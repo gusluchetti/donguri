@@ -126,3 +126,63 @@ export const STATUS_BUTTON_COLORS: Record<StatusValue, string> = {
   dropped: "border-dg-anime text-dg-anime bg-dg-anime/10",
   mastered: "border-dg-accent text-dg-accent bg-dg-accent/10",
 };
+
+// ─── Watched Episodes Helpers ────────────────────────────────────────────────
+
+export type WatchedEpisodes = Record<string, Record<string, string>>;
+
+export function todayISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function countWatchedEpisodes(watched: WatchedEpisodes | null | undefined): number {
+  if (!watched) return 0;
+  return Object.values(watched).reduce((sum, eps) => sum + Object.keys(eps).length, 0);
+}
+
+export function countSeasonWatched(
+  watched: WatchedEpisodes | null | undefined,
+  seasonNumber: number,
+): number {
+  if (!watched) return 0;
+  const eps = watched[String(seasonNumber)];
+  return eps ? Object.keys(eps).length : 0;
+}
+
+/** Mark episodes 1..ep as watched for a given season. Preserves existing dates. */
+export function markThroughEpisode(
+  watched: WatchedEpisodes | null | undefined,
+  season: number,
+  ep: number,
+  date: string,
+): WatchedEpisodes {
+  const result: WatchedEpisodes = watched ? structuredClone(watched) : {};
+  const key = String(season);
+  if (!result[key]) result[key] = {};
+  for (let i = 1; i <= ep; i++) {
+    const epKey = String(i);
+    if (!result[key][epKey]) result[key][epKey] = date;
+  }
+  return result;
+}
+
+/** Toggle a single episode. If watched, unmark it; otherwise mark it. */
+export function toggleEpisode(
+  watched: WatchedEpisodes | null | undefined,
+  season: number,
+  ep: number,
+  date: string,
+): WatchedEpisodes {
+  const result: WatchedEpisodes = watched ? structuredClone(watched) : {};
+  const key = String(season);
+  const epKey = String(ep);
+  if (!result[key]) result[key] = {};
+  if (result[key][epKey]) {
+    delete result[key][epKey];
+    if (Object.keys(result[key]).length === 0) delete result[key];
+  } else {
+    result[key][epKey] = date;
+  }
+  return result;
+}

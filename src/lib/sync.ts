@@ -15,7 +15,8 @@ const CatalogEntryRecordSchema = z.object({
   episodeProgress: z.number().optional(),
   isFavorite: z.boolean().optional(),
   replayCount: z.number().optional(),
-  watchedEpisodes: z.record(z.string(), z.array(z.number())).optional(),
+  watchedEpisodes: z.record(z.string(), z.record(z.string(), z.string())).optional(),
+  watchedAt: z.string().optional(),
   title: z.string().optional(),
   mediaType: z.string().optional(),
   createdAt: z.string(),
@@ -132,6 +133,9 @@ export async function upsertLocalMirror(
       existing.episodeProgress === (normalized.episodeProgress ?? null) &&
       existing.isFavorite === (normalized.isFavorite ?? false) &&
       existing.replayCount === (normalized.replayCount ?? 0) &&
+      existing.watchedAt === (normalized.watchedAt ?? null) &&
+      JSON.stringify(existing.watchedEpisodes ?? null) ===
+        JSON.stringify(normalized.watchedEpisodes ?? null) &&
       existing.rkey === rkey;
 
     if (unchanged) {
@@ -143,6 +147,14 @@ export async function upsertLocalMirror(
       return;
     }
 
+    // Auto-compute episodeProgress from watchedEpisodes
+    const computedProgress = normalized.watchedEpisodes
+      ? Object.values(normalized.watchedEpisodes).reduce(
+          (sum, eps) => sum + Object.keys(eps).length,
+          0,
+        )
+      : (normalized.episodeProgress ?? null);
+
     console.debug("[sync] upsertLocalMirror userId=%s rkey=%s → update existing", userId, rkey);
     await db
       .update(catalogEntries)
@@ -150,11 +162,12 @@ export async function upsertLocalMirror(
         status: normalized.status,
         rating: normalized.rating ?? null,
         note: normalized.note ?? null,
-        episodeProgress: normalized.episodeProgress ?? null,
+        episodeProgress: computedProgress,
         isFavorite: normalized.isFavorite ?? false,
         replayCount: normalized.replayCount ?? 0,
         completedAt,
         watchedEpisodes: normalized.watchedEpisodes ?? null,
+        watchedAt: normalized.watchedAt ?? null,
         mediaTitle: normalized.title ?? undefined,
         mediaType: normalized.mediaType ?? undefined,
         rkey,
@@ -163,6 +176,14 @@ export async function upsertLocalMirror(
       })
       .where(eq(catalogEntries.id, existing.id));
   } else {
+    // Auto-compute episodeProgress from watchedEpisodes
+    const insertProgress = normalized.watchedEpisodes
+      ? Object.values(normalized.watchedEpisodes).reduce(
+          (sum, eps) => sum + Object.keys(eps).length,
+          0,
+        )
+      : (normalized.episodeProgress ?? null);
+
     console.debug("[sync] upsertLocalMirror userId=%s rkey=%s → insert new", userId, rkey);
     await db.insert(catalogEntries).values({
       userId,
@@ -172,11 +193,12 @@ export async function upsertLocalMirror(
       status: normalized.status,
       rating: normalized.rating ?? null,
       note: normalized.note ?? null,
-      episodeProgress: normalized.episodeProgress ?? null,
+      episodeProgress: insertProgress,
       isFavorite: normalized.isFavorite ?? false,
       replayCount: normalized.replayCount ?? 0,
       completedAt,
       watchedEpisodes: normalized.watchedEpisodes ?? null,
+      watchedAt: normalized.watchedAt ?? null,
       rkey,
       syncedAt: now,
       updatedAt: recordUpdatedAt,

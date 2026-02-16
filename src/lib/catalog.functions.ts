@@ -96,7 +96,8 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
       episodeProgress: z.number().int().min(0).nullish(),
       isFavorite: z.boolean().nullish(),
       replayCount: z.number().int().min(0).nullish(),
-      watchedEpisodes: z.record(z.string(), z.array(z.number())).nullish(),
+      watchedEpisodes: z.record(z.string(), z.record(z.string(), z.string())).nullish(),
+      watchedAt: z.string().max(10).nullish(),
     }),
   )
   .handler(async ({ data }) => {
@@ -153,15 +154,24 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
       if (auth.authMethod === "atproto" && auth.did) {
         // PDS-first flow for AT Protocol users
         const agent = await getAuthenticatedAgent(auth.did);
+        // Auto-compute episodeProgress from watchedEpisodes
+        const computedEpProgress = data.watchedEpisodes
+          ? Object.values(data.watchedEpisodes).reduce(
+              (sum, eps) => sum + Object.keys(eps).length,
+              0,
+            )
+          : (data.episodeProgress ?? undefined);
+
         await putCatalogEntry(agent, userId, auth.did, {
           mediaRef: data.wikidataId,
           status: data.status,
           rating: data.rating ?? undefined,
           note: data.note ?? undefined,
-          episodeProgress: data.episodeProgress ?? undefined,
+          episodeProgress: computedEpProgress,
           isFavorite: data.isFavorite ?? undefined,
           replayCount: data.replayCount ?? undefined,
           watchedEpisodes: data.watchedEpisodes ?? undefined,
+          watchedAt: data.watchedAt ?? undefined,
           title,
           mediaType: entryMediaType,
           createdAt: existing?.createdAt?.toISOString() ?? now,
@@ -176,6 +186,14 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
               : new Date(now)
             : null;
 
+        // Auto-compute episodeProgress from watchedEpisodes
+        const dbEpProgress = data.watchedEpisodes
+          ? Object.values(data.watchedEpisodes).reduce(
+              (sum, eps) => sum + Object.keys(eps).length,
+              0,
+            )
+          : (data.episodeProgress ?? null);
+
         const values = {
           userId,
           mediaWikidataId: data.wikidataId,
@@ -184,11 +202,12 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
           status: data.status,
           rating: data.rating ?? null,
           note: data.note ?? null,
-          episodeProgress: data.episodeProgress ?? null,
+          episodeProgress: dbEpProgress,
           isFavorite: data.isFavorite ?? false,
           replayCount: data.replayCount ?? 0,
           completedAt,
           watchedEpisodes: data.watchedEpisodes ?? null,
+          watchedAt: data.watchedAt ?? null,
           updatedAt: new Date(now),
         };
 

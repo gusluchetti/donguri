@@ -57,7 +57,12 @@
           },
           "watchedEpisodes": {
             "type": "object",
-            "description": "Map of season number to array of watched episode numbers."
+            "description": "Map of season number to map of episode number to ISO date watched (YYYY-MM-DD)."
+          },
+          "watchedAt": {
+            "type": "string",
+            "description": "User-editable ISO date for when the media was watched/played (YYYY-MM-DD).",
+            "maxLength": 10
           },
           "title": {
             "type": "string",
