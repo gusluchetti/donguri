@@ -156,7 +156,7 @@ function RootComponent() {
           <Outlet />
           <footer className="border-t border-dg-border-subtle px-4 sm:px-6 py-4 font-mono shrink-0">
             <div className="max-w-[1000px] mx-auto flex items-center justify-between text-[0.7rem] text-dg-text-tertiary">
-              <span>v0.2.0</span>
+              <span>v0.3.0</span>
               <span>
                 data from{" "}
                 <a

@@ -15,7 +15,7 @@ Live at **donguri.app**.
   - `bun run src/import/import-all.ts subset.ndjson --full` (media + genre seed + Wikidata seasons)
   - `bun run src/import/import-seasons.ts tvmaze` (gap-fill TV)
   - `bun run src/import/import-seasons.ts anime-offline <file.json>` (gap-fill anime)
-  - `bun run import:covers` (needs TMDB_API_KEY, TWITCH_CLIENT_ID/SECRET locally)
+  - `bun run src/import/covers.ts` (needs TMDB_API_KEY, TWITCH_CLIENT_ID/SECRET locally)
 
 ---
 

@@ -30,7 +30,7 @@ bun run db:push               # Push schema changes directly
 bun run db:studio             # Open Drizzle Studio
 
 # ─── Production build ───────────────────────────────────────────────────────
-bun run build                 # Vite build → .output/
+bun run build                 # Vite build → dist/
 bun run dev:prod              # Tunnel + Docker build+run (test prod bundle locally)
 fly deploy                    # Deploy to Fly.io
 
