@@ -8,12 +8,12 @@ export const Route = createFileRoute("/roadmap")({
       {
         name: "description",
         content:
-          "See what's coming next for donguri — episode tracking, genre filtering, cover art, and more.",
+          "See what's coming next for donguri — episode tracking, genre filtering, and more.",
       },
       ...ogTags({
         title: "Roadmap — donguri",
         description:
-          "See what's coming next for donguri — episode tracking, genre filtering, cover art, and more.",
+          "See what's coming next for donguri — episode tracking, genre filtering, and more.",
         path: "/roadmap",
       }),
     ],
@@ -30,6 +30,11 @@ const SECTIONS = [
         "Rich detail pages",
         "genres, platforms, and direct links to IMDb, TMDB, MAL, AniList, IGDB, and more",
       ],
+      ["Cover art", "cover images on detail pages and catalog thumbnails"],
+      [
+        "Season and episode data",
+        "per-season episode counts from Wikidata, TVMaze, and anime-offline-database",
+      ],
       [
         "Track your collection",
         "smart status labels per media type (Watching for TV, Playing for games), rate 0\u2013100, mark favorites, and count rewatches",
@@ -42,6 +47,10 @@ const SECTIONS = [
       [
         "Favorites and rewatch tracking",
         "star your favorites and keep count of rewatches, replays, and rewatches across all media types",
+      ],
+      [
+        "Genre tags on detail pages",
+        "genres displayed with hierarchy \u2014 sub-genres grouped under their parent category",
       ],
       [
         "Dark and light themes",
@@ -61,7 +70,6 @@ const SECTIONS = [
         "mark individual episodes as watched, season by season. Never lose your place in a long-running series",
       ],
       ["Genre filtering", "filter the catalog by genre, not just media type"],
-      ["Cover art and posters", "visuals for every title in the catalog and on detail pages"],
       ["Notes", "add personal notes to any title in your collection"],
       ["Import your data", "bring your lists from MyAnimeList, Letterboxd, Trakt, and more"],
     ],
@@ -111,17 +119,17 @@ const SECTIONS = [
 function RoadmapPage() {
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[1000px] mx-auto px-4 py-10 sm:px-6 sm:py-16">
+      <div className="max-w-[1000px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
         <h1 className="text-[1.6rem] sm:text-[2rem] font-semibold -tracking-[0.02em] mb-2">
           <span className="text-dg-accent">roadmap</span>
         </h1>
-        <p className="text-dg-text-secondary text-[0.9rem] leading-relaxed mb-6 sm:mb-8">
+        <p className="text-dg-text-secondary text-[0.9rem] leading-relaxed mb-4 sm:mb-5">
           Your personal catalog for movies, TV shows, anime, and games. Track what you've watched,
           what you're playing, and what's next — all in one place. Sign in with Bluesky and your
           data stays yours, synced to your own server.
         </p>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
           {SECTIONS.map((section) => (
             <div key={section.title}>
               <h2 className="text-[0.8rem] uppercase tracking-wider mb-2 text-dg-text-secondary">

@@ -1,5 +1,12 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  getRouteApi,
+  Link,
+  useElementScrollRestoration,
+  useNavigate,
+  useRouter,
+} from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
@@ -109,6 +116,7 @@ function CatalogPage() {
 
   const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
   const [quickAddState, setQuickAddState] = useState<Record<string, "pending" | "done">>({});
+  const quickAddTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const parentRef = useRef<HTMLDivElement>(null);
 
   const trackedIds: Record<string, string | null> = { ...rootTrackedIds, ...localOverrides };
@@ -138,13 +146,18 @@ function CatalogPage() {
         await setCatalogEntry({ data: { wikidataId, status: defaultStatus } });
         console.debug("[quick-add] %s → server ok", wikidataId);
         setQuickAddState((prev) => ({ ...prev, [wikidataId]: "done" }));
-        setTimeout(() => {
-          setQuickAddState((prev) => {
-            const next = { ...prev };
-            delete next[wikidataId];
-            return next;
-          });
-        }, 1500);
+        clearTimeout(quickAddTimers.current.get(wikidataId));
+        quickAddTimers.current.set(
+          wikidataId,
+          setTimeout(() => {
+            quickAddTimers.current.delete(wikidataId);
+            setQuickAddState((prev) => {
+              const next = { ...prev };
+              delete next[wikidataId];
+              return next;
+            });
+          }, 1500),
+        );
         queryClient.invalidateQueries({ queryKey: ["user"] });
         router.invalidate();
       } catch (err) {
@@ -164,10 +177,35 @@ function CatalogPage() {
     [router, queryClient],
   );
 
+  // Clean up quick-add timers on unmount
+  useEffect(
+    () => () => {
+      for (const t of quickAddTimers.current.values()) clearTimeout(t);
+    },
+    [],
+  );
+
+  // Scroll restoration for the custom scroll container via TanStack Router
+  const scrollEntry = useElementScrollRestoration({
+    getElement: () => parentRef.current,
+  });
+
+  // Restore scroll position after data is available and virtualizer has rendered
+  const didRestore = useRef(false);
+  useEffect(() => {
+    if (didRestore.current || !scrollEntry || allItems.length === 0) return;
+    didRestore.current = true;
+    const el = parentRef.current;
+    if (!el || scrollEntry.scrollY === 0) return;
+    requestAnimationFrame(() => {
+      el.scrollTop = scrollEntry.scrollY;
+    });
+  }, [allItems.length, scrollEntry]);
+
   const virtualizer = useVirtualizer({
     count: hasNextPage ? allItems.length + 1 : allItems.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 64,
+    estimateSize: () => 68,
     overscan: 10,
   });
 
@@ -349,6 +387,16 @@ const MediaRow = memo(function MediaRow({
   return (
     <div className="flex items-center justify-between py-2 h-full gap-2 sm:gap-4">
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+        {item.posterUrl && (
+          <img
+            src={item.posterUrl}
+            alt=""
+            width={40}
+            height={60}
+            className="rounded-sm border border-dg-border-subtle object-cover shrink-0 hidden sm:block"
+            loading="lazy"
+          />
+        )}
         {addState === "pending" ? (
           <span className="text-[0.75rem] font-bold text-dg-accent font-mono shrink-0">
             [<span className="dg-ellipsis" />]

@@ -4,7 +4,7 @@ import {
   type WikibaseEntityIdValue,
   type WikidataEntity,
   WikidataProperties,
-} from "./types";
+} from "./_types";
 
 const P = WikidataProperties;
 const Q = MediaTypeQValues;
@@ -102,6 +102,20 @@ export function isMediaEntity(entity: WikidataEntity): boolean {
   return instanceOfValues.some((qValue) => ALL_MEDIA_TYPES.has(qValue));
 }
 
+// Season Q-values (TV season + anime season)
+const SEASON_TYPES = new Set<string>([Q.TV_SEASON, Q.ANIME_SEASON]);
+
+/**
+ * Check if an entity is a TV/anime season (P31 = Q3464665 or Q100269041) with P179 (part of series)
+ */
+export function isSeasonEntity(entity: WikidataEntity): boolean {
+  const instanceOfValues = getInstanceOfValues(entity);
+  if (!instanceOfValues.some((qValue) => SEASON_TYPES.has(qValue))) return false;
+  // Must have P179 (part of series) to be linkable to a parent show
+  if (!entity.claims?.[P.PART_OF_SERIES]) return false;
+  return true;
+}
+
 /**
  * Get a string claim value (e.g., external IDs)
  */
@@ -139,17 +153,11 @@ export function getSitelinksCount(entity: WikidataEntity): number {
 }
 
 /**
- * Minimum sitelinks count for import. Higher = fewer but more notable entries.
- */
-const MIN_SITELINKS = 5;
-
-/**
- * Quality filter: must be media + have external ID + enough sitelinks
+ * Quality filter: must be media + have ≥1 sitelink OR ≥1 external ID
  */
 export function shouldImportEntity(entity: WikidataEntity): boolean {
   if (entity.type !== "item") return false;
   if (!isMediaEntity(entity)) return false;
-  if (!hasExternalId(entity)) return false;
-  if (getSitelinksCount(entity) < MIN_SITELINKS) return false;
+  if (getSitelinksCount(entity) < 1 && !hasExternalId(entity)) return false;
   return true;
 }

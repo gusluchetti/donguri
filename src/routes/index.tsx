@@ -53,7 +53,7 @@ export const Route = createFileRoute("/")({
       return { entries };
     }
   },
-  staleTime: 30_000,
+  staleTime: 5 * 60 * 1000,
   component: HomePage,
 });
 
@@ -63,7 +63,7 @@ function HomePage() {
   if (auth) {
     return (
       <div className="bg-dg-bg text-dg-text flex-1 font-mono">
-        <div className="max-w-[1000px] mx-auto px-4 py-10 sm:px-6 sm:py-16">
+        <div className="max-w-[1000px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
           <LoggedInView />
         </div>
       </div>
@@ -72,17 +72,17 @@ function HomePage() {
 
   return (
     <div className="bg-dg-bg text-dg-text flex-1 font-mono">
-      <div className="max-w-[1000px] mx-auto px-4 py-10 sm:px-6 sm:py-16">
+      <div className="max-w-[1000px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
         <h1 className="text-[1.6rem] sm:text-[2rem] font-semibold -tracking-[0.02em] mb-2">
           <span className="text-dg-accent">donguri</span>
         </h1>
-        <p className="text-dg-text-secondary text-[0.9rem] leading-relaxed mb-6 sm:mb-8">
+        <p className="text-dg-text-secondary text-[0.9rem] leading-relaxed mb-4 sm:mb-5">
           Track movies, TV, anime, and games.
         </p>
 
         <SignInSection />
 
-        <div className="flex flex-col sm:flex-row gap-3 mt-6 sm:mt-8">
+        <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-5">
           <Link
             to="/catalog"
             className="text-[0.85rem] text-dg-accent no-underline py-2.5 sm:py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-150 text-center sm:text-left"
@@ -103,7 +103,7 @@ function HomePage() {
 
 function SignInSection() {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <div className="text-[0.8rem] text-dg-text-secondary uppercase tracking-wider">Sign in</div>
 
       {/* Bluesky — primary */}
@@ -236,7 +236,7 @@ function LoggedInView() {
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
           {STATUS_ORDER.map((status) => {
             const items = grouped.get(status);
             if (!items) return null;

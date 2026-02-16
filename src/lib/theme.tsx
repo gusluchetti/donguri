@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 type Theme = "dark" | "light";
 
@@ -28,11 +28,13 @@ export function ThemeProvider({
   initialTheme?: Theme;
 }) {
   const [theme, setTheme] = useState<Theme>(initialTheme);
+  const transitionTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const toggleTheme = useCallback(() => {
     const next = theme === "dark" ? "light" : "dark";
 
     // Enable transition
+    clearTimeout(transitionTimer.current);
     document.documentElement.classList.add("theme-transition");
     document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("dg-theme", next);
@@ -41,7 +43,7 @@ export function ThemeProvider({
     setTheme(next);
 
     // Remove transition class after animation completes
-    setTimeout(() => {
+    transitionTimer.current = setTimeout(() => {
       document.documentElement.classList.remove("theme-transition");
     }, 250);
   }, [theme]);

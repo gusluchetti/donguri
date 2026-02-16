@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
-import { Save, Trash2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CatalogEntry } from "../../db/schema";
 import {
@@ -42,7 +42,7 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
   loader: async ({ params, context }): Promise<LoaderData> => {
     const mediaPromise = context.queryClient.ensureQueryData(mediaDetailOptions(params.wikidataId));
     const entryPromise = context.queryClient
-      .fetchQuery(catalogEntryOptions(params.wikidataId))
+      .ensureQueryData(catalogEntryOptions(params.wikidataId))
       .catch(() => null);
 
     const [media, initialEntry] = await Promise.all([mediaPromise, entryPromise]);
@@ -60,7 +60,7 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
 
     throw new Error("Media not found");
   },
-  staleTime: 30 * 60 * 1000,
+  staleTime: 5 * 60 * 1000,
   pendingMs: 0,
   pendingComponent: MediaDetailSkeleton,
   head: ({ loaderData }) => {
@@ -122,19 +122,19 @@ function MediaDetailRouter() {
 function MediaDetailSkeleton() {
   return (
     <div className="bg-dg-bg text-dg-text flex-1 font-mono">
-      <div className="max-w-[1000px] mx-auto p-4 sm:p-6">
+      <div className="max-w-[1000px] mx-auto p-4 sm:p-5">
         <button
           type="button"
           onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-4 sm:mb-6 inline-block"
+          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block"
         >
           &larr; back
         </button>
-        <div className="mb-6">
+        <div className="mb-5">
           <div className="w-16 h-5 bg-dg-surface rounded-sm mb-3 animate-pulse" />
           <div className="w-2/3 h-8 bg-dg-surface rounded animate-pulse" />
         </div>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3 mb-5 sm:mb-6 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
+        <div className="flex flex-wrap gap-x-6 gap-y-3 mb-4 sm:mb-5 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
           {[...Array(4)].map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton items
             <div key={i} className="flex flex-col gap-1">
@@ -162,16 +162,16 @@ function MediaStubPage({
 
   return (
     <div className="bg-dg-bg text-dg-text flex-1 font-mono">
-      <div className="max-w-[1000px] mx-auto p-4 sm:p-6">
+      <div className="max-w-[1000px] mx-auto p-4 sm:p-5">
         <button
           type="button"
           onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-4 sm:mb-6 inline-block"
+          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block"
         >
           &larr; back
         </button>
 
-        <div className="mb-5 sm:mb-6">
+        <div className="mb-4 sm:mb-5">
           {stub.mediaType && (
             <span
               className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
@@ -184,7 +184,7 @@ function MediaStubPage({
           </h1>
         </div>
 
-        <div className="border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-5 sm:mb-6">
+        <div className="border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5">
           <p className="text-[0.8rem] text-dg-text-tertiary">
             This title has not been imported into the catalog yet. Metadata will appear after the
             next data import.
@@ -195,7 +195,7 @@ function MediaStubPage({
           <TrackingPanel wikidataId={stub.wikidataId} mediaType={stub.mediaType ?? undefined} />
         )}
 
-        <div className="mb-5 sm:mb-6">
+        <div className="mb-4 sm:mb-5">
           <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
             Links
           </h3>
@@ -204,7 +204,7 @@ function MediaStubPage({
               href={`https://www.wikidata.org/wiki/${stub.wikidataId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-dg-accent no-underline py-2 px-3 sm:py-1.5 sm:px-2.5 border border-dg-accent/20 rounded-sm transition-all duration-150"
+              className="text-xs text-dg-accent/70 no-underline py-2 px-3 sm:py-1.5 sm:px-2.5 border border-dg-accent/15 rounded-sm transition-all duration-150"
             >
               Wikidata {"\u2197"}
             </a>
@@ -224,10 +224,19 @@ function MediaDetailPage({
 }) {
   const { auth } = rootRoute.useLoaderData();
   const badgeClass = typeBadgeClass(data.mediaType);
+  const [localIsFavorite, setLocalIsFavorite] = useState(initialEntry?.isFavorite ?? false);
 
   const isAnime = data.mediaType === "anime";
   const isGame = data.mediaType === "game";
   const isTvOrAnime = data.mediaType === "tv_series" || isAnime;
+  const hasSeasons = isTvOrAnime && data.seasons && data.seasons.length > 0;
+
+  // Dedup genres: if a sub-genre is present, suppress its standalone parent
+  const subGenreParentIds = new Set(data.genres.flatMap((g) => (g.parentId ? [g.parentId] : [])));
+  const visibleGenres = data.genres.filter((g) => {
+    if (g.parentId) return true;
+    return !subGenreParentIds.has(g.id);
+  });
 
   const externalLinks: { label: string; url: string }[] = [];
   if (data.imdbId)
@@ -285,90 +294,166 @@ function MediaDetailPage({
 
   return (
     <div className="bg-dg-bg text-dg-text flex-1 font-mono">
-      <div className="max-w-[1000px] mx-auto p-4 sm:p-6">
+      <div className="max-w-[1000px] mx-auto p-4 sm:p-5">
         {/* Back link */}
         <button
           type="button"
           onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-4 sm:mb-6 inline-block"
+          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block"
         >
           &larr; back
         </button>
 
-        {/* Header */}
-        <div className="mb-5 sm:mb-6">
-          <span
-            className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
-          >
-            {mediaTypeLabel(data.mediaType)}
-          </span>
-          <h1 className="text-[1.35rem] sm:text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
-            {data.title}
-          </h1>
-          {data.originalTitle && (
-            <p className="text-base text-dg-text-secondary mt-1.5">{data.originalTitle}</p>
-          )}
-        </div>
-
-        {/* Meta info */}
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3 mb-5 sm:mb-6 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
-          {data.startYear && (
-            <MetaItem
-              label="Year"
-              value={
-                data.endYear && data.endYear !== data.startYear
-                  ? `${data.startYear}\u2013${data.endYear}`
-                  : String(data.startYear)
-              }
+        {/* Header + meta combined row */}
+        <div className="flex gap-4 sm:gap-5 mb-4 sm:mb-5 relative">
+          {data.posterUrl && (
+            <img
+              src={data.posterUrl}
+              alt={`${data.title} poster`}
+              width={120}
+              className="w-[120px] rounded border border-dg-border-subtle shrink-0 self-stretch object-cover hidden sm:block"
+              loading="eager"
             />
           )}
-          {data.countryOfOrigin && <MetaItem label="Country" value={data.countryOfOrigin} />}
-          {data.runtimeMinutes && data.mediaType === "movie" && (
-            <MetaItem label="Runtime" value={`${data.runtimeMinutes} min`} />
+          <div className="min-w-0 flex-1">
+            <span
+              className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
+            >
+              {mediaTypeLabel(data.mediaType)}
+            </span>
+            <h1 className="text-[1.35rem] sm:text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
+              {data.title}
+            </h1>
+            {data.originalTitle && (
+              <p className="text-base text-dg-text-secondary mt-1.5">{data.originalTitle}</p>
+            )}
+
+            {/* Meta slab */}
+            <div className="mt-3 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
+              <div className="flex flex-wrap gap-x-6 gap-y-3">
+                {data.startYear && (
+                  <MetaItem
+                    label="Year"
+                    value={
+                      data.endYear && data.endYear !== data.startYear
+                        ? `${data.startYear}\u2013${data.endYear}`
+                        : String(data.startYear)
+                    }
+                  />
+                )}
+                {data.countryOfOrigin && <MetaItem label="Country" value={data.countryOfOrigin} />}
+                {data.runtimeMinutes && data.mediaType === "movie" && (
+                  <MetaItem label="Runtime" value={`${data.runtimeMinutes} min`} />
+                )}
+                {data.seasonCount && <MetaItem label="Seasons" value={String(data.seasonCount)} />}
+                {data.episodeCount && (
+                  <MetaItem label="Episodes" value={String(data.episodeCount)} />
+                )}
+                {data.qrankPct != null && (
+                  <div className="flex flex-col gap-0.5">
+                    <a
+                      href="https://qrank.wmcloud.org/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider whitespace-nowrap hover:text-dg-accent transition-colors"
+                    >
+                      Popularity (QRank) ↗
+                    </a>
+                    <span className="text-[0.85rem] text-dg-text">Top {data.qrankPct}%</span>
+                  </div>
+                )}
+                <MetaItem label="Sitelinks" value={String(data.sitelinksCount ?? 0)} />
+              </div>
+              {visibleGenres.length > 0 && (
+                <div className="border-t border-dg-border-subtle mt-3 pt-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {visibleGenres.map((g) => (
+                      <span
+                        key={g.id}
+                        className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                      >
+                        {g.parentName ? (
+                          <>
+                            <span className="text-dg-text-tertiary">{g.parentName} &rsaquo; </span>
+                            {g.name}
+                          </>
+                        ) : (
+                          g.name
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {data.description && (
+                <div className="border-t border-dg-border-subtle mt-3 pt-3">
+                  <p className="text-[0.8rem] text-dg-text-secondary m-0 leading-relaxed">
+                    {data.description}
+                  </p>
+                </div>
+              )}
+
+              {/* External links */}
+              <div className="border-t border-dg-border-subtle mt-3 pt-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {externalLinks.map((link) => (
+                    <a
+                      key={link.label}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-150"
+                    >
+                      {link.label} {"\u2197"}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          {auth && initialEntry?.status && (
+            <button
+              type="button"
+              onClick={() => setLocalIsFavorite(!localIsFavorite)}
+              className={`absolute top-0 right-0 text-[1.1rem] bg-transparent border-none cursor-pointer p-1 transition-colors duration-150 ${
+                localIsFavorite ? "text-dg-accent" : "text-dg-text-tertiary hover:text-dg-accent/60"
+              }`}
+              title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
+            >
+              {localIsFavorite ? "\u2605" : "\u2606"}
+            </button>
           )}
-          {data.seasonCount && <MetaItem label="Seasons" value={String(data.seasonCount)} />}
-          {data.episodeCount && <MetaItem label="Episodes" value={String(data.episodeCount)} />}
-          <MetaItem label="Popularity" value={`${data.sitelinksCount ?? 0} sitelinks`} />
         </div>
 
-        {/* Tracking panel (inline) */}
+        {/* Tracking + Episodes unified card */}
         {auth && (
-          <TrackingPanel
-            wikidataId={data.wikidataId}
-            mediaType={data.mediaType}
-            initialEntry={initialEntry}
-          />
+          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-4 sm:mb-5">
+            <TrackingPanel
+              wikidataId={data.wikidataId}
+              mediaType={data.mediaType}
+              initialEntry={initialEntry}
+              favoriteState={{ value: localIsFavorite, set: setLocalIsFavorite }}
+              bare
+            />
+            {hasSeasons && data.seasons && (
+              <>
+                <div className="border-t border-dg-border-subtle" />
+                <EpisodeGrid seasons={data.seasons} />
+              </>
+            )}
+          </div>
         )}
 
-        {/* Description */}
-        {data.description && (
-          <p className="text-[0.85rem] leading-relaxed text-dg-text-secondary mb-5 sm:mb-6">
-            {data.description}
-          </p>
-        )}
-
-        {/* Genres */}
-        {data.genres.length > 0 && (
-          <div className="mb-5 sm:mb-6">
-            <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-              Genres
-            </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {data.genres.map((g) => (
-                <span
-                  key={g.id}
-                  className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                >
-                  {g.name}
-                </span>
-              ))}
-            </div>
+        {/* No auth: standalone episode grid */}
+        {!auth && hasSeasons && data.seasons && (
+          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-4 sm:mb-5">
+            <EpisodeGrid seasons={data.seasons} />
           </div>
         )}
 
         {/* Platforms (games) */}
         {data.platforms.length > 0 && (
-          <div className="mb-5 sm:mb-6">
+          <div className="mb-4 sm:mb-5">
             <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
               Platforms
             </h3>
@@ -384,26 +469,63 @@ function MediaDetailPage({
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
 
-        {/* External links */}
-        <div className="mb-5 sm:mb-6">
-          <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-            Links
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {externalLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-dg-accent no-underline py-2 px-3 sm:py-1.5 sm:px-2.5 border border-dg-accent/20 rounded-sm transition-all duration-150"
-              >
-                {link.label} {"\u2197"}
-              </a>
-            ))}
-          </div>
-        </div>
+function EpisodeGrid({
+  seasons,
+}: {
+  seasons: {
+    id: string;
+    seasonNumber: number;
+    episodeCount: number | null;
+    title: string | null;
+    dataSource: string;
+  }[];
+}) {
+  const isSingleSeason = seasons.length === 1;
+  let runningTotal = 0;
+
+  return (
+    <div className="p-3 sm:p-4">
+      <h3 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-3">
+        Episodes
+      </h3>
+      <div className="space-y-2">
+        {seasons.map((s) => {
+          const startEp = runningTotal;
+          if (s.episodeCount != null) runningTotal += s.episodeCount;
+          return (
+            <div key={s.id} className="flex gap-2">
+              {!isSingleSeason && (
+                <span className="w-8 shrink-0 text-[0.75rem] text-dg-text-tertiary tabular-nums pt-1">
+                  S{String(s.seasonNumber).padStart(2, "0")}
+                </span>
+              )}
+              {s.episodeCount != null ? (
+                <div className="flex flex-wrap gap-1">
+                  {Array.from({ length: s.episodeCount }, (_, i) => {
+                    const ep = i + 1;
+                    const absEp = startEp + ep;
+                    return (
+                      <div
+                        key={`ep-${ep}`}
+                        title={`Episode ${absEp}`}
+                        className="w-7 h-7 flex items-center justify-center text-[0.65rem] tabular-nums bg-dg-elevated border border-dg-border-subtle rounded-sm text-dg-text-secondary"
+                      >
+                        {String(ep).padStart(2, "0")}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <span className="text-xs text-dg-text-tertiary pt-1">unknown</span>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -413,10 +535,14 @@ function TrackingPanel({
   wikidataId,
   mediaType,
   initialEntry,
+  favoriteState,
+  bare,
 }: {
   wikidataId: string;
   mediaType?: string;
   initialEntry?: CatalogEntry | null;
+  favoriteState?: { value: boolean; set: (v: boolean) => void };
+  bare?: boolean;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -431,16 +557,15 @@ function TrackingPanel({
   const [localStatus, setLocalStatus] = useState<string | null>(
     hasInitial ? (initialEntry?.status ?? null) : null,
   );
-  const [localIsFavorite, setLocalIsFavorite] = useState(
+  const [fallbackFav, setFallbackFav] = useState(
     hasInitial ? (initialEntry?.isFavorite ?? false) : false,
   );
+  const localIsFavorite = favoriteState ? favoriteState.value : fallbackFav;
+  const setLocalIsFavorite = favoriteState ? favoriteState.set : setFallbackFav;
   const [localReplayCount, setLocalReplayCount] = useState(
     hasInitial ? (initialEntry?.replayCount ?? 0) : 0,
   );
-  const savedRating = useRef<number | null>(hasInitial ? (initialEntry?.rating ?? null) : null);
-  const savedStatus = useRef<string | null>(hasInitial ? (initialEntry?.status ?? null) : null);
-  const savedIsFavorite = useRef(hasInitial ? (initialEntry?.isFavorite ?? false) : false);
-  const savedReplayCount = useRef(hasInitial ? (initialEntry?.replayCount ?? 0) : 0);
+  const serverEntry = useRef<CatalogEntry | null>(hasInitial ? (initialEntry ?? null) : null);
 
   // When loader didn't provide the entry, use TanStack Query to fetch it
   const entryQuery = useQuery({
@@ -456,18 +581,14 @@ function TrackingPanel({
     setLocalStatus(e?.status ?? null);
     setLocalIsFavorite(e?.isFavorite ?? false);
     setLocalReplayCount(e?.replayCount ?? 0);
-    savedRating.current = e?.rating ?? null;
-    savedStatus.current = e?.status ?? null;
-    savedIsFavorite.current = e?.isFavorite ?? false;
-    savedReplayCount.current = e?.replayCount ?? 0;
+    serverEntry.current = e;
     setLoaded(true);
-  }, [hasInitial, entryQuery.isPending, entryQuery.data]);
+  }, [hasInitial, entryQuery.isPending, entryQuery.data, setLocalIsFavorite]);
 
-  const ratingDirty =
-    localRating !== savedRating.current && !(localRating === null && savedRating.current === null);
-  const statusDirty = localStatus !== savedStatus.current;
-  const favoriteDirty = localIsFavorite !== savedIsFavorite.current;
-  const replayDirty = localReplayCount !== savedReplayCount.current;
+  const ratingDirty = localRating !== (serverEntry.current?.rating ?? null);
+  const statusDirty = localStatus !== (serverEntry.current?.status ?? null);
+  const favoriteDirty = localIsFavorite !== (serverEntry.current?.isFavorite ?? false);
+  const replayDirty = localReplayCount !== (serverEntry.current?.replayCount ?? 0);
   const isDirty = ratingDirty || statusDirty || favoriteDirty || replayDirty;
 
   const handleSave = useCallback(async () => {
@@ -525,10 +646,7 @@ function TrackingPanel({
         setLocalStatus(fresh?.status ?? null);
         setLocalIsFavorite(fresh?.isFavorite ?? false);
         setLocalReplayCount(fresh?.replayCount ?? 0);
-        savedRating.current = fresh?.rating ?? null;
-        savedStatus.current = fresh?.status ?? null;
-        savedIsFavorite.current = fresh?.isFavorite ?? false;
-        savedReplayCount.current = fresh?.replayCount ?? 0;
+        serverEntry.current = fresh;
         queryClient.invalidateQueries({ queryKey: ["user"] });
         router.invalidate();
       } catch (err) {
@@ -551,6 +669,7 @@ function TrackingPanel({
     router,
     queryClient,
     action,
+    setLocalIsFavorite,
   ]);
 
   const handleRemove = useCallback(async () => {
@@ -575,14 +694,26 @@ function TrackingPanel({
 
   if (!loaded) {
     return (
-      <div className="border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-5 sm:mb-6">
+      <div
+        className={
+          bare
+            ? "p-3 sm:p-4"
+            : "border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5"
+        }
+      >
         <div className="w-20 h-3 bg-dg-elevated rounded animate-pulse" />
       </div>
     );
   }
 
   return (
-    <div className="border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-5 sm:mb-6">
+    <div
+      className={
+        bare
+          ? "p-3 sm:p-4"
+          : "border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5"
+      }
+    >
       <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-3">
         {action.state === "pending" ? (
           <span className="dg-ellipsis">Tracking</span>
@@ -663,43 +794,28 @@ function TrackingPanel({
         </div>
       )}
 
-      {/* Favorite toggle + Replay count (when status is set) */}
-      {localStatus && (
-        <div className="flex items-center gap-4 mb-4">
+      {/* Replay count (when completed) */}
+      {localStatus === "completed" && (
+        <div className="flex items-center gap-2 mb-4">
           <button
             type="button"
-            onClick={() => setLocalIsFavorite(!localIsFavorite)}
-            disabled={action.state === "pending"}
-            className={`text-[1rem] bg-transparent border-none cursor-pointer p-1 -m-1 transition-colors duration-150 disabled:opacity-50 ${
-              localIsFavorite ? "text-dg-accent" : "text-dg-text-tertiary hover:text-dg-accent/60"
-            }`}
-            title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
+            onClick={() => setLocalReplayCount(Math.max(0, localReplayCount - 1))}
+            disabled={action.state === "pending" || localReplayCount <= 0}
+            className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30"
           >
-            {localIsFavorite ? "\u2605" : "\u2606"}
+            -
           </button>
-          {localStatus === "completed" && (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setLocalReplayCount(Math.max(0, localReplayCount - 1))}
-                disabled={action.state === "pending" || localReplayCount <= 0}
-                className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30"
-              >
-                -
-              </button>
-              <span className="text-[0.75rem] text-dg-text-secondary min-w-[5rem] text-center">
-                {replayCountLabel(localReplayCount, mediaType) ?? "First time"}
-              </span>
-              <button
-                type="button"
-                onClick={() => setLocalReplayCount(localReplayCount + 1)}
-                disabled={action.state === "pending"}
-                className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30"
-              >
-                +
-              </button>
-            </div>
-          )}
+          <span className="text-[0.75rem] text-dg-text-secondary min-w-[5rem] text-center">
+            {replayCountLabel(localReplayCount, mediaType) ?? "First time"}
+          </span>
+          <button
+            type="button"
+            onClick={() => setLocalReplayCount(localReplayCount + 1)}
+            disabled={action.state === "pending"}
+            className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30"
+          >
+            +
+          </button>
         </div>
       )}
 
@@ -710,22 +826,22 @@ function TrackingPanel({
             type="button"
             onClick={handleSave}
             disabled={action.state === "pending" || !isDirty}
-            className={`bg-transparent border-none cursor-pointer p-2 -m-2 transition-colors duration-150 disabled:opacity-30 ${
+            className={`text-[0.75rem] font-mono bg-transparent border-none cursor-pointer p-2 -m-2 transition-colors duration-150 disabled:opacity-30 ${
               isDirty ? "text-dg-accent hover:text-dg-accent/80" : "text-dg-text-tertiary"
             }`}
             title="Save changes"
           >
-            <Save size={16} />
+            save
           </button>
-          {savedStatus.current && (
+          {serverEntry.current?.status && (
             <button
               type="button"
               onClick={handleRemove}
               disabled={action.state === "pending"}
-              className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-2 -m-2 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
+              className="text-[0.75rem] font-mono text-dg-text-tertiary bg-transparent border-none cursor-pointer p-2 -m-2 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
               title="Remove from list"
             >
-              <Trash2 size={16} />
+              delete
             </button>
           )}
         </div>
@@ -752,11 +868,8 @@ function RatingInput({
     if (disabled) return;
     setText(value != null ? String(value) : "");
     setEditing(true);
+    queueMicrotask(() => inputRef.current?.select());
   };
-
-  useEffect(() => {
-    if (editing) inputRef.current?.select();
-  }, [editing]);
 
   const commit = () => {
     setEditing(false);

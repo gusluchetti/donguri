@@ -134,6 +134,10 @@ export const WikidataProperties = {
   SEASON_COUNT: "P2437",
   DURATION: "P2047",
 
+  // Series / Season
+  PART_OF_SERIES: "P179",
+  SERIES_ORDINAL: "P1545",
+
   // Classification
   GENRE: "P136",
   COUNTRY_OF_ORIGIN: "P495",
@@ -157,6 +161,8 @@ export const MediaTypeQValues = {
   ANIME: "Q1107",
   ANIME_TV_SERIES_ALT: "Q11086742",
   VIDEO_GAME: "Q7889",
+  TV_SEASON: "Q3464665",
+  ANIME_SEASON: "Q100269041",
 } as const;
 
 export type MediaType = "movie" | "tv_series" | "anime" | "game";
@@ -187,4 +193,11 @@ export interface ParsedMedia {
   genreIds: string[];
   platformIds: string[];
   searchTitle: string;
+}
+
+export interface ParsedSeason {
+  seriesWikidataId: string;
+  seasonNumber: number;
+  episodeCount: number | null;
+  title: string | null;
 }

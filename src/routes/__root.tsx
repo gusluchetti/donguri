@@ -58,7 +58,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     }
     return { auth, trackedIds, theme };
   },
-  staleTime: 30_000,
+  staleTime: 5 * 60 * 1000,
   component: RootComponent,
   notFoundComponent: NotFound,
 });
@@ -89,18 +89,6 @@ function RootComponent() {
   const { auth, theme } = Route.useLoaderData();
   const queryClient = Route.useRouteContext().queryClient;
 
-  // Re-check auth when tab becomes visible (handles cross-tab login/logout)
-  // Only invalidate user-specific queries — media data doesn't change between tabs
-  useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        queryClient.invalidateQueries({ queryKey: ["user"] });
-      }
-    };
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
-  }, [queryClient]);
-
   // Auto-reload on stale server function IDs (client/server version mismatch after deploy)
   useEffect(() => {
     const onError = (e: PromiseRejectionEvent) => {
@@ -118,7 +106,7 @@ function RootComponent() {
     <RootDocument theme={theme}>
       <ThemeProvider initialTheme={theme}>
         <div className="min-h-dvh flex flex-col">
-          <nav className="border-b border-dg-border-subtle px-4 sm:px-6 py-3 font-mono shrink-0">
+          <nav className="border-b border-dg-border-subtle px-4 sm:px-6 py-2 font-mono shrink-0">
             <div className="max-w-[1000px] mx-auto flex items-center min-h-[44px] gap-4 sm:gap-6">
               {NAV_LINKS.map((link) => (
                 <Link
@@ -166,6 +154,49 @@ function RootComponent() {
             </div>
           </nav>
           <Outlet />
+          <footer className="border-t border-dg-border-subtle px-4 sm:px-6 py-3 font-mono shrink-0">
+            <div className="max-w-[1000px] mx-auto flex items-center justify-between text-[0.7rem] text-dg-text-tertiary">
+              <span>v0.3.0</span>
+              <span>
+                data from{" "}
+                <a
+                  href="https://www.wikidata.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                >
+                  Wikidata
+                </a>
+                {" \u00b7 "}
+                <a
+                  href="https://www.themoviedb.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                >
+                  TMDB
+                </a>
+                {" \u00b7 "}
+                <a
+                  href="https://www.tvmaze.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                >
+                  TVMaze
+                </a>
+                {" \u00b7 "}
+                <a
+                  href="https://github.com/manami-project/anime-offline-database"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                >
+                  anime-offline-database
+                </a>
+              </span>
+            </div>
+          </footer>
         </div>
       </ThemeProvider>
     </RootDocument>

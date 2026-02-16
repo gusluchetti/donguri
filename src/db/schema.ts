@@ -1,9 +1,10 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   boolean,
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -42,6 +43,11 @@ export const media = pgTable(
 
     // Popularity
     sitelinksCount: integer("sitelinks_count").default(0),
+    qrankPct: numeric("qrank_pct", { precision: 5, scale: 2 }),
+    sitelinksPct: numeric("sitelinks_pct", { precision: 5, scale: 2 }),
+    popularityScore: numeric("popularity_score", { precision: 5, scale: 2 }).generatedAlwaysAs(
+      sql`CASE WHEN qrank_pct IS NOT NULL THEN 0.6 * qrank_pct + 0.4 * COALESCE(sitelinks_pct, 100) ELSE COALESCE(sitelinks_pct, 100) END`,
+    ),
 
     // Country
     countryOfOrigin: text("country_of_origin"),
@@ -76,6 +82,7 @@ export const media = pgTable(
     index("idx_media_igdb").on(table.igdbId),
     index("idx_media_tmdb").on(table.tmdbId),
     index("idx_media_tvmaze").on(table.tvmazeId),
+    index("idx_media_popularity").on(table.popularityScore),
   ],
 );
 
@@ -100,6 +107,35 @@ export const mediaGenres = pgTable(
       .references(() => genres.id, { onDelete: "cascade" }),
   },
   (table) => [primaryKey({ columns: [table.mediaId, table.genreId] })],
+);
+
+// ─── Canonical Genres (two-tier: main + sub-genres) ─────────────────────────
+
+export const canonicalGenres = pgTable("canonical_genres", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => ulid()),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  parentId: text("parent_id"),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export const genreMappings = pgTable(
+  "genre_mappings",
+  {
+    wikidataId: text("wikidata_id").notNull(),
+    canonicalGenreId: text("canonical_genre_id")
+      .notNull()
+      .references(() => canonicalGenres.id, { onDelete: "cascade" }),
+    source: text("source", { enum: ["manual", "p279_auto"] })
+      .notNull()
+      .default("manual"),
+  },
+  (table) => [
+    primaryKey({ columns: [table.wikidataId, table.canonicalGenreId] }),
+    index("idx_genre_mappings_wikidata").on(table.wikidataId),
+  ],
 );
 
 // ─── Platforms (games) ──────────────────────────────────────────────────────
@@ -197,6 +233,7 @@ export const seasons = pgTable(
     title: text("title"),
     dataSource: text("data_source", { enum: ["wikidata", "tvmaze", "anime_offline_db"] }).notNull(),
     createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
   },
   (table) => [
     uniqueIndex("idx_seasons_media_number").on(table.mediaId, table.seasonNumber),
@@ -257,6 +294,23 @@ export const mediaGenresRelations = relations(mediaGenres, ({ one }) => ({
   }),
 }));
 
+export const canonicalGenresRelations = relations(canonicalGenres, ({ one, many }) => ({
+  parent: one(canonicalGenres, {
+    fields: [canonicalGenres.parentId],
+    references: [canonicalGenres.id],
+    relationName: "parentChild",
+  }),
+  children: many(canonicalGenres, { relationName: "parentChild" }),
+  mappings: many(genreMappings),
+}));
+
+export const genreMappingsRelations = relations(genreMappings, ({ one }) => ({
+  canonicalGenre: one(canonicalGenres, {
+    fields: [genreMappings.canonicalGenreId],
+    references: [canonicalGenres.id],
+  }),
+}));
+
 export const platformsRelations = relations(platforms, ({ many }) => ({
   mediaPlatforms: many(mediaPlatforms),
 }));
@@ -303,3 +357,5 @@ export type NewCatalogEntry = typeof catalogEntries.$inferInsert;
 export type ImportProgress = typeof importProgress.$inferSelect;
 export type Season = typeof seasons.$inferSelect;
 export type NewSeason = typeof seasons.$inferInsert;
+export type CanonicalGenre = typeof canonicalGenres.$inferSelect;
+export type GenreMapping = typeof genreMappings.$inferSelect;

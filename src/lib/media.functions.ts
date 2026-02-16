@@ -1,8 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, desc, eq, getTableColumns, sql } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db";
-import { genres, media, mediaGenres, mediaPlatforms, platforms } from "../db/schema";
+import {
+  canonicalGenres,
+  genreMappings,
+  genres,
+  media,
+  mediaGenres,
+  mediaPlatforms,
+  platforms,
+  seasons,
+} from "../db/schema";
 
 // ─── Input schemas ──────────────────────────────────────────────────────────
 
@@ -55,7 +64,12 @@ async function searchMedia(
       .select(getTableColumns(media))
       .from(media)
       .where(and(...conditions))
-      .orderBy(sql`${relevance} DESC`, desc(media.sitelinksCount), media.id)
+      .orderBy(
+        desc(relevance),
+        sql`${media.popularityScore} ASC NULLS LAST`,
+        desc(media.sitelinksCount),
+        asc(media.id),
+      )
       .limit(limit + 1)
       .offset(offset);
   });
@@ -92,19 +106,42 @@ export const listMedia = createServerFn({ method: "GET" })
     // Type filter
     if (mediaType) conditions.push(eq(media.mediaType, mediaType));
 
-    // Keyset cursor pagination
+    // Keyset cursor pagination (popularity_score ASC NULLS LAST, sitelinks_count DESC, id ASC)
     if (cursor) {
       const [cursorItem] = await db
-        .select({ sitelinksCount: media.sitelinksCount, id: media.id })
+        .select({
+          popularityScore: media.popularityScore,
+          sitelinksCount: media.sitelinksCount,
+          id: media.id,
+        })
         .from(media)
         .where(eq(media.id, cursor))
         .limit(1);
 
       if (cursorItem) {
+        const ps = cursorItem.popularityScore;
         const sc = cursorItem.sitelinksCount ?? 0;
-        conditions.push(
-          sql`(${media.sitelinksCount} < ${sc} OR (${media.sitelinksCount} = ${sc} AND ${media.id} > ${cursor}))`,
-        );
+        if (ps != null) {
+          conditions.push(
+            sql`(
+              (${media.popularityScore} IS NOT NULL AND (
+                ${media.popularityScore} > ${ps}
+                OR (${media.popularityScore} = ${ps} AND COALESCE(${media.sitelinksCount}, 0) < ${sc})
+                OR (${media.popularityScore} = ${ps} AND COALESCE(${media.sitelinksCount}, 0) = ${sc} AND ${media.id} > ${cursor})
+              ))
+              OR ${media.popularityScore} IS NULL
+            )`,
+          );
+        } else {
+          conditions.push(
+            sql`(
+              ${media.popularityScore} IS NULL AND (
+                COALESCE(${media.sitelinksCount}, 0) < ${sc}
+                OR (COALESCE(${media.sitelinksCount}, 0) = ${sc} AND ${media.id} > ${cursor})
+              )
+            )`,
+          );
+        }
       }
     }
 
@@ -112,7 +149,11 @@ export const listMedia = createServerFn({ method: "GET" })
       .select()
       .from(media)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(media.sitelinksCount), media.id)
+      .orderBy(
+        sql`${media.popularityScore} ASC NULLS LAST`,
+        desc(media.sitelinksCount),
+        asc(media.id),
+      )
       .limit(limit + 1);
 
     const hasMore = items.length > limit;
@@ -140,24 +181,72 @@ export const getMedia = createServerFn({ method: "GET" })
 
     if (item.length === 0) return null;
 
-    // Fetch genres and platforms in parallel
-    const [itemGenres, itemPlatforms] = await Promise.all([
+    // Fetch canonical genres, platforms, and seasons in parallel
+    const [itemGenres, itemPlatforms, itemSeasons] = await Promise.all([
       db
-        .select({ id: genres.id, name: genres.name, wikidataId: genres.wikidataId })
+        .selectDistinct({
+          id: canonicalGenres.id,
+          slug: canonicalGenres.slug,
+          name: canonicalGenres.name,
+          parentId: canonicalGenres.parentId,
+          sortOrder: canonicalGenres.sortOrder,
+        })
         .from(mediaGenres)
         .innerJoin(genres, eq(mediaGenres.genreId, genres.id))
-        .where(eq(mediaGenres.mediaId, item[0].id)),
+        .innerJoin(genreMappings, eq(genres.wikidataId, genreMappings.wikidataId))
+        .innerJoin(canonicalGenres, eq(genreMappings.canonicalGenreId, canonicalGenres.id))
+        .where(eq(mediaGenres.mediaId, item[0].id))
+        .orderBy(canonicalGenres.sortOrder),
       db
         .select({ id: platforms.id, name: platforms.name, wikidataId: platforms.wikidataId })
         .from(mediaPlatforms)
         .innerJoin(platforms, eq(mediaPlatforms.platformId, platforms.id))
         .where(eq(mediaPlatforms.mediaId, item[0].id)),
+      db
+        .select({
+          id: seasons.id,
+          seasonNumber: seasons.seasonNumber,
+          episodeCount: seasons.episodeCount,
+          title: seasons.title,
+          dataSource: seasons.dataSource,
+        })
+        .from(seasons)
+        .where(eq(seasons.mediaId, item[0].id))
+        .orderBy(seasons.seasonNumber),
     ]);
+
+    // Resolve parent names for sub-genres
+    const parentIds = [...new Set(itemGenres.flatMap((g) => (g.parentId ? [g.parentId] : [])))];
+    const parentMap = new Map<string, string>();
+    if (parentIds.length > 0) {
+      // Parents are likely already in itemGenres; check there first
+      for (const g of itemGenres) {
+        if (parentIds.includes(g.id)) parentMap.set(g.id, g.name);
+      }
+      // Fetch any missing parents
+      const missing = parentIds.filter((id) => !parentMap.has(id));
+      if (missing.length > 0) {
+        const parents = await db
+          .select({ id: canonicalGenres.id, name: canonicalGenres.name })
+          .from(canonicalGenres)
+          .where(
+            sql`${canonicalGenres.id} IN (${sql.join(
+              missing.map((id) => sql`${id}`),
+              sql`, `,
+            )})`,
+          );
+        for (const p of parents) parentMap.set(p.id, p.name);
+      }
+    }
 
     return {
       ...item[0],
-      genres: itemGenres,
+      genres: itemGenres.map((g) => ({
+        ...g,
+        parentName: g.parentId ? (parentMap.get(g.parentId) ?? null) : null,
+      })),
       platforms: itemPlatforms,
+      seasons: itemSeasons,
     };
   });
 

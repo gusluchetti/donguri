@@ -26,7 +26,6 @@ function CallbackPage() {
 
     handleOAuthCallback({ data: search })
       .then(() => {
-        // Hard redirect to bust cached loader data (auth state changed)
         window.location.href = "/";
       })
       .catch(() => {

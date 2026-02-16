@@ -1,68 +1,55 @@
 # donguri — todos
 
 Internal reference. One line per feature, sorted by priority.
-See `ROADMAP.md` for the public version.
+See `/roadmap` page for the public version.
 
 Live at **donguri.app**.
 
 ---
 
+## Deployment checklist — v0.3.0 (seasons + covers)
+
+- [ ] Merge `feat/seasons-and-covers` → `staging` → `main`
+- [ ] Deploy (`fly deploy`) — migrations 0006 + 0007 run automatically
+- [ ] Backfill locally via `fly proxy` (point `DATABASE_URL` at prod):
+  - `bun run src/import/import-all.ts subset.ndjson --full` (media + genre seed + Wikidata seasons)
+  - `bun run src/import/import-seasons.ts tvmaze` (gap-fill TV)
+  - `bun run src/import/import-seasons.ts anime-offline <file.json>` (gap-fill anime)
+  - `bun run src/import/covers.ts` (needs TMDB_API_KEY, TWITCH_CLIENT_ID/SECRET locally)
+
+---
+
 ## P0 — Quick wins with big impact
 
-- [x] **Unified status vocab + data model overhaul** *(PR #18)*
-  - Status enum → `planned`, `in_progress`, `on_hold`, `completed`, `dropped`, `mastered` with per-media-type display labels
-  - New columns: `is_favorite`, `replay_count`, `completed_at`, `watched_episodes` (JSONB)
-  - `seasons` table, `tvmaze_id` on `media`, AT Protocol lexicon update, TVMaze ID in import parser
-- [ ] **Genre normalization (two-tier)** — current `genres.name` stores raw Wikidata Q-IDs ("Q18518" instead of "Action")
-  - **Schema**: self-referencing `canonical_genres` table: `slug`, `name`, `parent_id` (NULL = main genre, FK = sub-genre), `sort_order`
-  - **Mapping table**: `genre_mappings` — `wikidata_id` → `canonical_genre_id` (many-to-many), `source` (`manual`/`p279_auto`)
-  - **Main genres (~18)**: Action, Adventure, Comedy, Crime, Documentary, Drama, Family, Fantasy, Historical, Horror, Music, Mystery, Romance, Sci-Fi, Sports, Thriller, War, Western
-  - **Sub-genres (~47)**, each parented to a main genre:
-    - Action → Martial Arts, Mecha, Superhero
-    - Adventure → Survival, Exploration
-    - Comedy → Parody, Satire, Romantic Comedy
-    - Crime → Noir, Heist
-    - Drama → Slice of Life, Coming of Age, Tragedy
-    - Fantasy → Dark Fantasy, High Fantasy, Isekai, Urban Fantasy, Mahou Shoujo
-    - Historical → Samurai, Medieval
-    - Horror → Psychological Horror, Slasher, Gothic, Body Horror, Survival Horror
-    - Mystery → Detective
-    - Sci-Fi → Cyberpunk, Space Opera, Dystopian, Post-Apocalyptic, Time Travel
-    - Thriller → Psychological Thriller, Espionage
-    - Game mechanics → RPG, Platformer, FPS, TPS, Strategy, Puzzle, Simulation, Racing, Fighting, Visual Novel
-    - Floating → Musical (pairs with any main genre)
-  - **Mapping rules**: sub-genre implies its parent — "Romantic Comedy" maps to Main: Comedy | Sub: Romantic Comedy, NOT Comedy + Romance. Avoids repetition. Compound Wikidata genres (e.g., "comedy horror" Q108466999) map to multiple main genres only when no sub-genre captures the combo.
-  - **Mapping strategy (hybrid)**:
-    - Phase 1: Manual core map (~100-150 most common Wikidata Q-IDs). Covers ~90% of assignments.
-    - Phase 2: P279 auto-resolve — walk Wikidata `subclass of` hierarchy (max 3 hops) for unmapped Q-IDs. Batch SPARQL query.
-    - Phase 3: Unmapped after 3 hops → drop from display. Keep raw Q-IDs in `media_genres` for traceability.
-  - **Import pipeline**: after `ensureGenres()`, resolve Q-IDs via mapping → populate `media` ↔ `canonical_genres` links. Fix `genres.name` to store English labels (fetch from Wikidata).
-  - **Genre vectors for recommendations**: binary multi-hot encoding against canonical genres. Cosine similarity for content-based filtering. Pre-compute user preference profile from highly-rated items.
-- [ ] Genre chips on detail pages — show main + sub-genre with hierarchy (e.g., "Sci-Fi > Cyberpunk"), not Q-IDs
+Genre normalization Phase 1 done (PR #22 merged) — 18 main + ~47 sub-genres, ~150 Q-ID mappings. Phases 2–3 remain.
+
+- [ ] **Genre normalization — Phase 2: P279 auto-resolve** — walk Wikidata `subclass of` hierarchy (max 3 hops) for unmapped Q-IDs via batch SPARQL query
+- [ ] **Genre normalization — Phase 3: unmapped handling + import integration** — unmapped after 3 hops → drop from display (keep raw Q-IDs in `media_genres`). Integrate resolution into import pipeline, fix `genres.name` to store English labels.
+- [ ] **Genre vectors for recommendations** — binary multi-hot encoding against canonical genres. Cosine similarity for content-based filtering. Pre-compute user preference profile from highly-rated items.
 - [ ] Genre filter in catalog — filter by main genre and/or sub-genre, scoped by media type where relevant
 - [ ] Multi-filter search — combine type + genre + year range + rating
 
 ## P1 — Episode data import
 
-`seasons` table and `watched_episodes` JSONB created in P0. This section is about populating season data.
+`seasons` table and `watched_episodes` JSONB created in P0. Season import scripts implemented.
 
-**Open data only.** No TMDB (proprietary, commercial license issues). Wikidata is always the primary source.
+Data sources:
+- **Wikidata** (CC0, primary) — `subset-seasons.ts` extracts Q3464665/Q100269041. `import-seasons.ts wikidata` links to parent series via P179/P1545.
+- **TVMaze** (CC BY-SA) — `import-seasons.ts tvmaze` gap-fills TV series without Wikidata seasons.
+- **anime-offline-database** (ODbL) — `import-seasons.ts anime-offline` gap-fills anime.
 
-Data sources (researched Feb 2026):
-- **Wikidata** (CC0, primary) — season entities are Q3464665 (TV season) and Q100269041 (anime season). ~36% have episode counts, but we should extract everything available. Expand the dump filter in `subset.ts` to also capture season entities, then link to parent series via P179 (part of series) with P1545 ordinal qualifier. Episode counts via P1113 on season entities.
-- **TVMaze** (CC BY-SA) — gap-fill for TV series where Wikidata seasons are missing. Per-season episode counts, explicit caching allowed, `/updates/shows` for incremental sync. Attribute with footer link.
-- **anime-offline-database** (ODbL) — gap-fill for anime. 40k+ entries, weekly JSON dump, match via MAL/AniList IDs. Total episode count only (no per-season), but most anime don't have Western-style seasons → single "Season 1" with all episodes.
+Done:
+- [x] `subset.ts` — now captures both media AND season entities in a single pass
+- [x] `import-seasons.ts wikidata` — parses P179/P1545/P1113, inserts into `seasons` table
+- [x] `import-seasons.ts tvmaze` — API gap-fill for TV series
+- [x] `import-seasons.ts anime-offline` — JSON gap-fill for anime
+- [x] Seasons displayed on detail pages
+- [x] Attribution footer (TMDB, TVMaze, anime-offline-database)
 
-Pipeline:
-- [ ] Expand `subset.ts` filter to capture Q3464665 + Q100269041 (season entities) alongside media entities
-- [ ] Expand `parser.ts` to extract season data: P179 (parent series link), P1545 (season ordinal), P1113 (episode count), P527 (has parts / episodes)
-- [ ] Import pipeline: link season entities to parent `media` rows via wikidata_id → insert into `seasons` table with `data_source: "wikidata"`
-- [ ] TVMaze gap-fill script — for TV series with no Wikidata seasons, match by `tvmaze_id` or IMDB ID → fetch `/shows/{id}/seasons` → insert with `data_source: "tvmaze"`
-- [ ] anime-offline-database gap-fill — download weekly JSON, match by `mal_id`/`anilist_id` → insert single season per anime with total episode count, `data_source: "anime_offline_db"`
-- [ ] Backfill: run Wikidata season import first, then gap-fill with TVMaze + anime-offline-db
+Remaining:
+- [ ] Backfill: run all three sources on production data
 - [ ] Periodic refresh (monthly) to pick up new seasons and corrections
-- [ ] UI: season accordion + per-episode checkboxes on detail page, "mark through episode X" bulk toggle
-- [ ] Attribution: TVMaze link + ODbL notice in footer/about page (Wikidata is CC0, no attribution required)
+- [ ] UI: per-episode checkboxes on detail page, "mark through episode X" bulk toggle
 
 ## P2 — Auth + onboarding + UX polish
 
@@ -82,7 +69,6 @@ More auth methods = more users. Polish + onboarding = users that stay.
 - [ ] Responsive design audit (catalog grid, detail pages, forms)
 - [ ] Accessibility pass — keyboard nav, screen reader labels, contrast ratios
 - [ ] Changelog / "What's new" page — render from a static list (markdown or JSON), link from footer
-- [ ] Version display in footer or settings — semver from `package.json` injected at build time
 
 ## P3 — Monetization
 
@@ -100,10 +86,17 @@ Platform: **Lemon Squeezy** (MoR, handles tax globally, 5%+$0.50/tx, regional pr
 
 ## P4 — Make the catalog visual
 
-Cosmetic but impactful — cover art makes the product feel real.
+Cover art URLs hotlinked from source CDNs (TMDB, AniList, IGDB). No image storage — `poster_url` stores the hotlink URL directly. Future plan: user-submitted custom posters with community voting once we have 100+ users.
 
-- [ ] Cover art + posters via TMDB/IGDB APIs (match by stored external IDs)
+Done:
+- [x] Cover art URL resolver (`covers.ts`) with TMDB → AniList → IGDB fallback chain
+- [x] Poster display on detail pages (160×240)
+- [x] Thumbnail display in catalog list (40×60)
+
+Remaining:
+- [ ] Backfill: run cover art import on production data
 - [ ] Richer detail pages — directors, cast, studios, episode lists
+- [ ] Awards & nominations from Wikidata (P166/P1411) — needs qualifier extraction in parser, new `awards` table, label resolution
 - [ ] Inline external ratings on detail pages (IMDb, MAL scores)
 
 ## P5 — Data safety
