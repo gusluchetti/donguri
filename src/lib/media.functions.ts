@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, eq, getTableColumns, sql } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db";
 import {
@@ -64,7 +64,7 @@ async function searchMedia(
       .select(getTableColumns(media))
       .from(media)
       .where(and(...conditions))
-      .orderBy(sql`${relevance} DESC`, sql`${media.popularityScore} ASC NULLS LAST`, media.id)
+      .orderBy(desc(relevance), asc(media.popularityScore).nullsLast(), desc(media.sitelinksCount), asc(media.id))
       .limit(limit + 1)
       .offset(offset);
   });
@@ -138,7 +138,7 @@ export const listMedia = createServerFn({ method: "GET" })
       .select()
       .from(media)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(sql`${media.popularityScore} ASC NULLS LAST`, media.id)
+      .orderBy(asc(media.popularityScore).nullsLast(), desc(media.sitelinksCount), asc(media.id))
       .limit(limit + 1);
 
     const hasMore = items.length > limit;
