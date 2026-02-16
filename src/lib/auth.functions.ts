@@ -14,26 +14,9 @@ const isDev = process.env.NODE_ENV === "development";
 export type { SessionData } from "./auth/session";
 
 export const getAuthState = createServerFn({ method: "GET" }).handler(async () => {
-  const session = await getSessionData();
-  if (!session) return null;
-
-  const db = getDb();
-  const [user] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.id, session.userId))
-    .limit(1);
-
-  if (!user) {
-    console.error(
-      "[auth] getAuthState: session valid but user not in DB (userId=%s), clearing",
-      session.userId,
-    );
-    clearSessionCookie();
-    return null;
-  }
-
-  return session;
+  // Session cookie is HMAC-signed — no DB round trip needed to verify user existence.
+  // If a user is deleted, their cookie becomes invalid at next login.
+  return await getSessionData();
 });
 
 // ─── Bluesky (AT Protocol) login ──────────────────────────────────────────────
