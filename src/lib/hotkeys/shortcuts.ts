@@ -35,8 +35,8 @@ export const SHORTCUT_SECTIONS: ShortcutSection[] = [
   {
     title: "Catalog",
     shortcuts: [
-      { keys: ["j", "k"], description: "Cursor down / up" },
-      { keys: ["Enter", "l"], description: "Open item" },
+      { keys: ["j / ↓", "k / ↑"], description: "Cursor down / up" },
+      { keys: ["Enter", "l / →"], description: "Open item" },
       { keys: ["/"], description: "Search" },
       { keys: ["Esc"], description: "Blur / deselect" },
       { keys: ["g g", "G"], description: "First / last item" },
@@ -47,7 +47,7 @@ export const SHORTCUT_SECTIONS: ShortcutSection[] = [
   {
     title: "Detail",
     shortcuts: [
-      { keys: ["h"], description: "Go back" },
+      { keys: ["h / ←"], description: "Go back" },
       { keys: ["f"], description: "Favorite" },
       { keys: ["s"], description: "Save" },
       { keys: ["D"], description: "Delete" },

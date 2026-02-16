@@ -229,9 +229,9 @@ function MediaDetailPage({
   const [localIsFavorite, setLocalIsFavorite] = useState(initialEntry?.isFavorite ?? false);
 
   // ─── Detail page shortcuts ──────────────────────────────────────────────
-  // h — go back
+  // h / ArrowLeft / Backspace — go back
   useHotkey("h", () => router.history.back());
-  // Backspace — go back
+  useHotkey("ArrowLeft", () => router.history.back());
   useHotkey("Backspace", () => router.history.back());
   // f — toggle favorite
   useHotkey("f", () => setLocalIsFavorite((v) => !v), {

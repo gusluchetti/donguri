@@ -237,24 +237,27 @@ function CatalogPage() {
     }
   }, [q, mediaType, setSelectedIndex]);
 
-  // Enter / l — open selected item
+  // Enter — blur search (if focused) or open selected item
   useHotkey(
     "Enter",
     () => {
+      if (document.activeElement === searchRef.current) {
+        searchRef.current?.blur();
+        return;
+      }
       const item = allItems[selectedIndex];
       if (item) navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
     },
-    { enabled: selectedIndex >= 0 },
+    { ignoreInputs: false },
   );
 
-  useHotkey(
-    "l",
-    () => {
-      const item = allItems[selectedIndex];
-      if (item) navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
-    },
-    { enabled: selectedIndex >= 0 },
-  );
+  // l / ArrowRight — open selected item
+  const openSelected = () => {
+    const item = allItems[selectedIndex];
+    if (item) navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
+  };
+  useHotkey("l", openSelected, { enabled: selectedIndex >= 0 });
+  useHotkey("ArrowRight", openSelected, { enabled: selectedIndex >= 0 });
 
   // / — focus search
   useHotkey("/", () => {
@@ -269,17 +272,6 @@ function CatalogPage() {
         searchRef.current?.blur();
       } else {
         setSelectedIndex(-1);
-      }
-    },
-    { ignoreInputs: false },
-  );
-
-  // Enter in search — blur to return to command mode
-  useHotkey(
-    "Enter",
-    () => {
-      if (document.activeElement === searchRef.current) {
-        searchRef.current?.blur();
       }
     },
     { ignoreInputs: false },

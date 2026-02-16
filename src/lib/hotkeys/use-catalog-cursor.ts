@@ -39,23 +39,19 @@ export function useCatalogCursor({
     }
   }, [selectedIndex, itemCount, hasNextPage, fetchNextPage]);
 
-  // j — move down
-  useHotkey(
-    "j",
-    () => {
-      setSelectedIndex((prev) => Math.min(prev + 1, itemCount - 1));
-    },
-    { enabled: enabled && itemCount > 0 },
-  );
+  // j / ArrowDown — move down
+  const moveDown = () => {
+    setSelectedIndex((prev) => Math.min(prev + 1, itemCount - 1));
+  };
+  useHotkey("j", moveDown, { enabled: enabled && itemCount > 0 });
+  useHotkey("ArrowDown", moveDown, { enabled: enabled && itemCount > 0 });
 
-  // k — move up
-  useHotkey(
-    "k",
-    () => {
-      setSelectedIndex((prev) => (prev <= 0 ? prev : prev - 1));
-    },
-    { enabled: enabled && itemCount > 0 },
-  );
+  // k / ArrowUp — move up
+  const moveUp = () => {
+    setSelectedIndex((prev) => (prev <= 0 ? prev : prev - 1));
+  };
+  useHotkey("k", moveUp, { enabled: enabled && itemCount > 0 });
+  useHotkey("ArrowUp", moveUp, { enabled: enabled && itemCount > 0 });
 
   // G (shift+g) — jump to last loaded item
   useHotkey(
