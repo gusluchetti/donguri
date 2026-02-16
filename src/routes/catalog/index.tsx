@@ -472,7 +472,7 @@ const MediaRow = memo(function MediaRow({
   const meta = formatMeta(item);
 
   return (
-    <div className="flex items-center justify-between py-1.5 h-full gap-2 sm:gap-4">
+    <div className="flex items-center justify-between py-1.5 px-1 h-full gap-2 sm:gap-4">
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
         {item.posterUrl && (
           <img
