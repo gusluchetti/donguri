@@ -4,8 +4,8 @@ import { z } from "zod";
 import { getDb } from "../db";
 import type { CatalogEntry } from "../db/schema";
 import { catalogEntries, media } from "../db/schema";
-import { getAuthenticatedAgent } from "./auth/agent";
-import { getSessionData, requireAuth } from "./auth/session";
+import { getAuthenticatedAgent, isSessionExpired } from "./auth/agent";
+import { clearSessionCookie, getSessionData, requireAuth } from "./auth/session";
 import { deleteCatalogEntry, putCatalogEntry } from "./sync";
 
 const StatusEnum = z.enum([
@@ -232,6 +232,11 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
       console.debug("[catalog] setCatalogEntry → ok");
       return { ok: true };
     } catch (err) {
+      if (isSessionExpired(err)) {
+        console.warn("[catalog] AT Protocol session expired, forcing logout");
+        clearSessionCookie();
+        throw new Error("SESSION_EXPIRED");
+      }
       console.error("[catalog] setCatalogEntry FAILED:", err);
       throw err;
     }
@@ -270,6 +275,11 @@ export const removeCatalogEntry = createServerFn({ method: "POST" })
       console.debug("[catalog] removeCatalogEntry → ok");
       return { ok: true };
     } catch (err) {
+      if (isSessionExpired(err)) {
+        console.warn("[catalog] AT Protocol session expired, forcing logout");
+        clearSessionCookie();
+        throw new Error("SESSION_EXPIRED");
+      }
       console.error("[catalog] removeCatalogEntry FAILED:", err);
       throw err;
     }

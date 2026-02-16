@@ -14,8 +14,10 @@ import {
 import type { getMedia } from "../../lib/media.functions";
 import {
   availableStatuses,
+  clearSeasonFrom,
   countSeasonWatched,
   countWatchedEpisodes,
+  highestConsecutiveEpisode,
   markThroughEpisode,
   mediaTypeLabel,
   ratingColor,
@@ -500,7 +502,7 @@ function MediaDetailPage({
               bare
             >
               {hasSeasons && data.seasons && (
-                <EpisodeGrid
+                <EpisodeTracker
                   seasons={data.seasons}
                   watchedEpisodes={localWatchedEpisodes}
                   onWatchedChange={handleWatchedEpisodesChange}
@@ -510,10 +512,10 @@ function MediaDetailPage({
           </div>
         )}
 
-        {/* No auth: standalone episode grid (read-only) */}
+        {/* No auth: standalone episode tracker (read-only) */}
         {!auth && hasSeasons && data.seasons && (
           <div className="border border-dg-border-subtle rounded bg-dg-surface mb-4 sm:mb-5 p-3 sm:p-4">
-            <EpisodeGrid seasons={data.seasons} />
+            <EpisodeTracker seasons={data.seasons} />
           </div>
         )}
 
@@ -540,7 +542,7 @@ function MediaDetailPage({
   );
 }
 
-function EpisodeGrid({
+function EpisodeTracker({
   seasons,
   watchedEpisodes,
   onWatchedChange,
@@ -555,171 +557,198 @@ function EpisodeGrid({
   watchedEpisodes?: WatchedEpisodes;
   onWatchedChange?: (w: WatchedEpisodes) => void;
 }) {
-  const isSingleSeason = seasons.length === 1;
   const interactive = !!onWatchedChange && !!watchedEpisodes;
+  const isMultiSeason = seasons.length > 1;
 
-  // Series-level progress
+  // Auto-select first incomplete season on mount
+  const [selectedSeason, setSelectedSeason] = useState(() => {
+    for (const s of seasons) {
+      if (s.episodeCount == null) continue;
+      const w = highestConsecutiveEpisode(watchedEpisodes, s.seasonNumber);
+      if (w < s.episodeCount) return s.seasonNumber;
+    }
+    return seasons[0]?.seasonNumber ?? 1;
+  });
+  const [episodeDate, setEpisodeDate] = useState(todayISO());
+
+  const currentSeason = seasons.find((s) => s.seasonNumber === selectedSeason) ?? seasons[0];
+  const seasonEpCount = currentSeason?.episodeCount ?? 0;
+  const seasonWatched = countSeasonWatched(watchedEpisodes, currentSeason?.seasonNumber ?? 0);
+  const consecutiveEp = highestConsecutiveEpisode(
+    watchedEpisodes,
+    currentSeason?.seasonNumber ?? 0,
+  );
+  const seasonPct = seasonEpCount > 0 ? Math.round((seasonWatched / seasonEpCount) * 100) : 0;
+
+  // Series totals
   const totalEps = seasons.reduce((sum, s) => sum + (s.episodeCount ?? 0), 0);
   const totalWatched = countWatchedEpisodes(watchedEpisodes);
-  const pct = totalEps > 0 ? Math.round((totalWatched / totalEps) * 100) : 0;
+  const totalPct = totalEps > 0 ? Math.round((totalWatched / totalEps) * 100) : 0;
 
-  const handleEpisodeClick = (seasonNumber: number, ep: number, episodeCount: number) => {
-    if (!interactive) return;
-    // Check if episodes 1..ep are all watched
-    const allWatchedThrough = (() => {
-      const seasonEps = watchedEpisodes?.[String(seasonNumber)];
-      if (!seasonEps) return false;
-      for (let i = 1; i <= ep; i++) {
-        if (!seasonEps[String(i)]) return false;
-      }
-      return true;
-    })();
+  // Cross-season awareness
+  const currentSeasonIdx = seasons.findIndex((s) => s.seasonNumber === currentSeason.seasonNumber);
+  const nextSeason = isMultiSeason
+    ? seasons.slice(currentSeasonIdx + 1).find((s) => (s.episodeCount ?? 0) > 0)
+    : undefined;
+  const canIncrement = consecutiveEp < seasonEpCount || !!nextSeason;
+  const canDecrement = consecutiveEp > 0;
 
-    if (allWatchedThrough) {
-      // Unmark this episode and everything above it
-      const result: WatchedEpisodes = structuredClone(watchedEpisodes);
-      const key = String(seasonNumber);
-      if (result[key]) {
-        for (let i = ep; i <= episodeCount; i++) {
-          delete result[key][String(i)];
-        }
-        if (Object.keys(result[key]).length === 0) delete result[key];
-      }
-      onWatchedChange(result);
-    } else {
-      // Mark through episode ep
-      onWatchedChange(markThroughEpisode(watchedEpisodes, seasonNumber, ep, todayISO()));
+  const handleIncrement = () => {
+    if (!interactive || !canIncrement) return;
+    if (consecutiveEp < seasonEpCount) {
+      // Mark next episode in current season
+      onWatchedChange(
+        markThroughEpisode(
+          watchedEpisodes,
+          currentSeason.seasonNumber,
+          consecutiveEp + 1,
+          episodeDate,
+        ),
+      );
+    } else if (nextSeason) {
+      // Season complete → advance to first episode of next season
+      onWatchedChange(markThroughEpisode(watchedEpisodes, nextSeason.seasonNumber, 1, episodeDate));
+      setSelectedSeason(nextSeason.seasonNumber);
     }
+  };
+
+  const handleDecrement = () => {
+    if (!interactive || !canDecrement) return;
+    onWatchedChange(
+      clearSeasonFrom(watchedEpisodes, currentSeason.seasonNumber, consecutiveEp, seasonEpCount),
+    );
   };
 
   return (
     <div>
-      <h3 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-3">
-        Episodes
-      </h3>
+      {/* Header row: label + season dropdown */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider m-0">
+          Episodes
+        </h3>
+        {isMultiSeason && (
+          <select
+            value={selectedSeason}
+            onChange={(e) => setSelectedSeason(Number(e.target.value))}
+            className="text-[0.75rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none focus:border-dg-accent transition-colors cursor-pointer"
+          >
+            {seasons.map((s) => (
+              <option key={s.id} value={s.seasonNumber}>
+                S{String(s.seasonNumber).padStart(2, "0")}
+                {s.title ? ` — ${s.title}` : ""}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
 
-      {/* Series-level progress bar */}
-      {totalEps > 0 && totalWatched > 0 && (
-        <div className="mb-3">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[0.65rem] text-dg-text-tertiary">Progress</span>
-            <span className="text-[0.65rem] text-dg-text-secondary tabular-nums">
-              {totalWatched}/{totalEps} ({pct}%)
+      {/* Current season progress bar */}
+      {seasonEpCount > 0 && (
+        <div className="mb-2">
+          <div className="flex items-center gap-2">
+            {isMultiSeason && (
+              <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
+                S{String(currentSeason.seasonNumber).padStart(2, "0")}
+              </span>
+            )}
+            <div className="flex-1 h-[6px] bg-dg-elevated rounded-full overflow-hidden">
+              <div
+                className="h-full bg-dg-accent rounded-full transition-all duration-300"
+                style={{ width: `${seasonPct}%` }}
+              />
+            </div>
+            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums shrink-0">
+              {seasonWatched}/{seasonEpCount}
             </span>
           </div>
-          <div className="h-[3px] bg-dg-elevated rounded-full overflow-hidden">
-            <div
-              className="h-full bg-dg-accent rounded-full transition-all duration-300"
-              style={{ width: `${pct}%` }}
+        </div>
+      )}
+
+      {/* Total series progress bar (multi-season only) */}
+      {isMultiSeason && totalEps > 0 && (
+        <div className="mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
+              ALL
+            </span>
+            <div className="flex-1 h-[6px] bg-dg-elevated rounded-full overflow-hidden">
+              <div
+                className="h-full bg-dg-accent/60 rounded-full transition-all duration-300"
+                style={{ width: `${totalPct}%` }}
+              />
+            </div>
+            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums shrink-0">
+              {totalWatched}/{totalEps}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Counter controls (interactive only) */}
+      {interactive && seasonEpCount > 0 && (
+        <div className="flex flex-col items-center gap-3 py-3">
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={handleDecrement}
+              disabled={!canDecrement}
+              className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-150 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono"
+            >
+              -
+            </button>
+            <span className="text-[0.9rem] tabular-nums text-dg-text min-w-[5rem] text-center">
+              {consecutiveEp} / {seasonEpCount}
+            </span>
+            <button
+              type="button"
+              onClick={handleIncrement}
+              disabled={!canIncrement}
+              className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-150 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono"
+            >
+              +
+            </button>
+          </div>
+
+          {/* Date picker for episode watched date */}
+          <div className="flex items-center gap-2">
+            <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider">
+              Watched on
+            </span>
+            <input
+              type="date"
+              value={episodeDate}
+              max={todayISO()}
+              onChange={(e) => setEpisodeDate(e.target.value || todayISO())}
+              className="text-[0.75rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none focus:border-dg-accent transition-colors"
             />
           </div>
         </div>
       )}
 
-      <div className="space-y-3">
-        {seasons.map((s) => {
-          const seasonW = countSeasonWatched(watchedEpisodes, s.seasonNumber);
-
-          return (
-            <div key={s.id}>
-              <div className="flex gap-2 items-center">
-                {!isSingleSeason && (
-                  <span className="w-8 shrink-0 text-[0.75rem] text-dg-text-tertiary tabular-nums">
-                    S{String(s.seasonNumber).padStart(2, "0")}
-                  </span>
-                )}
-                {s.episodeCount != null ? (
-                  <SeasonEpisodes
-                    seasonNumber={s.seasonNumber}
-                    episodeCount={s.episodeCount}
-                    isSingleSeason={isSingleSeason}
-                    watchedEpisodes={watchedEpisodes}
-                    interactive={interactive}
-                    onEpisodeClick={handleEpisodeClick}
-                    seasonWatched={seasonW}
-                  />
-                ) : (
-                  <span className="text-xs text-dg-text-tertiary">unknown</span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function SeasonEpisodes({
-  seasonNumber,
-  episodeCount,
-  isSingleSeason,
-  watchedEpisodes,
-  interactive,
-  onEpisodeClick,
-  seasonWatched,
-}: {
-  seasonNumber: number;
-  episodeCount: number;
-  isSingleSeason: boolean;
-  watchedEpisodes?: WatchedEpisodes;
-  interactive: boolean;
-  onEpisodeClick: (season: number, ep: number, total: number) => void;
-  seasonWatched: number;
-}) {
-  const seasonPct = episodeCount > 0 ? Math.round((seasonWatched / episodeCount) * 100) : 0;
-
-  return (
-    <div className="flex-1">
-      <div className="flex flex-wrap gap-1.5">
-        {Array.from({ length: episodeCount }, (_, i) => {
-          const ep = i + 1;
-          const isWatched = !!watchedEpisodes?.[String(seasonNumber)]?.[String(ep)];
-          const watchedDate = watchedEpisodes?.[String(seasonNumber)]?.[String(ep)];
-          const tooltip = isWatched ? `Episode ${ep} — watched ${watchedDate}` : `Episode ${ep}`;
-
-          if (interactive) {
+      {/* Read-only: just show season episode counts */}
+      {!interactive && seasons.length > 0 && (
+        <div className="space-y-1.5 mt-2">
+          {seasons.map((s) => {
+            const w = countSeasonWatched(watchedEpisodes, s.seasonNumber);
+            const epCount = s.episodeCount ?? 0;
+            const pct = epCount > 0 ? Math.round((w / epCount) * 100) : 0;
             return (
-              <button
-                key={`ep-${ep}`}
-                type="button"
-                title={tooltip}
-                onClick={() => onEpisodeClick(seasonNumber, ep, episodeCount)}
-                className={`w-7 h-7 flex items-center justify-center text-[0.65rem] tabular-nums rounded-sm border font-mono cursor-pointer transition-all duration-150 ${
-                  isWatched
-                    ? "bg-dg-accent/20 border-dg-accent/40 text-dg-accent"
-                    : "bg-dg-elevated border-dg-border-subtle text-dg-text-secondary hover:border-dg-accent/30"
-                }`}
-              >
-                {String(ep).padStart(2, "0")}
-              </button>
+              <div key={s.id} className="flex items-center gap-2">
+                <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
+                  S{String(s.seasonNumber).padStart(2, "0")}
+                </span>
+                <div className="flex-1 h-[4px] bg-dg-elevated rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-dg-accent/40 rounded-full"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <span className="text-[0.6rem] text-dg-text-tertiary tabular-nums shrink-0">
+                  {epCount > 0 ? `${epCount} ep` : "?"}
+                </span>
+              </div>
             );
-          }
-
-          return (
-            <div
-              key={`ep-${ep}`}
-              title={tooltip}
-              className="w-7 h-7 flex items-center justify-center text-[0.65rem] tabular-nums bg-dg-elevated border border-dg-border-subtle rounded-sm text-dg-text-secondary"
-            >
-              {String(ep).padStart(2, "0")}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Per-season progress bar */}
-      {!isSingleSeason && seasonWatched > 0 && episodeCount > 0 && (
-        <div className="flex items-center gap-2 mt-1.5">
-          <div className="flex-1 h-[2px] bg-dg-elevated rounded-full overflow-hidden">
-            <div
-              className="h-full bg-dg-accent/60 rounded-full transition-all duration-300"
-              style={{ width: `${seasonPct}%` }}
-            />
-          </div>
-          <span className="text-[0.6rem] text-dg-text-tertiary tabular-nums shrink-0">
-            {seasonWatched}/{episodeCount}
-          </span>
+          })}
         </div>
       )}
     </div>

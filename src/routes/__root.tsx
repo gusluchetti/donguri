@@ -2,6 +2,7 @@ import { HotkeysProvider, useHotkey, useHotkeySequence } from "@tanstack/react-h
 import type { QueryClient } from "@tanstack/react-query";
 import {
   createRootRouteWithContext,
+  type ErrorComponentProps,
   HeadContent,
   Link,
   Outlet,
@@ -71,6 +72,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   },
   staleTime: 5 * 60 * 1000,
   component: RootComponent,
+  errorComponent: RootError,
   notFoundComponent: NotFound,
 });
 
@@ -100,10 +102,18 @@ function RootComponent() {
   const { auth, theme } = Route.useLoaderData();
   const queryClient = Route.useRouteContext().queryClient;
 
-  // Auto-reload on stale server function IDs (client/server version mismatch after deploy)
+  // Global error handler: stale deploys + expired AT Protocol sessions
   useEffect(() => {
     const onError = (e: PromiseRejectionEvent) => {
       const msg = e.reason?.message ?? String(e.reason ?? "");
+      if (/SESSION_EXPIRED/.test(msg)) {
+        console.warn("[auth] session expired, forcing logout…");
+        e.preventDefault();
+        queryClient.clear();
+        clear();
+        window.location.href = "/";
+        return;
+      }
       if (/server function/i.test(msg) || /Invalid server function ID/i.test(msg)) {
         console.warn("[version] stale client detected, reloading…");
         window.location.reload();
@@ -111,7 +121,7 @@ function RootComponent() {
     };
     window.addEventListener("unhandledrejection", onError);
     return () => window.removeEventListener("unhandledrejection", onError);
-  }, []);
+  }, [queryClient]);
 
   const [showHelp, setShowHelp] = useState(false);
 
@@ -263,6 +273,49 @@ function GlobalShortcuts({
   });
 
   return <HelpOverlay open={showHelp} onClose={() => setShowHelp(false)} />;
+}
+
+function RootError({ error, reset }: ErrorComponentProps) {
+  useEffect(() => {
+    console.error("[root] uncaught error:", error);
+  }, [error]);
+
+  return (
+    <html lang="en">
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Something went wrong — donguri</title>
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static inline script for theme init before paint */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <HeadContent />
+      </head>
+      <body className="bg-dg-bg m-0 p-0">
+        <div className="min-h-dvh flex items-center justify-center font-mono text-dg-text">
+          <div className="text-center px-4 py-16">
+            <p className="text-[2rem] font-semibold text-dg-anime mb-2">error</p>
+            <p className="text-[0.9rem] text-dg-text-secondary mb-6">Something went wrong.</p>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={reset}
+                className="text-[0.85rem] text-dg-accent font-mono bg-transparent py-2 px-4 border border-dg-accent/20 rounded-sm cursor-pointer transition-all duration-150"
+              >
+                Try again
+              </button>
+              <a
+                href="/"
+                className="text-[0.85rem] text-dg-text-secondary no-underline py-2 px-4 border border-dg-border-subtle rounded-sm transition-all duration-150"
+              >
+                Go home
+              </a>
+            </div>
+          </div>
+        </div>
+        <Scripts />
+      </body>
+    </html>
+  );
 }
 
 function NotFound() {

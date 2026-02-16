@@ -167,22 +167,32 @@ export function markThroughEpisode(
   return result;
 }
 
-/** Toggle a single episode. If watched, unmark it; otherwise mark it. */
-export function toggleEpisode(
+/** Returns highest N where episodes 1..N are all watched for the given season. */
+export function highestConsecutiveEpisode(
+  watched: WatchedEpisodes | null | undefined,
+  seasonNumber: number,
+): number {
+  if (!watched) return 0;
+  const eps = watched[String(seasonNumber)];
+  if (!eps) return 0;
+  let n = 0;
+  while (eps[String(n + 1)]) n++;
+  return n;
+}
+
+/** Remove episodes in [fromEp, toEp] for a given season. Cleans up empty season keys. */
+export function clearSeasonFrom(
   watched: WatchedEpisodes | null | undefined,
   season: number,
-  ep: number,
-  date: string,
+  fromEp: number,
+  toEp: number,
 ): WatchedEpisodes {
   const result: WatchedEpisodes = watched ? structuredClone(watched) : {};
   const key = String(season);
-  const epKey = String(ep);
-  if (!result[key]) result[key] = {};
-  if (result[key][epKey]) {
-    delete result[key][epKey];
-    if (Object.keys(result[key]).length === 0) delete result[key];
-  } else {
-    result[key][epKey] = date;
+  if (!result[key]) return result;
+  for (let i = fromEp; i <= toEp; i++) {
+    delete result[key][String(i)];
   }
+  if (Object.keys(result[key]).length === 0) delete result[key];
   return result;
 }
