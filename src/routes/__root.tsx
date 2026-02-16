@@ -1,3 +1,4 @@
+import { HotkeysProvider, useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   createRootRouteWithContext,
@@ -5,12 +6,15 @@ import {
   Link,
   Outlet,
   Scripts,
+  useNavigate,
 } from "@tanstack/react-router";
 import { clear } from "idb-keyval";
 import { Moon, Sun } from "lucide-react";
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import "../app.css";
 import { getAuthState, logout } from "../lib/auth.functions";
+import { HelpOverlay } from "../lib/hotkeys/HelpOverlay";
+import { isInputFocused } from "../lib/hotkeys/shortcuts";
 import { ogTags, pageTitle } from "../lib/og";
 import { trackedIdsOptions } from "../lib/query-options";
 import { getThemeCookie, ThemeProvider, useTheme } from "../lib/theme";
@@ -102,105 +106,156 @@ function RootComponent() {
     return () => window.removeEventListener("unhandledrejection", onError);
   }, []);
 
+  const [showHelp, setShowHelp] = useState(false);
+
   return (
     <RootDocument theme={theme}>
       <ThemeProvider initialTheme={theme}>
-        <div className="min-h-dvh flex flex-col">
-          <nav className="border-b border-dg-border-subtle px-4 sm:px-6 py-2 font-mono shrink-0">
-            <div className="max-w-[1000px] mx-auto flex items-center min-h-[44px] gap-4 sm:gap-6">
-              {NAV_LINKS.map((link) => (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  activeOptions={{ exact: link.exact !== false }}
-                  className="text-[0.85rem] no-underline transition-colors duration-150 min-h-[44px] flex items-center"
-                  activeProps={{ className: "text-dg-accent" }}
-                  inactiveProps={{
-                    className: link.accent ? "text-dg-accent" : "text-dg-text-secondary",
-                  }}
-                >
-                  {link.accent ? <span className="font-semibold">{link.label}</span> : link.label}
-                </Link>
-              ))}
-              <div className="ml-auto flex items-center gap-3">
-                <ThemeToggle />
-                {auth ? (
-                  <div className="flex items-center gap-4">
-                    <span className="text-[0.8rem] text-dg-accent hidden sm:inline">
-                      {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
-                    </span>
-                    <button
-                      type="button"
-                      className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none font-mono min-h-[44px] flex items-center"
-                      onClick={async () => {
-                        await logout();
-                        queryClient.clear();
-                        clear();
-                        window.location.href = "/";
-                      }}
-                    >
-                      logout
-                    </button>
-                  </div>
-                ) : (
+        <HotkeysProvider>
+          <GlobalShortcuts showHelp={showHelp} setShowHelp={setShowHelp} />
+          <div className="min-h-dvh flex flex-col">
+            <nav className="border-b border-dg-border-subtle px-4 sm:px-6 py-2 font-mono shrink-0">
+              <div className="max-w-[1000px] mx-auto flex items-center min-h-[44px] gap-4 sm:gap-6">
+                {NAV_LINKS.map((link) => (
                   <Link
-                    to="/"
-                    className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-150 min-h-[44px] flex items-center"
+                    key={link.to}
+                    to={link.to}
+                    activeOptions={{ exact: link.exact !== false }}
+                    className="text-[0.85rem] no-underline transition-colors duration-150 min-h-[44px] flex items-center"
+                    activeProps={{ className: "text-dg-accent" }}
+                    inactiveProps={{
+                      className: link.accent ? "text-dg-accent" : "text-dg-text-secondary",
+                    }}
                   >
-                    login
+                    {link.accent ? <span className="font-semibold">{link.label}</span> : link.label}
                   </Link>
-                )}
+                ))}
+                <div className="ml-auto flex items-center gap-3">
+                  <ThemeToggle />
+                  {auth ? (
+                    <div className="flex items-center gap-4">
+                      <span className="text-[0.8rem] text-dg-accent hidden sm:inline">
+                        {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none font-mono min-h-[44px] flex items-center"
+                        onClick={async () => {
+                          await logout();
+                          queryClient.clear();
+                          clear();
+                          window.location.href = "/";
+                        }}
+                      >
+                        logout
+                      </button>
+                    </div>
+                  ) : (
+                    <Link
+                      to="/"
+                      className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-150 min-h-[44px] flex items-center"
+                    >
+                      login
+                    </Link>
+                  )}
+                </div>
               </div>
-            </div>
-          </nav>
-          <Outlet />
-          <footer className="border-t border-dg-border-subtle px-4 sm:px-6 py-3 font-mono shrink-0">
-            <div className="max-w-[1000px] mx-auto flex items-center justify-between text-[0.7rem] text-dg-text-tertiary">
-              <span>v0.3.0</span>
-              <span>
-                data from{" "}
-                <a
-                  href="https://www.wikidata.org"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
-                >
-                  Wikidata
-                </a>
-                {" \u00b7 "}
-                <a
-                  href="https://www.themoviedb.org"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
-                >
-                  TMDB
-                </a>
-                {" \u00b7 "}
-                <a
-                  href="https://www.tvmaze.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
-                >
-                  TVMaze
-                </a>
-                {" \u00b7 "}
-                <a
-                  href="https://github.com/manami-project/anime-offline-database"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
-                >
-                  anime-offline-database
-                </a>
-              </span>
-            </div>
-          </footer>
-        </div>
+            </nav>
+            <Outlet />
+            <footer className="border-t border-dg-border-subtle px-4 sm:px-6 py-3 font-mono shrink-0">
+              <div className="max-w-[1000px] mx-auto flex items-center justify-between text-[0.7rem] text-dg-text-tertiary">
+                <span className="flex items-center gap-2">
+                  <span>v0.3.0</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowHelp(true)}
+                    className="text-dg-text-tertiary hover:text-dg-text-secondary bg-transparent border-none font-mono cursor-pointer p-0 text-[0.7rem] transition-colors"
+                  >
+                    shortcuts (?)
+                  </button>
+                </span>
+                <span>
+                  data from{" "}
+                  <a
+                    href="https://www.wikidata.org"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                  >
+                    Wikidata
+                  </a>
+                  {" \u00b7 "}
+                  <a
+                    href="https://www.themoviedb.org"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                  >
+                    TMDB
+                  </a>
+                  {" \u00b7 "}
+                  <a
+                    href="https://www.tvmaze.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                  >
+                    TVMaze
+                  </a>
+                  {" \u00b7 "}
+                  <a
+                    href="https://github.com/manami-project/anime-offline-database"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                  >
+                    anime-offline-database
+                  </a>
+                </span>
+              </div>
+            </footer>
+          </div>
+        </HotkeysProvider>
       </ThemeProvider>
     </RootDocument>
   );
+}
+
+function GlobalShortcuts({
+  showHelp,
+  setShowHelp,
+}: {
+  showHelp: boolean;
+  setShowHelp: React.Dispatch<React.SetStateAction<boolean>>;
+}) {
+  const navigate = useNavigate();
+  const { toggleTheme } = useTheme();
+
+  // ? — toggle help overlay (Shift+/ produces "?")
+  useHotkey({ key: "?", shift: true }, () => setShowHelp((v) => !v));
+
+  // . — toggle theme
+  useHotkey(".", toggleTheme);
+
+  // g h — go home (sequence, needs input guard)
+  useHotkeySequence(["g", "h"], () => {
+    if (isInputFocused()) return;
+    navigate({ to: "/" });
+  });
+
+  // g c — go to catalog
+  useHotkeySequence(["g", "c"], () => {
+    if (isInputFocused()) return;
+    navigate({ to: "/catalog" });
+  });
+
+  // g r — go to roadmap
+  useHotkeySequence(["g", "r"], () => {
+    if (isInputFocused()) return;
+    navigate({ to: "/roadmap" });
+  });
+
+  return <HelpOverlay open={showHelp} onClose={() => setShowHelp(false)} />;
 }
 
 function NotFound() {

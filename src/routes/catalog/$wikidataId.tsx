@@ -1,3 +1,4 @@
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
 import { X } from "lucide-react";
@@ -223,8 +224,19 @@ function MediaDetailPage({
   initialEntry?: CatalogEntry | null;
 }) {
   const { auth } = rootRoute.useLoaderData();
+  const router = useRouter();
   const badgeClass = typeBadgeClass(data.mediaType);
   const [localIsFavorite, setLocalIsFavorite] = useState(initialEntry?.isFavorite ?? false);
+
+  // ─── Detail page shortcuts ──────────────────────────────────────────────
+  // h — go back
+  useHotkey("h", () => router.history.back());
+  // Backspace — go back
+  useHotkey("Backspace", () => router.history.back());
+  // f — toggle favorite
+  useHotkey("f", () => setLocalIsFavorite((v) => !v), {
+    enabled: !!auth && !!initialEntry?.status,
+  });
 
   const isAnime = data.mediaType === "anime";
   const isGame = data.mediaType === "game";
@@ -691,6 +703,61 @@ function TrackingPanel({
   }, [entry, wikidataId, router, queryClient, action]);
 
   const statuses = availableStatuses(mediaType);
+
+  // ─── Tracking shortcuts ───────────────────────────────────────────────
+  const notBusy = action.state !== "pending";
+
+  // Status keys — only fire if the status is visible for this media type
+  const statusKeyMap: Record<string, string> = {
+    p: "planned",
+    w: "in_progress",
+    o: "on_hold",
+    c: "completed",
+    d: "dropped",
+    m: "mastered",
+  };
+  for (const [key, status] of Object.entries(statusKeyMap)) {
+    // biome-ignore lint/correctness/useHookAtTopLevel: static iteration over constant map
+    useHotkey(key, () => setLocalStatus(status), {
+      enabled: loaded && notBusy && statusLabel(status as never, mediaType) !== null,
+    });
+  }
+
+  // = — rating +5
+  useHotkey(
+    "=",
+    () => {
+      setLocalRating((prev) => Math.min(100, (prev ?? 0) + 5));
+    },
+    { enabled: loaded && notBusy && !!localStatus },
+  );
+
+  // - — rating -5
+  useHotkey(
+    "-",
+    () => {
+      setLocalRating((prev) => Math.max(0, (prev ?? 0) - 5));
+    },
+    { enabled: loaded && notBusy && !!localStatus },
+  );
+
+  // s — save
+  useHotkey(
+    "s",
+    () => {
+      if (isDirty) handleSave();
+    },
+    { enabled: loaded && notBusy && isDirty },
+  );
+
+  // D (shift+d) — delete entry
+  useHotkey(
+    "Shift+D",
+    () => {
+      if (serverEntry.current?.status) handleRemove();
+    },
+    { enabled: loaded && notBusy && !!serverEntry.current?.status },
+  );
 
   if (!loaded) {
     return (

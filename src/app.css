@@ -139,6 +139,12 @@ input[type="range"].dg-range:disabled {
   }
 }
 
+/* Cursor highlight for keyboard navigation */
+.dg-cursor-active {
+  box-shadow: inset 2px 0 0 var(--color-dg-accent);
+  background-color: color-mix(in srgb, var(--color-dg-accent) 4%, transparent);
+}
+
 /* Ellipsis loading animation */
 .dg-ellipsis::after {
   content: "";
