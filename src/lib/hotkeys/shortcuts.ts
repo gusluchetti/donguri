@@ -40,7 +40,10 @@ export const SHORTCUT_SECTIONS: ShortcutSection[] = [
       { keys: ["/"], description: "Search" },
       { keys: ["Esc"], description: "Blur / deselect" },
       { keys: ["g g", "G"], description: "First / last item" },
-      { keys: ["1 – 5"], description: "Filter type" },
+      {
+        keys: ["f f", "f m", "f t", "f a", "f g"],
+        description: "Filter: all / movie / tv / anime / game",
+      },
       { keys: ["a"], description: "Quick-add" },
     ],
   },

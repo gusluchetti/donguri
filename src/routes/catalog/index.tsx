@@ -1,4 +1,4 @@
-import { useHotkey } from "@tanstack/react-hotkeys";
+import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
@@ -13,6 +13,7 @@ import { forwardRef, memo, useCallback, useEffect, useRef, useState } from "reac
 import { z } from "zod";
 import type { Media } from "../../db/schema";
 import { setCatalogEntry } from "../../lib/catalog.functions";
+import { isInputFocused } from "../../lib/hotkeys/shortcuts";
 import { useCatalogCursor } from "../../lib/hotkeys/use-catalog-cursor";
 import {
   mediaTypeLabel,
@@ -277,12 +278,16 @@ function CatalogPage() {
     { ignoreInputs: false },
   );
 
-  // 1–5 — type filter
-  useHotkey("1", () => handleTypeChange(undefined));
-  useHotkey("2", () => handleTypeChange("movie"));
-  useHotkey("3", () => handleTypeChange("tv_series"));
-  useHotkey("4", () => handleTypeChange("anime"));
-  useHotkey("5", () => handleTypeChange("game"));
+  // f + key — type filter sequences
+  const typeFilter = (type: "movie" | "tv_series" | "anime" | "game" | undefined) => () => {
+    if (isInputFocused()) return;
+    handleTypeChange(type);
+  };
+  useHotkeySequence(["f", "f"], typeFilter(undefined));
+  useHotkeySequence(["f", "m"], typeFilter("movie"));
+  useHotkeySequence(["f", "t"], typeFilter("tv_series"));
+  useHotkeySequence(["f", "a"], typeFilter("anime"));
+  useHotkeySequence(["f", "g"], typeFilter("game"));
 
   // a — quick-add selected item
   useHotkey(
