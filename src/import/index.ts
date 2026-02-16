@@ -46,7 +46,7 @@ const DROPPABLE_INDEXES = [
   "idx_media_igdb",
   "idx_media_tmdb",
   "idx_media_tvmaze",
-  "idx_media_qrank",
+  "idx_media_popularity",
   "idx_media_title_trgm",
   "idx_media_original_title_trgm",
 ];
@@ -61,7 +61,7 @@ const RECREATE_INDEX_SQL = [
   `CREATE INDEX IF NOT EXISTS idx_media_igdb ON media (igdb_id)`,
   `CREATE INDEX IF NOT EXISTS idx_media_tmdb ON media (tmdb_id)`,
   `CREATE INDEX IF NOT EXISTS idx_media_tvmaze ON media (tvmaze_id)`,
-  `CREATE INDEX IF NOT EXISTS idx_media_qrank ON media (qrank_pct)`,
+  `CREATE INDEX IF NOT EXISTS idx_media_popularity ON media (popularity_score)`,
 ];
 
 // ─── Staging table columns (matches media table layout) ─────────────────────
@@ -694,6 +694,19 @@ async function main() {
     }
     console.log(`QRank: ${updated.toLocaleString()} media entities scored (0.00% = most popular)`);
   }
+
+  // Compute sitelinks percentile (always, independent of QRank)
+  console.log("\nComputing sitelinks percentiles...");
+  await rawClient.unsafe(`
+    WITH ranked AS (
+      SELECT id, PERCENT_RANK() OVER (ORDER BY sitelinks_count DESC) * 100 AS pct
+      FROM media
+    )
+    UPDATE media SET sitelinks_pct = ranked.pct FROM ranked WHERE media.id = ranked.id
+  `);
+  console.log(
+    "Sitelinks percentiles computed (popularity_score auto-updated via generated column).",
+  );
 
   // Update progress
   await db

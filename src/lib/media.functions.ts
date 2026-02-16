@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, desc, eq, getTableColumns, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db";
 import {
@@ -64,12 +64,7 @@ async function searchMedia(
       .select(getTableColumns(media))
       .from(media)
       .where(and(...conditions))
-      .orderBy(
-        sql`${relevance} DESC`,
-        sql`${media.qrankPct} ASC NULLS LAST`,
-        desc(media.sitelinksCount),
-        media.id,
-      )
+      .orderBy(sql`${relevance} DESC`, sql`${media.popularityScore} ASC NULLS LAST`, media.id)
       .limit(limit + 1)
       .offset(offset);
   });
@@ -106,12 +101,11 @@ export const listMedia = createServerFn({ method: "GET" })
     // Type filter
     if (mediaType) conditions.push(eq(media.mediaType, mediaType));
 
-    // Keyset cursor pagination (qrank_pct ASC NULLS LAST, sitelinks_count DESC, id ASC)
+    // Keyset cursor pagination (popularity_score ASC NULLS LAST, id ASC)
     if (cursor) {
       const [cursorItem] = await db
         .select({
-          qrankPct: media.qrankPct,
-          sitelinksCount: media.sitelinksCount,
+          popularityScore: media.popularityScore,
           id: media.id,
         })
         .from(media)
@@ -119,28 +113,21 @@ export const listMedia = createServerFn({ method: "GET" })
         .limit(1);
 
       if (cursorItem) {
-        const qr = cursorItem.qrankPct;
-        const sc = cursorItem.sitelinksCount ?? 0;
-        if (qr != null) {
-          // Cursor row has a QRank percentile
+        const ps = cursorItem.popularityScore;
+        if (ps != null) {
           conditions.push(
             sql`(
-              (${media.qrankPct} IS NOT NULL AND (
-                ${media.qrankPct} > ${qr}
-                OR (${media.qrankPct} = ${qr} AND ${media.sitelinksCount} < ${sc})
-                OR (${media.qrankPct} = ${qr} AND ${media.sitelinksCount} = ${sc} AND ${media.id} > ${cursor})
+              (${media.popularityScore} IS NOT NULL AND (
+                ${media.popularityScore} > ${ps}
+                OR (${media.popularityScore} = ${ps} AND ${media.id} > ${cursor})
               ))
-              OR ${media.qrankPct} IS NULL
+              OR ${media.popularityScore} IS NULL
             )`,
           );
         } else {
-          // Cursor row is in the NULL-qrank tier
           conditions.push(
             sql`(
-              ${media.qrankPct} IS NULL AND (
-                ${media.sitelinksCount} < ${sc}
-                OR (${media.sitelinksCount} = ${sc} AND ${media.id} > ${cursor})
-              )
+              ${media.popularityScore} IS NULL AND ${media.id} > ${cursor}
             )`,
           );
         }
@@ -151,7 +138,7 @@ export const listMedia = createServerFn({ method: "GET" })
       .select()
       .from(media)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(sql`${media.qrankPct} ASC NULLS LAST`, desc(media.sitelinksCount), media.id)
+      .orderBy(sql`${media.popularityScore} ASC NULLS LAST`, media.id)
       .limit(limit + 1);
 
     const hasMore = items.length > limit;

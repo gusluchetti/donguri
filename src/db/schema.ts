@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -44,6 +44,10 @@ export const media = pgTable(
     // Popularity
     sitelinksCount: integer("sitelinks_count").default(0),
     qrankPct: numeric("qrank_pct", { precision: 5, scale: 2 }),
+    sitelinksPct: numeric("sitelinks_pct", { precision: 5, scale: 2 }),
+    popularityScore: numeric("popularity_score", { precision: 5, scale: 2 }).generatedAlwaysAs(
+      sql`CASE WHEN qrank_pct IS NOT NULL THEN 0.6 * qrank_pct + 0.4 * COALESCE(sitelinks_pct, 100) ELSE COALESCE(sitelinks_pct, 100) END`,
+    ),
 
     // Country
     countryOfOrigin: text("country_of_origin"),
@@ -78,7 +82,7 @@ export const media = pgTable(
     index("idx_media_igdb").on(table.igdbId),
     index("idx_media_tmdb").on(table.tmdbId),
     index("idx_media_tvmaze").on(table.tvmazeId),
-    index("idx_media_qrank").on(table.qrankPct),
+    index("idx_media_popularity").on(table.popularityScore),
   ],
 );
 
