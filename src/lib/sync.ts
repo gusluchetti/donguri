@@ -169,7 +169,9 @@ export async function upsertLocalMirror(
         watchedEpisodes: normalized.watchedEpisodes ?? null,
         watchedAt: normalized.watchedAt ?? null,
         mediaTitle: normalized.title ?? undefined,
-        mediaType: normalized.mediaType ?? undefined,
+        mediaType:
+          (normalized.mediaType as "movie" | "tv_series" | "anime" | "game" | undefined) ??
+          undefined,
         rkey,
         syncedAt: now,
         updatedAt: recordUpdatedAt,
@@ -189,7 +191,7 @@ export async function upsertLocalMirror(
       userId,
       mediaWikidataId: normalized.mediaRef,
       mediaTitle: normalized.title ?? null,
-      mediaType: normalized.mediaType ?? null,
+      mediaType: (normalized.mediaType ?? null) as "movie" | "tv_series" | "anime" | "game" | null,
       status: normalized.status,
       rating: normalized.rating ?? null,
       note: normalized.note ?? null,
@@ -230,7 +232,11 @@ export async function reconcileUser(agent: Agent, userId: string, did: string): 
         if (parsed.success) {
           pdsRecords.set(rkey, parsed.data);
         } else {
-          console.debug("[sync] reconcileUser skipping invalid record rkey=%s", rkey);
+          console.debug(
+            "[sync] reconcileUser skipping invalid record rkey=%s errors=%o",
+            rkey,
+            parsed.error.flatten().fieldErrors,
+          );
         }
       }
 

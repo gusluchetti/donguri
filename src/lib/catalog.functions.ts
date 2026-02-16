@@ -5,7 +5,7 @@ import { getDb } from "../db";
 import type { CatalogEntry } from "../db/schema";
 import { catalogEntries, media } from "../db/schema";
 import { getAuthenticatedAgent } from "./auth/agent";
-import { requireAuth } from "./auth/session";
+import { getSessionData, requireAuth } from "./auth/session";
 import { deleteCatalogEntry, putCatalogEntry } from "./sync";
 
 const StatusEnum = z.enum([
@@ -274,6 +274,23 @@ export const removeCatalogEntry = createServerFn({ method: "POST" })
       throw err;
     }
   });
+
+/** Lightweight fingerprint for cache invalidation — count + max(updated_at). */
+export const getCatalogFingerprint = createServerFn({ method: "GET" }).handler(
+  async (): Promise<string | null> => {
+    const session = await getSessionData();
+    if (!session?.userId) return null;
+    const db = getDb();
+    const [row] = await db
+      .select({
+        count: sql<number>`count(*)`,
+        maxUpdated: sql<string>`max(${catalogEntries.updatedAt})`,
+      })
+      .from(catalogEntries)
+      .where(eq(catalogEntries.userId, session.userId));
+    return `${row.count}:${row.maxUpdated ?? ""}`;
+  },
+);
 
 /** No-auth stub: look up mediaTitle/mediaType from any catalog_entry for a wikidataId. */
 export const getMediaStub = createServerFn({ method: "GET" })

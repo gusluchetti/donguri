@@ -13,9 +13,11 @@ import { Moon, Sun } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import "../app.css";
 import { getAuthState, logout } from "../lib/auth.functions";
+import { getCatalogFingerprint } from "../lib/catalog.functions";
 import { HelpOverlay } from "../lib/hotkeys/HelpOverlay";
 import { isInputFocused } from "../lib/hotkeys/shortcuts";
 import { ogTags, pageTitle } from "../lib/og";
+import { checkCatalogFreshness } from "../lib/query";
 import { trackedIdsOptions } from "../lib/query-options";
 import { getThemeCookie, ThemeProvider, useTheme } from "../lib/theme";
 
@@ -55,7 +57,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     let trackedIds: Record<string, string | null> = {};
     if (auth) {
       try {
-        trackedIds = await context.queryClient.fetchQuery(trackedIdsOptions());
+        const [ids, fingerprint] = await Promise.all([
+          context.queryClient.fetchQuery(trackedIdsOptions()),
+          getCatalogFingerprint(),
+        ]);
+        trackedIds = ids;
+        checkCatalogFreshness(context.queryClient, fingerprint);
       } catch (err) {
         console.error("[root] getUserTrackedIds FAILED:", err, "(continuing with empty)");
       }
@@ -238,19 +245,19 @@ function GlobalShortcuts({
   useHotkey(".", toggleTheme);
 
   // g h — go home (sequence, needs input guard)
-  useHotkeySequence(["g", "h"], () => {
+  useHotkeySequence(["G", "H"], () => {
     if (isInputFocused()) return;
     navigate({ to: "/" });
   });
 
   // g c — go to catalog
-  useHotkeySequence(["g", "c"], () => {
+  useHotkeySequence(["G", "C"], () => {
     if (isInputFocused()) return;
     navigate({ to: "/catalog" });
   });
 
   // g r — go to roadmap
-  useHotkeySequence(["g", "r"], () => {
+  useHotkeySequence(["G", "R"], () => {
     if (isInputFocused()) return;
     navigate({ to: "/roadmap" });
   });

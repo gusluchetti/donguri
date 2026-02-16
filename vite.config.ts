@@ -8,6 +8,9 @@ const publicUrl = process.env.PUBLIC_URL || "https://dev.donguri.app";
 const publicHost = new URL(publicUrl).hostname;
 
 export default defineConfig({
+  define: {
+    __BUILD_ID__: JSON.stringify(Date.now().toString(36)),
+  },
   server: {
     port: 3000,
     allowedHosts: [publicHost],

@@ -1,3 +1,4 @@
+import type { Hotkey } from "@tanstack/hotkeys";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
@@ -48,7 +49,7 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
   loader: async ({ params, context }): Promise<LoaderData> => {
     const mediaPromise = context.queryClient.ensureQueryData(mediaDetailOptions(params.wikidataId));
     const entryPromise = context.queryClient
-      .ensureQueryData(catalogEntryOptions(params.wikidataId))
+      .fetchQuery(catalogEntryOptions(params.wikidataId))
       .catch(() => null);
 
     const [media, initialEntry] = await Promise.all([mediaPromise, entryPromise]);
@@ -91,7 +92,8 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
         const parts: string[] = [];
         if (m.startYear) parts.push(String(m.startYear));
         parts.push(mediaTypeLabel(m.mediaType));
-        if (m.genres?.length > 0) parts.push(m.genres.map((g) => g.name).join(", "));
+        if (m.genres?.length > 0)
+          parts.push(m.genres.map((g: { name: string }) => g.name).join(", "));
         description = `${parts.join(" \u00b7 ")} \u2014 Track on donguri`;
       }
 
@@ -242,11 +244,11 @@ function MediaDetailPage({
 
   // ─── Detail page shortcuts ──────────────────────────────────────────────
   // h / ArrowLeft / Backspace — go back
-  useHotkey("h", () => router.history.back());
+  useHotkey("H", () => router.history.back());
   useHotkey("ArrowLeft", () => router.history.back());
   useHotkey("Backspace", () => router.history.back());
   // f — toggle favorite
-  useHotkey("f", () => setLocalIsFavorite((v) => !v), {
+  useHotkey("F", () => setLocalIsFavorite((v) => !v), {
     enabled: !!auth && !!initialEntry?.status,
   });
 
@@ -257,7 +259,10 @@ function MediaDetailPage({
 
   const totalEps =
     hasSeasons && data.seasons
-      ? data.seasons.reduce((sum, s) => sum + (s.episodeCount ?? 0), 0)
+      ? data.seasons.reduce(
+          (sum: number, s: { episodeCount: number | null }) => sum + (s.episodeCount ?? 0),
+          0,
+        )
       : 0;
 
   const handleWatchedEpisodesChange = useCallback(
@@ -278,8 +283,10 @@ function MediaDetailPage({
   }, [localStatus, localWatchedEpisodes, totalEps]);
 
   // Dedup genres: if a sub-genre is present, suppress its standalone parent
-  const subGenreParentIds = new Set(data.genres.flatMap((g) => (g.parentId ? [g.parentId] : [])));
-  const visibleGenres = data.genres.filter((g) => {
+  const subGenreParentIds = new Set(
+    data.genres.flatMap((g: { parentId: string | null }) => (g.parentId ? [g.parentId] : [])),
+  );
+  const visibleGenres = data.genres.filter((g: { id: string; parentId: string | null }) => {
     if (g.parentId) return true;
     return !subGenreParentIds.has(g.id);
   });
@@ -356,8 +363,8 @@ function MediaDetailPage({
             <img
               src={data.posterUrl}
               alt={`${data.title} poster`}
-              width={120}
-              className="w-[120px] rounded border border-dg-border-subtle shrink-0 self-stretch object-cover hidden sm:block"
+              width={160}
+              className="w-[160px] rounded border border-dg-border-subtle shrink-0 self-stretch object-cover hidden sm:block"
               loading="eager"
             />
           )}
@@ -413,21 +420,25 @@ function MediaDetailPage({
               {visibleGenres.length > 0 && (
                 <div className="border-t border-dg-border-subtle mt-3 pt-3">
                   <div className="flex flex-wrap gap-1.5">
-                    {visibleGenres.map((g) => (
-                      <span
-                        key={g.id}
-                        className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                      >
-                        {g.parentName ? (
-                          <>
-                            <span className="text-dg-text-tertiary">{g.parentName} &rsaquo; </span>
-                            {g.name}
-                          </>
-                        ) : (
-                          g.name
-                        )}
-                      </span>
-                    ))}
+                    {visibleGenres.map(
+                      (g: { id: string; name: string; parentName?: string | null }) => (
+                        <span
+                          key={g.id}
+                          className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                        >
+                          {g.parentName ? (
+                            <>
+                              <span className="text-dg-text-tertiary">
+                                {g.parentName} &rsaquo;{" "}
+                              </span>
+                              {g.name}
+                            </>
+                          ) : (
+                            g.name
+                          )}
+                        </span>
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -513,7 +524,7 @@ function MediaDetailPage({
               Platforms
             </h3>
             <div className="flex flex-wrap gap-1.5">
-              {data.platforms.map((p) => (
+              {data.platforms.map((p: { id: string; name: string }) => (
                 <span
                   key={p.id}
                   className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
@@ -611,9 +622,9 @@ function EpisodeGrid({
 
           return (
             <div key={s.id}>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 {!isSingleSeason && (
-                  <span className="w-8 shrink-0 text-[0.75rem] text-dg-text-tertiary tabular-nums pt-1">
+                  <span className="w-8 shrink-0 text-[0.75rem] text-dg-text-tertiary tabular-nums">
                     S{String(s.seasonNumber).padStart(2, "0")}
                   </span>
                 )}
@@ -628,7 +639,7 @@ function EpisodeGrid({
                     seasonWatched={seasonW}
                   />
                 ) : (
-                  <span className="text-xs text-dg-text-tertiary pt-1">unknown</span>
+                  <span className="text-xs text-dg-text-tertiary">unknown</span>
                 )}
               </div>
             </div>
@@ -660,7 +671,7 @@ function SeasonEpisodes({
 
   return (
     <div className="flex-1">
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-1.5">
         {Array.from({ length: episodeCount }, (_, i) => {
           const ep = i + 1;
           const isWatched = !!watchedEpisodes?.[String(seasonNumber)]?.[String(ep)];
@@ -925,16 +936,16 @@ function TrackingPanel({
 
   // Status keys — only fire if the status is visible for this media type
   const statusKeyMap: Record<string, string> = {
-    p: "planned",
-    w: "in_progress",
-    o: "on_hold",
-    c: "completed",
-    d: "dropped",
-    m: "mastered",
+    P: "planned",
+    W: "in_progress",
+    O: "on_hold",
+    C: "completed",
+    D: "dropped",
+    M: "mastered",
   };
   for (const [key, status] of Object.entries(statusKeyMap)) {
     // biome-ignore lint/correctness/useHookAtTopLevel: static iteration over constant map
-    useHotkey(key, () => setLocalStatus(status), {
+    useHotkey(key as Hotkey, () => setLocalStatus(status), {
       enabled: loaded && notBusy && statusLabel(status as never, mediaType) !== null,
     });
   }
@@ -996,7 +1007,7 @@ function TrackingPanel({
 
   // s — save
   useHotkey(
-    "s",
+    "S",
     () => {
       if (isDirty) handleSave();
     },
