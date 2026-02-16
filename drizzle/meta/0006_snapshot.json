@@ -1,5 +1,5 @@
 {
-  "id": "1e5af2bf-0d95-4a18-bc09-e1d1d3f032d7",
+  "id": "1c7f5d06-576f-4cfe-85b2-94bed74fa615",
   "prevId": "f2bd0e5b-2191-42b3-9557-fc8eca4bcdf5",
   "version": "7",
   "dialect": "postgresql",
@@ -496,28 +496,6 @@
           "notNull": false,
           "default": 0
         },
-        "qrank_pct": {
-          "name": "qrank_pct",
-          "type": "numeric(5, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sitelinks_pct": {
-          "name": "sitelinks_pct",
-          "type": "numeric(5, 2)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "popularity_score": {
-          "name": "popularity_score",
-          "type": "numeric(5, 2)",
-          "primaryKey": false,
-          "notNull": false,
-          "generated": {
-            "as": "CASE WHEN qrank_pct IS NOT NULL THEN 0.6 * qrank_pct + 0.4 * COALESCE(sitelinks_pct, 100) ELSE COALESCE(sitelinks_pct, 100) END",
-            "type": "stored"
-          }
-        },
         "country_of_origin": {
           "name": "country_of_origin",
           "type": "text",
@@ -716,21 +694,6 @@
           "columns": [
             {
               "expression": "tvmaze_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_media_popularity": {
-          "name": "idx_media_popularity",
-          "columns": [
-            {
-              "expression": "popularity_score",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1021,13 +984,6 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false,
