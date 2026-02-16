@@ -2,7 +2,7 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import { SHORTCUT_SECTIONS, type ShortcutSection } from "./shortcuts";
 
 export function HelpOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
-  useHotkey("Escape", onClose, { enabled: open });
+  useHotkey("Escape", onClose, { enabled: open, conflictBehavior: "allow" });
 
   if (!open) return null;
 

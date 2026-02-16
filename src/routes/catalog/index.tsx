@@ -275,7 +275,7 @@ function CatalogPage() {
         setSelectedIndex(-1);
       }
     },
-    { ignoreInputs: false },
+    { ignoreInputs: false, conflictBehavior: "allow" },
   );
 
   // f + key — type filter sequences
