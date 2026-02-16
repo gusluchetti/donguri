@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db";
 import { catalogEntries } from "../db/schema";
-import { normalizeStatus } from "./media-types";
+import { countWatchedEpisodes, normalizeStatus } from "./media-types";
 
 const COLLECTION = "app.donguri.catalog.entry";
 
@@ -122,6 +122,11 @@ export async function upsertLocalMirror(
         : now
       : null;
 
+  // Auto-compute episodeProgress from watchedEpisodes
+  const epProgress = normalized.watchedEpisodes
+    ? countWatchedEpisodes(normalized.watchedEpisodes)
+    : (normalized.episodeProgress ?? null);
+
   if (rows.length > 0) {
     const existing = rows[0];
 
@@ -147,14 +152,6 @@ export async function upsertLocalMirror(
       return;
     }
 
-    // Auto-compute episodeProgress from watchedEpisodes
-    const computedProgress = normalized.watchedEpisodes
-      ? Object.values(normalized.watchedEpisodes).reduce(
-          (sum, eps) => sum + Object.keys(eps).length,
-          0,
-        )
-      : (normalized.episodeProgress ?? null);
-
     console.debug("[sync] upsertLocalMirror userId=%s rkey=%s → update existing", userId, rkey);
     await db
       .update(catalogEntries)
@@ -162,7 +159,7 @@ export async function upsertLocalMirror(
         status: normalized.status,
         rating: normalized.rating ?? null,
         note: normalized.note ?? null,
-        episodeProgress: computedProgress,
+        episodeProgress: epProgress,
         isFavorite: normalized.isFavorite ?? false,
         replayCount: normalized.replayCount ?? 0,
         completedAt,
@@ -178,14 +175,6 @@ export async function upsertLocalMirror(
       })
       .where(eq(catalogEntries.id, existing.id));
   } else {
-    // Auto-compute episodeProgress from watchedEpisodes
-    const insertProgress = normalized.watchedEpisodes
-      ? Object.values(normalized.watchedEpisodes).reduce(
-          (sum, eps) => sum + Object.keys(eps).length,
-          0,
-        )
-      : (normalized.episodeProgress ?? null);
-
     console.debug("[sync] upsertLocalMirror userId=%s rkey=%s → insert new", userId, rkey);
     await db.insert(catalogEntries).values({
       userId,
@@ -195,7 +184,7 @@ export async function upsertLocalMirror(
       status: normalized.status,
       rating: normalized.rating ?? null,
       note: normalized.note ?? null,
-      episodeProgress: insertProgress,
+      episodeProgress: epProgress,
       isFavorite: normalized.isFavorite ?? false,
       replayCount: normalized.replayCount ?? 0,
       completedAt,
