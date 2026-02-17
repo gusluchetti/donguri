@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import Markdown from "react-markdown";
+import rawRoadmap from "../../ROADMAP.md?raw";
 import { ogTags, pageTitle } from "../lib/og";
+
+const roadmapMd = rawRoadmap.replace(/<!--[\s\S]*?-->/g, "");
 
 export const Route = createFileRoute("/roadmap")({
   head: () => ({
@@ -21,131 +25,44 @@ export const Route = createFileRoute("/roadmap")({
   component: RoadmapPage,
 });
 
-const SECTIONS = [
-  {
-    title: "Available now",
-    items: [
-      ["100,000+ titles", "movies, TV shows, anime, and games, all searchable and filterable"],
-      [
-        "Rich detail pages",
-        "genres, platforms, and direct links to IMDb, TMDB, MAL, AniList, IGDB, and more",
-      ],
-      ["Cover art", "cover images on detail pages and catalog thumbnails"],
-      [
-        "Season and episode data",
-        "per-season episode counts from Wikidata, TVMaze, and anime-offline-database",
-      ],
-      [
-        "Track your collection",
-        "smart status labels per media type (Watching for TV, Playing for games), rate 0\u2013100, mark favorites, and count rewatches",
-      ],
-      ["One-click add", "see something interesting? Add it to your collection instantly"],
-      [
-        "Sign in with Bluesky, Google, or GitHub",
-        "Bluesky syncs to your own PDS. Google and GitHub for quick access",
-      ],
-      [
-        "Favorites and rewatch tracking",
-        "star your favorites and keep count of rewatches, replays, and rewatches across all media types",
-      ],
-      [
-        "Genre tags on detail pages",
-        "genres displayed with hierarchy \u2014 sub-genres grouped under their parent category",
-      ],
-      [
-        "Dark and light themes",
-        "toggle between dark and light mode, or follow your system preference",
-      ],
-      [
-        "Fast and cached",
-        "pages load instantly from local cache, with background sync to keep everything up to date",
-      ],
-    ],
-  },
-  {
-    title: "Coming soon",
-    items: [
-      [
-        "Per-episode tracking",
-        "mark individual episodes as watched, season by season. Never lose your place in a long-running series",
-      ],
-      ["Genre filtering", "filter the catalog by genre, not just media type"],
-      ["Notes", "add personal notes to any title in your collection"],
-      ["Import your data", "bring your lists from MyAnimeList, Letterboxd, Trakt, and more"],
-    ],
-  },
-  {
-    title: "On the horizon",
-    items: [
-      ["Public profiles", "show off your collection, stats, and taste. You control what's visible"],
-      [
-        "Achievements",
-        "unlock badges for milestones like watching every Studio Ghibli film or completing a long-running series",
-      ],
-      [
-        "Stats and year-in-review",
-        "genre breakdowns, average ratings, watching habits, and an annual summary",
-      ],
-      ["Activity feed", "see what the people you follow are watching, rating, and discovering"],
-      ["Community ratings", "scores from the donguri community alongside external ratings"],
-      [
-        "Lists and collections",
-        'curate and share themed lists like "best sci-fi of 2024" or "comfort watches"',
-      ],
-      ["Recommendations", "discover new titles based on your history and taste"],
-      ["Data export", "download your entire collection as a file, anytime"],
-    ],
-  },
-  {
-    title: "What we believe",
-    items: [
-      [
-        "Your data belongs to you.",
-        "Bluesky users sync to their own personal server — portable, no lock-in.",
-      ],
-      [
-        "Open catalog, private collection.",
-        "The catalog is sourced from Wikidata. Your watchlist, ratings, and progress are yours alone.",
-      ],
-      [
-        "Fast by default.",
-        "Everything loads from local cache first. Changes sync quietly in the background.",
-      ],
-      ["No dark patterns.", "We'll never manufacture urgency or guilt you into opening the app."],
-    ],
-  },
-] as const;
-
 function RoadmapPage() {
   return (
     <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
       <div className="max-w-[1000px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
-        <h1 className="text-[1.6rem] sm:text-[2rem] font-semibold -tracking-[0.02em] mb-2">
-          <span className="text-dg-accent">roadmap</span>
-        </h1>
-        <p className="text-dg-text-secondary text-[0.9rem] leading-relaxed mb-4 sm:mb-5">
-          Your personal catalog for movies, TV shows, anime, and games. Track what you've watched,
-          what you're playing, and what's next — all in one place. Sign in with Bluesky and your
-          data stays yours, synced to your own server.
-        </p>
-
-        <div className="flex flex-col gap-4">
-          {SECTIONS.map((section) => (
-            <div key={section.title}>
-              <h2 className="text-[0.8rem] uppercase tracking-wider mb-2 text-dg-text-secondary">
-                {section.title}
+        <Markdown
+          components={{
+            h1: ({ children }) => (
+              <h1 className="text-[1.6rem] sm:text-[2rem] font-semibold -tracking-[0.02em] mb-2">
+                <span className="text-dg-accent">{children}</span>
+              </h1>
+            ),
+            h2: ({ children }) => (
+              <h2 className="text-[0.8rem] uppercase tracking-wider mb-2 mt-4 first:mt-0 text-dg-text-secondary">
+                {children}
               </h2>
-              <div className="border border-dg-border-subtle rounded bg-dg-surface divide-y divide-dg-border-subtle">
-                {section.items.map(([label, desc]) => (
-                  <div key={label} className="px-3 sm:px-4 py-3 sm:py-2.5">
-                    <span className="text-[0.85rem] text-dg-text font-semibold">{label}</span>
-                    <span className="text-[0.85rem] text-dg-text-secondary"> — {desc}</span>
-                  </div>
-                ))}
+            ),
+            p: ({ children }) => (
+              <p className="text-dg-text-secondary text-[0.9rem] leading-relaxed mb-4 sm:mb-5">
+                {children}
+              </p>
+            ),
+            ul: ({ children }) => (
+              <div className="border border-dg-border-subtle rounded bg-dg-surface divide-y divide-dg-border-subtle mb-4">
+                {children}
               </div>
-            </div>
-          ))}
-        </div>
+            ),
+            li: ({ children }) => (
+              <div className="px-3 sm:px-4 py-3 sm:py-2.5 text-[0.85rem] text-dg-text-secondary">
+                {children}
+              </div>
+            ),
+            strong: ({ children }) => (
+              <span className="text-dg-text font-semibold">{children}</span>
+            ),
+          }}
+        >
+          {roadmapMd}
+        </Markdown>
       </div>
     </div>
   );
