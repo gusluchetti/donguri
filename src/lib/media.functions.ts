@@ -7,6 +7,7 @@ import {
   canonicalGenres,
   genreMappings,
   genres,
+  type Media,
   media,
   mediaGenres,
   mediaPlatforms,
@@ -37,6 +38,26 @@ function setCache<T>(key: string, data: T, ttl: number): void {
 }
 
 const parentGenres = alias(canonicalGenres, "parent_genres");
+
+/** Return type of getMedia (defined explicitly to break circular inference). */
+type MediaDetail = Media & {
+  genres: {
+    id: string;
+    slug: string;
+    name: string;
+    parentId: string | null;
+    sortOrder: number | null;
+    parentName: string | null;
+  }[];
+  platforms: { id: string; name: string; wikidataId: string }[];
+  seasons: {
+    id: string;
+    seasonNumber: number;
+    episodeCount: number | null;
+    title: string | null;
+    dataSource: string;
+  }[];
+};
 
 // ─── Input schemas ──────────────────────────────────────────────────────────
 
@@ -81,7 +102,8 @@ async function searchMedia(
   )`;
 
   const conditions = [fuzzyCondition];
-  if (mediaType) conditions.push(eq(media.mediaType, mediaType));
+  if (mediaType)
+    conditions.push(eq(media.mediaType, mediaType as "movie" | "tv_series" | "anime" | "game"));
 
   const results = await db.transaction(async (tx) => {
     await tx.execute(sql`SET LOCAL pg_trgm.word_similarity_threshold = 0.2`);
@@ -195,8 +217,8 @@ export const listMedia = createServerFn({ method: "GET" })
  */
 export const getMedia = createServerFn({ method: "GET" })
   .inputValidator(GetMediaInput)
-  .handler(async ({ data }) => {
-    const cached = getCached<Awaited<ReturnType<typeof getMedia>>>(data.wikidataId);
+  .handler(async ({ data }): Promise<MediaDetail | null> => {
+    const cached = getCached<MediaDetail>(data.wikidataId);
     if (cached) return cached;
 
     const db = getDb();
@@ -245,6 +267,10 @@ export const getMedia = createServerFn({ method: "GET" })
         .orderBy(seasons.seasonNumber),
     ]);
 
+    // TEMP: hide episode tracking for non-consecutive seasons
+    const isConsecutive =
+      itemSeasons.length === 0 || itemSeasons.every((s, i) => s.seasonNumber === i + 1);
+
     const result = {
       ...item[0],
       genres: itemGenres.map((g) => ({
@@ -256,7 +282,7 @@ export const getMedia = createServerFn({ method: "GET" })
         parentName: g.parentName ?? null,
       })),
       platforms: itemPlatforms,
-      seasons: itemSeasons,
+      seasons: isConsecutive ? itemSeasons : [],
     };
 
     setCache(data.wikidataId, result, MEDIA_TTL);

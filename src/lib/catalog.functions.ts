@@ -4,9 +4,18 @@ import { z } from "zod";
 import { getDb } from "../db";
 import type { CatalogEntry } from "../db/schema";
 import { catalogEntries, media } from "../db/schema";
-import { getAuthenticatedAgent } from "./auth/agent";
-import { requireAuth } from "./auth/session";
+import { getAuthenticatedAgent, isSessionExpired } from "./auth/agent";
+import { clearSessionCookie, getSessionData, requireAuth } from "./auth/session";
+import { countWatchedEpisodes } from "./media-types";
 import { deleteCatalogEntry, putCatalogEntry } from "./sync";
+
+function throwIfSessionExpired(err: unknown): void {
+  if (isSessionExpired(err)) {
+    console.warn("[catalog] AT Protocol session expired, forcing logout");
+    clearSessionCookie();
+    throw new Error("SESSION_EXPIRED");
+  }
+}
 
 const StatusEnum = z.enum([
   "planned",
@@ -58,6 +67,9 @@ export const getUserCatalogEntries = createServerFn({ method: "GET" }).handler(a
       updatedAt: catalogEntries.updatedAt,
       mediaTitle: sql<string | null>`COALESCE(${catalogEntries.mediaTitle}, ${media.title})`,
       mediaType: sql<string | null>`COALESCE(${catalogEntries.mediaType}, ${media.mediaType})`,
+      watchedEpisodes: catalogEntries.watchedEpisodes,
+      episodeCount: media.episodeCount,
+      seasonCount: media.seasonCount,
     })
     .from(catalogEntries)
     .leftJoin(media, eq(catalogEntries.mediaWikidataId, media.wikidataId))
@@ -96,7 +108,8 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
       episodeProgress: z.number().int().min(0).nullish(),
       isFavorite: z.boolean().nullish(),
       replayCount: z.number().int().min(0).nullish(),
-      watchedEpisodes: z.record(z.string(), z.array(z.number())).nullish(),
+      watchedEpisodes: z.record(z.string(), z.record(z.string(), z.string())).nullish(),
+      watchedAt: z.string().max(10).nullish(),
     }),
   )
   .handler(async ({ data }) => {
@@ -150,18 +163,25 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
         }
       }
 
+      // Auto-compute episodeProgress from watchedEpisodes
+      const epProgress = data.watchedEpisodes
+        ? countWatchedEpisodes(data.watchedEpisodes)
+        : data.episodeProgress;
+
       if (auth.authMethod === "atproto" && auth.did) {
         // PDS-first flow for AT Protocol users
         const agent = await getAuthenticatedAgent(auth.did);
+
         await putCatalogEntry(agent, userId, auth.did, {
           mediaRef: data.wikidataId,
           status: data.status,
           rating: data.rating ?? undefined,
           note: data.note ?? undefined,
-          episodeProgress: data.episodeProgress ?? undefined,
+          episodeProgress: epProgress ?? undefined,
           isFavorite: data.isFavorite ?? undefined,
           replayCount: data.replayCount ?? undefined,
           watchedEpisodes: data.watchedEpisodes ?? undefined,
+          watchedAt: data.watchedAt ?? undefined,
           title,
           mediaType: entryMediaType,
           createdAt: existing?.createdAt?.toISOString() ?? now,
@@ -184,11 +204,12 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
           status: data.status,
           rating: data.rating ?? null,
           note: data.note ?? null,
-          episodeProgress: data.episodeProgress ?? null,
+          episodeProgress: epProgress ?? null,
           isFavorite: data.isFavorite ?? false,
           replayCount: data.replayCount ?? 0,
           completedAt,
           watchedEpisodes: data.watchedEpisodes ?? null,
+          watchedAt: data.watchedAt ?? null,
           updatedAt: new Date(now),
         };
 
@@ -210,6 +231,7 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
       console.debug("[catalog] setCatalogEntry → ok");
       return { ok: true };
     } catch (err) {
+      throwIfSessionExpired(err);
       console.error("[catalog] setCatalogEntry FAILED:", err);
       throw err;
     }
@@ -248,10 +270,28 @@ export const removeCatalogEntry = createServerFn({ method: "POST" })
       console.debug("[catalog] removeCatalogEntry → ok");
       return { ok: true };
     } catch (err) {
+      throwIfSessionExpired(err);
       console.error("[catalog] removeCatalogEntry FAILED:", err);
       throw err;
     }
   });
+
+/** Lightweight fingerprint for cache invalidation — count + max(updated_at). */
+export const getCatalogFingerprint = createServerFn({ method: "GET" }).handler(
+  async (): Promise<string | null> => {
+    const session = await getSessionData();
+    if (!session?.userId) return null;
+    const db = getDb();
+    const [row] = await db
+      .select({
+        count: sql<number>`count(*)`,
+        maxUpdated: sql<string>`max(${catalogEntries.updatedAt})`,
+      })
+      .from(catalogEntries)
+      .where(eq(catalogEntries.userId, session.userId));
+    return `${row.count}:${row.maxUpdated ?? ""}`;
+  },
+);
 
 /** No-auth stub: look up mediaTitle/mediaType from any catalog_entry for a wikidataId. */
 export const getMediaStub = createServerFn({ method: "GET" })

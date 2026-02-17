@@ -46,17 +46,14 @@ export function getDb() {
   return _db;
 }
 
-// For import scripts that run outside the server
-export function createDb(url: string) {
+/** Import-script DB: single pool for both Drizzle ORM and raw postgres.js ops. */
+export function createImportDb(url: string) {
   const client = postgres(url, {
     max: 5,
     idle_timeout: 30,
     connect_timeout: 30,
+    keep_alive: 30,
+    backoff: (n) => Math.min(1000 * 2 ** n, 30_000),
   });
-  return drizzle(client, { schema });
-}
-
-/** Raw postgres.js client for COPY and other low-level operations. */
-export function createRawClient(url: string) {
-  return postgres(url, { max: 5, idle_timeout: 30, connect_timeout: 30 });
+  return { db: drizzle(client, { schema }), client };
 }

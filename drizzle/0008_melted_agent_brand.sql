@@ -1,0 +1,1 @@
+ALTER TABLE "catalog_entries" ADD COLUMN "watched_at" text;

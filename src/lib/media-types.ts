@@ -38,11 +38,11 @@ export function ratingColor(value: number | null): string | undefined {
 // ─── Status Vocabulary ──────────────────────────────────────────────────────
 
 export const STATUS_ORDER = [
-  "in_progress",
-  "planned",
-  "on_hold",
-  "completed",
   "dropped",
+  "on_hold",
+  "planned",
+  "in_progress",
+  "completed",
   "mastered",
 ] as const;
 export type StatusValue = (typeof STATUS_ORDER)[number];
@@ -126,3 +126,73 @@ export const STATUS_BUTTON_COLORS: Record<StatusValue, string> = {
   dropped: "border-dg-anime text-dg-anime bg-dg-anime/10",
   mastered: "border-dg-accent text-dg-accent bg-dg-accent/10",
 };
+
+// ─── Watched Episodes Helpers ────────────────────────────────────────────────
+
+export type WatchedEpisodes = Record<string, Record<string, string>>;
+
+export function todayISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function countWatchedEpisodes(watched: WatchedEpisodes | null | undefined): number {
+  if (!watched) return 0;
+  return Object.values(watched).reduce((sum, eps) => sum + Object.keys(eps).length, 0);
+}
+
+export function countSeasonWatched(
+  watched: WatchedEpisodes | null | undefined,
+  seasonNumber: number,
+): number {
+  if (!watched) return 0;
+  const eps = watched[String(seasonNumber)];
+  return eps ? Object.keys(eps).length : 0;
+}
+
+/** Mark episodes 1..ep as watched for a given season. Preserves existing dates. */
+export function markThroughEpisode(
+  watched: WatchedEpisodes | null | undefined,
+  season: number,
+  ep: number,
+  date: string,
+): WatchedEpisodes {
+  const result: WatchedEpisodes = watched ? structuredClone(watched) : {};
+  const key = String(season);
+  if (!result[key]) result[key] = {};
+  for (let i = 1; i <= ep; i++) {
+    const epKey = String(i);
+    if (!result[key][epKey]) result[key][epKey] = date;
+  }
+  return result;
+}
+
+/** Returns highest N where episodes 1..N are all watched for the given season. */
+export function highestConsecutiveEpisode(
+  watched: WatchedEpisodes | null | undefined,
+  seasonNumber: number,
+): number {
+  if (!watched) return 0;
+  const eps = watched[String(seasonNumber)];
+  if (!eps) return 0;
+  let n = 0;
+  while (eps[String(n + 1)]) n++;
+  return n;
+}
+
+/** Remove episodes in [fromEp, toEp] for a given season. Cleans up empty season keys. */
+export function clearSeasonFrom(
+  watched: WatchedEpisodes | null | undefined,
+  season: number,
+  fromEp: number,
+  toEp: number,
+): WatchedEpisodes {
+  const result: WatchedEpisodes = watched ? structuredClone(watched) : {};
+  const key = String(season);
+  if (!result[key]) return result;
+  for (let i = fromEp; i <= toEp; i++) {
+    delete result[key][String(i)];
+  }
+  if (Object.keys(result[key]).length === 0) delete result[key];
+  return result;
+}

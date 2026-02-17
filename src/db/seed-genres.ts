@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { CANONICAL_GENRES, GENRE_MAPPINGS } from "./genre-data";
-import { cleanEnv, createDb } from "./index";
+import { cleanEnv, createImportDb } from "./index";
 import { canonicalGenres, genreMappings } from "./schema";
 
 const url = cleanEnv(process.env.DATABASE_URL);
@@ -9,7 +9,7 @@ if (!url) {
   process.exit(1);
 }
 
-const db = createDb(url);
+const { db } = createImportDb(url);
 
 async function seed() {
   console.log("Seeding canonical genres...");

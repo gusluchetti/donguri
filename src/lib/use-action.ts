@@ -14,8 +14,11 @@ export function useAction() {
       setState("done");
       timeoutRef.current = setTimeout(() => setState("idle"), 1500);
       return result;
-    } catch {
+    } catch (err) {
       setState("error");
+      if (err instanceof Error && /SESSION_EXPIRED/.test(err.message)) {
+        throw err;
+      }
       return undefined;
     }
   }, []);
