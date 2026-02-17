@@ -204,7 +204,8 @@ export const catalogEntries = pgTable(
     isFavorite: boolean("is_favorite").default(false).notNull(),
     replayCount: integer("replay_count").default(0).notNull(),
     completedAt: timestamp("completed_at"),
-    watchedEpisodes: jsonb("watched_episodes").$type<Record<string, number[]>>(),
+    watchedEpisodes: jsonb("watched_episodes").$type<Record<string, Record<string, string>>>(),
+    watchedAt: text("watched_at"), // user-editable ISO date, distinct from system completedAt
     rkey: text("rkey"), // nullable — only set for AT Protocol users
     syncedAt: timestamp("synced_at"), // nullable — last PDS sync time
     createdAt: timestamp("created_at").defaultNow(),

@@ -2,8 +2,9 @@ import { experimental_createQueryPersister } from "@tanstack/query-persist-clien
 import { QueryClient } from "@tanstack/react-query";
 import { del, get, set } from "idb-keyval";
 
-// Bump when server data shape changes (e.g. genre normalization, schema migrations)
-export const DATA_VERSION = 4;
+// Auto-generated at Vite startup / build time — changes on every deploy, stable during dev.
+declare const __BUILD_ID__: string;
+export const DATA_VERSION = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "dev";
 
 export function createQueryClient() {
   return new QueryClient({
@@ -29,6 +30,21 @@ export const idbPersister =
         },
         maxAge: 24 * 60 * 60 * 1000,
         prefix: "dg",
-        refetchOnRestore: false,
+        refetchOnRestore: true,
       })
     : undefined;
+
+// ─── Catalog freshness check ────────────────────────────────────────────────
+// Root loader fetches a lightweight fingerprint (count + max updated_at) on every
+// navigation. If it differs from the last seen value, all ["user"] queries are
+// invalidated so child loaders/components get fresh data.
+
+let lastFingerprint: string | null = null;
+
+export function checkCatalogFreshness(queryClient: QueryClient, fingerprint: string | null) {
+  if (fingerprint === null) return;
+  if (lastFingerprint !== null && lastFingerprint !== fingerprint) {
+    queryClient.invalidateQueries({ queryKey: ["user"] });
+  }
+  lastFingerprint = fingerprint;
+}

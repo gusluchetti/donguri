@@ -23,7 +23,7 @@ export function OAuthProviderCallback({
       return;
     }
 
-    handleOAuthProviderCallback({ data: { provider, code } })
+    handleOAuthProviderCallback({ data: { provider: provider as "google" | "github", code } })
       .then(() => {
         window.location.href = "/";
       })

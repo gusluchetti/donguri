@@ -7,7 +7,7 @@ const persister = idbPersister?.persisterFn;
 
 export function trackedIdsOptions() {
   return queryOptions({
-    queryKey: ["user", "trackedIds"],
+    queryKey: ["user", "trackedIds", DATA_VERSION],
     queryFn: () => getUserTrackedIds({}),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
@@ -17,7 +17,7 @@ export function trackedIdsOptions() {
 
 export function watchlistOptions() {
   return queryOptions({
-    queryKey: ["user", "watchlist"],
+    queryKey: ["user", "watchlist", DATA_VERSION],
     queryFn: () => getUserCatalogEntries({}),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
@@ -34,7 +34,10 @@ export function mediaStatsOptions() {
   });
 }
 
-export function catalogInfiniteOptions(mediaType?: string, search?: string) {
+export function catalogInfiniteOptions(
+  mediaType?: "movie" | "tv_series" | "anime" | "game",
+  search?: string,
+) {
   return infiniteQueryOptions({
     queryKey: ["catalog", "browse", DATA_VERSION, mediaType ?? "all", search ?? ""],
     queryFn: ({ pageParam }) =>
@@ -56,9 +59,9 @@ export function mediaDetailOptions(wikidataId: string) {
 
 export function catalogEntryOptions(wikidataId: string) {
   return queryOptions({
-    queryKey: ["user", "entry", wikidataId],
+    queryKey: ["user", "entry", DATA_VERSION, wikidataId],
     queryFn: () => getCatalogEntry({ data: { wikidataId } }),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
     refetchOnWindowFocus: true,
     persister,
   });

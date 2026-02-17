@@ -1,3 +1,4 @@
+import type { Hotkey } from "@tanstack/hotkeys";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
@@ -13,12 +14,19 @@ import {
 import type { getMedia } from "../../lib/media.functions";
 import {
   availableStatuses,
+  clearSeasonFrom,
+  countSeasonWatched,
+  countWatchedEpisodes,
+  highestConsecutiveEpisode,
+  markThroughEpisode,
   mediaTypeLabel,
   ratingColor,
   replayCountLabel,
   STATUS_BUTTON_COLORS,
   statusLabel,
+  todayISO,
   typeBadgeClass,
+  type WatchedEpisodes,
 } from "../../lib/media-types";
 import { ogTags, pageTitle } from "../../lib/og";
 import { catalogEntryOptions, mediaDetailOptions } from "../../lib/query-options";
@@ -43,7 +51,7 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
   loader: async ({ params, context }): Promise<LoaderData> => {
     const mediaPromise = context.queryClient.ensureQueryData(mediaDetailOptions(params.wikidataId));
     const entryPromise = context.queryClient
-      .ensureQueryData(catalogEntryOptions(params.wikidataId))
+      .fetchQuery(catalogEntryOptions(params.wikidataId))
       .catch(() => null);
 
     const [media, initialEntry] = await Promise.all([mediaPromise, entryPromise]);
@@ -86,7 +94,8 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
         const parts: string[] = [];
         if (m.startYear) parts.push(String(m.startYear));
         parts.push(mediaTypeLabel(m.mediaType));
-        if (m.genres?.length > 0) parts.push(m.genres.map((g) => g.name).join(", "));
+        if (m.genres?.length > 0)
+          parts.push(m.genres.map((g: { name: string }) => g.name).join(", "));
         description = `${parts.join(" \u00b7 ")} \u2014 Track on donguri`;
       }
 
@@ -227,14 +236,21 @@ function MediaDetailPage({
   const router = useRouter();
   const badgeClass = typeBadgeClass(data.mediaType);
   const [localIsFavorite, setLocalIsFavorite] = useState(initialEntry?.isFavorite ?? false);
+  const [localWatchedEpisodes, setLocalWatchedEpisodes] = useState<WatchedEpisodes>(
+    (initialEntry?.watchedEpisodes as WatchedEpisodes) ?? {},
+  );
+  const [localWatchedAt, setLocalWatchedAt] = useState<string | null>(
+    initialEntry?.watchedAt ?? null,
+  );
+  const [localStatus, setLocalStatus] = useState<string | null>(initialEntry?.status ?? null);
 
   // ─── Detail page shortcuts ──────────────────────────────────────────────
   // h / ArrowLeft / Backspace — go back
-  useHotkey("h", () => router.history.back());
+  useHotkey("H", () => router.history.back());
   useHotkey("ArrowLeft", () => router.history.back());
   useHotkey("Backspace", () => router.history.back());
   // f — toggle favorite
-  useHotkey("f", () => setLocalIsFavorite((v) => !v), {
+  useHotkey("F", () => setLocalIsFavorite((v) => !v), {
     enabled: !!auth && !!initialEntry?.status,
   });
 
@@ -243,9 +259,36 @@ function MediaDetailPage({
   const isTvOrAnime = data.mediaType === "tv_series" || isAnime;
   const hasSeasons = isTvOrAnime && data.seasons && data.seasons.length > 0;
 
+  const totalEps =
+    hasSeasons && data.seasons
+      ? data.seasons.reduce(
+          (sum: number, s: { episodeCount: number | null }) => sum + (s.episodeCount ?? 0),
+          0,
+        )
+      : 0;
+
+  const handleWatchedEpisodesChange = useCallback(
+    (newWatched: WatchedEpisodes) => {
+      setLocalWatchedEpisodes(newWatched);
+      if (!localStatus) setLocalStatus("in_progress");
+    },
+    [localStatus],
+  );
+
+  // Auto-complete: when all episodes watched while in_progress
+  useEffect(() => {
+    if (localStatus === "in_progress" && totalEps > 0) {
+      if (countWatchedEpisodes(localWatchedEpisodes) >= totalEps) {
+        setLocalStatus("completed");
+      }
+    }
+  }, [localStatus, localWatchedEpisodes, totalEps]);
+
   // Dedup genres: if a sub-genre is present, suppress its standalone parent
-  const subGenreParentIds = new Set(data.genres.flatMap((g) => (g.parentId ? [g.parentId] : [])));
-  const visibleGenres = data.genres.filter((g) => {
+  const subGenreParentIds = new Set(
+    data.genres.flatMap((g: { parentId: string | null }) => (g.parentId ? [g.parentId] : [])),
+  );
+  const visibleGenres = data.genres.filter((g: { id: string; parentId: string | null }) => {
     if (g.parentId) return true;
     return !subGenreParentIds.has(g.id);
   });
@@ -322,8 +365,8 @@ function MediaDetailPage({
             <img
               src={data.posterUrl}
               alt={`${data.title} poster`}
-              width={120}
-              className="w-[120px] rounded border border-dg-border-subtle shrink-0 self-stretch object-cover hidden sm:block"
+              width={160}
+              className="w-[160px] rounded border border-dg-border-subtle shrink-0 self-stretch object-cover hidden sm:block"
               loading="eager"
             />
           )}
@@ -379,21 +422,25 @@ function MediaDetailPage({
               {visibleGenres.length > 0 && (
                 <div className="border-t border-dg-border-subtle mt-3 pt-3">
                   <div className="flex flex-wrap gap-1.5">
-                    {visibleGenres.map((g) => (
-                      <span
-                        key={g.id}
-                        className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                      >
-                        {g.parentName ? (
-                          <>
-                            <span className="text-dg-text-tertiary">{g.parentName} &rsaquo; </span>
-                            {g.name}
-                          </>
-                        ) : (
-                          g.name
-                        )}
-                      </span>
-                    ))}
+                    {visibleGenres.map(
+                      (g: { id: string; name: string; parentName?: string | null }) => (
+                        <span
+                          key={g.id}
+                          className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                        >
+                          {g.parentName ? (
+                            <>
+                              <span className="text-dg-text-tertiary">
+                                {g.parentName} &rsaquo;{" "}
+                              </span>
+                              {g.name}
+                            </>
+                          ) : (
+                            g.name
+                          )}
+                        </span>
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -423,18 +470,6 @@ function MediaDetailPage({
               </div>
             </div>
           </div>
-          {auth && initialEntry?.status && (
-            <button
-              type="button"
-              onClick={() => setLocalIsFavorite(!localIsFavorite)}
-              className={`absolute top-0 right-0 text-[1.1rem] bg-transparent border-none cursor-pointer p-1 transition-colors duration-150 ${
-                localIsFavorite ? "text-dg-accent" : "text-dg-text-tertiary hover:text-dg-accent/60"
-              }`}
-              title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
-            >
-              {localIsFavorite ? "\u2605" : "\u2606"}
-            </button>
-          )}
         </div>
 
         {/* Tracking + Episodes unified card */}
@@ -444,22 +479,31 @@ function MediaDetailPage({
               wikidataId={data.wikidataId}
               mediaType={data.mediaType}
               initialEntry={initialEntry}
+              statusState={{ value: localStatus, set: setLocalStatus }}
               favoriteState={{ value: localIsFavorite, set: setLocalIsFavorite }}
+              watchedEpisodesState={{
+                value: localWatchedEpisodes,
+                set: setLocalWatchedEpisodes,
+              }}
+              watchedAtState={{ value: localWatchedAt, set: setLocalWatchedAt }}
+              isMovie={data.mediaType === "movie"}
               bare
-            />
-            {hasSeasons && data.seasons && (
-              <>
-                <div className="border-t border-dg-border-subtle" />
-                <EpisodeGrid seasons={data.seasons} />
-              </>
-            )}
+            >
+              {hasSeasons && data.seasons && (
+                <EpisodeTracker
+                  seasons={data.seasons}
+                  watchedEpisodes={localWatchedEpisodes}
+                  onWatchedChange={handleWatchedEpisodesChange}
+                />
+              )}
+            </TrackingPanel>
           </div>
         )}
 
-        {/* No auth: standalone episode grid */}
+        {/* No auth: standalone episode tracker (read-only) */}
         {!auth && hasSeasons && data.seasons && (
-          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-4 sm:mb-5">
-            <EpisodeGrid seasons={data.seasons} />
+          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-4 sm:mb-5 p-3 sm:p-4">
+            <EpisodeTracker seasons={data.seasons} />
           </div>
         )}
 
@@ -470,7 +514,7 @@ function MediaDetailPage({
               Platforms
             </h3>
             <div className="flex flex-wrap gap-1.5">
-              {data.platforms.map((p) => (
+              {data.platforms.map((p: { id: string; name: string }) => (
                 <span
                   key={p.id}
                   className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
@@ -486,8 +530,10 @@ function MediaDetailPage({
   );
 }
 
-function EpisodeGrid({
+function EpisodeTracker({
   seasons,
+  watchedEpisodes,
+  onWatchedChange,
 }: {
   seasons: {
     id: string;
@@ -496,49 +542,213 @@ function EpisodeGrid({
     title: string | null;
     dataSource: string;
   }[];
+  watchedEpisodes?: WatchedEpisodes;
+  onWatchedChange?: (w: WatchedEpisodes) => void;
 }) {
-  const isSingleSeason = seasons.length === 1;
-  let runningTotal = 0;
+  const interactive = !!onWatchedChange && !!watchedEpisodes;
+  const isMultiSeason = seasons.length > 1;
+
+  // Auto-select first incomplete season on mount
+  const [selectedSeason, setSelectedSeason] = useState(() => {
+    for (const s of seasons) {
+      if (s.episodeCount == null) continue;
+      const w = highestConsecutiveEpisode(watchedEpisodes, s.seasonNumber);
+      if (w < s.episodeCount) return s.seasonNumber;
+    }
+    return seasons[0]?.seasonNumber ?? 1;
+  });
+  const [episodeDate, setEpisodeDate] = useState(todayISO());
+
+  const currentSeason = seasons.find((s) => s.seasonNumber === selectedSeason) ?? seasons[0];
+  const seasonEpCount = currentSeason?.episodeCount ?? 0;
+  const seasonWatched = countSeasonWatched(watchedEpisodes, currentSeason?.seasonNumber ?? 0);
+  const consecutiveEp = highestConsecutiveEpisode(
+    watchedEpisodes,
+    currentSeason?.seasonNumber ?? 0,
+  );
+  const seasonPct = seasonEpCount > 0 ? Math.round((seasonWatched / seasonEpCount) * 100) : 0;
+
+  // Series totals
+  const totalEps = seasons.reduce((sum, s) => sum + (s.episodeCount ?? 0), 0);
+  const totalWatched = countWatchedEpisodes(watchedEpisodes);
+  const totalPct = totalEps > 0 ? Math.round((totalWatched / totalEps) * 100) : 0;
+
+  // Cross-season navigation
+  const idx = seasons.findIndex((s) => s.seasonNumber === currentSeason.seasonNumber);
+  const nextSeason = isMultiSeason
+    ? seasons.slice(idx + 1).find((s) => (s.episodeCount ?? 0) > 0)
+    : undefined;
+  const prevSeason = isMultiSeason
+    ? seasons
+        .slice(0, idx)
+        .reverse()
+        .find((s) => highestConsecutiveEpisode(watchedEpisodes, s.seasonNumber) > 0)
+    : undefined;
+
+  const handleIncrement = () => {
+    if (consecutiveEp < seasonEpCount) {
+      onWatchedChange?.(
+        markThroughEpisode(
+          watchedEpisodes,
+          currentSeason.seasonNumber,
+          consecutiveEp + 1,
+          episodeDate,
+        ),
+      );
+    } else if (nextSeason) {
+      onWatchedChange?.(
+        markThroughEpisode(watchedEpisodes, nextSeason.seasonNumber, 1, episodeDate),
+      );
+      setSelectedSeason(nextSeason.seasonNumber);
+    }
+  };
+
+  const handleDecrement = () => {
+    if (consecutiveEp > 0) {
+      onWatchedChange?.(
+        clearSeasonFrom(watchedEpisodes, currentSeason.seasonNumber, consecutiveEp, seasonEpCount),
+      );
+    } else if (prevSeason) {
+      const pc = highestConsecutiveEpisode(watchedEpisodes, prevSeason.seasonNumber);
+      onWatchedChange?.(
+        clearSeasonFrom(watchedEpisodes, prevSeason.seasonNumber, pc, prevSeason.episodeCount ?? 0),
+      );
+      setSelectedSeason(prevSeason.seasonNumber);
+    }
+  };
 
   return (
-    <div className="p-3 sm:p-4">
-      <h3 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-3">
-        Episodes
-      </h3>
-      <div className="space-y-2">
-        {seasons.map((s) => {
-          const startEp = runningTotal;
-          if (s.episodeCount != null) runningTotal += s.episodeCount;
-          return (
-            <div key={s.id} className="flex gap-2">
-              {!isSingleSeason && (
-                <span className="w-8 shrink-0 text-[0.75rem] text-dg-text-tertiary tabular-nums pt-1">
+    <div>
+      {/* Header row: label + season dropdown */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider m-0">
+          Episodes
+        </h3>
+        {isMultiSeason && (
+          <select
+            value={selectedSeason}
+            onChange={(e) => setSelectedSeason(Number(e.target.value))}
+            className="text-[0.75rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none focus:border-dg-accent transition-colors cursor-pointer"
+          >
+            {seasons.map((s) => (
+              <option key={s.id} value={s.seasonNumber}>
+                S{String(s.seasonNumber).padStart(2, "0")}
+                {s.title ? ` — ${s.title}` : ""}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {/* Current season progress bar */}
+      {seasonEpCount > 0 && (
+        <div className="mb-2">
+          <div className="flex items-center gap-2">
+            {isMultiSeason && (
+              <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
+                S{String(currentSeason.seasonNumber).padStart(2, "0")}
+              </span>
+            )}
+            <div className="flex-1 h-[6px] bg-dg-elevated rounded-full overflow-hidden">
+              <div
+                className="h-full bg-dg-accent rounded-full transition-all duration-300"
+                style={{ width: `${seasonPct}%` }}
+              />
+            </div>
+            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums shrink-0">
+              {seasonWatched}/{seasonEpCount}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Total series progress bar (multi-season only) */}
+      {isMultiSeason && totalEps > 0 && (
+        <div className="mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
+              ALL
+            </span>
+            <div className="flex-1 h-[6px] bg-dg-elevated rounded-full overflow-hidden">
+              <div
+                className="h-full bg-dg-accent/60 rounded-full transition-all duration-300"
+                style={{ width: `${totalPct}%` }}
+              />
+            </div>
+            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums shrink-0">
+              {totalWatched}/{totalEps}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Counter controls (interactive only) */}
+      {interactive && seasonEpCount > 0 && (
+        <div className="flex flex-col items-center gap-3 py-3">
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={handleDecrement}
+              disabled={consecutiveEp <= 0 && !prevSeason}
+              className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-150 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono"
+            >
+              -
+            </button>
+            <span className="text-[0.9rem] tabular-nums text-dg-text min-w-[5rem] text-center">
+              {consecutiveEp} / {seasonEpCount}
+            </span>
+            <button
+              type="button"
+              onClick={handleIncrement}
+              disabled={consecutiveEp >= seasonEpCount && !nextSeason}
+              className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-150 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono"
+            >
+              +
+            </button>
+          </div>
+
+          {/* Date picker for episode watched date */}
+          <div className="flex items-center gap-2">
+            <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider">
+              Watched on
+            </span>
+            <input
+              type="date"
+              value={episodeDate}
+              max={todayISO()}
+              onChange={(e) => setEpisodeDate(e.target.value || todayISO())}
+              className="text-[0.75rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none focus:border-dg-accent transition-colors"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Read-only: just show season episode counts */}
+      {!interactive && seasons.length > 0 && (
+        <div className="space-y-1.5 mt-2">
+          {seasons.map((s) => {
+            const w = countSeasonWatched(watchedEpisodes, s.seasonNumber);
+            const epCount = s.episodeCount ?? 0;
+            const pct = epCount > 0 ? Math.round((w / epCount) * 100) : 0;
+            return (
+              <div key={s.id} className="flex items-center gap-2">
+                <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
                   S{String(s.seasonNumber).padStart(2, "0")}
                 </span>
-              )}
-              {s.episodeCount != null ? (
-                <div className="flex flex-wrap gap-1">
-                  {Array.from({ length: s.episodeCount }, (_, i) => {
-                    const ep = i + 1;
-                    const absEp = startEp + ep;
-                    return (
-                      <div
-                        key={`ep-${ep}`}
-                        title={`Episode ${absEp}`}
-                        className="w-7 h-7 flex items-center justify-center text-[0.65rem] tabular-nums bg-dg-elevated border border-dg-border-subtle rounded-sm text-dg-text-secondary"
-                      >
-                        {String(ep).padStart(2, "0")}
-                      </div>
-                    );
-                  })}
+                <div className="flex-1 h-[4px] bg-dg-elevated rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-dg-accent/40 rounded-full"
+                    style={{ width: `${pct}%` }}
+                  />
                 </div>
-              ) : (
-                <span className="text-xs text-dg-text-tertiary pt-1">unknown</span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                <span className="text-[0.6rem] text-dg-text-tertiary tabular-nums shrink-0">
+                  {epCount > 0 ? `${epCount} ep` : "?"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -547,14 +757,24 @@ function TrackingPanel({
   wikidataId,
   mediaType,
   initialEntry,
+  statusState,
   favoriteState,
+  watchedEpisodesState,
+  watchedAtState,
+  isMovie,
   bare,
+  children,
 }: {
   wikidataId: string;
   mediaType?: string;
   initialEntry?: CatalogEntry | null;
+  statusState?: { value: string | null; set: (v: string | null) => void };
   favoriteState?: { value: boolean; set: (v: boolean) => void };
+  watchedEpisodesState?: { value: WatchedEpisodes; set: (v: WatchedEpisodes) => void };
+  watchedAtState?: { value: string | null; set: (v: string | null) => void };
+  isMovie?: boolean;
   bare?: boolean;
+  children?: React.ReactNode;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -566,9 +786,11 @@ function TrackingPanel({
   const [localRating, setLocalRating] = useState<number | null>(
     hasInitial ? (initialEntry?.rating ?? null) : null,
   );
-  const [localStatus, setLocalStatus] = useState<string | null>(
+  const [fallbackStatus, setFallbackStatus] = useState<string | null>(
     hasInitial ? (initialEntry?.status ?? null) : null,
   );
+  const localStatus = statusState ? statusState.value : fallbackStatus;
+  const setLocalStatus = statusState ? statusState.set : setFallbackStatus;
   const [fallbackFav, setFallbackFav] = useState(
     hasInitial ? (initialEntry?.isFavorite ?? false) : false,
   );
@@ -578,6 +800,11 @@ function TrackingPanel({
     hasInitial ? (initialEntry?.replayCount ?? 0) : 0,
   );
   const serverEntry = useRef<CatalogEntry | null>(hasInitial ? (initialEntry ?? null) : null);
+
+  const localWatchedEpisodes = watchedEpisodesState?.value ?? {};
+  const setLocalWatchedEpisodes = watchedEpisodesState?.set;
+  const localWatchedAt = watchedAtState?.value ?? null;
+  const setLocalWatchedAt = watchedAtState?.set;
 
   // When loader didn't provide the entry, use TanStack Query to fetch it
   const entryQuery = useQuery({
@@ -593,15 +820,30 @@ function TrackingPanel({
     setLocalStatus(e?.status ?? null);
     setLocalIsFavorite(e?.isFavorite ?? false);
     setLocalReplayCount(e?.replayCount ?? 0);
+    setLocalWatchedEpisodes?.((e?.watchedEpisodes as WatchedEpisodes) ?? {});
+    setLocalWatchedAt?.(e?.watchedAt ?? null);
     serverEntry.current = e;
     setLoaded(true);
-  }, [hasInitial, entryQuery.isPending, entryQuery.data, setLocalIsFavorite]);
+  }, [
+    hasInitial,
+    entryQuery.isPending,
+    entryQuery.data,
+    setLocalIsFavorite,
+    setLocalStatus,
+    setLocalWatchedEpisodes,
+    setLocalWatchedAt,
+  ]);
 
   const ratingDirty = localRating !== (serverEntry.current?.rating ?? null);
   const statusDirty = localStatus !== (serverEntry.current?.status ?? null);
   const favoriteDirty = localIsFavorite !== (serverEntry.current?.isFavorite ?? false);
   const replayDirty = localReplayCount !== (serverEntry.current?.replayCount ?? 0);
-  const isDirty = ratingDirty || statusDirty || favoriteDirty || replayDirty;
+  const episodesDirty =
+    JSON.stringify(localWatchedEpisodes) !==
+    JSON.stringify((serverEntry.current?.watchedEpisodes as WatchedEpisodes) ?? {});
+  const watchedAtDirty = localWatchedAt !== (serverEntry.current?.watchedAt ?? null);
+  const isDirty =
+    ratingDirty || statusDirty || favoriteDirty || replayDirty || episodesDirty || watchedAtDirty;
 
   const handleSave = useCallback(async () => {
     const status = localStatus as NonNullable<CatalogEntry["status"]>;
@@ -640,6 +882,7 @@ function TrackingPanel({
     );
     await action.run(async () => {
       try {
+        const hasWatchedEps = Object.keys(localWatchedEpisodes).length > 0;
         await setCatalogEntry({
           data: {
             wikidataId,
@@ -649,6 +892,8 @@ function TrackingPanel({
             episodeProgress: prev?.episodeProgress,
             isFavorite: localIsFavorite,
             replayCount: localReplayCount,
+            watchedEpisodes: hasWatchedEps ? localWatchedEpisodes : undefined,
+            watchedAt: localWatchedAt,
           },
         });
         console.debug("[tracking] save %s → server ok, refreshing", wikidataId);
@@ -658,6 +903,8 @@ function TrackingPanel({
         setLocalStatus(fresh?.status ?? null);
         setLocalIsFavorite(fresh?.isFavorite ?? false);
         setLocalReplayCount(fresh?.replayCount ?? 0);
+        setLocalWatchedEpisodes?.((fresh?.watchedEpisodes as WatchedEpisodes) ?? {});
+        setLocalWatchedAt?.(fresh?.watchedAt ?? null);
         serverEntry.current = fresh;
         queryClient.invalidateQueries({ queryKey: ["user"] });
         router.invalidate();
@@ -668,6 +915,8 @@ function TrackingPanel({
         setLocalStatus(prev?.status ?? null);
         setLocalIsFavorite(prev?.isFavorite ?? false);
         setLocalReplayCount(prev?.replayCount ?? 0);
+        setLocalWatchedEpisodes?.((prev?.watchedEpisodes as WatchedEpisodes) ?? {});
+        setLocalWatchedAt?.(prev?.watchedAt ?? null);
         throw err;
       }
     });
@@ -677,30 +926,26 @@ function TrackingPanel({
     localRating,
     localIsFavorite,
     localReplayCount,
+    localWatchedEpisodes,
+    localWatchedAt,
     wikidataId,
     router,
     queryClient,
     action,
     setLocalIsFavorite,
+    setLocalStatus,
+    setLocalWatchedEpisodes,
+    setLocalWatchedAt,
   ]);
 
   const handleRemove = useCallback(async () => {
-    console.debug("[tracking] remove %s (optimistic)", wikidataId);
-    const prev = entry;
-    setEntry(null);
+    console.debug("[tracking] remove %s", wikidataId);
     await action.run(async () => {
-      try {
-        await removeCatalogEntry({ data: { wikidataId } });
-        console.debug("[tracking] remove %s → server ok", wikidataId);
-        queryClient.invalidateQueries({ queryKey: ["user"] });
-        router.invalidate();
-      } catch (err) {
-        console.error("[tracking] remove %s → FAILED:", wikidataId, err);
-        setEntry(prev);
-        throw err;
-      }
+      await removeCatalogEntry({ data: { wikidataId } });
+      console.debug("[tracking] remove %s → server ok, reloading", wikidataId);
+      window.location.reload();
     });
-  }, [entry, wikidataId, router, queryClient, action]);
+  }, [wikidataId, action]);
 
   const statuses = availableStatuses(mediaType);
 
@@ -709,16 +954,16 @@ function TrackingPanel({
 
   // Status keys — only fire if the status is visible for this media type
   const statusKeyMap: Record<string, string> = {
-    p: "planned",
-    w: "in_progress",
-    o: "on_hold",
-    c: "completed",
-    d: "dropped",
-    m: "mastered",
+    P: "planned",
+    W: "in_progress",
+    O: "on_hold",
+    C: "completed",
+    D: "dropped",
+    M: "mastered",
   };
   for (const [key, status] of Object.entries(statusKeyMap)) {
     // biome-ignore lint/correctness/useHookAtTopLevel: static iteration over constant map
-    useHotkey(key, () => setLocalStatus(status), {
+    useHotkey(key as Hotkey, () => setLocalStatus(status), {
       enabled: loaded && notBusy && statusLabel(status as never, mediaType) !== null,
     });
   }
@@ -780,7 +1025,7 @@ function TrackingPanel({
 
   // s — save
   useHotkey(
-    "s",
+    "S",
     () => {
       if (isDirty) handleSave();
     },
@@ -818,21 +1063,21 @@ function TrackingPanel({
           : "border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5"
       }
     >
-      <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-3">
-        {action.state === "pending" ? (
-          <span className="dg-ellipsis">Tracking</span>
-        ) : action.state === "done" ? (
-          <>
-            Tracking <span className="text-dg-game">ok</span>
-          </>
-        ) : action.state === "error" ? (
-          <>
-            Tracking <span className="text-dg-anime">err</span>
-          </>
-        ) : (
-          "Tracking"
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider m-0">Status</h3>
+        {localStatus && (
+          <button
+            type="button"
+            onClick={() => setLocalIsFavorite(!localIsFavorite)}
+            className={`text-[1.1rem] bg-transparent border-none cursor-pointer p-1 -m-1 transition-colors duration-150 ${
+              localIsFavorite ? "text-dg-accent" : "text-dg-text-tertiary hover:text-dg-accent/60"
+            }`}
+            title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
+          >
+            {localIsFavorite ? "\u2605" : "\u2606"}
+          </button>
         )}
-      </h3>
+      </div>
 
       {/* Status buttons — horizontal scroll on mobile, wrap on desktop */}
       <div className="flex flex-nowrap overflow-x-auto sm:flex-wrap gap-1.5 mb-4 scrollbar-hide">
@@ -858,8 +1103,10 @@ function TrackingPanel({
         })}
       </div>
 
-      {/* Rating (only when a status is selected) */}
-      {localStatus && (
+      {/* Rating (only when watching, completed, or mastered) */}
+      {(localStatus === "in_progress" ||
+        localStatus === "completed" ||
+        localStatus === "mastered") && (
         <div className="mb-4">
           <h4 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
             Rating
@@ -903,8 +1150,8 @@ function TrackingPanel({
         </div>
       )}
 
-      {/* Replay count (when completed) */}
-      {localStatus === "completed" && (
+      {/* Replay count (when completed or mastered) */}
+      {(localStatus === "completed" || localStatus === "mastered") && (
         <div className="flex items-center gap-2 mb-4">
           <button
             type="button"
@@ -928,26 +1175,62 @@ function TrackingPanel({
         </div>
       )}
 
+      {/* Movie date picker */}
+      {isMovie && localStatus && setLocalWatchedAt && (
+        <div className="mb-4">
+          <h4 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+            Watched on
+          </h4>
+          <input
+            type="date"
+            value={localWatchedAt ?? ""}
+            max={todayISO()}
+            onChange={(e) => setLocalWatchedAt(e.target.value || null)}
+            disabled={action.state === "pending"}
+            className="text-[0.8rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1.5 text-dg-text outline-none focus:border-dg-accent transition-colors disabled:opacity-50"
+          />
+        </div>
+      )}
+
+      {/* Children slot (e.g., EpisodeGrid) */}
+      {children && <div className="mt-5">{children}</div>}
+
       {/* Bottom bar: save (left) + remove (right) */}
       {localStatus && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between pt-3 mt-4 border-t border-dg-border-subtle">
           <button
             type="button"
             onClick={handleSave}
             disabled={action.state === "pending" || !isDirty}
-            className={`text-[0.75rem] font-mono bg-transparent border-none cursor-pointer p-2 -m-2 transition-colors duration-150 disabled:opacity-30 ${
-              isDirty ? "text-dg-accent hover:text-dg-accent/80" : "text-dg-text-tertiary"
+            className={`text-[0.75rem] font-mono rounded-sm border px-3 py-1 bg-transparent cursor-pointer transition-all duration-150 disabled:cursor-default ${
+              action.state === "pending"
+                ? "border-dg-accent/50 text-dg-accent/70"
+                : action.state === "error"
+                  ? "border-dg-anime/40 text-dg-anime"
+                  : isDirty
+                    ? "border-dg-accent text-dg-accent bg-dg-accent/10"
+                    : "border-dg-border-subtle text-dg-text-tertiary opacity-50"
             }`}
             title="Save changes"
           >
-            save
+            {action.state === "pending" ? (
+              <span className="dg-ellipsis">saving</span>
+            ) : action.state === "done" ? (
+              "saved"
+            ) : action.state === "error" ? (
+              "error \u2014 retry"
+            ) : isDirty ? (
+              "save"
+            ) : (
+              "saved"
+            )}
           </button>
           {serverEntry.current?.status && (
             <button
               type="button"
               onClick={handleRemove}
               disabled={action.state === "pending"}
-              className="text-[0.75rem] font-mono text-dg-text-tertiary bg-transparent border-none cursor-pointer p-2 -m-2 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
+              className="text-[0.75rem] font-mono rounded-sm border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 cursor-pointer transition-all duration-150 hover:text-dg-anime hover:border-dg-anime/40 disabled:opacity-50 disabled:cursor-default"
               title="Remove from list"
             >
               delete

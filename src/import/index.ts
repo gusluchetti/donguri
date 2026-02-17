@@ -353,7 +353,7 @@ async function processSuperBatch(
 						RETURNING id, wikidata_id
 					`);
 
-          return result as { id: string; wikidata_id: string }[];
+          return result as unknown as { id: string; wikidata_id: string }[];
         }),
       "COPY + upsert media",
     );

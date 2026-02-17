@@ -114,7 +114,7 @@ function CatalogPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { q, type: mediaType } = Route.useSearch();
-  const navigate = useNavigate({ from: "/catalog" });
+  const navigate = useNavigate({ from: "/catalog/" });
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery(
     catalogInfiniteOptions(mediaType, q || undefined),
@@ -257,7 +257,7 @@ function CatalogPage() {
     const item = allItems[selectedIndex];
     if (item) navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
   };
-  useHotkey("l", openSelected, { enabled: selectedIndex >= 0 });
+  useHotkey("L", openSelected, { enabled: selectedIndex >= 0 });
   useHotkey("ArrowRight", openSelected, { enabled: selectedIndex >= 0 });
 
   // / — focus search
@@ -283,15 +283,15 @@ function CatalogPage() {
     if (isInputFocused()) return;
     handleTypeChange(type);
   };
-  useHotkeySequence(["f", "f"], typeFilter(undefined));
-  useHotkeySequence(["f", "m"], typeFilter("movie"));
-  useHotkeySequence(["f", "t"], typeFilter("tv_series"));
-  useHotkeySequence(["f", "a"], typeFilter("anime"));
-  useHotkeySequence(["f", "g"], typeFilter("game"));
+  useHotkeySequence(["F", "F"], typeFilter(undefined));
+  useHotkeySequence(["F", "M"], typeFilter("movie"));
+  useHotkeySequence(["F", "T"], typeFilter("tv_series"));
+  useHotkeySequence(["F", "A"], typeFilter("anime"));
+  useHotkeySequence(["F", "G"], typeFilter("game"));
 
   // a — quick-add selected item
   useHotkey(
-    "a",
+    "A",
     () => {
       const item = allItems[selectedIndex];
       if (!item || !auth) return;

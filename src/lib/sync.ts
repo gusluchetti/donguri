@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db";
 import { catalogEntries } from "../db/schema";
-import { normalizeStatus } from "./media-types";
+import { countWatchedEpisodes, normalizeStatus } from "./media-types";
 
 const COLLECTION = "app.donguri.catalog.entry";
 
@@ -15,7 +15,8 @@ const CatalogEntryRecordSchema = z.object({
   episodeProgress: z.number().optional(),
   isFavorite: z.boolean().optional(),
   replayCount: z.number().optional(),
-  watchedEpisodes: z.record(z.string(), z.array(z.number())).optional(),
+  watchedEpisodes: z.record(z.string(), z.record(z.string(), z.string())).optional(),
+  watchedAt: z.string().optional(),
   title: z.string().optional(),
   mediaType: z.string().optional(),
   createdAt: z.string(),
@@ -121,6 +122,11 @@ export async function upsertLocalMirror(
         : now
       : null;
 
+  // Auto-compute episodeProgress from watchedEpisodes
+  const epProgress = normalized.watchedEpisodes
+    ? countWatchedEpisodes(normalized.watchedEpisodes)
+    : (normalized.episodeProgress ?? null);
+
   if (rows.length > 0) {
     const existing = rows[0];
 
@@ -132,6 +138,9 @@ export async function upsertLocalMirror(
       existing.episodeProgress === (normalized.episodeProgress ?? null) &&
       existing.isFavorite === (normalized.isFavorite ?? false) &&
       existing.replayCount === (normalized.replayCount ?? 0) &&
+      existing.watchedAt === (normalized.watchedAt ?? null) &&
+      JSON.stringify(existing.watchedEpisodes ?? null) ===
+        JSON.stringify(normalized.watchedEpisodes ?? null) &&
       existing.rkey === rkey;
 
     if (unchanged) {
@@ -150,13 +159,16 @@ export async function upsertLocalMirror(
         status: normalized.status,
         rating: normalized.rating ?? null,
         note: normalized.note ?? null,
-        episodeProgress: normalized.episodeProgress ?? null,
+        episodeProgress: epProgress,
         isFavorite: normalized.isFavorite ?? false,
         replayCount: normalized.replayCount ?? 0,
         completedAt,
         watchedEpisodes: normalized.watchedEpisodes ?? null,
+        watchedAt: normalized.watchedAt ?? null,
         mediaTitle: normalized.title ?? undefined,
-        mediaType: normalized.mediaType ?? undefined,
+        mediaType:
+          (normalized.mediaType as "movie" | "tv_series" | "anime" | "game" | undefined) ??
+          undefined,
         rkey,
         syncedAt: now,
         updatedAt: recordUpdatedAt,
@@ -168,15 +180,16 @@ export async function upsertLocalMirror(
       userId,
       mediaWikidataId: normalized.mediaRef,
       mediaTitle: normalized.title ?? null,
-      mediaType: normalized.mediaType ?? null,
+      mediaType: (normalized.mediaType ?? null) as "movie" | "tv_series" | "anime" | "game" | null,
       status: normalized.status,
       rating: normalized.rating ?? null,
       note: normalized.note ?? null,
-      episodeProgress: normalized.episodeProgress ?? null,
+      episodeProgress: epProgress,
       isFavorite: normalized.isFavorite ?? false,
       replayCount: normalized.replayCount ?? 0,
       completedAt,
       watchedEpisodes: normalized.watchedEpisodes ?? null,
+      watchedAt: normalized.watchedAt ?? null,
       rkey,
       syncedAt: now,
       updatedAt: recordUpdatedAt,
@@ -208,7 +221,11 @@ export async function reconcileUser(agent: Agent, userId: string, did: string): 
         if (parsed.success) {
           pdsRecords.set(rkey, parsed.data);
         } else {
-          console.debug("[sync] reconcileUser skipping invalid record rkey=%s", rkey);
+          console.debug(
+            "[sync] reconcileUser skipping invalid record rkey=%s errors=%o",
+            rkey,
+            parsed.error.flatten().fieldErrors,
+          );
         }
       }
 
