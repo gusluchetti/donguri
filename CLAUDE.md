@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Reference `ROADMAP.md` for project priorities, planned features, and technical context.** HTML comments in that file contain implementation details. When unsure what to work on or how something fits, check there first.
+
 ## Build and Development Commands
 
 **Runtime**: Bun (dev/build), Fly.io (production)
@@ -77,7 +79,7 @@ src/
   routes/
     __root.tsx        → Root layout (nav, auth state)
     index.tsx         → Home page (login form, watchlist grouped by status)
-    roadmap.tsx       → Static roadmap page
+    roadmap.tsx       → Roadmap page (renders ROADMAP.md via react-markdown)
     catalog/
       index.tsx       → Catalog browse (virtual list, search, type filter)
       $wikidataId.tsx → Media detail page (SSR, tracking controls)
