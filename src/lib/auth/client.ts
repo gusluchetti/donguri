@@ -1,5 +1,5 @@
 import { JoseKey } from "@atproto/jwk-jose";
-import { NodeOAuthClient } from "@atproto/oauth-client-node";
+import { NodeOAuthClient, requestLocalLock } from "@atproto/oauth-client-node";
 import { cleanEnv } from "../../db";
 import { PgSessionStore, PgStateStore } from "./kv-stores";
 
@@ -72,6 +72,7 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
     keyset,
     stateStore: new PgStateStore(),
     sessionStore: new PgSessionStore(),
+    requestLock: requestLocalLock,
     allowHttp: isDev,
   });
   _clientUrl = publicUrl;
