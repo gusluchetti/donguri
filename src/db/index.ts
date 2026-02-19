@@ -38,7 +38,7 @@ export function getDb() {
     const client = postgres(getConnectionString(), {
       max: 10,
       idle_timeout: 20,
-      prepare: false, // Required for PgBouncer (Fly.io transaction mode)
+      target_session_attrs: "read-write",
       debug: debugSlowQueries,
     });
     _db = drizzle(client, { schema });
