@@ -40,27 +40,17 @@ fly deploy                    # Deploy to Fly.io
 # Step 1: Extract media + season subset from full Wikidata dump (single pass)
 lbzip2 -dc /path/to/latest-all.json.bz2 | bun run import:dump > subset.ndjson
 
-# Step 2: Import subset into Postgres (media → genres → Wikidata seasons)
-bun run import:subset subset.ndjson                     # Test mode (100 media entities)
-bun run import:subset subset.ndjson --full              # Full import
-bun run import:subset subset.ndjson --full --limit=1000 # Limited import
-bun run import:subset subset.ndjson --clean             # Clean DB first
+# Step 2: Unified import (interactive menu or non-interactive --all)
+bun run import:update                    # Interactive menu (pick features)
+bun run import:update --all              # Non-interactive: all features, auto-detect data/
+bun run import:update --all --reset      # Wipe + full reimport
+bun run import:update --all --qrank=data/qrank.csv.gz --subset=data/subset.ndjson
+bun run import:update --all --anime-offline=data/anime-offline-database.jsonl
 
-# Step 3 (optional): Gap-fill seasons from external sources
-bun run src/import/import-seasons.ts tvmaze [--limit=N]               # TVMaze gap-fill
-bun run src/import/import-seasons.ts anime-offline <file.jsonl>       # anime-offline-database gap-fill
-
-# Step 4 (optional): Resolve cover art URLs (needs TMDB_API_KEY)
-bun run import:covers [--limit=N] [--type=movie|tv_series|anime|game]
-
-# Step 5 (optional): Incremental Wikidata updates via SPARQL
+# Step 3 (optional): Incremental Wikidata updates via SPARQL
 bun run src/import/incremental.ts --days=7           # Last 7 days
 bun run src/import/incremental.ts --days=30          # Last 30 days
 bun run src/import/incremental.ts --days=7 --dry-run # Preview only
-
-# ─── Non-destructive update (QRank + seasons + covers in one shot) ───────────
-bun run import:update --qrank=data/qrank.csv.gz --anime-offline=data/anime-offline-database.jsonl
-bun run import:update --qrank=data/qrank.csv.gz   # skip anime-offline if not provided
 
 # ─── Cron (unattended overnight import) ─────────────────────────────────────
 ./scripts/import-cron.sh                              # Manual run
@@ -120,14 +110,10 @@ src/
       kv-stores.ts    → Postgres-backed OAuth state/session stores
   import/
     subset.ts         → Pass 1: filter Wikidata dump to media + season NDJSON
-    index.ts          → Pass 2: parse and import media into Postgres
-    import-seasons.ts → Import seasons from 3 sources (wikidata, tvmaze, anime-offline)
+    update.ts         → Unified import pipeline (media, percentiles, seasons, covers)
     incremental.ts    → SPARQL-based incremental Wikidata updater
-    covers.ts         → Resolve cover art URLs from TMDB/AniList/IGDB (hotlinked)
-    update.ts         → Non-destructive update orchestrator (QRank + seasons + covers)
     _upsert.ts        → Shared COPY → temp table → upsert logic
-    _parser.ts        → Entity property extraction
-    _filters.ts       → P31 type classification, quality filters
+    _filters.ts       → P31 type classification, quality filters, entity property extraction
     _types.ts         → Wikidata types and constants
     _retry.ts         → Retry + backoff utilities for flaky connections
 Dockerfile            → Multi-stage Bun build
@@ -154,14 +140,13 @@ drizzle.config.ts     → Drizzle Kit config for Postgres
 Search uses `pg_trgm` with `word_similarity()` and GIN indexes for fuzzy matching on title/original_title.
 
 ### Data Import Pipeline
-1. **Media + Seasons subset** (Wikidata CC0): `subset.ts` captures both media entities AND season entities in one pass
-2. **Media import**: `index.ts` → `media`, `genres`, `platforms`, `media_genres`, `media_platforms` (skips season entities)
+1. **Subset extraction** (Wikidata CC0): `subset.ts` captures media + season entities in one pass
+2. **Unified import** (`update.ts` — interactive or `--all`):
+   - **Media**: subset NDJSON → `media`, `genres`, `platforms`, `media_genres`, `media_platforms`
+   - **Percentiles**: QRank CSV → `qrank_pct`, sitelinks → `sitelinks_pct`
+   - **Seasons**: Wikidata (P179/P1545/P1113) → TVMaze (CC BY-SA) → anime-offline (ODbL)
+   - **Cover art**: TMDB → AniList (anime fallback) → IGDB (games) → hotlink URL → `poster_url`
 3. **Genres** (hand-curated): `genre-data.ts` → `seed-genres.ts` → `canonical_genres`, `genre_mappings`
-4. **Seasons** (3 sources, run in order — first source wins via ON CONFLICT DO NOTHING):
-   - Wikidata: `import-seasons.ts wikidata` reads same subset.ndjson (P179/P1545/P1113)
-   - TVMaze (CC BY-SA): `import-seasons.ts tvmaze` (gap-fill TV series)
-   - anime-offline-database (ODbL): `import-seasons.ts anime-offline` (gap-fill anime)
-5. **Cover Art**: `covers.ts` → TMDB → AniList (anime fallback) → IGDB (games) → hotlink URL → `poster_url`
 
 ### Wikidata Import
 Supports 10 P31 types: Film, TV Film, TV Series, Anime (6 variants), Video Game.

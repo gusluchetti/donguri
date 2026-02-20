@@ -26,18 +26,9 @@ mkdir -p logs data
   echo "Running incremental Wikidata update..."
   bun run src/import/incremental.ts --days=7
 
-  # Full media import (only if subset.ndjson exists — user generates this manually)
-  if [ -f data/subset.ndjson ]; then
-    echo "Running full media import from subset..."
-    bun run src/import/import-all.ts data/subset.ndjson \
-      --full --qrank=data/qrank.csv.gz
-  else
-    echo "No data/subset.ndjson found, skipping full import."
-  fi
-
-  # Non-destructive updates (seasons, covers, QRank)
-  echo "Running non-destructive updates..."
-  bun run import:update \
+  # Unified import: media (if subset exists) + percentiles + seasons + covers
+  echo "Running unified import pipeline..."
+  bun run import:update --all \
     --qrank=data/qrank.csv.gz \
     --anime-offline=data/anime-offline-database.jsonl
 

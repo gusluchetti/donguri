@@ -9,8 +9,7 @@
  */
 
 import { createImportDb } from "../db";
-import { shouldImportEntity } from "./_filters";
-import { parseMediaEntity } from "./_parser";
+import { parseMediaEntity, shouldImportEntity } from "./_filters";
 import { formatDuration } from "./_retry";
 import type { WikidataEntity } from "./_types";
 import { MediaTypeQValues } from "./_types";
