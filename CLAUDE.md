@@ -48,10 +48,23 @@ bun run import:subset subset.ndjson --clean             # Clean DB first
 
 # Step 3 (optional): Gap-fill seasons from external sources
 bun run src/import/import-seasons.ts tvmaze [--limit=N]               # TVMaze gap-fill
-bun run src/import/import-seasons.ts anime-offline <file.json>        # anime-offline-database gap-fill
+bun run src/import/import-seasons.ts anime-offline <file.jsonl>       # anime-offline-database gap-fill
 
 # Step 4 (optional): Resolve cover art URLs (needs TMDB_API_KEY)
 bun run import:covers [--limit=N] [--type=movie|tv_series|anime|game]
+
+# Step 5 (optional): Incremental Wikidata updates via SPARQL
+bun run src/import/incremental.ts --days=7           # Last 7 days
+bun run src/import/incremental.ts --days=30          # Last 30 days
+bun run src/import/incremental.ts --days=7 --dry-run # Preview only
+
+# ─── Non-destructive update (QRank + seasons + covers in one shot) ───────────
+bun run import:update --qrank=data/qrank.csv.gz --anime-offline=data/anime-offline-database.jsonl
+bun run import:update --qrank=data/qrank.csv.gz   # skip anime-offline if not provided
+
+# ─── Cron (unattended overnight import) ─────────────────────────────────────
+./scripts/import-cron.sh                              # Manual run
+# Cron entry (Sunday 2 AM): 0 2 * * 0 cd /path/to/donguri && ./scripts/import-cron.sh
 
 # ─── Production DB access (manual) ──────────────────────────────────────────
 # fly proxy 5432 -a donguri-db   # Then connect with a different DATABASE_URL
@@ -109,10 +122,14 @@ src/
     subset.ts         → Pass 1: filter Wikidata dump to media + season NDJSON
     index.ts          → Pass 2: parse and import media into Postgres
     import-seasons.ts → Import seasons from 3 sources (wikidata, tvmaze, anime-offline)
+    incremental.ts    → SPARQL-based incremental Wikidata updater
     covers.ts         → Resolve cover art URLs from TMDB/AniList/IGDB (hotlinked)
-    parser.ts         → Entity property extraction
-    filters.ts        → P31 type classification, quality filters
-    types.ts          → Wikidata types and constants
+    update.ts         → Non-destructive update orchestrator (QRank + seasons + covers)
+    _upsert.ts        → Shared COPY → temp table → upsert logic
+    _parser.ts        → Entity property extraction
+    _filters.ts       → P31 type classification, quality filters
+    _types.ts         → Wikidata types and constants
+    _retry.ts         → Retry + backoff utilities for flaky connections
 Dockerfile            → Multi-stage Bun build
 fly.toml              → Fly.io app config (iad + gru regions, suspend idle)
 drizzle.config.ts     → Drizzle Kit config for Postgres

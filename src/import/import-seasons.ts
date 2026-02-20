@@ -3,7 +3,7 @@
  *
  * Usage:
  *   bun run src/import/import-seasons.ts tvmaze [--limit=N]
- *   bun run src/import/import-seasons.ts anime-offline <file.json> [--limit=N]
+ *   bun run src/import/import-seasons.ts anime-offline <file.jsonl> [--limit=N]
  *   bun run src/import/import-seasons.ts wikidata <file.ndjson> [--limit=N]
  *
  * All inserts use ON CONFLICT (media_id, season_number) DO NOTHING — first source wins.
@@ -11,7 +11,7 @@
 
 import fs from "node:fs";
 import readline from "node:readline";
-import { eq, sql } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 import { createImportDb } from "../db";
 import { media, seasons } from "../db/schema";
 import { formatDuration, withRetry } from "./_retry";
@@ -19,6 +19,7 @@ import type { ParsedSeason, WikibaseEntityIdValue, WikidataEntity } from "./_typ
 import { WikidataProperties } from "./_types";
 
 const BATCH_SIZE = 200;
+const LOOKUP_BATCH = 500;
 
 type DbType = ReturnType<typeof createImportDb>["db"];
 
@@ -110,6 +111,28 @@ function parseSeasonEntity(entity: WikidataEntity): ParsedSeason | null {
   return { seriesWikidataId, seasonNumber, episodeCount, title };
 }
 
+/** Batch-resolve wikidataIds to media IDs, populating the cache. */
+async function flushWikidataLookups(
+  db: DbType,
+  pendingLookups: Set<string>,
+  cache: Map<string, string>,
+): Promise<void> {
+  if (pendingLookups.size === 0) return;
+  const ids = [...pendingLookups];
+  // Query in chunks of LOOKUP_BATCH to avoid overly large IN clauses
+  for (let i = 0; i < ids.length; i += LOOKUP_BATCH) {
+    const chunk = ids.slice(i, i + LOOKUP_BATCH);
+    const rows = await db
+      .select({ id: media.id, wikidataId: media.wikidataId })
+      .from(media)
+      .where(inArray(media.wikidataId, chunk));
+    for (const row of rows) {
+      cache.set(row.wikidataId, row.id);
+    }
+  }
+  pendingLookups.clear();
+}
+
 async function importWikidata(db: DbType, filePath: string, limit: number) {
   console.log(`\nImporting Wikidata seasons from: ${filePath}`);
 
@@ -126,6 +149,10 @@ async function importWikidata(db: DbType, filePath: string, limit: number) {
 
   // Build a lookup cache: wikidataId → mediaId
   const wikidataToMediaId = new Map<string, string>();
+  // Batch-miss buffer: collect unknown wikidataIds, resolve in bulk
+  const pendingLookups = new Set<string>();
+  // Hold parsed seasons until their series lookup is resolved
+  const pendingSeasons: ParsedSeason[] = [];
 
   const rl = readline.createInterface({
     input: fs.createReadStream(filePath, { encoding: "utf-8" }),
@@ -139,6 +166,31 @@ async function importWikidata(db: DbType, filePath: string, limit: number) {
     title: string | null;
     dataSource: "wikidata";
   }[] = [];
+
+  async function drainPendingSeasons() {
+    await flushWikidataLookups(db, pendingLookups, wikidataToMediaId);
+    for (const parsed of pendingSeasons) {
+      const mediaId = wikidataToMediaId.get(parsed.seriesWikidataId);
+      if (!mediaId) {
+        skipped++;
+        continue;
+      }
+      batch.push({
+        mediaId,
+        seasonNumber: parsed.seasonNumber,
+        episodeCount: parsed.episodeCount,
+        title: parsed.title,
+        dataSource: "wikidata",
+      });
+    }
+    pendingSeasons.length = 0;
+
+    // Insert any full batches
+    while (batch.length >= BATCH_SIZE) {
+      const chunk = batch.splice(0, BATCH_SIZE);
+      inserted += await withRetry(() => insertSeasonBatch(db, chunk), "wikidata season batch");
+    }
+  }
 
   for await (const line of rl) {
     if (inserted >= limit) break;
@@ -160,35 +212,36 @@ async function importWikidata(db: DbType, filePath: string, limit: number) {
       continue;
     }
 
-    // Resolve series wikidataId → media.id
-    let mediaId = wikidataToMediaId.get(parsed.seriesWikidataId);
-    if (!mediaId) {
-      const [row] = await db
-        .select({ id: media.id })
-        .from(media)
-        .where(eq(media.wikidataId, parsed.seriesWikidataId))
-        .limit(1);
-      if (!row) {
-        skipped++;
-        continue;
-      }
-      mediaId = row.id;
-      wikidataToMediaId.set(parsed.seriesWikidataId, mediaId);
+    // If already cached, add directly to batch
+    const cachedMediaId = wikidataToMediaId.get(parsed.seriesWikidataId);
+    if (cachedMediaId) {
+      batch.push({
+        mediaId: cachedMediaId,
+        seasonNumber: parsed.seasonNumber,
+        episodeCount: parsed.episodeCount,
+        title: parsed.title,
+        dataSource: "wikidata",
+      });
+    } else {
+      // Queue for batch lookup
+      pendingLookups.add(parsed.seriesWikidataId);
+      pendingSeasons.push(parsed);
     }
 
-    batch.push({
-      mediaId,
-      seasonNumber: parsed.seasonNumber,
-      episodeCount: parsed.episodeCount,
-      title: parsed.title,
-      dataSource: "wikidata",
-    });
+    // When we've accumulated enough pending lookups, flush them
+    if (pendingLookups.size >= LOOKUP_BATCH) {
+      await drainPendingSeasons();
+    }
 
+    // Insert full batches
     if (batch.length >= BATCH_SIZE) {
       inserted += await withRetry(() => insertSeasonBatch(db, batch), "wikidata season batch");
       batch = [];
     }
   }
+
+  // Flush remaining pending lookups and seasons
+  await drainPendingSeasons();
 
   if (batch.length > 0) {
     inserted += await withRetry(() => insertSeasonBatch(db, batch), "wikidata season batch");
@@ -309,10 +362,6 @@ interface AnimeOfflineEntry {
   status: string;
 }
 
-interface AnimeOfflineData {
-  data: AnimeOfflineEntry[];
-}
-
 function extractIdFromSource(sources: string[], pattern: RegExp): string | null {
   for (const src of sources) {
     const match = src.match(pattern);
@@ -330,14 +379,76 @@ async function importAnimeOffline(db: DbType, filePath: string, limit: number) {
   }
 
   const startTime = Date.now();
-  const raw = fs.readFileSync(filePath, "utf-8");
-  const data: AnimeOfflineData = JSON.parse(raw);
-  console.log(`Loaded ${data.data.length} entries from anime-offline-database`);
+
+  // Stream JSONL (one entry per line)
+  const entries: AnimeOfflineEntry[] = [];
+  const rl = readline.createInterface({
+    input: fs.createReadStream(filePath, { encoding: "utf-8" }),
+    crlfDelay: Infinity,
+  });
+  for await (const line of rl) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      entries.push(JSON.parse(trimmed));
+    } catch {
+      /* skip malformed lines */
+    }
+  }
+  console.log(`Loaded ${entries.length} entries from anime-offline-database`);
 
   let processed = 0;
   let inserted = 0;
   let skipped = 0;
   const errors = 0;
+
+  // Pre-load set of media IDs that already have season rows (seasons table is small)
+  console.log("Loading existing season media IDs...");
+  const existingSeasonRows = await db.selectDistinct({ mediaId: seasons.mediaId }).from(seasons);
+  const existingSeasonMediaIds = new Set(existingSeasonRows.map((r) => r.mediaId));
+  console.log(`Found ${existingSeasonMediaIds.size} media with existing seasons`);
+
+  // Pre-load malId → mediaId and anilistId → mediaId lookup maps via batch queries
+  console.log("Building malId/anilistId lookup maps...");
+  const malIdToMedia = new Map<string, string>();
+  const anilistIdToMedia = new Map<string, string>();
+
+  // Collect all IDs we need to look up
+  const neededMalIds: string[] = [];
+  const neededAnilistIds: string[] = [];
+  for (const entry of entries) {
+    if (!entry.episodes || entry.episodes <= 0) continue;
+    const malId = extractIdFromSource(entry.sources, /myanimelist\.net\/anime\/(\d+)/);
+    const anilistId = extractIdFromSource(entry.sources, /anilist\.co\/anime\/(\d+)/);
+    if (malId) neededMalIds.push(malId);
+    if (anilistId) neededAnilistIds.push(anilistId);
+  }
+
+  // Batch query malIds
+  for (let i = 0; i < neededMalIds.length; i += LOOKUP_BATCH) {
+    const chunk = neededMalIds.slice(i, i + LOOKUP_BATCH);
+    const rows = await db
+      .select({ id: media.id, malId: media.malId })
+      .from(media)
+      .where(inArray(media.malId, chunk));
+    for (const row of rows) {
+      if (row.malId) malIdToMedia.set(row.malId, row.id);
+    }
+  }
+  console.log(`  malId map: ${malIdToMedia.size} entries`);
+
+  // Batch query anilistIds
+  for (let i = 0; i < neededAnilistIds.length; i += LOOKUP_BATCH) {
+    const chunk = neededAnilistIds.slice(i, i + LOOKUP_BATCH);
+    const rows = await db
+      .select({ id: media.id, anilistId: media.anilistId })
+      .from(media)
+      .where(inArray(media.anilistId, chunk));
+    for (const row of rows) {
+      if (row.anilistId) anilistIdToMedia.set(row.anilistId, row.id);
+    }
+  }
+  console.log(`  anilistId map: ${anilistIdToMedia.size} entries`);
 
   let batch: {
     mediaId: string;
@@ -347,14 +458,14 @@ async function importAnimeOffline(db: DbType, filePath: string, limit: number) {
     dataSource: "anime_offline_db";
   }[] = [];
 
-  for (const entry of data.data) {
+  for (const entry of entries) {
     if (inserted >= limit) break;
 
     processed++;
 
     if (processed % 5000 === 0) {
       console.log(
-        `[${formatDuration(Date.now() - startTime)}] Processed: ${processed}/${data.data.length}, Inserted: ${inserted}`,
+        `[${formatDuration(Date.now() - startTime)}] Processed: ${processed}/${entries.length}, Inserted: ${inserted}`,
       );
     }
 
@@ -363,7 +474,6 @@ async function importAnimeOffline(db: DbType, filePath: string, limit: number) {
       continue;
     }
 
-    // Extract MAL and AniList IDs from sources
     const malId = extractIdFromSource(entry.sources, /myanimelist\.net\/anime\/(\d+)/);
     const anilistId = extractIdFromSource(entry.sources, /anilist\.co\/anime\/(\d+)/);
 
@@ -372,45 +482,26 @@ async function importAnimeOffline(db: DbType, filePath: string, limit: number) {
       continue;
     }
 
-    // Find matching media row
-    let mediaRow: { id: string } | undefined;
+    // Look up media ID from pre-built maps
+    const mediaId =
+      (malId ? malIdToMedia.get(malId) : undefined) ??
+      (anilistId ? anilistIdToMedia.get(anilistId) : undefined);
 
-    if (malId) {
-      [mediaRow] = await db
-        .select({ id: media.id })
-        .from(media)
-        .where(
-          sql`${media.malId} = ${malId} AND NOT EXISTS (
-						SELECT 1 FROM ${seasons} WHERE ${seasons.mediaId} = ${media.id}
-					)`,
-        )
-        .limit(1);
-    }
-
-    if (!mediaRow && anilistId) {
-      [mediaRow] = await db
-        .select({ id: media.id })
-        .from(media)
-        .where(
-          sql`${media.anilistId} = ${anilistId} AND NOT EXISTS (
-						SELECT 1 FROM ${seasons} WHERE ${seasons.mediaId} = ${media.id}
-					)`,
-        )
-        .limit(1);
-    }
-
-    if (!mediaRow) {
+    if (!mediaId || existingSeasonMediaIds.has(mediaId)) {
       skipped++;
       continue;
     }
 
     batch.push({
-      mediaId: mediaRow.id,
+      mediaId,
       seasonNumber: 1,
       episodeCount: entry.episodes,
       title: null,
       dataSource: "anime_offline_db",
     });
+
+    // Mark as having seasons now to avoid duplicates within this run
+    existingSeasonMediaIds.add(mediaId);
 
     if (batch.length >= BATCH_SIZE) {
       inserted += await withRetry(() => insertSeasonBatch(db, batch), "anime-offline season batch");
@@ -439,7 +530,7 @@ async function main() {
       "Usage:\n" +
         "  bun run src/import/import-seasons.ts wikidata <file.ndjson> [--limit=N]\n" +
         "  bun run src/import/import-seasons.ts tvmaze [--limit=N]\n" +
-        "  bun run src/import/import-seasons.ts anime-offline <file.json> [--limit=N]",
+        "  bun run src/import/import-seasons.ts anime-offline <file.jsonl> [--limit=N]",
     );
     process.exit(1);
   }
@@ -471,7 +562,7 @@ async function main() {
     case "anime-offline": {
       const filePath = args[1];
       if (!filePath || filePath.startsWith("--")) {
-        console.error("Usage: bun run src/import/import-seasons.ts anime-offline <file.json>");
+        console.error("Usage: bun run src/import/import-seasons.ts anime-offline <file.jsonl>");
         process.exit(1);
       }
       await importAnimeOffline(db, filePath, limit);
