@@ -251,11 +251,15 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`\nImporting from: ${filePath}`);
-  console.log(
-    `Mode: ${isFullMode ? "full" : "test"}, Limit: ${limit === Infinity ? "none" : limit}, Batch: ${batchSize}`,
-  );
-  if (resumeFrom) console.log(`Resuming from: ${resumeFrom}`);
+  if (limit === 0) {
+    console.log("\nSkipping media import (--limit=0), running percentiles only...");
+  } else {
+    console.log(`\nImporting from: ${filePath}`);
+    console.log(
+      `Mode: ${isFullMode ? "full" : "test"}, Limit: ${limit === Infinity ? "none" : limit}, Batch: ${batchSize}`,
+    );
+    if (resumeFrom) console.log(`Resuming from: ${resumeFrom}`);
+  }
 
   const stats: ImportStats = {
     entitiesProcessed: 0,

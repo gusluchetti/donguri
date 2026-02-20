@@ -49,13 +49,12 @@ interface Step {
   skip?: boolean;
 }
 
-// Step 1: QRank + sitelinks percentiles via the media importer with --limit=0
-// (imports zero media entities but still runs QRank + sitelinks percentile computation)
+// Step 1: Sitelinks percentiles always run; QRank only if --qrank= provided
+// (imports zero media entities via --limit=0, just computes percentiles)
 const steps: Step[] = [
   {
-    label: "1. QRank + sitelinks percentiles",
+    label: qrankPath ? "1. QRank + sitelinks percentiles" : "1. Sitelinks percentiles",
     cmd: `bun run src/import/index.ts /dev/null --full --limit=0${qrankPath ? ` --qrank=${qrankPath}` : ""}`,
-    skip: !qrankPath,
   },
   {
     label: "2. TVMaze season gap-fill",
