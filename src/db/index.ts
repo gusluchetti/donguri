@@ -49,7 +49,7 @@ export function getDb() {
 /** Import-script DB: single pool for both Drizzle ORM and raw postgres.js ops. */
 export function createImportDb(url: string) {
   const client = postgres(url, {
-    max: 5,
+    max: 15,
     idle_timeout: 30,
     connect_timeout: 30,
     keep_alive: 30,

@@ -10,12 +10,15 @@
  *   TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET
  */
 
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { cleanEnv, createImportDb } from "../db";
 import { media } from "../db/schema";
 import { formatDuration } from "./_retry";
 
 const BATCH_SIZE = 50;
+
+type ImportDb = ReturnType<typeof createImportDb>;
+type RawClient = ImportDb["client"];
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -132,6 +135,28 @@ async function resolveUrl(
   return null;
 }
 
+// ─── Batch update ────────────────────────────────────────────────────────────
+
+async function batchUpdatePosters(
+  rawClient: RawClient,
+  updates: { id: string; posterUrl: string }[],
+): Promise<void> {
+  if (updates.length === 0) return;
+  // Build VALUES list with parameterized-style escaping via postgres.js
+  const values = updates
+    .map((u) => `(${escapePostgresLiteral(u.id)}, ${escapePostgresLiteral(u.posterUrl)})`)
+    .join(", ");
+  await rawClient.unsafe(
+    `UPDATE media SET poster_url = v.url, updated_at = now()
+     FROM (VALUES ${values}) AS v(id, url)
+     WHERE media.id = v.id`,
+  );
+}
+
+function escapePostgresLiteral(str: string): string {
+  return `'${str.replace(/'/g, "''")}'`;
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -153,20 +178,21 @@ async function main() {
     process.exit(1);
   }
 
-  const { db } = createImportDb(url);
+  const { db, client: rawClient } = createImportDb(url);
 
   console.log("Fetching media without cover art...");
 
   let processed = 0;
   let resolved = 0;
   let skipped = 0;
-  let offset = 0;
+  let lastId = ""; // Cursor: fetch rows with id > lastId
   const startTime = Date.now();
 
   while (processed < limit) {
     const batchLimit = Math.min(BATCH_SIZE, limit - processed);
     const typeCondition = filterType ? sql`${media.mediaType} = ${filterType}` : sql`1=1`;
 
+    // Cursor pagination: WHERE id > lastId (stable, no offset scan)
     const candidates = await db
       .select({
         id: media.id,
@@ -178,13 +204,16 @@ async function main() {
       })
       .from(media)
       .where(
-        sql`${media.posterUrl} IS NULL AND (${media.tmdbId} IS NOT NULL OR ${media.anilistId} IS NOT NULL OR ${media.igdbId} IS NOT NULL) AND ${typeCondition}`,
+        sql`${media.posterUrl} IS NULL AND ${media.id} > ${lastId} AND (${media.tmdbId} IS NOT NULL OR ${media.anilistId} IS NOT NULL OR ${media.igdbId} IS NOT NULL) AND ${typeCondition}`,
       )
-      .orderBy(sql`${media.sitelinksCount} DESC NULLS LAST`)
-      .limit(batchLimit)
-      .offset(offset);
+      .orderBy(sql`${media.id} ASC`)
+      .limit(batchLimit);
 
     if (candidates.length === 0) break;
+    lastId = candidates[candidates.length - 1].id;
+
+    // Resolve URLs for this batch, collect updates
+    const updates: { id: string; posterUrl: string }[] = [];
 
     for (const item of candidates) {
       if (processed >= limit) break;
@@ -192,7 +221,7 @@ async function main() {
 
       const posterUrl = await resolveUrl(item, tmdbApiKey);
       if (posterUrl) {
-        await db.update(media).set({ posterUrl }).where(eq(media.id, item.id));
+        updates.push({ id: item.id, posterUrl });
         resolved++;
       } else {
         skipped++;
@@ -205,11 +234,15 @@ async function main() {
       }
     }
 
-    offset += candidates.length;
+    // Batch update all resolved URLs at once
+    if (updates.length > 0) {
+      await batchUpdatePosters(rawClient, updates);
+    }
   }
 
   console.log(`\nCover art URL resolution done in ${formatDuration(Date.now() - startTime)}`);
   console.log(`  Processed: ${processed}, Resolved: ${resolved}, Skipped: ${skipped}`);
+  await rawClient.end();
   process.exit(0);
 }
 
