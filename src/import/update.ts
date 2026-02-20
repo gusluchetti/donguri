@@ -13,7 +13,6 @@
 
 import fs from "node:fs";
 import readline from "node:readline";
-import { pipeline } from "node:stream/promises";
 import zlib from "node:zlib";
 import * as clack from "@clack/prompts";
 import { eq, inArray, sql } from "drizzle-orm";
@@ -299,25 +298,71 @@ async function runMediaImport(
 // ═══ Feature: Percentiles ═══════════════════════════════════════════════════
 
 async function applyQRank(rawClient: RawClient, filePath: string): Promise<void> {
-  console.log(`\nApplying QRank from: ${filePath} (streaming via COPY → SQL)`);
+  console.log(`\nApplying QRank from: ${filePath} (filter-first batch INSERT)`);
   const startTime = Date.now();
+
+  // Load all media wikidata IDs into a Set for fast lookups
+  const mediaIds = new Set<string>();
+  const rows = await rawClient.unsafe(`SELECT wikidata_id FROM media`);
+  for (const row of rows) mediaIds.add(row.wikidata_id);
+  console.log(`  Loaded ${mediaIds.size.toLocaleString()} media IDs`);
+
+  // Stream CSV, filter to matching IDs only
+  const stream = fs.createReadStream(filePath);
+  const input = filePath.endsWith(".gz") ? stream.pipe(zlib.createGunzip()) : stream;
+  const rl = readline.createInterface({ input, crlfDelay: Infinity });
+
+  const matched: { wikidataId: string; score: number }[] = [];
+  let scanned = 0;
+  let isHeader = true;
+
+  for await (const line of rl) {
+    if (isHeader) {
+      isHeader = false;
+      continue;
+    }
+    scanned++;
+
+    if (scanned % 1_000_000 === 0) {
+      const elapsed = formatDuration(Date.now() - startTime);
+      const rate = (scanned / ((Date.now() - startTime) / 1000)).toFixed(0);
+      console.log(
+        `  [${elapsed}] Scanned: ${(scanned / 1_000_000).toFixed(0)}M, Matched: ${matched.length.toLocaleString()}, Rate: ${rate}/s`,
+      );
+    }
+
+    // QRank CSV format: "Entity,QRank" e.g. "Q42,12345"
+    const comma = line.indexOf(",");
+    if (comma === -1) continue;
+    const entity = line.slice(0, comma);
+    if (!mediaIds.has(entity)) continue;
+
+    const score = Number.parseInt(line.slice(comma + 1), 10);
+    if (Number.isNaN(score)) continue;
+    matched.push({ wikidataId: entity, score });
+  }
+
+  const scanElapsed = formatDuration(Date.now() - startTime);
+  console.log(
+    `  Scan complete in ${scanElapsed}: ${scanned.toLocaleString()} rows → ${matched.length.toLocaleString()} matched`,
+  );
 
   const conn = await rawClient.reserve();
   try {
     await conn.unsafe(`CREATE TEMP TABLE _qrank (wikidata_id TEXT, score INT)`);
 
-    const writable = await conn
-      .unsafe(`COPY _qrank (wikidata_id, score) FROM STDIN WITH (FORMAT csv, HEADER true)`)
-      .writable();
-    const stream = fs.createReadStream(filePath);
-    const input = filePath.endsWith(".gz") ? stream.pipe(zlib.createGunzip()) : stream;
-    await pipeline(input, writable);
-
-    const copyElapsed = formatDuration(Date.now() - startTime);
-    console.log(`  COPY complete in ${copyElapsed}`);
+    // Batch INSERT matched rows
+    const QRANK_BATCH = 5_000;
+    for (let i = 0; i < matched.length; i += QRANK_BATCH) {
+      const chunk = matched.slice(i, i + QRANK_BATCH);
+      const values = chunk
+        .map((r) => `(${escapePostgresLiteral(r.wikidataId)}, ${r.score})`)
+        .join(", ");
+      await conn.unsafe(`INSERT INTO _qrank (wikidata_id, score) VALUES ${values}`);
+    }
+    console.log(`  Inserted ${matched.length.toLocaleString()} rows into _qrank`);
 
     await conn.unsafe(`CREATE INDEX ON _qrank (wikidata_id)`);
-    console.log("  Index created on _qrank");
 
     const [{ count: prevScored }] = await conn.unsafe(
       `SELECT COUNT(*)::int AS count FROM media WHERE qrank_pct IS NOT NULL`,
