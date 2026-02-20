@@ -19,6 +19,8 @@ export type RawClient = ImportDb["client"];
 export interface ImportStats {
   entitiesProcessed: number;
   entitiesImported: number;
+  entitiesNew: number;
+  entitiesUpdated: number;
   errors: number;
   genresFound: number;
   platformsFound: number;
@@ -286,15 +288,19 @@ export async function processSuperBatch(
 							tvmaze_id = COALESCE(EXCLUDED.tvmaze_id, media.tvmaze_id),
 							search_title = COALESCE(EXCLUDED.search_title, media.search_title),
 							updated_at = now()
-						RETURNING id, wikidata_id
+						RETURNING id, wikidata_id, (xmax = 0) AS is_new
 					`);
 
-          return result as unknown as { id: string; wikidata_id: string }[];
+          return result as unknown as { id: string; wikidata_id: string; is_new: boolean }[];
         }),
       "COPY + upsert media",
     );
 
+    const batchNew = upserted.filter((r) => r.is_new).length;
+    const batchUpdated = upserted.length - batchNew;
     stats.entitiesImported += upserted.length;
+    stats.entitiesNew += batchNew;
+    stats.entitiesUpdated += batchUpdated;
 
     // 4. Build genre/platform relations from returned id mapping
     const wikidataToDbId = new Map(upserted.map((r) => [r.wikidata_id, r.id]));
@@ -335,6 +341,10 @@ export async function processSuperBatch(
             : undefined,
         ]),
       "insert relations",
+    );
+
+    console.log(
+      `  Batch: ${batchNew} new, ${batchUpdated} updated, ${genreRelations.length} genre links, ${platformRelations.length} platform links`,
     );
   } catch (error) {
     stats.errors += batch.length;

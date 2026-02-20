@@ -34,6 +34,11 @@ function parseJsonLine(line: string): WikidataEntity | null {
   }
 }
 
+interface SeasonBatchResult {
+  inserted: number;
+  updated: number;
+}
+
 async function insertSeasonBatch(
   db: DbType,
   batch: {
@@ -43,8 +48,8 @@ async function insertSeasonBatch(
     title: string | null;
     dataSource: "wikidata" | "tvmaze" | "anime_offline_db";
   }[],
-): Promise<number> {
-  if (batch.length === 0) return 0;
+): Promise<SeasonBatchResult> {
+  if (batch.length === 0) return { inserted: 0, updated: 0 };
   // Dedupe within batch — last occurrence wins (same key can appear multiple times in Wikidata)
   const deduped = [
     ...new Map(batch.map((row) => [`${row.mediaId}:${row.seasonNumber}`, row])).values(),
@@ -60,8 +65,9 @@ async function insertSeasonBatch(
         updatedAt: sql`now()`,
       },
     })
-    .returning({ id: seasons.id });
-  return result.length;
+    .returning({ id: seasons.id, isNew: sql<boolean>`xmax = 0` });
+  const inserted = result.filter((r) => r.isNew).length;
+  return { inserted, updated: result.length - inserted };
 }
 
 // ─── Wikidata import ────────────────────────────────────────────────────────
@@ -144,8 +150,8 @@ async function importWikidata(db: DbType, filePath: string, limit: number) {
   const startTime = Date.now();
   let processed = 0;
   let inserted = 0;
+  let updated = 0;
   let skipped = 0;
-  const errors = 0;
 
   // Build a lookup cache: wikidataId → mediaId
   const wikidataToMediaId = new Map<string, string>();
@@ -166,6 +172,11 @@ async function importWikidata(db: DbType, filePath: string, limit: number) {
     title: string | null;
     dataSource: "wikidata";
   }[] = [];
+
+  function addResult(r: SeasonBatchResult) {
+    inserted += r.inserted;
+    updated += r.updated;
+  }
 
   async function drainPendingSeasons() {
     await flushWikidataLookups(db, pendingLookups, wikidataToMediaId);
@@ -188,12 +199,12 @@ async function importWikidata(db: DbType, filePath: string, limit: number) {
     // Insert any full batches
     while (batch.length >= BATCH_SIZE) {
       const chunk = batch.splice(0, BATCH_SIZE);
-      inserted += await withRetry(() => insertSeasonBatch(db, chunk), "wikidata season batch");
+      addResult(await withRetry(() => insertSeasonBatch(db, chunk), "wikidata season batch"));
     }
   }
 
   for await (const line of rl) {
-    if (inserted >= limit) break;
+    if (inserted + updated >= limit) break;
 
     const entity = parseJsonLine(line);
     if (!entity) continue;
@@ -202,7 +213,7 @@ async function importWikidata(db: DbType, filePath: string, limit: number) {
 
     if (processed % 1000 === 0) {
       console.log(
-        `[${formatDuration(Date.now() - startTime)}] Processed: ${processed}, Inserted: ${inserted}, Skipped: ${skipped}`,
+        `[${formatDuration(Date.now() - startTime)}] Processed: ${processed}, Inserted: ${inserted}, Updated: ${updated}, Skipped: ${skipped}`,
       );
     }
 
@@ -235,7 +246,7 @@ async function importWikidata(db: DbType, filePath: string, limit: number) {
 
     // Insert full batches
     if (batch.length >= BATCH_SIZE) {
-      inserted += await withRetry(() => insertSeasonBatch(db, batch), "wikidata season batch");
+      addResult(await withRetry(() => insertSeasonBatch(db, batch), "wikidata season batch"));
       batch = [];
     }
   }
@@ -244,12 +255,12 @@ async function importWikidata(db: DbType, filePath: string, limit: number) {
   await drainPendingSeasons();
 
   if (batch.length > 0) {
-    inserted += await withRetry(() => insertSeasonBatch(db, batch), "wikidata season batch");
+    addResult(await withRetry(() => insertSeasonBatch(db, batch), "wikidata season batch"));
   }
 
   console.log(`\nWikidata seasons done in ${formatDuration(Date.now() - startTime)}`);
   console.log(
-    `  Processed: ${processed}, Inserted: ${inserted}, Skipped: ${skipped}, Errors: ${errors}`,
+    `  Processed: ${processed}, Inserted: ${inserted}, Updated: ${updated}, Skipped: ${skipped}`,
   );
 }
 
@@ -265,7 +276,9 @@ async function importTvmaze(db: DbType, limit: number) {
   const startTime = Date.now();
   let processed = 0;
   let inserted = 0;
+  let updated = 0;
   let errors = 0;
+  const failedShows: string[] = [];
 
   // Find media with tvmazeId that have no season rows yet
   const candidates = await db
@@ -285,7 +298,7 @@ async function importTvmaze(db: DbType, limit: number) {
 
     if (processed % 50 === 0) {
       console.log(
-        `[${formatDuration(Date.now() - startTime)}] Processed: ${processed}/${candidates.length}, Inserted: ${inserted}`,
+        `[${formatDuration(Date.now() - startTime)}] Processed: ${processed}/${candidates.length}, Inserted: ${inserted}, Updated: ${updated}`,
       );
     }
 
@@ -298,33 +311,47 @@ async function importTvmaze(db: DbType, limit: number) {
         const retry = await fetch(`https://api.tvmaze.com/shows/${show.tvmazeId}/seasons`);
         if (!retry.ok) {
           errors++;
+          failedShows.push(String(show.tvmazeId));
+          console.warn(
+            `  [tvmaze] Failed after retry: show ${show.tvmazeId} (HTTP ${retry.status})`,
+          );
           continue;
         }
         const data = await retry.json();
-        await processShowSeasons(db, show.id, data);
-        inserted += data.length;
+        const r = await processShowSeasons(db, show.id, data);
+        inserted += r.inserted;
+        updated += r.updated;
         continue;
       }
 
       if (!res.ok) {
         errors++;
+        failedShows.push(String(show.tvmazeId));
+        console.warn(`  [tvmaze] Failed: show ${show.tvmazeId} (HTTP ${res.status})`);
         continue;
       }
 
       const data = await res.json();
-      const count = await processShowSeasons(db, show.id, data);
-      inserted += count;
+      const r = await processShowSeasons(db, show.id, data);
+      inserted += r.inserted;
+      updated += r.updated;
 
       // TVMaze rate limit: 20 requests per 10 seconds
       await sleep(500);
     } catch (err) {
       errors++;
-      console.error(`Error fetching show ${show.tvmazeId}:`, err);
+      failedShows.push(String(show.tvmazeId));
+      console.error(`  [tvmaze] Error fetching show ${show.tvmazeId}:`, err);
     }
   }
 
   console.log(`\nTVMaze seasons done in ${formatDuration(Date.now() - startTime)}`);
-  console.log(`  Processed: ${processed}, Inserted: ${inserted}, Errors: ${errors}`);
+  console.log(
+    `  Processed: ${processed}, Inserted: ${inserted}, Updated: ${updated}, Errors: ${errors}`,
+  );
+  if (failedShows.length > 0) {
+    console.log(`  Failed show IDs: ${failedShows.join(", ")}`);
+  }
 }
 
 interface TvmazeSeason {
@@ -337,7 +364,7 @@ async function processShowSeasons(
   db: DbType,
   mediaId: string,
   apiSeasons: TvmazeSeason[],
-): Promise<number> {
+): Promise<SeasonBatchResult> {
   const batch = apiSeasons
     .filter((s): s is TvmazeSeason & { number: number } => s.number !== null)
     .map((s) => ({
@@ -348,7 +375,7 @@ async function processShowSeasons(
       dataSource: "tvmaze" as const,
     }));
 
-  if (batch.length === 0) return 0;
+  if (batch.length === 0) return { inserted: 0, updated: 0 };
   return withRetry(() => insertSeasonBatch(db, batch), "tvmaze season batch");
 }
 
@@ -399,8 +426,8 @@ async function importAnimeOffline(db: DbType, filePath: string, limit: number) {
 
   let processed = 0;
   let inserted = 0;
-  let skipped = 0;
-  const errors = 0;
+  let updated = 0;
+  const skipReasons = { noEpisodes: 0, noIds: 0, notInDb: 0, hasSeasons: 0 };
 
   // Pre-load set of media IDs that already have season rows (seasons table is small)
   console.log("Loading existing season media IDs...");
@@ -459,18 +486,18 @@ async function importAnimeOffline(db: DbType, filePath: string, limit: number) {
   }[] = [];
 
   for (const entry of entries) {
-    if (inserted >= limit) break;
+    if (inserted + updated >= limit) break;
 
     processed++;
 
     if (processed % 5000 === 0) {
       console.log(
-        `[${formatDuration(Date.now() - startTime)}] Processed: ${processed}/${entries.length}, Inserted: ${inserted}`,
+        `[${formatDuration(Date.now() - startTime)}] Processed: ${processed}/${entries.length}, Inserted: ${inserted}, Updated: ${updated}`,
       );
     }
 
     if (!entry.episodes || entry.episodes <= 0) {
-      skipped++;
+      skipReasons.noEpisodes++;
       continue;
     }
 
@@ -478,7 +505,7 @@ async function importAnimeOffline(db: DbType, filePath: string, limit: number) {
     const anilistId = extractIdFromSource(entry.sources, /anilist\.co\/anime\/(\d+)/);
 
     if (!malId && !anilistId) {
-      skipped++;
+      skipReasons.noIds++;
       continue;
     }
 
@@ -487,8 +514,13 @@ async function importAnimeOffline(db: DbType, filePath: string, limit: number) {
       (malId ? malIdToMedia.get(malId) : undefined) ??
       (anilistId ? anilistIdToMedia.get(anilistId) : undefined);
 
-    if (!mediaId || existingSeasonMediaIds.has(mediaId)) {
-      skipped++;
+    if (!mediaId) {
+      skipReasons.notInDb++;
+      continue;
+    }
+
+    if (existingSeasonMediaIds.has(mediaId)) {
+      skipReasons.hasSeasons++;
       continue;
     }
 
@@ -504,18 +536,27 @@ async function importAnimeOffline(db: DbType, filePath: string, limit: number) {
     existingSeasonMediaIds.add(mediaId);
 
     if (batch.length >= BATCH_SIZE) {
-      inserted += await withRetry(() => insertSeasonBatch(db, batch), "anime-offline season batch");
+      const r = await withRetry(() => insertSeasonBatch(db, batch), "anime-offline season batch");
+      inserted += r.inserted;
+      updated += r.updated;
       batch = [];
     }
   }
 
   if (batch.length > 0) {
-    inserted += await withRetry(() => insertSeasonBatch(db, batch), "anime-offline season batch");
+    const r = await withRetry(() => insertSeasonBatch(db, batch), "anime-offline season batch");
+    inserted += r.inserted;
+    updated += r.updated;
   }
 
+  const totalSkipped =
+    skipReasons.noEpisodes + skipReasons.noIds + skipReasons.notInDb + skipReasons.hasSeasons;
   console.log(`\nanime-offline-database done in ${formatDuration(Date.now() - startTime)}`);
   console.log(
-    `  Processed: ${processed}, Inserted: ${inserted}, Skipped: ${skipped}, Errors: ${errors}`,
+    `  Processed: ${processed}, Inserted: ${inserted}, Updated: ${updated}, Skipped: ${totalSkipped}`,
+  );
+  console.log(
+    `  Skip reasons: no episodes=${skipReasons.noEpisodes}, no IDs=${skipReasons.noIds}, not in DB=${skipReasons.notInDb}, has seasons=${skipReasons.hasSeasons}`,
   );
 }
 

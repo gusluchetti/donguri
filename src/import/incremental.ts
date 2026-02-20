@@ -159,6 +159,8 @@ async function main() {
   const stats: ImportStats = {
     entitiesProcessed: 0,
     entitiesImported: 0,
+    entitiesNew: 0,
+    entitiesUpdated: 0,
     errors: 0,
     genresFound: 0,
     platformsFound: 0,

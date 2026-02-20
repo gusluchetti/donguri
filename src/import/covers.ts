@@ -96,40 +96,49 @@ async function fetchIgdbCover(igdbId: string): Promise<string | null> {
 
 // ─── URL resolution ─────────────────────────────────────────────────────────
 
+type CoverSource = "tmdb" | "anilist" | "igdb";
+
+interface ResolveResult {
+  url: string;
+  source: CoverSource;
+}
+
 async function resolveUrl(
   item: {
+    wikidataId: string;
     mediaType: string;
     tmdbId: string | null;
     anilistId: string | null;
     igdbId: string | null;
   },
   tmdbApiKey: string,
-): Promise<string | null> {
+  failures: Record<CoverSource, number>,
+): Promise<ResolveResult | null> {
   // Try TMDB first (movies, TV, anime)
   if (item.tmdbId && item.mediaType !== "game") {
     const url = await fetchTmdbPoster(item.tmdbId, item.mediaType, tmdbApiKey);
-    if (url) {
-      await sleep(250); // TMDB: ~40 req/10s
-      return url;
-    }
+    await sleep(250); // TMDB: ~40 req/10s
+    if (url) return { url, source: "tmdb" };
+    failures.tmdb++;
+    console.warn(`  [tmdb] No poster for ${item.wikidataId} (tmdb:${item.tmdbId})`);
   }
 
   // AniList fallback for anime
   if (item.anilistId && item.mediaType === "anime") {
     const url = await fetchAniListCover(item.anilistId);
-    if (url) {
-      await sleep(670); // AniList: ~90 req/min
-      return url;
-    }
+    await sleep(670); // AniList: ~90 req/min
+    if (url) return { url, source: "anilist" };
+    failures.anilist++;
+    console.warn(`  [anilist] No cover for ${item.wikidataId} (anilist:${item.anilistId})`);
   }
 
   // IGDB for games
   if (item.igdbId && item.mediaType === "game") {
     const url = await fetchIgdbCover(item.igdbId);
-    if (url) {
-      await sleep(250); // IGDB: 4 req/s
-      return url;
-    }
+    await sleep(250); // IGDB: 4 req/s
+    if (url) return { url, source: "igdb" };
+    failures.igdb++;
+    console.warn(`  [igdb] No cover for ${item.wikidataId} (igdb:${item.igdbId})`);
   }
 
   return null;
@@ -187,6 +196,8 @@ async function main() {
   let skipped = 0;
   let lastId = ""; // Cursor: fetch rows with id > lastId
   const startTime = Date.now();
+  const bySource: Record<CoverSource, number> = { tmdb: 0, anilist: 0, igdb: 0 };
+  const failures: Record<CoverSource, number> = { tmdb: 0, anilist: 0, igdb: 0 };
 
   while (processed < limit) {
     const batchLimit = Math.min(BATCH_SIZE, limit - processed);
@@ -219,9 +230,10 @@ async function main() {
       if (processed >= limit) break;
       processed++;
 
-      const posterUrl = await resolveUrl(item, tmdbApiKey);
-      if (posterUrl) {
-        updates.push({ id: item.id, posterUrl });
+      const result = await resolveUrl(item, tmdbApiKey, failures);
+      if (result) {
+        updates.push({ id: item.id, posterUrl: result.url });
+        bySource[result.source]++;
         resolved++;
       } else {
         skipped++;
@@ -240,8 +252,14 @@ async function main() {
     }
   }
 
-  console.log(`\nCover art URL resolution done in ${formatDuration(Date.now() - startTime)}`);
+  console.log(`\nCover art done in ${formatDuration(Date.now() - startTime)}`);
   console.log(`  Processed: ${processed}, Resolved: ${resolved}, Skipped: ${skipped}`);
+  console.log(
+    `  By source: TMDB ${bySource.tmdb}, AniList ${bySource.anilist}, IGDB ${bySource.igdb}`,
+  );
+  console.log(
+    `  Failures:  TMDB ${failures.tmdb}, AniList ${failures.anilist}, IGDB ${failures.igdb}`,
+  );
   await rawClient.end();
   process.exit(0);
 }

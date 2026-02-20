@@ -128,7 +128,12 @@ async function applyQRank(rawClient: RawClient, filePath: string): Promise<void>
     await conn.unsafe(`CREATE INDEX ON _qrank (wikidata_id)`);
     console.log("  Index created on _qrank");
 
-    // 4. Compute percentiles + update, entirely in SQL
+    // 4. Count how many already have a QRank score (re-scored vs newly scored)
+    const [{ count: prevScored }] = await conn.unsafe(
+      `SELECT COUNT(*)::int AS count FROM media WHERE qrank_pct IS NOT NULL`,
+    );
+
+    // 5. Compute percentiles + update, entirely in SQL
     const result = await conn.unsafe(`
       WITH matched AS (
         SELECT q.wikidata_id, q.score
@@ -145,9 +150,12 @@ async function applyQRank(rawClient: RawClient, filePath: string): Promise<void>
       WHERE media.wikidata_id = r.wikidata_id
     `);
 
+    const totalScored = Number(result.count);
+    const newlyScored = totalScored - Number(prevScored);
+    const reScored = Number(prevScored);
     const elapsed = formatDuration(Date.now() - startTime);
     console.log(
-      `  QRank: ${result.count} media entities scored in ${elapsed} (0.00% = most popular)`,
+      `  QRank: ${totalScored} scored in ${elapsed} (${newlyScored} new, ${reScored} re-scored)`,
     );
 
     // 5. Drop temp table explicitly (also auto-drops on disconnect)
@@ -252,6 +260,8 @@ async function main() {
   const stats: ImportStats = {
     entitiesProcessed: 0,
     entitiesImported: 0,
+    entitiesNew: 0,
+    entitiesUpdated: 0,
     errors: 0,
     genresFound: 0,
     platformsFound: 0,
@@ -348,7 +358,7 @@ async function main() {
 
     // Compute sitelinks percentile (always, independent of QRank)
     console.log("\nComputing sitelinks percentiles...");
-    await rawClient.unsafe(`
+    const slResult = await rawClient.unsafe(`
       WITH ranked AS (
         SELECT id, PERCENT_RANK() OVER (ORDER BY sitelinks_count DESC) * 100 AS pct
         FROM media
@@ -356,7 +366,7 @@ async function main() {
       UPDATE media SET sitelinks_pct = ranked.pct FROM ranked WHERE media.id = ranked.id
     `);
     console.log(
-      "Sitelinks percentiles computed (popularity_score auto-updated via generated column).",
+      `  Sitelinks: ${slResult.count} rows updated (popularity_score auto-updated via generated column)`,
     );
 
     // Update progress — completed
@@ -392,11 +402,13 @@ async function main() {
   const totalTime = formatDuration(Date.now() - startTime);
   console.log(`\n${"=".repeat(60)}`);
   console.log(`Import completed in ${totalTime}`);
-  console.log(`Processed: ${stats.entitiesProcessed.toLocaleString()}`);
-  console.log(`Imported: ${stats.entitiesImported.toLocaleString()}`);
-  console.log(`Genres linked: ${stats.genresFound.toLocaleString()}`);
-  console.log(`Platforms linked: ${stats.platformsFound.toLocaleString()}`);
-  console.log(`Errors: ${stats.errors}`);
+  console.log(`Processed:  ${stats.entitiesProcessed.toLocaleString()}`);
+  console.log(
+    `Imported:   ${stats.entitiesImported.toLocaleString()} (${stats.entitiesNew.toLocaleString()} new, ${stats.entitiesUpdated.toLocaleString()} updated)`,
+  );
+  console.log(`Genres:     ${stats.genresFound.toLocaleString()} links`);
+  console.log(`Platforms:  ${stats.platformsFound.toLocaleString()} links`);
+  console.log(`Errors:     ${stats.errors}`);
   console.log(`By type:`);
   for (const [type, count] of Object.entries(stats.byType)) {
     if (count > 0) console.log(`  ${type}: ${count.toLocaleString()}`);

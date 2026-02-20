@@ -72,11 +72,25 @@ const steps: Step[] = [
   },
 ];
 
+interface StepResult {
+  label: string;
+  status: "ok" | "skipped" | "failed";
+  elapsed: string;
+}
+
+function formatElapsed(ms: number): string {
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(1)}s`;
+  return `${(s / 60).toFixed(1)}m`;
+}
+
 const startTime = Date.now();
+const results: StepResult[] = [];
 
 for (const step of steps) {
   if (step.skip) {
     console.log(`\nSkipping: ${step.label}`);
+    results.push({ label: step.label, status: "skipped", elapsed: "-" });
     continue;
   }
 
@@ -84,6 +98,7 @@ for (const step of steps) {
   console.log(step.label);
   console.log("=".repeat(60));
 
+  const stepStart = Date.now();
   let succeeded = false;
   for (let attempt = 1; attempt <= STEP_MAX_RETRIES; attempt++) {
     try {
@@ -100,13 +115,33 @@ for (const step of steps) {
     }
   }
 
+  const stepElapsed = formatElapsed(Date.now() - stepStart);
+
   if (!succeeded) {
+    results.push({ label: step.label, status: "failed", elapsed: stepElapsed });
     console.error(`\n"${step.label}" failed after ${STEP_MAX_RETRIES} attempts. Aborting.`);
+    // Print partial summary before exiting
+    printSummary(results, startTime);
     process.exit(1);
   }
+
+  console.log(`\n  -> ${step.label} completed in ${stepElapsed}`);
+  results.push({ label: step.label, status: "ok", elapsed: stepElapsed });
 }
 
-const elapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
-console.log(`\n${"=".repeat(60)}`);
-console.log(`All update steps completed in ${elapsed} min`);
-console.log("=".repeat(60));
+printSummary(results, startTime);
+
+function printSummary(results: StepResult[], startTime: number) {
+  const totalElapsed = formatElapsed(Date.now() - startTime);
+  console.log(`\n${"=".repeat(60)}`);
+  console.log("  SUMMARY");
+  console.log("=".repeat(60));
+  for (const r of results) {
+    const icon = r.status === "ok" ? "+" : r.status === "skipped" ? "-" : "!";
+    const tag = r.status === "ok" ? "OK" : r.status === "skipped" ? "SKIP" : "FAIL";
+    console.log(`  [${icon}] ${tag.padEnd(4)} ${r.elapsed.padStart(7)}  ${r.label}`);
+  }
+  console.log("-".repeat(60));
+  console.log(`  Total: ${totalElapsed}`);
+  console.log("=".repeat(60));
+}
