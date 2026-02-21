@@ -69,6 +69,10 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
       throw new Error("Authentication was denied or failed. Please try again.");
     }
 
+    if (!data.code || !data.state) {
+      throw new Error("Missing required OAuth parameters (code/state).");
+    }
+
     try {
       const client = await getOAuthClient();
       if (isDev) console.debug("[callback] OAuth client obtained");
@@ -152,7 +156,7 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
       return { did, handle };
     } catch (err) {
       console.error("[callback] failed:", err);
-      throw new Error("Authentication failed. Please try again.");
+      throw err;
     }
   });
 

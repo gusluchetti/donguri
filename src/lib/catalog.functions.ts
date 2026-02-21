@@ -6,7 +6,7 @@ import type { CatalogEntry } from "../db/schema";
 import { catalogEntries, media } from "../db/schema";
 import { getAuthenticatedAgent, isSessionExpired } from "./auth/agent";
 import { clearSessionCookie, getSessionData, requireAuth } from "./auth/session";
-import { countWatchedEpisodes } from "./media-types";
+import { countWatchedEpisodes, STATUS_ORDER } from "./media-types";
 import { deleteCatalogEntry, putCatalogEntry } from "./sync";
 
 function throwIfSessionExpired(err: unknown): void {
@@ -17,14 +17,7 @@ function throwIfSessionExpired(err: unknown): void {
   }
 }
 
-const StatusEnum = z.enum([
-  "planned",
-  "in_progress",
-  "on_hold",
-  "completed",
-  "dropped",
-  "mastered",
-]);
+const StatusEnum = z.enum(STATUS_ORDER);
 
 export const getCatalogEntry = createServerFn({ method: "GET" })
   .inputValidator(z.object({ wikidataId: z.string() }))

@@ -39,7 +39,10 @@ const DEFAULT_BATCH_SIZE = 5_000;
 const PROGRESS_LOG_INTERVAL = 1_000;
 const SEASON_BATCH_SIZE = 200;
 const SEASON_LOOKUP_BATCH = 500;
-const COVER_BATCH_SIZE = 50;
+const COVER_BATCH_SIZE = 200;
+const COVER_CONCURRENCY_TMDB = 6;
+const COVER_CONCURRENCY_ANILIST = 1;
+const COVER_CONCURRENCY_IGDB = 2;
 
 type Feature = "media" | "percentiles" | "seasons" | "covers";
 
@@ -115,6 +118,7 @@ const RECREATE_INDEX_SQL = [
 async function dropIndexes(db: DbType): Promise<void> {
   console.log("Dropping non-essential indexes for faster import...");
   for (const idx of DROPPABLE_INDEXES) {
+    // SAFETY: all values are hardcoded constants — never interpolate external input here
     await db.execute(sql.raw(`DROP INDEX IF EXISTS ${idx}`));
   }
 }
@@ -122,9 +126,11 @@ async function dropIndexes(db: DbType): Promise<void> {
 async function recreateIndexes(db: DbType): Promise<void> {
   console.log("Recreating indexes...");
   for (const stmt of RECREATE_INDEX_SQL) {
+    // SAFETY: all values are hardcoded constants — never interpolate external input here
     await db.execute(sql.raw(stmt));
   }
   for (const stmt of TRGM_SETUP_SQL) {
+    // SAFETY: all values are hardcoded constants — never interpolate external input here
     await db.execute(sql.raw(stmt));
   }
   console.log("Indexes recreated.");
@@ -156,6 +162,7 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
   } else {
     console.log("Setting up trigram indexes...");
     for (const stmt of TRGM_SETUP_SQL) {
+      // SAFETY: all values are hardcoded constants — never interpolate external input here
       await db.execute(sql.raw(stmt));
     }
   }
@@ -919,28 +926,46 @@ async function runSeasons(
 
 // ═══ Feature: Cover Art ═════════════════════════════════════════════════════
 
+interface FetchResult {
+  url: string | null;
+  status?: number;
+}
+
 async function fetchTmdbPoster(
   tmdbId: string,
   mediaType: string,
   apiKey: string,
-): Promise<string | null> {
-  const type = mediaType === "movie" ? "movie" : "tv";
-  const res = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=${apiKey}`);
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.poster_path ? `https://image.tmdb.org/t/p/w342${data.poster_path}` : null;
+): Promise<FetchResult> {
+  const primary = mediaType === "movie" ? "movie" : "tv";
+  const res = await fetch(`https://api.themoviedb.org/3/${primary}/${tmdbId}?api_key=${apiKey}`);
+  if (res.ok) {
+    const data = await res.json();
+    return { url: data.poster_path ? `https://image.tmdb.org/t/p/w342${data.poster_path}` : null };
+  }
+  // Fallback: try the other endpoint (handles TV series with TMDB movie IDs)
+  const fallback = primary === "movie" ? "tv" : "movie";
+  const res2 = await fetch(`https://api.themoviedb.org/3/${fallback}/${tmdbId}?api_key=${apiKey}`);
+  if (res2.ok) {
+    const data = await res2.json();
+    return { url: data.poster_path ? `https://image.tmdb.org/t/p/w342${data.poster_path}` : null };
+  }
+  console.warn(`  [tmdb] ${res.status}/${res2.status} for ${tmdbId}`);
+  return { url: null, status: res.status };
 }
 
-async function fetchAniListCover(anilistId: string): Promise<string | null> {
+async function fetchAniListCover(anilistId: string): Promise<FetchResult> {
   const query = `query ($id: Int) { Media(id: $id, type: ANIME) { coverImage { large } } }`;
   const res = await fetch("https://graphql.anilist.co", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, variables: { id: Number.parseInt(anilistId, 10) } }),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    console.warn(`  [anilist] ${res.status} for ${anilistId}`);
+    return { url: null, status: res.status };
+  }
   const data = await res.json();
-  return data.data?.Media?.coverImage?.large ?? null;
+  return { url: data.data?.Media?.coverImage?.large ?? null };
 }
 
 let twitchAccessToken: string | null = null;
@@ -964,67 +989,168 @@ async function getTwitchToken(): Promise<string> {
   return twitchAccessToken;
 }
 
-async function fetchIgdbCover(igdbId: string): Promise<string | null> {
+async function fetchIgdbCover(igdbSlug: string): Promise<FetchResult> {
   const token = await getTwitchToken();
   const clientId = cleanEnv(process.env.TWITCH_CLIENT_ID);
 
-  const res = await fetch("https://api.igdb.com/v4/covers", {
+  const res = await fetch("https://api.igdb.com/v4/games", {
     method: "POST",
     headers: {
       "Client-ID": clientId,
       Authorization: `Bearer ${token}`,
     },
-    body: `fields url; where game = ${igdbId}; limit 1;`,
+    body: `fields cover.url; where slug = "${igdbSlug}"; limit 1;`,
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    console.warn(`  [igdb] ${res.status} for ${igdbSlug}`);
+    return { url: null, status: res.status };
+  }
   const data = await res.json();
-  if (!data[0]?.url) return null;
-  return data[0].url.replace("t_thumb", "t_cover_big").replace(/^\/\//, "https://");
+  const coverUrl = data[0]?.cover?.url;
+  if (!coverUrl) return { url: null };
+  return {
+    url: coverUrl.replace("t_thumb", "t_cover_big").replace(/^\/\//, "https://"),
+  };
 }
 
 type CoverSource = "tmdb" | "anilist" | "igdb";
 
-interface ResolveResult {
-  url: string;
+interface CoverCandidate {
+  id: string;
+  wikidataId: string;
+  mediaType: string;
+  tmdbId: string | null;
+  anilistId: string | null;
+  igdbId: string | null;
+}
+
+interface CoverResult {
+  id: string;
+  wikidataId: string;
+  posterUrl: string;
   source: CoverSource;
 }
 
-async function resolveUrl(
-  item: {
-    wikidataId: string;
-    mediaType: string;
-    tmdbId: string | null;
-    anilistId: string | null;
-    igdbId: string | null;
-  },
+/** Process items with bounded concurrency + per-item delay for rate limiting. */
+async function mapConcurrent<T, R>(
+  items: T[],
+  concurrency: number,
+  delayMs: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+      if (next < items.length) await sleep(delayMs);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
+  return results;
+}
+
+/** Resolve covers for a batch by splitting into per-source queues and running them in parallel. */
+async function resolveBatch(
+  items: CoverCandidate[],
   tmdbApiKey: string,
-  failures: Record<CoverSource, number>,
-): Promise<ResolveResult | null> {
-  if (item.tmdbId && item.mediaType !== "game") {
-    const url = await fetchTmdbPoster(item.tmdbId, item.mediaType, tmdbApiKey);
-    await sleep(250);
-    if (url) return { url, source: "tmdb" };
-    failures.tmdb++;
-    console.warn(`  [tmdb] No poster for ${item.wikidataId} (tmdb:${item.tmdbId})`);
+  stats: { bySource: Record<CoverSource, number>; failures: Record<CoverSource, number> },
+): Promise<CoverResult[]> {
+  // Partition items by primary source
+  type WithTmdb = CoverCandidate & { tmdbId: string };
+  type WithAnilist = CoverCandidate & { anilistId: string };
+  type WithIgdb = CoverCandidate & { igdbId: string };
+
+  const tmdbItems: WithTmdb[] = [];
+  const anilistItems: WithAnilist[] = [];
+  const igdbItems: WithIgdb[] = [];
+
+  for (const item of items) {
+    if (item.tmdbId && item.mediaType !== "game") tmdbItems.push(item as WithTmdb);
+    else if (item.anilistId && item.mediaType === "anime") anilistItems.push(item as WithAnilist);
+    else if (item.igdbId && item.mediaType === "game") igdbItems.push(item as WithIgdb);
   }
 
-  if (item.anilistId && item.mediaType === "anime") {
-    const url = await fetchAniListCover(item.anilistId);
-    await sleep(670);
-    if (url) return { url, source: "anilist" };
-    failures.anilist++;
-    console.warn(`  [anilist] No cover for ${item.wikidataId} (anilist:${item.anilistId})`);
+  const unmatched = items.length - tmdbItems.length - anilistItems.length - igdbItems.length;
+  console.log(
+    `  Queued: TMDB ${tmdbItems.length}, AniList ${anilistItems.length}, IGDB ${igdbItems.length}, unmatched ${unmatched}`,
+  );
+
+  const results: CoverResult[] = [];
+  const tmdbFailedAnime: WithAnilist[] = [];
+
+  // Run all three source queues in parallel
+  const [tmdbResults, anilistResults, igdbResults] = await Promise.all([
+    mapConcurrent(tmdbItems, COVER_CONCURRENCY_TMDB, 200, async (item) => {
+      const r = await fetchTmdbPoster(item.tmdbId, item.mediaType, tmdbApiKey);
+      if (r.url)
+        return {
+          id: item.id,
+          wikidataId: item.wikidataId,
+          posterUrl: r.url,
+          source: "tmdb" as const,
+        };
+      stats.failures.tmdb++;
+      if (item.anilistId && item.mediaType === "anime") tmdbFailedAnime.push(item as WithAnilist);
+      return null;
+    }),
+    mapConcurrent(anilistItems, COVER_CONCURRENCY_ANILIST, 670, async (item) => {
+      const r = await fetchAniListCover(item.anilistId);
+      if (r.url)
+        return {
+          id: item.id,
+          wikidataId: item.wikidataId,
+          posterUrl: r.url,
+          source: "anilist" as const,
+        };
+      stats.failures.anilist++;
+      return null;
+    }),
+    mapConcurrent(igdbItems, COVER_CONCURRENCY_IGDB, 300, async (item) => {
+      const r = await fetchIgdbCover(item.igdbId);
+      if (r.url)
+        return {
+          id: item.id,
+          wikidataId: item.wikidataId,
+          posterUrl: r.url,
+          source: "igdb" as const,
+        };
+      stats.failures.igdb++;
+      return null;
+    }),
+  ]);
+
+  for (const r of tmdbResults) if (r) results.push(r);
+  for (const r of anilistResults) if (r) results.push(r);
+  for (const r of igdbResults) if (r) results.push(r);
+
+  // AniList fallback for anime that failed TMDB
+  if (tmdbFailedAnime.length > 0) {
+    const fallbackResults = await mapConcurrent(
+      tmdbFailedAnime,
+      COVER_CONCURRENCY_ANILIST,
+      670,
+      async (item) => {
+        const r = await fetchAniListCover(item.anilistId);
+        if (r.url)
+          return {
+            id: item.id,
+            wikidataId: item.wikidataId,
+            posterUrl: r.url,
+            source: "anilist" as const,
+          };
+        stats.failures.anilist++;
+        return null;
+      },
+    );
+    for (const r of fallbackResults) if (r) results.push(r);
   }
 
-  if (item.igdbId && item.mediaType === "game") {
-    const url = await fetchIgdbCover(item.igdbId);
-    await sleep(250);
-    if (url) return { url, source: "igdb" };
-    failures.igdb++;
-    console.warn(`  [igdb] No cover for ${item.wikidataId} (igdb:${item.igdbId})`);
-  }
+  // Track source counts
+  for (const r of results) stats.bySource[r.source]++;
 
-  return null;
+  return results;
 }
 
 async function batchUpdatePosters(
@@ -1055,11 +1181,12 @@ async function runCovers(db: DbType): Promise<void> {
 
   let processed = 0;
   let resolved = 0;
-  let skipped = 0;
   let lastId = "";
   const startTime = Date.now();
-  const bySource: Record<CoverSource, number> = { tmdb: 0, anilist: 0, igdb: 0 };
-  const failures: Record<CoverSource, number> = { tmdb: 0, anilist: 0, igdb: 0 };
+  const stats = {
+    bySource: { tmdb: 0, anilist: 0, igdb: 0 } as Record<CoverSource, number>,
+    failures: { tmdb: 0, anilist: 0, igdb: 0 } as Record<CoverSource, number>,
+  };
 
   while (true) {
     const candidates = await db
@@ -1080,40 +1207,32 @@ async function runCovers(db: DbType): Promise<void> {
 
     if (candidates.length === 0) break;
     lastId = candidates[candidates.length - 1].id;
+    processed += candidates.length;
 
-    const updates: { id: string; posterUrl: string }[] = [];
+    const results = await resolveBatch(candidates, tmdbApiKey, stats);
+    resolved += results.length;
 
-    for (const item of candidates) {
-      processed++;
-
-      const result = await resolveUrl(item, tmdbApiKey, failures);
-      if (result) {
-        updates.push({ id: item.id, posterUrl: result.url });
-        bySource[result.source]++;
-        resolved++;
-      } else {
-        skipped++;
-      }
-
-      if (processed % 50 === 0) {
-        console.log(
-          `[${formatDuration(Date.now() - startTime)}] Processed: ${processed}, Resolved: ${resolved}, Skipped: ${skipped}`,
-        );
-      }
+    if (results.length > 0) {
+      await batchUpdatePosters(
+        db,
+        results.map((r) => ({ id: r.id, posterUrl: r.posterUrl })),
+      );
     }
 
-    if (updates.length > 0) {
-      await batchUpdatePosters(db, updates);
-    }
+    console.log(
+      `[${formatDuration(Date.now() - startTime)}] Processed: ${processed}, Resolved: ${resolved}, No cover: ${processed - resolved} | Failures: TMDB ${stats.failures.tmdb}, AniList ${stats.failures.anilist}, IGDB ${stats.failures.igdb}`,
+    );
   }
 
   console.log(`\nCover art done in ${formatDuration(Date.now() - startTime)}`);
-  console.log(`  Processed: ${processed}, Resolved: ${resolved}, Skipped: ${skipped}`);
   console.log(
-    `  By source: TMDB ${bySource.tmdb}, AniList ${bySource.anilist}, IGDB ${bySource.igdb}`,
+    `  Processed: ${processed}, Resolved: ${resolved}, No cover: ${processed - resolved}`,
   );
   console.log(
-    `  Failures:  TMDB ${failures.tmdb}, AniList ${failures.anilist}, IGDB ${failures.igdb}`,
+    `  By source: TMDB ${stats.bySource.tmdb}, AniList ${stats.bySource.anilist}, IGDB ${stats.bySource.igdb}`,
+  );
+  console.log(
+    `  Failures:  TMDB ${stats.failures.tmdb}, AniList ${stats.failures.anilist}, IGDB ${stats.failures.igdb}`,
   );
 }
 
