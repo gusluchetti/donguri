@@ -118,6 +118,7 @@ const RECREATE_INDEX_SQL = [
 async function dropIndexes(db: DbType): Promise<void> {
   console.log("Dropping non-essential indexes for faster import...");
   for (const idx of DROPPABLE_INDEXES) {
+    // SAFETY: all values are hardcoded constants — never interpolate external input here
     await db.execute(sql.raw(`DROP INDEX IF EXISTS ${idx}`));
   }
 }
@@ -125,9 +126,11 @@ async function dropIndexes(db: DbType): Promise<void> {
 async function recreateIndexes(db: DbType): Promise<void> {
   console.log("Recreating indexes...");
   for (const stmt of RECREATE_INDEX_SQL) {
+    // SAFETY: all values are hardcoded constants — never interpolate external input here
     await db.execute(sql.raw(stmt));
   }
   for (const stmt of TRGM_SETUP_SQL) {
+    // SAFETY: all values are hardcoded constants — never interpolate external input here
     await db.execute(sql.raw(stmt));
   }
   console.log("Indexes recreated.");
@@ -159,6 +162,7 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
   } else {
     console.log("Setting up trigram indexes...");
     for (const stmt of TRGM_SETUP_SQL) {
+      // SAFETY: all values are hardcoded constants — never interpolate external input here
       await db.execute(sql.raw(stmt));
     }
   }

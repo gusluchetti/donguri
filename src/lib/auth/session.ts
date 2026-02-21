@@ -27,7 +27,7 @@ async function signPayload(payload: string): Promise<string> {
       ? (() => {
           throw new Error("SESSION_SECRET must be set in production");
         })()
-      : "dev-secret-change-me");
+      : crypto.randomUUID());
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(secret),
