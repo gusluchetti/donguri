@@ -8,14 +8,14 @@ Live at [donguri.app](https://donguri.app)
 
 ## Development
 
-**Prerequisites**: [Bun](https://bun.sh), [flyctl](https://fly.io/docs/flyctl/install/), [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
+**Prerequisites**: [Bun](https://bun.sh), [Docker](https://www.docker.com), [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
 
 ```bash
 bun install
-bun run dev    # starts fly proxy, cloudflared tunnel, and vite dev server
+bun run dev    # starts local Postgres (Docker), cloudflared tunnel, and vite dev server
 ```
 
-`bun run dev` uses `concurrently` to launch all three processes (DB proxy, Cloudflare tunnel, Vite) with color-coded output. Use `bun run dev:vite` to run only Vite.
+`bun run dev` uses `concurrently` to launch two processes (Cloudflare tunnel, Vite) with color-coded output, after starting Docker Postgres.
 
 ## Build & Deploy
 

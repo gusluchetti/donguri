@@ -1,6 +1,6 @@
 /**
- * Shared retry utilities for import scripts running over flaky connections
- * (e.g. WireGuard tunnel to Fly.io Postgres).
+ * Shared retry utilities for import scripts running over remote connections
+ * (transient network errors, Neon cold-starts, etc.).
  */
 
 const DEFAULT_MAX_RETRIES = 5;
