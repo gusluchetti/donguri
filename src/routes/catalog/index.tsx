@@ -105,7 +105,7 @@ const SearchInput = forwardRef<HTMLInputElement, { initialValue: string }>(funct
         placeholder="Search titles..."
         value={value}
         onChange={(e) => handleChange(e.target.value)}
-        className="w-full py-2.5 px-3 bg-dg-surface border border-dg-border rounded text-dg-text font-mono text-base sm:text-sm outline-none box-border transition-[border-color] duration-100"
+        className="w-full py-2.5 px-3 bg-dg-surface border border-dg-border rounded text-dg-text text-base sm:text-sm outline-none box-border transition-[border-color] duration-100"
       />
     </div>
   );
@@ -154,10 +154,10 @@ function CatalogPage() {
       console.debug("[quick-add] %s → %s (optimistic)", wikidataId, defaultStatus);
       setLocalOverrides((prev) => ({ ...prev, [wikidataId]: defaultStatus }));
       setQuickAddState((prev) => ({ ...prev, [wikidataId]: "pending" }));
+      playSound("confirm");
       try {
         await setCatalogEntry({ data: { wikidataId, status: defaultStatus } });
         console.debug("[quick-add] %s → server ok", wikidataId);
-        playSound("confirm");
         setQuickAddState((prev) => ({ ...prev, [wikidataId]: "done" }));
         clearTimeout(quickAddTimers.current.get(wikidataId));
         quickAddTimers.current.set(
@@ -323,7 +323,7 @@ function CatalogPage() {
       {/* Header */}
       <header className="px-4 sm:px-6 pt-3 pb-1">
         <div className="max-w-[1000px] mx-auto">
-          <p className="text-dg-text-tertiary text-xs font-mono">
+          <p className="text-dg-text-tertiary text-xs">
             {stats.total > 0
               ? `${stats.total.toLocaleString()} titles across the catalog`
               : "\u00a0"}
@@ -353,9 +353,7 @@ function CatalogPage() {
                 }`}
               >
                 {t.label}
-                {count > 0 && (
-                  <span className="text-xs opacity-60 font-mono">{count.toLocaleString()}</span>
-                )}
+                {count > 0 && <span className="text-xs opacity-60">{count.toLocaleString()}</span>}
               </button>
             );
           })}
@@ -420,7 +418,7 @@ function CatalogPage() {
                   to="/catalog/$wikidataId"
                   params={{ wikidataId: item.wikidataId }}
                   preload="intent"
-                  className={`dg-catalog-row w-full left-0 border-b border-dg-border-subtle/20 absolute no-underline text-inherit block group overflow-hidden transition-[background-color] duration-[60ms]${isCursorActive ? " dg-cursor-active" : ""}`}
+                  className={`dg-catalog-row w-full left-0 border-b border-dg-border-subtle/40 absolute no-underline text-inherit block group overflow-hidden transition-[background-color] duration-[60ms]${isCursorActive ? " dg-cursor-active" : ""}`}
                   style={{
                     top: virtualRow.start,
                     height: virtualRow.size,
@@ -491,22 +489,22 @@ const MediaRow = memo(function MediaRow({
           />
         )}
         {addState === "pending" ? (
-          <span className="text-xs font-bold text-dg-accent font-mono shrink-0">
+          <span className="text-xs font-bold text-dg-accent shrink-0">
             [<span className="dg-ellipsis" />]
           </span>
         ) : addState === "done" ? (
-          <span className="text-xs font-bold text-dg-game font-mono shrink-0">[ok]</span>
+          <span className="text-xs font-bold text-dg-game shrink-0">[ok]</span>
         ) : showAdd ? (
           <button
             type="button"
             onClick={(e) => onQuickAdd(item.wikidataId, item.mediaType, e)}
-            className="text-xs font-bold text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent active:scale-[0.97]"
+            className="text-xs font-bold text-dg-text-tertiary bg-transparent border-none cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent active:scale-[0.97]"
           >
             [+]
           </button>
         ) : null}
         <span
-          className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center font-mono ${badgeClass}`}
+          className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center ${badgeClass}`}
         >
           {mediaTypeLabel(item.mediaType, true)}
         </span>
@@ -528,12 +526,12 @@ const MediaRow = memo(function MediaRow({
       </div>
       <div className="flex items-center gap-4 shrink-0">
         {meta && (
-          <span className="text-xs text-dg-text-tertiary min-w-12 text-right tabular-nums hidden sm:flex font-mono">
+          <span className="text-xs text-dg-text-tertiary min-w-12 text-right tabular-nums hidden sm:flex">
             {meta}
           </span>
         )}
         {item.startYear && (
-          <span className="text-xs text-dg-text-secondary tabular-nums font-mono">
+          <span className="text-xs text-dg-text-secondary tabular-nums">
             {item.startYear}
             {item.endYear && item.endYear !== item.startYear ? `–${item.endYear}` : ""}
           </span>

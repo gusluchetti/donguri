@@ -52,7 +52,7 @@ function ShortcutGroup({ section }: { section: ShortcutSection }) {
               {shortcut.keys.map((key) => (
                 <kbd
                   key={key}
-                  className="text-[0.6rem] px-1 py-px bg-dg-elevated border border-dg-border rounded text-dg-text min-w-[1.25rem] text-center inline-block leading-relaxed font-mono"
+                  className="text-[0.6rem] px-1 py-px bg-dg-elevated border border-dg-border rounded text-dg-text min-w-[1.25rem] text-center inline-block leading-relaxed"
                 >
                   {key}
                 </kbd>

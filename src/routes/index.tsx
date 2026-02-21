@@ -104,7 +104,7 @@ function HomePage() {
   return (
     <div className="flex-1">
       <div className="max-w-[1000px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
-        <h1 className="text-base font-bold mb-2" style={{ textWrap: "balance" }}>
+        <h1 className="text-base font-bold mb-2 text-balance">
           <span className="text-dg-accent">donguri</span>
         </h1>
         <p className="text-dg-text-secondary text-sm leading-relaxed mb-4 sm:mb-5">
@@ -199,7 +199,7 @@ function BlueskyLoginForm() {
             onChange={(e) => setHandle(e.target.value)}
             placeholder="handle.bsky.social"
             disabled={loading}
-            className="flex-1 bg-dg-bg border border-dg-border rounded px-3 py-2.5 sm:py-2 text-base sm:text-sm text-dg-text font-mono placeholder:text-dg-text-tertiary disabled:opacity-50"
+            className="flex-1 bg-dg-bg border border-dg-border rounded px-3 py-2.5 sm:py-2 text-base sm:text-sm text-dg-text placeholder:text-dg-text-tertiary disabled:opacity-50"
           />
           <button
             type="submit"
@@ -288,7 +288,7 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
         {STATUS_LABELS_GENERIC[status as StatusValue] ?? status}{" "}
         <span className="text-dg-text-tertiary font-normal">({items.length})</span>
       </h2>
-      <div className="rounded bg-dg-surface">
+      <div className="rounded bg-dg-surface divide-y divide-dg-border-subtle/30">
         {items.map((item) => {
           const badgeClass = typeBadgeClass(item.mediaType);
           const replay = replayCountLabel(item.replayCount, item.mediaType ?? undefined);
@@ -300,7 +300,7 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
               className="flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-2.5 no-underline text-inherit hover:bg-dg-elevated/50 transition-colors duration-[60ms]"
             >
               <span
-                className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center font-mono ${badgeClass}`}
+                className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center ${badgeClass}`}
               >
                 {mediaTypeLabel(item.mediaType ?? "", true)}
               </span>
@@ -315,17 +315,13 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
               {(() => {
                 const pos = episodePosition(item);
                 return pos ? (
-                  <span className="text-xs text-dg-text-tertiary tabular-nums shrink-0 font-mono">
-                    {pos}
-                  </span>
+                  <span className="text-xs text-dg-text-tertiary tabular-nums shrink-0">{pos}</span>
                 ) : null;
               })()}
-              {replay && (
-                <span className="text-xs text-dg-text-tertiary shrink-0 font-mono">{replay}</span>
-              )}
+              {replay && <span className="text-xs text-dg-text-tertiary shrink-0">{replay}</span>}
               {item.rating != null && (
                 <span
-                  className="text-xs tabular-nums shrink-0 font-mono"
+                  className="text-xs tabular-nums shrink-0"
                   style={{ color: ratingColor(item.rating) ?? "var(--color-dg-accent)" }}
                 >
                   {item.rating}/100

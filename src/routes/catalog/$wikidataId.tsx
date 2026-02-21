@@ -190,14 +190,12 @@ function MediaStubPage({
         <div className="mb-4 sm:mb-5">
           {stub.mediaType && (
             <span
-              className={`text-[0.6rem] font-semibold py-1 px-2 rounded-sm uppercase tracking-wide inline-block mb-3 font-mono ${badgeClass}`}
+              className={`text-[0.6rem] font-semibold py-1 px-2 rounded-sm uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
             >
               {mediaTypeLabel(stub.mediaType)}
             </span>
           )}
-          <h1 className="text-lg font-bold m-0 leading-[1.2]" style={{ textWrap: "balance" }}>
-            {stub.title}
-          </h1>
+          <h1 className="text-lg font-bold m-0 leading-[1.2] text-balance">{stub.title}</h1>
         </div>
 
         <div className="rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5">
@@ -388,13 +386,11 @@ function MediaDetailPage({
           )}
           <div className="min-w-0 flex-1">
             <span
-              className={`text-[0.6rem] font-semibold py-1 px-2 rounded-sm uppercase tracking-wide inline-block mb-3 font-mono ${badgeClass}`}
+              className={`text-[0.6rem] font-semibold py-1 px-2 rounded-sm uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
             >
               {mediaTypeLabel(data.mediaType)}
             </span>
-            <h1 className="text-lg font-bold m-0 leading-[1.2]" style={{ textWrap: "balance" }}>
-              {data.title}
-            </h1>
+            <h1 className="text-lg font-bold m-0 leading-[1.2] text-balance">{data.title}</h1>
             {data.originalTitle && (
               <p className="text-sm text-dg-text-secondary mt-1.5 italic">{data.originalTitle}</p>
             )}
@@ -430,7 +426,7 @@ function MediaDetailPage({
                     >
                       Popularity (QRank) ↗
                     </a>
-                    <span className="text-sm text-dg-text font-mono">Top {data.qrankPct}%</span>
+                    <span className="text-sm text-dg-text">Top {data.qrankPct}%</span>
                   </div>
                 )}
                 <MetaItem label="Sitelinks" value={String(data.sitelinksCount ?? 0)} />
@@ -647,7 +643,7 @@ function EpisodeTracker({
           <select
             value={selectedSeason}
             onChange={(e) => setSelectedSeason(Number(e.target.value))}
-            className="text-xs font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none transition-colors cursor-pointer"
+            className="text-xs bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none transition-colors cursor-pointer"
           >
             {seasons.map((s) => (
               <option key={s.id} value={s.seasonNumber}>
@@ -664,7 +660,7 @@ function EpisodeTracker({
         <div className="mb-2">
           <div className="flex items-center gap-2">
             {isMultiSeason && (
-              <span className="text-xs text-dg-text-tertiary tabular-nums w-6 shrink-0 font-mono">
+              <span className="text-xs text-dg-text-tertiary tabular-nums w-6 shrink-0">
                 S{String(currentSeason.seasonNumber).padStart(2, "0")}
               </span>
             )}
@@ -677,7 +673,7 @@ function EpisodeTracker({
                 }}
               />
             </div>
-            <span className="text-xs text-dg-text-secondary tabular-nums shrink-0 font-mono">
+            <span className="text-xs text-dg-text-secondary tabular-nums shrink-0">
               {seasonWatched}/{seasonEpCount}
             </span>
           </div>
@@ -688,9 +684,7 @@ function EpisodeTracker({
       {isMultiSeason && totalEps > 0 && (
         <div className="mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-dg-text-tertiary tabular-nums w-6 shrink-0 font-mono">
-              ALL
-            </span>
+            <span className="text-xs text-dg-text-tertiary tabular-nums w-6 shrink-0">ALL</span>
             <div className="flex-1 h-[6px] bg-dg-elevated rounded-sm overflow-hidden">
               <div
                 className="h-full bg-dg-accent/60 rounded-sm transition-[width] duration-300"
@@ -700,7 +694,7 @@ function EpisodeTracker({
                 }}
               />
             </div>
-            <span className="text-xs text-dg-text-secondary tabular-nums shrink-0 font-mono">
+            <span className="text-xs text-dg-text-secondary tabular-nums shrink-0">
               {totalWatched}/{totalEps}
             </span>
           </div>
@@ -715,18 +709,18 @@ function EpisodeTracker({
               type="button"
               onClick={handleDecrement}
               disabled={consecutiveEp <= 0 && !prevSeason}
-              className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-100 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono active:scale-[0.97]"
+              className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-100 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default active:scale-[0.97]"
             >
               -
             </button>
-            <span className="text-sm tabular-nums text-dg-text min-w-[5rem] text-center font-mono">
+            <span className="text-sm tabular-nums text-dg-text min-w-[5rem] text-center">
               {consecutiveEp} / {seasonEpCount}
             </span>
             <button
               type="button"
               onClick={handleIncrement}
               disabled={consecutiveEp >= seasonEpCount && !nextSeason}
-              className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-100 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono active:scale-[0.97]"
+              className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-100 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default active:scale-[0.97]"
             >
               +
             </button>
@@ -742,7 +736,7 @@ function EpisodeTracker({
               value={episodeDate}
               max={todayISO()}
               onChange={(e) => setEpisodeDate(e.target.value || todayISO())}
-              className="text-xs font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none transition-colors"
+              className="text-xs bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none transition-colors"
             />
           </div>
         </div>
@@ -757,13 +751,13 @@ function EpisodeTracker({
             const pct = epCount > 0 ? Math.round((w / epCount) * 100) : 0;
             return (
               <div key={s.id} className="flex items-center gap-2">
-                <span className="text-xs text-dg-text-tertiary tabular-nums w-6 shrink-0 font-mono">
+                <span className="text-xs text-dg-text-tertiary tabular-nums w-6 shrink-0">
                   S{String(s.seasonNumber).padStart(2, "0")}
                 </span>
                 <div className="flex-1 h-[4px] bg-dg-elevated rounded-sm overflow-hidden">
                   <div className="h-full bg-dg-accent/40 rounded-sm" style={{ width: `${pct}%` }} />
                 </div>
-                <span className="text-[0.6rem] text-dg-text-tertiary tabular-nums shrink-0 font-mono">
+                <span className="text-[0.6rem] text-dg-text-tertiary tabular-nums shrink-0">
                   {epCount > 0 ? `${epCount} ep` : "?"}
                 </span>
               </div>
@@ -872,6 +866,7 @@ function TrackingPanel({
     const status = localStatus as NonNullable<CatalogEntry["status"]>;
     if (!status) return;
     console.debug("[tracking] save %s → status=%s rating=%s", wikidataId, status, localRating);
+    playSound("confirm");
     const prev = entry;
     setEntry((e) =>
       e
@@ -920,7 +915,6 @@ function TrackingPanel({
           },
         });
         console.debug("[tracking] save %s → server ok, refreshing", wikidataId);
-        playSound("confirm");
         const fresh = await getCatalogEntry({ data: { wikidataId } });
         setEntry(fresh);
         setLocalRating(fresh?.rating ?? null);
@@ -966,10 +960,10 @@ function TrackingPanel({
 
   const handleRemove = useCallback(async () => {
     console.debug("[tracking] remove %s", wikidataId);
+    playSound("error");
     await action.run(async () => {
       await removeCatalogEntry({ data: { wikidataId } });
       console.debug("[tracking] remove %s → server ok, reloading", wikidataId);
-      playSound("error");
       window.location.reload();
     });
   }, [wikidataId, action, playSound]);
@@ -1184,7 +1178,7 @@ function TrackingPanel({
           >
             -
           </button>
-          <span className="text-xs text-dg-text-secondary min-w-[5rem] text-center font-mono">
+          <span className="text-xs text-dg-text-secondary min-w-[5rem] text-center">
             {replayCountLabel(localReplayCount, mediaType) ?? "First time"}
           </span>
           <button
@@ -1210,7 +1204,7 @@ function TrackingPanel({
             max={todayISO()}
             onChange={(e) => setLocalWatchedAt(e.target.value || null)}
             disabled={action.state === "pending"}
-            className="text-xs font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1.5 text-dg-text outline-none transition-colors disabled:opacity-50"
+            className="text-xs bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1.5 text-dg-text outline-none transition-colors disabled:opacity-50"
           />
         </div>
       )}
@@ -1314,7 +1308,7 @@ function RatingInput({
           if (e.key === "Enter") commit();
           if (e.key === "Escape") setEditing(false);
         }}
-        className="w-[4ch] text-sm tabular-nums text-right bg-dg-bg border border-dg-border rounded-sm px-1 py-0 font-mono outline-none shrink-0"
+        className="w-[4ch] text-sm tabular-nums text-right bg-dg-bg border border-dg-border rounded-sm px-1 py-0 outline-none shrink-0"
         style={{ color, borderColor: color }}
       />
     );
@@ -1325,7 +1319,7 @@ function RatingInput({
       type="button"
       onClick={startEditing}
       disabled={disabled}
-      className="text-sm tabular-nums w-[4ch] text-right bg-transparent border-none font-mono cursor-text p-0 shrink-0 hover:underline disabled:cursor-default disabled:no-underline"
+      className="text-sm tabular-nums w-[4ch] text-right bg-transparent border-none cursor-text p-0 shrink-0 hover:underline disabled:cursor-default disabled:no-underline"
       style={{ color, textDecorationColor: `${color}50` }}
       title="Click to type a rating"
     >
@@ -1340,7 +1334,7 @@ function MetaItem({ label, value }: { label: string; value: string }) {
       <span className="text-xs text-dg-text-tertiary uppercase tracking-wider opacity-60">
         {label}
       </span>
-      <span className="text-sm text-dg-text font-mono">{value}</span>
+      <span className="text-sm text-dg-text">{value}</span>
     </div>
   );
 }

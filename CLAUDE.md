@@ -181,12 +181,11 @@ TWITCH_CLIENT_SECRET=  # Twitch app client secret (for IGDB)
 
 ## Frontend Aesthetics
 
-**Dual-font system**: CMU Sans Serif (voice) + CMU Typewriter Text (data). Self-hosted WOFF2 in `public/fonts/`.
-- **CMU Sans Serif** (`font-sans`): titles, nav, section headers, prose, buttons, labels
-- **CMU Typewriter Text** (`font-mono`): numbers, dates, ratings, episode counts, type badges, search input, `<kbd>`, version strings
+**Single-font system**: CMU Typewriter Text for everything. Self-hosted WOFF2 in `public/fonts/`.
+- Both `--font-sans` and `--font-mono` resolve to CMU Typewriter Text. Weight differentiates hierarchy: bold (700) for titles/headers, normal (400) for body, semibold for badges.
 
-**Color system**: `oklch()` color space for perceptual uniformity. Media-type colors share L=0.65 for equal visual weight.
-Dark/light theme toggle with warm, earthy tones (donguri = acorn in Japanese). Light theme uses warm cream paper, not gray.
+**Color system**: `oklch()` color space for perceptual uniformity. OLED-black dark mode with subtle cyan tint (hue ~210-220), warm amber accent. Media-type colors at L=0.68 (dark) / L=0.48 (light).
+Dark/light theme toggle. Light mode uses cool-tinted cream, dark mode uses near-OLED black with faint blue undertone.
 
 **Motion**: Custom easing curves (`--ease-weighted`, `--ease-snap`, `--ease-bounce`). View Transitions API for page navigation. `@starting-style` for modal entry. `active:scale-[0.97]` on all interactive elements.
 

@@ -32,7 +32,7 @@ function RoadmapPage() {
         <Markdown
           components={{
             h1: ({ children }) => (
-              <h1 className="text-base font-bold mb-2" style={{ textWrap: "balance" }}>
+              <h1 className="text-base font-bold mb-2 text-balance">
                 <span className="text-dg-accent">{children}</span>
               </h1>
             ),

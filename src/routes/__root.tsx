@@ -7,11 +7,12 @@ import {
   Link,
   Outlet,
   Scripts,
+  useLocation,
   useNavigate,
 } from "@tanstack/react-router";
 import { clear } from "idb-keyval";
 import { Moon, Sun, Volume2, VolumeX } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import "../app.css";
 import { getAuthState, logout } from "../lib/auth.functions";
 import { getCatalogFingerprint } from "../lib/catalog.functions";
@@ -44,6 +45,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       }),
     ],
     links: [
+      {
+        rel: "preload",
+        href: "/fonts/cmu-typewriter-text-500-roman.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
+      },
       {
         rel: "icon",
         href: "/favicon.ico",
@@ -124,6 +132,17 @@ function RootComponent() {
     return () => window.removeEventListener("unhandledrejection", onError);
   }, [queryClient]);
 
+  // Play sound on every route change (link clicks, not just hotkeys)
+  const { playSound } = useSound();
+  const pathname = useLocation({ select: (l) => l.pathname });
+  const prevPathname = useRef(pathname);
+  useEffect(() => {
+    if (prevPathname.current !== pathname) {
+      playSound("navigate");
+      prevPathname.current = pathname;
+    }
+  }, [pathname, playSound]);
+
   const [showHelp, setShowHelp] = useState(false);
 
   return (
@@ -154,7 +173,7 @@ function RootComponent() {
                     <ThemeToggle />
                     {auth ? (
                       <div className="flex items-center gap-4">
-                        <span className="text-xs text-dg-accent hidden sm:inline font-mono">
+                        <span className="text-xs text-dg-accent hidden sm:inline">
                           {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
                         </span>
                         <button
@@ -185,7 +204,7 @@ function RootComponent() {
               <footer className="px-4 sm:px-6 py-3 shrink-0">
                 <div className="max-w-[1000px] mx-auto flex items-center justify-between text-xs text-dg-text-tertiary">
                   <span className="flex items-center gap-2">
-                    <span className="font-mono">v0.3.0</span>
+                    <span>v0.3.0</span>
                     <button
                       type="button"
                       onClick={() => setShowHelp(true)}
@@ -333,7 +352,7 @@ function NotFound() {
   return (
     <div className="bg-dg-bg text-dg-text flex-1 flex items-center justify-center">
       <div className="text-center px-4 py-16">
-        <p className="text-lg font-bold text-dg-accent mb-2 font-mono">404</p>
+        <p className="text-lg font-bold text-dg-accent mb-2">404</p>
         <p className="text-sm text-dg-text-secondary mb-6">Page not found.</p>
         <Link
           to="/"

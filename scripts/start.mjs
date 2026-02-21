@@ -45,7 +45,7 @@ async function serveStatic(pathname) {
     };
 
     // Content-hashed assets get immutable cache headers
-    if (pathname.startsWith("/assets/")) {
+    if (pathname.startsWith("/assets/") || pathname.startsWith("/fonts/")) {
       headers["Cache-Control"] = "public, max-age=31536000, immutable";
     }
 

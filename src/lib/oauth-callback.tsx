@@ -33,7 +33,7 @@ export function OAuthProviderCallback({
   }, []);
 
   return (
-    <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
+    <div className="bg-dg-bg text-dg-text min-h-screen">
       <div className="max-w-[600px] mx-auto px-6 py-16">
         {error ? (
           <div className="border border-dg-movie/30 rounded p-5 bg-dg-surface">
