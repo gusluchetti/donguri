@@ -30,6 +30,7 @@ import {
 } from "../../lib/media-types";
 import { ogTags, pageTitle } from "../../lib/og";
 import { catalogEntryOptions, mediaDetailOptions } from "../../lib/query-options";
+import { useSound } from "../../lib/sound";
 import { useAction } from "../../lib/use-action";
 
 const rootRoute = getRouteApi("__root__");
@@ -136,31 +137,31 @@ function MediaDetailRouter() {
 
 function MediaDetailSkeleton() {
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
+    <div className="flex-1">
       <div className="max-w-[1000px] mx-auto p-4 sm:p-5">
         <button
           type="button"
           onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block"
+          className="text-dg-text-tertiary text-xs bg-transparent border-none cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block active:scale-[0.97]"
         >
           &larr; back
         </button>
         <div className="mb-5">
-          <div className="w-16 h-5 bg-dg-surface rounded-sm mb-3 animate-pulse" />
-          <div className="w-2/3 h-8 bg-dg-surface rounded animate-pulse" />
+          <div className="w-16 h-5 dg-skeleton mb-3" />
+          <div className="w-2/3 h-8 dg-skeleton" />
         </div>
-        <div className="flex flex-wrap gap-x-6 gap-y-3 mb-4 sm:mb-5 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
+        <div className="flex flex-wrap gap-x-6 gap-y-3 mb-4 sm:mb-5 p-3 sm:p-4 bg-dg-surface rounded">
           {[...Array(4)].map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton items
             <div key={i} className="flex flex-col gap-1">
-              <div className="w-12 h-3 bg-dg-elevated rounded animate-pulse" />
-              <div className="w-16 h-4 bg-dg-elevated rounded animate-pulse" />
+              <div className="w-12 h-3 dg-skeleton" />
+              <div className="w-16 h-4 dg-skeleton" />
             </div>
           ))}
         </div>
         <div className="space-y-2 mb-6">
-          <div className="w-full h-4 bg-dg-surface rounded animate-pulse" />
-          <div className="w-4/5 h-4 bg-dg-surface rounded animate-pulse" />
+          <div className="w-full h-4 dg-skeleton" />
+          <div className="w-4/5 h-4 dg-skeleton" />
         </div>
       </div>
     </div>
@@ -176,12 +177,12 @@ function MediaStubPage({
   const badgeClass = typeBadgeClass(stub.mediaType);
 
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
+    <div className="flex-1">
       <div className="max-w-[1000px] mx-auto p-4 sm:p-5">
         <button
           type="button"
           onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block"
+          className="text-dg-text-tertiary text-xs bg-transparent border-none cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block active:scale-[0.97]"
         >
           &larr; back
         </button>
@@ -189,18 +190,18 @@ function MediaStubPage({
         <div className="mb-4 sm:mb-5">
           {stub.mediaType && (
             <span
-              className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
+              className={`text-[0.6rem] font-semibold py-1 px-2 rounded-sm uppercase tracking-wide inline-block mb-3 font-mono ${badgeClass}`}
             >
               {mediaTypeLabel(stub.mediaType)}
             </span>
           )}
-          <h1 className="text-[1.35rem] sm:text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
+          <h1 className="text-lg font-bold m-0 leading-[1.2]" style={{ textWrap: "balance" }}>
             {stub.title}
           </h1>
         </div>
 
-        <div className="border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5">
-          <p className="text-[0.8rem] text-dg-text-tertiary">
+        <div className="rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5">
+          <p className="text-xs text-dg-text-tertiary">
             This title has not been imported into the catalog yet. Metadata will appear after the
             next data import.
           </p>
@@ -211,7 +212,7 @@ function MediaStubPage({
         )}
 
         <div className="mb-4 sm:mb-5">
-          <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+          <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2 opacity-60">
             Links
           </h3>
           <div className="flex flex-wrap gap-2">
@@ -219,7 +220,7 @@ function MediaStubPage({
               href={`https://www.wikidata.org/wiki/${stub.wikidataId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-dg-accent/70 no-underline py-2 px-3 sm:py-1.5 sm:px-2.5 border border-dg-accent/15 rounded-sm transition-all duration-150"
+              className="text-xs text-dg-accent/70 no-underline py-2 px-3 sm:py-1.5 sm:px-2.5 transition-colors duration-100 hover:text-dg-accent"
             >
               Wikidata {"\u2197"}
             </a>
@@ -241,6 +242,7 @@ function MediaDetailPage({
   if (!data) throw new Error("Media not found");
   const { auth } = rootRoute.useLoaderData();
   const router = useRouter();
+  const { playSound } = useSound();
   const badgeClass = typeBadgeClass(data.mediaType);
   const [localIsFavorite, setLocalIsFavorite] = useState(initialEntry?.isFavorite ?? false);
   const [localWatchedEpisodes, setLocalWatchedEpisodes] = useState<WatchedEpisodes>(
@@ -257,9 +259,16 @@ function MediaDetailPage({
   useHotkey("ArrowLeft", () => router.history.back());
   useHotkey("Backspace", () => router.history.back());
   // f — toggle favorite
-  useHotkey("F", () => setLocalIsFavorite((v) => !v), {
-    enabled: !!auth && !!initialEntry?.status,
-  });
+  useHotkey(
+    "F",
+    () => {
+      setLocalIsFavorite((v) => !v);
+      playSound("tick");
+    },
+    {
+      enabled: !!auth && !!initialEntry?.status,
+    },
+  );
 
   const isAnime = data.mediaType === "anime";
   const isGame = data.mediaType === "game";
@@ -355,13 +364,13 @@ function MediaDetailPage({
   });
 
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
+    <div className="flex-1">
       <div className="max-w-[1000px] mx-auto p-4 sm:p-5">
         {/* Back link */}
         <button
           type="button"
           onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block"
+          className="text-dg-text-tertiary text-xs bg-transparent border-none cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block active:scale-[0.97]"
         >
           &larr; back
         </button>
@@ -373,25 +382,25 @@ function MediaDetailPage({
               src={data.posterUrl}
               alt={`${data.title} poster`}
               width={160}
-              className="w-[160px] rounded border border-dg-border-subtle shrink-0 self-stretch object-cover hidden sm:block"
+              className="w-[160px] rounded border border-dg-border-subtle shrink-0 self-stretch object-cover hidden sm:block shadow-lg"
               loading="eager"
             />
           )}
           <div className="min-w-0 flex-1">
             <span
-              className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
+              className={`text-[0.6rem] font-semibold py-1 px-2 rounded-sm uppercase tracking-wide inline-block mb-3 font-mono ${badgeClass}`}
             >
               {mediaTypeLabel(data.mediaType)}
             </span>
-            <h1 className="text-[1.35rem] sm:text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
+            <h1 className="text-lg font-bold m-0 leading-[1.2]" style={{ textWrap: "balance" }}>
               {data.title}
             </h1>
             {data.originalTitle && (
-              <p className="text-base text-dg-text-secondary mt-1.5">{data.originalTitle}</p>
+              <p className="text-sm text-dg-text-secondary mt-1.5 italic">{data.originalTitle}</p>
             )}
 
             {/* Meta slab */}
-            <div className="mt-3 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
+            <div className="mt-3 p-3 sm:p-4 bg-dg-surface rounded dg-grain">
               <div className="flex flex-wrap gap-x-6 gap-y-3">
                 {data.startYear && (
                   <MetaItem
@@ -417,23 +426,23 @@ function MediaDetailPage({
                       href="https://qrank.wmcloud.org/"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider whitespace-nowrap hover:text-dg-accent transition-colors"
+                      className="text-xs text-dg-text-tertiary uppercase tracking-wider whitespace-nowrap hover:text-dg-accent transition-colors opacity-60"
                     >
                       Popularity (QRank) ↗
                     </a>
-                    <span className="text-[0.85rem] text-dg-text">Top {data.qrankPct}%</span>
+                    <span className="text-sm text-dg-text font-mono">Top {data.qrankPct}%</span>
                   </div>
                 )}
                 <MetaItem label="Sitelinks" value={String(data.sitelinksCount ?? 0)} />
               </div>
               {visibleGenres.length > 0 && (
-                <div className="border-t border-dg-border-subtle mt-3 pt-3">
+                <div className="mt-4 pt-0">
                   <div className="flex flex-wrap gap-1.5">
                     {visibleGenres.map(
                       (g: { id: string; name: string; parentName?: string | null }) => (
                         <span
                           key={g.id}
-                          className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                          className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated rounded-sm text-dg-text-secondary"
                         >
                           {g.parentName ? (
                             <>
@@ -452,23 +461,23 @@ function MediaDetailPage({
                 </div>
               )}
               {data.description && (
-                <div className="border-t border-dg-border-subtle mt-3 pt-3">
-                  <p className="text-[0.8rem] text-dg-text-secondary m-0 leading-relaxed">
+                <div className="mt-4 pt-0">
+                  <p className="text-xs text-dg-text-secondary m-0 leading-relaxed">
                     {data.description}
                   </p>
                 </div>
               )}
 
               {/* External links */}
-              <div className="border-t border-dg-border-subtle mt-3 pt-3">
-                <div className="flex flex-wrap gap-1.5">
+              <div className="mt-4 pt-0">
+                <div className="flex flex-wrap gap-2">
                   {externalLinks.map((link) => (
                     <a
                       key={link.label}
                       href={link.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-150"
+                      className="text-xs text-dg-accent/70 no-underline transition-colors duration-100 hover:text-dg-accent"
                     >
                       {link.label} {"\u2197"}
                     </a>
@@ -481,7 +490,7 @@ function MediaDetailPage({
 
         {/* Tracking + Episodes unified card */}
         {auth && (
-          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-4 sm:mb-5">
+          <div className="rounded bg-dg-surface mb-4 sm:mb-5 dg-grain">
             <TrackingPanel
               wikidataId={data.wikidataId}
               mediaType={data.mediaType}
@@ -509,7 +518,7 @@ function MediaDetailPage({
 
         {/* No auth: standalone episode tracker (read-only) */}
         {!auth && hasSeasons && data.seasons && (
-          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-4 sm:mb-5 p-3 sm:p-4">
+          <div className="rounded bg-dg-surface mb-4 sm:mb-5 p-3 sm:p-4">
             <EpisodeTracker seasons={data.seasons} />
           </div>
         )}
@@ -517,14 +526,14 @@ function MediaDetailPage({
         {/* Platforms (games) */}
         {data.platforms.length > 0 && (
           <div className="mb-4 sm:mb-5">
-            <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+            <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2 opacity-60">
               Platforms
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {data.platforms.map((p: { id: string; name: string }) => (
                 <span
                   key={p.id}
-                  className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                  className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated rounded-sm text-dg-text-secondary"
                 >
                   {p.name}
                 </span>
@@ -552,6 +561,7 @@ function EpisodeTracker({
   watchedEpisodes?: WatchedEpisodes;
   onWatchedChange?: (w: WatchedEpisodes) => void;
 }) {
+  const { playSound } = useSound();
   const interactive = !!onWatchedChange && !!watchedEpisodes;
   const isMultiSeason = seasons.length > 1;
 
@@ -602,11 +612,13 @@ function EpisodeTracker({
           episodeDate,
         ),
       );
+      playSound("tick");
     } else if (nextSeason) {
       onWatchedChange?.(
         markThroughEpisode(watchedEpisodes, nextSeason.seasonNumber, 1, episodeDate),
       );
       setSelectedSeason(nextSeason.seasonNumber);
+      playSound("tick");
     }
   };
 
@@ -628,14 +640,14 @@ function EpisodeTracker({
     <div>
       {/* Header row: label + season dropdown */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider m-0">
+        <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider m-0 opacity-60">
           Episodes
         </h3>
         {isMultiSeason && (
           <select
             value={selectedSeason}
             onChange={(e) => setSelectedSeason(Number(e.target.value))}
-            className="text-[0.75rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none focus:border-dg-accent transition-colors cursor-pointer"
+            className="text-xs font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none transition-colors cursor-pointer"
           >
             {seasons.map((s) => (
               <option key={s.id} value={s.seasonNumber}>
@@ -652,17 +664,20 @@ function EpisodeTracker({
         <div className="mb-2">
           <div className="flex items-center gap-2">
             {isMultiSeason && (
-              <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
+              <span className="text-xs text-dg-text-tertiary tabular-nums w-6 shrink-0 font-mono">
                 S{String(currentSeason.seasonNumber).padStart(2, "0")}
               </span>
             )}
-            <div className="flex-1 h-[6px] bg-dg-elevated rounded-full overflow-hidden">
+            <div className="flex-1 h-[6px] bg-dg-elevated rounded-sm overflow-hidden">
               <div
-                className="h-full bg-dg-accent rounded-full transition-all duration-300"
-                style={{ width: `${seasonPct}%` }}
+                className="h-full bg-dg-accent rounded-sm transition-[width] duration-300"
+                style={{
+                  width: `${seasonPct}%`,
+                  transitionTimingFunction: "var(--ease-bounce)",
+                }}
               />
             </div>
-            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums shrink-0">
+            <span className="text-xs text-dg-text-secondary tabular-nums shrink-0 font-mono">
               {seasonWatched}/{seasonEpCount}
             </span>
           </div>
@@ -673,16 +688,19 @@ function EpisodeTracker({
       {isMultiSeason && totalEps > 0 && (
         <div className="mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
+            <span className="text-xs text-dg-text-tertiary tabular-nums w-6 shrink-0 font-mono">
               ALL
             </span>
-            <div className="flex-1 h-[6px] bg-dg-elevated rounded-full overflow-hidden">
+            <div className="flex-1 h-[6px] bg-dg-elevated rounded-sm overflow-hidden">
               <div
-                className="h-full bg-dg-accent/60 rounded-full transition-all duration-300"
-                style={{ width: `${totalPct}%` }}
+                className="h-full bg-dg-accent/60 rounded-sm transition-[width] duration-300"
+                style={{
+                  width: `${totalPct}%`,
+                  transitionTimingFunction: "var(--ease-bounce)",
+                }}
               />
             </div>
-            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums shrink-0">
+            <span className="text-xs text-dg-text-secondary tabular-nums shrink-0 font-mono">
               {totalWatched}/{totalEps}
             </span>
           </div>
@@ -697,18 +715,18 @@ function EpisodeTracker({
               type="button"
               onClick={handleDecrement}
               disabled={consecutiveEp <= 0 && !prevSeason}
-              className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-150 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono"
+              className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-100 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono active:scale-[0.97]"
             >
               -
             </button>
-            <span className="text-[0.9rem] tabular-nums text-dg-text min-w-[5rem] text-center">
+            <span className="text-sm tabular-nums text-dg-text min-w-[5rem] text-center font-mono">
               {consecutiveEp} / {seasonEpCount}
             </span>
             <button
               type="button"
               onClick={handleIncrement}
               disabled={consecutiveEp >= seasonEpCount && !nextSeason}
-              className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-150 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono"
+              className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-100 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono active:scale-[0.97]"
             >
               +
             </button>
@@ -716,7 +734,7 @@ function EpisodeTracker({
 
           {/* Date picker for episode watched date */}
           <div className="flex items-center gap-2">
-            <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider">
+            <span className="text-xs text-dg-text-tertiary uppercase tracking-wider opacity-60">
               Watched on
             </span>
             <input
@@ -724,7 +742,7 @@ function EpisodeTracker({
               value={episodeDate}
               max={todayISO()}
               onChange={(e) => setEpisodeDate(e.target.value || todayISO())}
-              className="text-[0.75rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none focus:border-dg-accent transition-colors"
+              className="text-xs font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none transition-colors"
             />
           </div>
         </div>
@@ -739,16 +757,13 @@ function EpisodeTracker({
             const pct = epCount > 0 ? Math.round((w / epCount) * 100) : 0;
             return (
               <div key={s.id} className="flex items-center gap-2">
-                <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
+                <span className="text-xs text-dg-text-tertiary tabular-nums w-6 shrink-0 font-mono">
                   S{String(s.seasonNumber).padStart(2, "0")}
                 </span>
-                <div className="flex-1 h-[4px] bg-dg-elevated rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-dg-accent/40 rounded-full"
-                    style={{ width: `${pct}%` }}
-                  />
+                <div className="flex-1 h-[4px] bg-dg-elevated rounded-sm overflow-hidden">
+                  <div className="h-full bg-dg-accent/40 rounded-sm" style={{ width: `${pct}%` }} />
                 </div>
-                <span className="text-[0.6rem] text-dg-text-tertiary tabular-nums shrink-0">
+                <span className="text-[0.6rem] text-dg-text-tertiary tabular-nums shrink-0 font-mono">
                   {epCount > 0 ? `${epCount} ep` : "?"}
                 </span>
               </div>
@@ -785,6 +800,7 @@ function TrackingPanel({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { playSound } = useSound();
   const hasInitial = initialEntry !== undefined;
   const [entry, setEntry] = useState<CatalogEntry | null>(hasInitial ? initialEntry : null);
   const [loaded, setLoaded] = useState(hasInitial);
@@ -904,6 +920,7 @@ function TrackingPanel({
           },
         });
         console.debug("[tracking] save %s → server ok, refreshing", wikidataId);
+        playSound("confirm");
         const fresh = await getCatalogEntry({ data: { wikidataId } });
         setEntry(fresh);
         setLocalRating(fresh?.rating ?? null);
@@ -917,6 +934,7 @@ function TrackingPanel({
         router.invalidate();
       } catch (err) {
         console.error("[tracking] save %s → FAILED:", wikidataId, err);
+        playSound("error");
         setEntry(prev);
         setLocalRating(prev?.rating ?? null);
         setLocalStatus(prev?.status ?? null);
@@ -939,6 +957,7 @@ function TrackingPanel({
     router,
     queryClient,
     action,
+    playSound,
     setLocalIsFavorite,
     setLocalStatus,
     setLocalWatchedEpisodes,
@@ -950,9 +969,10 @@ function TrackingPanel({
     await action.run(async () => {
       await removeCatalogEntry({ data: { wikidataId } });
       console.debug("[tracking] remove %s → server ok, reloading", wikidataId);
+      playSound("error");
       window.location.reload();
     });
-  }, [wikidataId, action]);
+  }, [wikidataId, action, playSound]);
 
   const statuses = availableStatuses(mediaType);
 
@@ -1050,35 +1070,31 @@ function TrackingPanel({
 
   if (!loaded) {
     return (
-      <div
-        className={
-          bare
-            ? "p-3 sm:p-4"
-            : "border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5"
-        }
-      >
-        <div className="w-20 h-3 bg-dg-elevated rounded animate-pulse" />
+      <div className={bare ? "p-3 sm:p-4" : "rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5"}>
+        <div className="w-20 h-3 dg-skeleton" />
       </div>
     );
   }
 
   return (
-    <div
-      className={
-        bare
-          ? "p-3 sm:p-4"
-          : "border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5"
-      }
-    >
+    <div className={bare ? "p-3 sm:p-4" : "rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5"}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider m-0">Status</h3>
+        <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider m-0 opacity-60">
+          Status
+        </h3>
         {localStatus && (
           <button
             type="button"
-            onClick={() => setLocalIsFavorite(!localIsFavorite)}
-            className={`text-[1.1rem] bg-transparent border-none cursor-pointer p-1 -m-1 transition-colors duration-150 ${
+            onClick={() => {
+              setLocalIsFavorite(!localIsFavorite);
+              playSound("tick");
+            }}
+            className={`text-[1.1rem] bg-transparent border-none cursor-pointer p-1 -m-1 transition-all duration-200 active:scale-[0.97] ${
               localIsFavorite ? "text-dg-accent" : "text-dg-text-tertiary hover:text-dg-accent/60"
             }`}
+            style={
+              localIsFavorite ? { animation: "150ms var(--ease-bounce) dg-fav-pop" } : undefined
+            }
             title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
           >
             {localIsFavorite ? "\u2605" : "\u2606"}
@@ -1098,7 +1114,7 @@ function TrackingPanel({
               type="button"
               onClick={() => setLocalStatus(s)}
               disabled={action.state === "pending"}
-              className={`text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-mono cursor-pointer shrink-0 transition-all duration-150 disabled:opacity-50 ${
+              className={`text-xs py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border cursor-pointer shrink-0 transition-all duration-100 disabled:opacity-50 active:scale-[0.97] ${
                 isActive
                   ? colorClass
                   : "border-dg-border-subtle text-dg-text-secondary bg-transparent hover:border-dg-border"
@@ -1115,7 +1131,7 @@ function TrackingPanel({
         localStatus === "completed" ||
         localStatus === "mastered") && (
         <div className="mb-4">
-          <h4 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+          <h4 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2 opacity-60">
             Rating
             {ratingMode && (
               <span className="ml-2 text-dg-accent normal-case tracking-normal">
@@ -1147,7 +1163,7 @@ function TrackingPanel({
                 type="button"
                 onClick={() => setLocalRating(null)}
                 disabled={action.state === "pending"}
-                className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-2 -m-2 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
+                className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-2 -m-2 hover:text-dg-anime transition-colors duration-100 disabled:opacity-50 active:scale-[0.97]"
                 title="Clear rating"
               >
                 <X size={14} />
@@ -1164,18 +1180,18 @@ function TrackingPanel({
             type="button"
             onClick={() => setLocalReplayCount(Math.max(0, localReplayCount - 1))}
             disabled={action.state === "pending" || localReplayCount <= 0}
-            className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30"
+            className="text-xs bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30 active:scale-[0.97]"
           >
             -
           </button>
-          <span className="text-[0.75rem] text-dg-text-secondary min-w-[5rem] text-center">
+          <span className="text-xs text-dg-text-secondary min-w-[5rem] text-center font-mono">
             {replayCountLabel(localReplayCount, mediaType) ?? "First time"}
           </span>
           <button
             type="button"
             onClick={() => setLocalReplayCount(localReplayCount + 1)}
             disabled={action.state === "pending"}
-            className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30"
+            className="text-xs bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30 active:scale-[0.97]"
           >
             +
           </button>
@@ -1185,7 +1201,7 @@ function TrackingPanel({
       {/* Movie date picker */}
       {isMovie && localStatus && setLocalWatchedAt && (
         <div className="mb-4">
-          <h4 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+          <h4 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2 opacity-60">
             Watched on
           </h4>
           <input
@@ -1194,7 +1210,7 @@ function TrackingPanel({
             max={todayISO()}
             onChange={(e) => setLocalWatchedAt(e.target.value || null)}
             disabled={action.state === "pending"}
-            className="text-[0.8rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1.5 text-dg-text outline-none focus:border-dg-accent transition-colors disabled:opacity-50"
+            className="text-xs font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1.5 text-dg-text outline-none transition-colors disabled:opacity-50"
           />
         </div>
       )}
@@ -1204,12 +1220,12 @@ function TrackingPanel({
 
       {/* Bottom bar: save (left) + remove (right) */}
       {localStatus && (
-        <div className="flex items-center justify-between pt-3 mt-4 border-t border-dg-border-subtle">
+        <div className="flex items-center justify-between pt-3 mt-4">
           <button
             type="button"
             onClick={handleSave}
             disabled={action.state === "pending" || !isDirty}
-            className={`text-[0.75rem] font-mono rounded-sm border px-3 py-1 bg-transparent cursor-pointer transition-all duration-150 disabled:cursor-default ${
+            className={`text-xs rounded-sm border px-3 py-1 bg-transparent cursor-pointer transition-all duration-100 disabled:cursor-default active:scale-[0.97] ${
               action.state === "pending"
                 ? "border-dg-accent/50 text-dg-accent/70"
                 : action.state === "error"
@@ -1237,7 +1253,7 @@ function TrackingPanel({
               type="button"
               onClick={handleRemove}
               disabled={action.state === "pending"}
-              className="text-[0.75rem] font-mono rounded-sm border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 cursor-pointer transition-all duration-150 hover:text-dg-anime hover:border-dg-anime/40 disabled:opacity-50 disabled:cursor-default"
+              className="text-xs rounded-sm border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 cursor-pointer transition-all duration-100 hover:text-dg-anime hover:border-dg-anime/40 disabled:opacity-50 disabled:cursor-default active:scale-[0.97]"
               title="Remove from list"
             >
               delete
@@ -1298,7 +1314,7 @@ function RatingInput({
           if (e.key === "Enter") commit();
           if (e.key === "Escape") setEditing(false);
         }}
-        className="w-[4ch] text-[0.85rem] tabular-nums text-right bg-dg-bg border border-dg-border rounded-sm px-1 py-0 font-mono outline-none shrink-0"
+        className="w-[4ch] text-sm tabular-nums text-right bg-dg-bg border border-dg-border rounded-sm px-1 py-0 font-mono outline-none shrink-0"
         style={{ color, borderColor: color }}
       />
     );
@@ -1309,7 +1325,7 @@ function RatingInput({
       type="button"
       onClick={startEditing}
       disabled={disabled}
-      className="text-[0.85rem] tabular-nums w-[4ch] text-right bg-transparent border-none font-mono cursor-text p-0 shrink-0 hover:underline disabled:cursor-default disabled:no-underline"
+      className="text-sm tabular-nums w-[4ch] text-right bg-transparent border-none font-mono cursor-text p-0 shrink-0 hover:underline disabled:cursor-default disabled:no-underline"
       style={{ color, textDecorationColor: `${color}50` }}
       title="Click to type a rating"
     >
@@ -1321,8 +1337,10 @@ function RatingInput({
 function MetaItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider">{label}</span>
-      <span className="text-[0.85rem] text-dg-text">{value}</span>
+      <span className="text-xs text-dg-text-tertiary uppercase tracking-wider opacity-60">
+        {label}
+      </span>
+      <span className="text-sm text-dg-text font-mono">{value}</span>
     </div>
   );
 }

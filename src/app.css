@@ -1,6 +1,143 @@
 @import "tailwindcss";
 
-/* Mobile touch & scroll */
+/* ─── Phase 0: Font Infrastructure ────────────────────────────────────────── */
+
+@font-face {
+  font-family: "CMU Sans Serif";
+  src: url("/fonts/CMUSansSerif.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "CMU Sans Serif";
+  src: url("/fonts/CMUSansSerif-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "CMU Sans Serif";
+  src: url("/fonts/CMUSansSerif-Oblique.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "CMU Sans Serif";
+  src: url("/fonts/CMUSansSerif-BoldOblique.woff2") format("woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "CMU Typewriter Text";
+  src: url("/fonts/cmu-typewriter-text-500-roman.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "CMU Typewriter Text";
+  src: url("/fonts/cmu-typewriter-text-700-roman.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ─── Theme Tokens ────────────────────────────────────────────────────────── */
+
+@theme {
+  --font-sans: "CMU Sans Serif", "Latin Modern Sans", sans-serif;
+  --font-mono: "CMU Typewriter Text", "CMU Typewriter", monospace;
+
+  /* Surfaces — ordered by visual proximity to viewer */
+  --color-dg-bg: oklch(0.15 0.01 70);
+  --color-dg-surface: oklch(0.19 0.012 70);
+  --color-dg-elevated: oklch(0.24 0.014 70);
+  --color-dg-overlay: oklch(0.28 0.015 70);
+
+  /* Borders */
+  --color-dg-border-subtle: oklch(0.25 0.012 70);
+  --color-dg-border: oklch(0.32 0.015 70);
+  --color-dg-border-focus: oklch(0.4 0.018 70);
+
+  /* Text */
+  --color-dg-text: oklch(0.9 0.015 75);
+  --color-dg-text-secondary: oklch(0.68 0.03 70);
+  --color-dg-text-tertiary: oklch(0.5 0.025 70);
+
+  /* Accent */
+  --color-dg-accent: oklch(0.75 0.14 75);
+
+  /* Media types — all L=0.65 for perceptual equal weight */
+  --color-dg-movie: oklch(0.65 0.12 55);
+  --color-dg-tv: oklch(0.65 0.08 230);
+  --color-dg-anime: oklch(0.65 0.13 350);
+  --color-dg-game: oklch(0.65 0.1 145);
+
+  /* Easing curves */
+  --ease-weighted: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-snap: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-bounce: cubic-bezier(0.22, 1.15, 0.36, 1);
+}
+
+/* ─── Animatable custom properties ────────────────────────────────────────── */
+
+@property --dg-glow-opacity {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+/* ─── Root-level modern CSS features ──────────────────────────────────────── */
+
+:root {
+  interpolate-size: allow-keywords;
+}
+
+/* ─── Light Theme ─────────────────────────────────────────────────────────── */
+
+@layer base {
+  [data-theme="light"] {
+    color-scheme: light;
+    --color-dg-bg: oklch(0.94 0.015 80);
+    --color-dg-surface: oklch(0.91 0.018 78);
+    --color-dg-elevated: oklch(0.87 0.02 76);
+    --color-dg-overlay: oklch(0.84 0.022 74);
+
+    --color-dg-border-subtle: oklch(0.82 0.02 75);
+    --color-dg-border: oklch(0.75 0.022 73);
+    --color-dg-border-focus: oklch(0.65 0.025 72);
+
+    --color-dg-text: oklch(0.2 0.015 70);
+    --color-dg-text-secondary: oklch(0.42 0.03 70);
+    --color-dg-text-tertiary: oklch(0.55 0.025 72);
+
+    --color-dg-accent: oklch(0.58 0.14 75);
+
+    --color-dg-movie: oklch(0.52 0.12 55);
+    --color-dg-tv: oklch(0.52 0.08 230);
+    --color-dg-anime: oklch(0.52 0.13 350);
+    --color-dg-game: oklch(0.52 0.1 145);
+  }
+
+  [data-theme="dark"] {
+    color-scheme: dark;
+  }
+
+  /* Dev mode accent — red tint so you never confuse dev with prod */
+  [data-env="dev"] {
+    --color-dg-accent: oklch(0.65 0.22 25);
+  }
+  [data-env="dev"][data-theme="light"] {
+    --color-dg-accent: oklch(0.5 0.22 25);
+  }
+}
+
+/* ─── Mobile touch & scroll ───────────────────────────────────────────────── */
+
 html {
   -webkit-tap-highlight-color: transparent;
 }
@@ -13,69 +150,106 @@ html {
   display: none;
 }
 
-@theme {
-  --font-mono: "IBM Plex Mono", "SF Mono", "Fira Code", monospace;
+/* ─── Theme transition (applied temporarily during toggle) ────────────────── */
 
-  --color-dg-bg: #0f0e0c;
-  --color-dg-surface: #1a1815;
-  --color-dg-elevated: #242119;
-  --color-dg-border-subtle: #2e2a21;
-  --color-dg-border: #3d3628;
-
-  --color-dg-text: #e8e0d4;
-  --color-dg-text-secondary: #a8997f;
-  --color-dg-text-tertiary: #776b57;
-
-  --color-dg-accent: #d4a44a;
-
-  --color-dg-movie: #c17a50;
-  --color-dg-tv: #5a8fa0;
-  --color-dg-anime: #c25d7e;
-  --color-dg-game: #6a9f5a;
-}
-
-/* Light theme overrides — must be in @layer base to beat @layer theme */
-@layer base {
-  [data-theme="light"] {
-    --color-dg-bg: #f5f0e8;
-    --color-dg-surface: #ebe5d9;
-    --color-dg-elevated: #dfd8ca;
-    --color-dg-border-subtle: #d4cbb8;
-    --color-dg-border: #c2b69e;
-
-    --color-dg-text: #1a1815;
-    --color-dg-text-secondary: #5c5141;
-    --color-dg-text-tertiary: #8a7d68;
-
-    --color-dg-accent: #b08930;
-
-    --color-dg-movie: #a86638;
-    --color-dg-tv: #3d7589;
-    --color-dg-anime: #a84968;
-    --color-dg-game: #4e8540;
-  }
-
-  /* Dev mode accent — red tint so you never confuse dev with prod */
-  [data-env="dev"] {
-    --color-dg-accent: #e05555;
-  }
-  [data-env="dev"][data-theme="light"] {
-    --color-dg-accent: #c43535;
-  }
-}
-
-/* Theme transition (applied temporarily during toggle) */
 html.theme-transition,
 html.theme-transition *,
 html.theme-transition *::before,
 html.theme-transition *::after {
   transition:
-    background-color 200ms ease,
-    color 200ms ease,
-    border-color 200ms ease !important;
+    background-color 200ms var(--ease-weighted),
+    color 200ms var(--ease-weighted),
+    border-color 200ms var(--ease-weighted),
+    box-shadow 200ms var(--ease-weighted) !important;
 }
 
-/* Range input styling */
+/* ─── View Transitions (page navigation) ──────────────────────────────────── */
+
+::view-transition-old(root) {
+  animation: 90ms ease-out both dg-fade-out;
+}
+::view-transition-new(root) {
+  animation: 90ms ease-in both dg-fade-in;
+}
+
+@keyframes dg-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes dg-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ─── @starting-style for modal/overlay entry ─────────────────────────────── */
+
+.dg-modal {
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    opacity 120ms ease-out,
+    transform 120ms var(--ease-bounce);
+
+  @starting-style {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+/* ─── Surface grain texture ───────────────────────────────────────────────── */
+
+.dg-grain {
+  position: relative;
+  isolation: isolate;
+}
+.dg-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  border-radius: inherit;
+  z-index: 1;
+}
+
+/* ─── Focus glow — radiates from the input ────────────────────────────────── */
+
+input:focus,
+select:focus {
+  box-shadow:
+    0 0 0 1px var(--color-dg-accent),
+    0 0 8px oklch(0.75 0.14 75 / 0.15);
+  outline: none;
+  transition: box-shadow 120ms var(--ease-snap);
+}
+
+/* ─── Cursor highlight for keyboard navigation ────────────────────────────── */
+
+.dg-cursor-active {
+  border-left: 2px solid var(--color-dg-accent) !important;
+  background-color: oklch(0.75 0.14 75 / 0.04);
+}
+
+/* ─── :has() contextual styling ────────────────────────────────────────────── */
+
+.dg-input-wrap:has(input:focus) {
+  border-radius: inherit;
+  box-shadow: 0 0 8px oklch(0.75 0.14 75 / 0.1);
+}
+
+/* ─── Content visibility for catalog performance ──────────────────────────── */
+
+.dg-catalog-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 60px;
+}
+
+/* ─── Range input styling ─────────────────────────────────────────────────── */
+
 input[type="range"].dg-range {
   -webkit-appearance: none;
   appearance: none;
@@ -121,6 +295,10 @@ input[type="range"].dg-range:disabled {
   opacity: 0.5;
 }
 
+input[type="range"].dg-range:focus {
+  box-shadow: none;
+}
+
 @media (pointer: coarse) {
   input[type="range"].dg-range::-webkit-slider-runnable-track {
     height: 6px;
@@ -139,17 +317,46 @@ input[type="range"].dg-range:disabled {
   }
 }
 
-/* Cursor highlight for keyboard navigation */
-.dg-cursor-active {
-  background-color: color-mix(in srgb, var(--color-dg-accent) 5%, transparent);
-  outline: 1px solid color-mix(in srgb, var(--color-dg-accent) 20%, transparent);
-  outline-offset: -1px;
+/* ─── Skeleton shimmer ────────────────────────────────────────────────────── */
+
+@keyframes dg-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
-/* Ellipsis loading animation */
+.dg-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-dg-surface) 25%,
+    var(--color-dg-elevated) 50%,
+    var(--color-dg-surface) 75%
+  );
+  background-size: 200% 100%;
+  animation: dg-shimmer 1.5s ease-in-out infinite;
+  border-radius: 2px;
+}
+
+/* ─── Ellipsis loading animation ──────────────────────────────────────────── */
+
 .dg-ellipsis::after {
   content: "";
   animation: ellipsis 1.2s steps(4) infinite;
+}
+
+@keyframes dg-fav-pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 @keyframes ellipsis {

@@ -93,7 +93,7 @@ function HomePage() {
 
   if (auth) {
     return (
-      <div className="bg-dg-bg text-dg-text flex-1 font-mono">
+      <div className="flex-1">
         <div className="max-w-[1000px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
           <LoggedInView />
         </div>
@@ -102,12 +102,12 @@ function HomePage() {
   }
 
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
+    <div className="flex-1">
       <div className="max-w-[1000px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
-        <h1 className="text-[1.6rem] sm:text-[2rem] font-semibold -tracking-[0.02em] mb-2">
+        <h1 className="text-base font-bold mb-2" style={{ textWrap: "balance" }}>
           <span className="text-dg-accent">donguri</span>
         </h1>
-        <p className="text-dg-text-secondary text-[0.9rem] leading-relaxed mb-4 sm:mb-5">
+        <p className="text-dg-text-secondary text-sm leading-relaxed mb-4 sm:mb-5">
           Track movies, TV, anime, and games.
         </p>
 
@@ -116,13 +116,13 @@ function HomePage() {
         <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-5">
           <Link
             to="/catalog"
-            className="text-[0.85rem] text-dg-accent no-underline py-2.5 sm:py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-150 text-center sm:text-left"
+            className="text-sm text-dg-accent no-underline py-2.5 sm:py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-100 text-center sm:text-left active:scale-[0.97]"
           >
             Browse catalog
           </Link>
           <Link
             to="/roadmap"
-            className="text-[0.85rem] text-dg-text-secondary no-underline py-2.5 sm:py-2 px-4 border border-dg-border-subtle rounded-sm transition-all duration-150 text-center sm:text-left"
+            className="text-sm text-dg-text-secondary no-underline py-2.5 sm:py-2 px-4 border border-dg-border-subtle rounded-sm transition-all duration-100 text-center sm:text-left active:scale-[0.97]"
           >
             Roadmap
           </Link>
@@ -135,7 +135,9 @@ function HomePage() {
 function SignInSection() {
   return (
     <div className="flex flex-col gap-3">
-      <div className="text-[0.8rem] text-dg-text-secondary uppercase tracking-wider">Sign in</div>
+      <div className="text-xs text-dg-text-secondary uppercase tracking-wider opacity-60">
+        Sign in
+      </div>
 
       {/* Bluesky — primary */}
       <BlueskyLoginForm />
@@ -143,7 +145,7 @@ function SignInSection() {
       {/* Divider */}
       <div className="flex items-center gap-3">
         <div className="flex-1 border-t border-dg-border-subtle" />
-        <span className="text-[0.75rem] text-dg-text-tertiary">or</span>
+        <span className="text-xs text-dg-text-tertiary">or</span>
         <div className="flex-1 border-t border-dg-border-subtle" />
       </div>
 
@@ -181,11 +183,11 @@ function BlueskyLoginForm() {
   };
 
   return (
-    <div className="border border-dg-border-subtle rounded p-4 sm:p-5 bg-dg-surface">
+    <div className="rounded p-4 sm:p-5 bg-dg-surface dg-grain">
       <form onSubmit={onSubmit}>
         <label
           htmlFor="handle"
-          className="block text-dg-text-secondary text-[0.8rem] uppercase tracking-wider mb-3"
+          className="block text-xs text-dg-text-secondary uppercase tracking-wider mb-3 opacity-60"
         >
           Bluesky
         </label>
@@ -197,19 +199,19 @@ function BlueskyLoginForm() {
             onChange={(e) => setHandle(e.target.value)}
             placeholder="handle.bsky.social"
             disabled={loading}
-            className="flex-1 bg-dg-bg border border-dg-border rounded px-3 py-2.5 sm:py-2 text-base sm:text-[0.85rem] text-dg-text font-mono placeholder:text-dg-text-tertiary focus:outline-none focus:border-dg-accent/50 disabled:opacity-50"
+            className="flex-1 bg-dg-bg border border-dg-border rounded px-3 py-2.5 sm:py-2 text-base sm:text-sm text-dg-text font-mono placeholder:text-dg-text-tertiary disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={loading || !handle.trim()}
-            className="bg-transparent border border-dg-accent/30 text-dg-accent px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-mono cursor-pointer transition-all duration-150 hover:border-dg-accent/60 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="bg-transparent border border-dg-accent/30 text-dg-accent px-4 py-2.5 sm:py-2 rounded-sm text-sm cursor-pointer transition-all duration-100 hover:border-dg-accent/60 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
           >
             {loading ? <span className="dg-ellipsis">Signing in</span> : "Sign in"}
           </button>
         </div>
-        {error && <p className="text-dg-movie text-[0.8rem] mt-2">{error}</p>}
+        {error && <p className="text-dg-movie text-xs mt-2">{error}</p>}
       </form>
-      <p className="text-[0.75rem] text-dg-text-tertiary mt-3">
+      <p className="text-xs text-dg-text-tertiary mt-3">
         Your data syncs to your own PDS. Portable and private by design.
       </p>
     </div>
@@ -234,7 +236,7 @@ function OAuthButton({ provider, label }: { provider: "google" | "github"; label
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="w-full bg-transparent border border-dg-border-subtle text-dg-text-secondary px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-mono cursor-pointer transition-all duration-150 hover:border-dg-border hover:text-dg-text disabled:opacity-40 disabled:cursor-not-allowed text-center"
+      className="w-full bg-transparent border border-dg-border-subtle text-dg-text-secondary px-4 py-2.5 sm:py-2 rounded-sm text-sm cursor-pointer transition-all duration-100 hover:border-dg-border hover:text-dg-text disabled:opacity-40 disabled:cursor-not-allowed text-center active:scale-[0.97]"
     >
       {loading ? <span className="dg-ellipsis">Redirecting</span> : label}
     </button>
@@ -263,11 +265,7 @@ function LoggedInView() {
   return (
     <div>
       {grouped.size === 0 ? (
-        <div className="border border-dg-border-subtle rounded p-4 sm:p-5 bg-dg-surface">
-          <p className="text-dg-text-secondary text-[0.85rem] leading-relaxed">
-            Your watchlist is empty. Browse the catalog to add titles.
-          </p>
-        </div>
+        <p className="text-sm text-dg-text-tertiary">Nothing here yet.</p>
       ) : (
         <div className="flex flex-col gap-4">
           {STATUS_ORDER.map((status) => {
@@ -286,11 +284,11 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
 
   return (
     <div>
-      <h2 className={`text-[0.8rem] uppercase tracking-wider mb-2 ${accentClass}`}>
+      <h2 className={`text-xs uppercase tracking-wider mb-2 opacity-50 font-normal ${accentClass}`}>
         {STATUS_LABELS_GENERIC[status as StatusValue] ?? status}{" "}
         <span className="text-dg-text-tertiary font-normal">({items.length})</span>
       </h2>
-      <div className="border border-dg-border-subtle rounded bg-dg-surface divide-y divide-dg-border-subtle">
+      <div className="rounded bg-dg-surface">
         {items.map((item) => {
           const badgeClass = typeBadgeClass(item.mediaType);
           const replay = replayCountLabel(item.replayCount, item.mediaType ?? undefined);
@@ -299,14 +297,14 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
               key={item.id}
               to="/catalog/$wikidataId"
               params={{ wikidataId: item.mediaWikidataId }}
-              className="flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-2.5 no-underline text-inherit hover:bg-dg-elevated/50 transition-colors duration-100"
+              className="flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-2.5 no-underline text-inherit hover:bg-dg-elevated/50 transition-colors duration-[60ms]"
             >
               <span
-                className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm border uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center ${badgeClass}`}
+                className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center font-mono ${badgeClass}`}
               >
                 {mediaTypeLabel(item.mediaType ?? "", true)}
               </span>
-              <span className="text-[0.85rem] text-dg-text truncate flex-1">
+              <span className="text-sm text-dg-text truncate flex-1">
                 {item.isFavorite && (
                   <span className="text-dg-accent mr-1" title="Favorite">
                     &#9733;
@@ -317,17 +315,17 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
               {(() => {
                 const pos = episodePosition(item);
                 return pos ? (
-                  <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums shrink-0">
+                  <span className="text-xs text-dg-text-tertiary tabular-nums shrink-0 font-mono">
                     {pos}
                   </span>
                 ) : null;
               })()}
               {replay && (
-                <span className="text-[0.65rem] text-dg-text-tertiary shrink-0">{replay}</span>
+                <span className="text-xs text-dg-text-tertiary shrink-0 font-mono">{replay}</span>
               )}
               {item.rating != null && (
                 <span
-                  className="text-[0.75rem] tabular-nums shrink-0"
+                  className="text-xs tabular-nums shrink-0 font-mono"
                   style={{ color: ratingColor(item.rating) ?? "var(--color-dg-accent)" }}
                 >
                   {item.rating}/100

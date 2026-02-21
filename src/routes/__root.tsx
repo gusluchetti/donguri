@@ -10,7 +10,7 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import { clear } from "idb-keyval";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Volume2, VolumeX } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import "../app.css";
 import { getAuthState, logout } from "../lib/auth.functions";
@@ -20,10 +20,11 @@ import { isInputFocused } from "../lib/hotkeys/shortcuts";
 import { ogTags, pageTitle } from "../lib/og";
 import { checkCatalogFreshness } from "../lib/query";
 import { trackedIdsOptions } from "../lib/query-options";
+import { SoundProvider, useSound } from "../lib/sound";
 import { getThemeCookie, ThemeProvider, useTheme } from "../lib/theme";
 
-// Sets data-theme before first paint. Also syncs the cookie for SSR on next visit.
-const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('dg-theme');if(!t){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.setAttribute('data-theme',t);document.cookie='dg-theme='+t+';path=/;max-age=34560000;samesite=lax'}catch(e){document.documentElement.setAttribute('data-theme','dark')}})()`;
+// Sets data-theme + color-scheme before first paint
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('dg-theme');if(!t){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.setAttribute('data-theme',t);document.documentElement.style.colorScheme=t;document.cookie='dg-theme='+t+';path=/;max-age=34560000;samesite=lax'}catch(e){document.documentElement.setAttribute('data-theme','dark')}})()`;
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
@@ -84,7 +85,7 @@ function RootDocument({ children, theme }: { children: ReactNode; theme: string 
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
-      <body className="bg-dg-bg m-0 p-0">
+      <body className="bg-dg-bg text-dg-text font-sans m-0 p-0">
         {children}
         <Scripts />
       </body>
@@ -128,111 +129,114 @@ function RootComponent() {
   return (
     <RootDocument theme={theme}>
       <ThemeProvider initialTheme={theme}>
-        <HotkeysProvider>
-          <GlobalShortcuts showHelp={showHelp} setShowHelp={setShowHelp} />
-          <div className="min-h-dvh flex flex-col">
-            <nav className="border-b border-dg-border-subtle px-4 sm:px-6 py-2 font-mono shrink-0">
-              <div className="max-w-[1000px] mx-auto flex items-center min-h-[44px] gap-4 sm:gap-6">
-                {NAV_LINKS.map((link) => (
-                  <Link
-                    key={link.to}
-                    to={link.to}
-                    activeOptions={{ exact: link.exact !== false }}
-                    className="text-[0.85rem] no-underline transition-colors duration-150 min-h-[44px] flex items-center"
-                    activeProps={{ className: "text-dg-accent" }}
-                    inactiveProps={{
-                      className: link.accent ? "text-dg-accent" : "text-dg-text-secondary",
-                    }}
-                  >
-                    {link.accent ? <span className="font-semibold">{link.label}</span> : link.label}
-                  </Link>
-                ))}
-                <div className="ml-auto flex items-center gap-3">
-                  <ThemeToggle />
-                  {auth ? (
-                    <div className="flex items-center gap-4">
-                      <span className="text-[0.8rem] text-dg-accent hidden sm:inline">
-                        {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
-                      </span>
-                      <button
-                        type="button"
-                        className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none font-mono min-h-[44px] flex items-center"
-                        onClick={async () => {
-                          await logout();
-                          queryClient.clear();
-                          clear();
-                          window.location.href = "/";
-                        }}
-                      >
-                        logout
-                      </button>
-                    </div>
-                  ) : (
+        <SoundProvider>
+          <HotkeysProvider>
+            <GlobalShortcuts showHelp={showHelp} setShowHelp={setShowHelp} />
+            <div className="min-h-dvh flex flex-col">
+              <nav className="px-4 sm:px-6 py-2 shrink-0 shadow-[0_1px_0_oklch(0_0_0/0.06)]">
+                <div className="max-w-[1000px] mx-auto flex items-center min-h-[44px] gap-4 sm:gap-6">
+                  {NAV_LINKS.map((link) => (
                     <Link
-                      to="/"
-                      className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-150 min-h-[44px] flex items-center"
+                      key={link.to}
+                      to={link.to}
+                      activeOptions={{ exact: link.exact !== false }}
+                      className="text-sm no-underline transition-colors duration-[80ms] ease-out min-h-[44px] flex items-center"
+                      activeProps={{ className: "text-dg-accent" }}
+                      inactiveProps={{
+                        className: link.accent ? "text-dg-accent" : "text-dg-text-secondary",
+                      }}
                     >
-                      login
+                      {link.accent ? <span className="font-bold">{link.label}</span> : link.label}
                     </Link>
-                  )}
+                  ))}
+                  <div className="ml-auto flex items-center gap-2">
+                    <SoundToggle />
+                    <ThemeToggle />
+                    {auth ? (
+                      <div className="flex items-center gap-4">
+                        <span className="text-xs text-dg-accent hidden sm:inline font-mono">
+                          {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
+                        </span>
+                        <button
+                          type="button"
+                          className="text-xs text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-[80ms] cursor-pointer bg-transparent border-none min-h-[44px] flex items-center active:scale-[0.97]"
+                          onClick={async () => {
+                            await logout();
+                            queryClient.clear();
+                            clear();
+                            window.location.href = "/";
+                          }}
+                        >
+                          logout
+                        </button>
+                      </div>
+                    ) : (
+                      <Link
+                        to="/"
+                        className="text-xs text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-[80ms] min-h-[44px] flex items-center"
+                      >
+                        login
+                      </Link>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </nav>
-            <Outlet />
-            <footer className="border-t border-dg-border-subtle px-4 sm:px-6 py-3 font-mono shrink-0">
-              <div className="max-w-[1000px] mx-auto flex items-center justify-between text-[0.7rem] text-dg-text-tertiary">
-                <span className="flex items-center gap-2">
-                  <span>v0.3.0</span>
-                  <button
-                    type="button"
-                    onClick={() => setShowHelp(true)}
-                    className="text-dg-text-tertiary hover:text-dg-text-secondary bg-transparent border-none font-mono cursor-pointer p-0 text-[0.7rem] transition-colors"
-                  >
-                    shortcuts (?)
-                  </button>
-                </span>
-                <span>
-                  data from{" "}
-                  <a
-                    href="https://www.wikidata.org"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
-                  >
-                    Wikidata
-                  </a>
-                  {" \u00b7 "}
-                  <a
-                    href="https://www.themoviedb.org"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
-                  >
-                    TMDB
-                  </a>
-                  {" \u00b7 "}
-                  <a
-                    href="https://www.tvmaze.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
-                  >
-                    TVMaze
-                  </a>
-                  {" \u00b7 "}
-                  <a
-                    href="https://github.com/manami-project/anime-offline-database"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
-                  >
-                    anime-offline-database
-                  </a>
-                </span>
-              </div>
-            </footer>
-          </div>
-        </HotkeysProvider>
+              </nav>
+              <Outlet />
+              <footer className="px-4 sm:px-6 py-3 shrink-0">
+                <div className="max-w-[1000px] mx-auto flex items-center justify-between text-xs text-dg-text-tertiary">
+                  <span className="flex items-center gap-2">
+                    <span className="font-mono">v0.3.0</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowHelp(true)}
+                      className="text-dg-text-tertiary hover:text-dg-text-secondary bg-transparent border-none cursor-pointer p-0 text-xs transition-colors active:scale-[0.97]"
+                    >
+                      shortcuts (?)
+                    </button>
+                  </span>
+                  <span>
+                    data from{" "}
+                    <a
+                      href="https://www.wikidata.org"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                    >
+                      Wikidata
+                    </a>
+                    {" \u00b7 "}
+                    <a
+                      href="https://www.themoviedb.org"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                    >
+                      TMDB
+                    </a>
+                    {" \u00b7 "}
+                    <a
+                      href="https://www.tvmaze.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                    >
+                      TVMaze
+                    </a>
+                    {" \u00b7 "}
+                    <a
+                      href="https://github.com/manami-project/anime-offline-database"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                    >
+                      anime-offline-database
+                    </a>
+                  </span>
+                </div>
+              </footer>
+            </div>
+          </HotkeysProvider>
+        </SoundProvider>
       </ThemeProvider>
     </RootDocument>
   );
@@ -247,28 +251,35 @@ function GlobalShortcuts({
 }) {
   const navigate = useNavigate();
   const { toggleTheme } = useTheme();
+  const { playSound } = useSound();
 
   // ? — toggle help overlay (Shift+/ produces "?")
   useHotkey({ key: "?", shift: true }, () => setShowHelp((v) => !v));
 
   // . — toggle theme
-  useHotkey(".", toggleTheme);
+  useHotkey(".", () => {
+    toggleTheme();
+    playSound("toggle");
+  });
 
   // g h — go home (sequence, needs input guard)
   useHotkeySequence(["G", "H"], () => {
     if (isInputFocused()) return;
+    playSound("navigate");
     navigate({ to: "/" });
   });
 
   // g c — go to catalog
   useHotkeySequence(["G", "C"], () => {
     if (isInputFocused()) return;
+    playSound("navigate");
     navigate({ to: "/catalog" });
   });
 
   // g r — go to roadmap
   useHotkeySequence(["G", "R"], () => {
     if (isInputFocused()) return;
+    playSound("navigate");
     navigate({ to: "/roadmap" });
   });
 
@@ -290,22 +301,22 @@ function RootError({ error, reset }: ErrorComponentProps) {
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
-      <body className="bg-dg-bg m-0 p-0">
-        <div className="min-h-dvh flex items-center justify-center font-mono text-dg-text">
+      <body className="bg-dg-bg text-dg-text font-sans m-0 p-0">
+        <div className="min-h-dvh flex items-center justify-center">
           <div className="text-center px-4 py-16">
-            <p className="text-[2rem] font-semibold text-dg-anime mb-2">error</p>
-            <p className="text-[0.9rem] text-dg-text-secondary mb-6">Something went wrong.</p>
+            <p className="text-lg font-bold text-dg-anime mb-2">error</p>
+            <p className="text-sm text-dg-text-secondary mb-6">Something went wrong.</p>
             <div className="flex items-center justify-center gap-3">
               <button
                 type="button"
                 onClick={reset}
-                className="text-[0.85rem] text-dg-accent font-mono bg-transparent py-2 px-4 border border-dg-accent/20 rounded-sm cursor-pointer transition-all duration-150"
+                className="text-sm text-dg-accent bg-transparent py-2 px-4 border border-dg-accent/20 rounded-sm cursor-pointer transition-all duration-100 active:scale-[0.97]"
               >
                 Try again
               </button>
               <a
                 href="/"
-                className="text-[0.85rem] text-dg-text-secondary no-underline py-2 px-4 border border-dg-border-subtle rounded-sm transition-all duration-150"
+                className="text-sm text-dg-text-secondary no-underline py-2 px-4 border border-dg-border-subtle rounded-sm transition-all duration-100"
               >
                 Go home
               </a>
@@ -320,13 +331,13 @@ function RootError({ error, reset }: ErrorComponentProps) {
 
 function NotFound() {
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono flex items-center justify-center">
+    <div className="bg-dg-bg text-dg-text flex-1 flex items-center justify-center">
       <div className="text-center px-4 py-16">
-        <p className="text-[2rem] font-semibold text-dg-accent mb-2">404</p>
-        <p className="text-[0.9rem] text-dg-text-secondary mb-6">Page not found.</p>
+        <p className="text-lg font-bold text-dg-accent mb-2 font-mono">404</p>
+        <p className="text-sm text-dg-text-secondary mb-6">Page not found.</p>
         <Link
           to="/"
-          className="text-[0.85rem] text-dg-accent no-underline py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-150"
+          className="text-sm text-dg-accent no-underline py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-100 active:scale-[0.97]"
         >
           Go home
         </Link>
@@ -337,15 +348,40 @@ function NotFound() {
 
 function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
+  const { playSound } = useSound();
   const Icon = theme === "dark" ? Sun : Moon;
 
   return (
     <button
       type="button"
-      onClick={toggleTheme}
-      className="text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none p-2 -m-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+      onClick={() => {
+        toggleTheme();
+        playSound("toggle");
+      }}
+      className="text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-[80ms] cursor-pointer bg-transparent border-none p-2 -m-1 min-w-[44px] min-h-[44px] flex items-center justify-center active:scale-[0.97]"
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
       title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+    >
+      <Icon size={16} />
+    </button>
+  );
+}
+
+function SoundToggle() {
+  const { enabled, setEnabled, playSound } = useSound();
+  const Icon = enabled ? Volume2 : VolumeX;
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const next = !enabled;
+        setEnabled(next);
+        if (next) playSound("toggle");
+      }}
+      className="text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-[80ms] cursor-pointer bg-transparent border-none p-2 -m-1 min-w-[44px] min-h-[44px] flex items-center justify-center active:scale-[0.97]"
+      aria-label={enabled ? "Mute sounds" : "Enable sounds"}
+      title={enabled ? "Mute sounds" : "Enable sounds"}
     >
       <Icon size={16} />
     </button>

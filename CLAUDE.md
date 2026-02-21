@@ -181,9 +181,19 @@ TWITCH_CLIENT_SECRET=  # Twitch app client secret (for IGDB)
 
 ## Frontend Aesthetics
 
-Dark/light theme toggle with warm, earthy tones (donguri = acorn in Japanese).
-IBM Plex Mono for a technical, catalog-like feel.
-Amber/ochre accent (#d4a44a) on dark background (#0f0e0c).
+**Dual-font system**: CMU Sans Serif (voice) + CMU Typewriter Text (data). Self-hosted WOFF2 in `public/fonts/`.
+- **CMU Sans Serif** (`font-sans`): titles, nav, section headers, prose, buttons, labels
+- **CMU Typewriter Text** (`font-mono`): numbers, dates, ratings, episode counts, type badges, search input, `<kbd>`, version strings
+
+**Color system**: `oklch()` color space for perceptual uniformity. Media-type colors share L=0.65 for equal visual weight.
+Dark/light theme toggle with warm, earthy tones (donguri = acorn in Japanese). Light theme uses warm cream paper, not gray.
+
+**Motion**: Custom easing curves (`--ease-weighted`, `--ease-snap`, `--ease-bounce`). View Transitions API for page navigation. `@starting-style` for modal entry. `active:scale-[0.97]` on all interactive elements.
+
+**Sound**: Optional Web Audio oscillator engine (`src/lib/sound.tsx`). Sine wave bleeps (Wii-inspired). Off by default, toggle in nav.
+
+**Surfaces**: `dg-grain` CSS-only SVG noise texture on key surfaces. `oklch()` elevation system (bg → surface → elevated → overlay).
+
 Type badges color-coded: movie (copper), TV (teal), anime (rose), game (sage).
 
 Avoid generic AI design patterns. Be creative but restrained — this is a data-dense catalog, not a marketing page.

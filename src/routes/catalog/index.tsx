@@ -23,6 +23,7 @@ import {
 } from "../../lib/media-types";
 import { ogTags, pageTitle } from "../../lib/og";
 import { catalogInfiniteOptions, mediaStatsOptions } from "../../lib/query-options";
+import { useSound } from "../../lib/sound";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -97,14 +98,16 @@ const SearchInput = forwardRef<HTMLInputElement, { initialValue: string }>(funct
   };
 
   return (
-    <input
-      ref={ref}
-      type="text"
-      placeholder="Search titles..."
-      value={value}
-      onChange={(e) => handleChange(e.target.value)}
-      className="w-full py-2.5 px-3 bg-dg-surface border border-dg-border rounded text-dg-text font-mono text-base sm:text-[0.85rem] outline-none box-border"
-    />
+    <div className="dg-input-wrap w-full">
+      <input
+        ref={ref}
+        type="text"
+        placeholder="Search titles..."
+        value={value}
+        onChange={(e) => handleChange(e.target.value)}
+        className="w-full py-2.5 px-3 bg-dg-surface border border-dg-border rounded text-dg-text font-mono text-base sm:text-sm outline-none box-border transition-[border-color] duration-100"
+      />
+    </div>
   );
 });
 
@@ -115,6 +118,7 @@ function CatalogPage() {
   const queryClient = useQueryClient();
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog/" });
+  const { playSound } = useSound();
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery(
     catalogInfiniteOptions(mediaType, q || undefined),
@@ -153,6 +157,7 @@ function CatalogPage() {
       try {
         await setCatalogEntry({ data: { wikidataId, status: defaultStatus } });
         console.debug("[quick-add] %s → server ok", wikidataId);
+        playSound("confirm");
         setQuickAddState((prev) => ({ ...prev, [wikidataId]: "done" }));
         clearTimeout(quickAddTimers.current.get(wikidataId));
         quickAddTimers.current.set(
@@ -182,7 +187,7 @@ function CatalogPage() {
         });
       }
     },
-    [router, queryClient],
+    [router, queryClient, playSound],
   );
 
   // Clean up quick-add timers on unmount
@@ -314,11 +319,11 @@ function CatalogPage() {
   }, [virtualItems, allItems.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
       <header className="px-4 sm:px-6 pt-3 pb-1">
         <div className="max-w-[1000px] mx-auto">
-          <p className="text-dg-text-tertiary text-[0.8rem]">
+          <p className="text-dg-text-tertiary text-xs font-mono">
             {stats.total > 0
               ? `${stats.total.toLocaleString()} titles across the catalog`
               : "\u00a0"}
@@ -329,12 +334,10 @@ function CatalogPage() {
       {/* Controls */}
       <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 py-2 flex flex-col gap-2">
         {/* Search */}
-        <div className="w-full">
-          <SearchInput ref={searchRef} initialValue={q ?? ""} />
-        </div>
+        <SearchInput ref={searchRef} initialValue={q ?? ""} />
 
-        {/* Type filter tabs */}
-        <div className="flex gap-1 flex-nowrap overflow-x-auto sm:flex-wrap scrollbar-hide">
+        {/* Type filter tabs — text-only toggles */}
+        <div className="flex gap-3 flex-nowrap overflow-x-auto sm:flex-wrap scrollbar-hide">
           {MEDIA_TYPES.map((t) => {
             const isActive = mediaType === t.value;
             const count = t.value
@@ -345,15 +348,13 @@ function CatalogPage() {
                 type="button"
                 key={t.label}
                 onClick={() => handleTypeChange(t.value)}
-                className={`py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 border rounded-sm font-mono text-xs cursor-pointer flex items-center gap-1.5 shrink-0 transition-all duration-150 ${
-                  isActive
-                    ? "bg-dg-accent/[0.08] border-dg-accent/25 text-dg-accent"
-                    : "bg-transparent border-dg-border-subtle text-dg-text-secondary"
+                className={`py-2 sm:py-1.5 px-1 min-h-[44px] sm:min-h-0 text-sm cursor-pointer flex items-center gap-1.5 shrink-0 transition-colors duration-100 bg-transparent border-none active:scale-[0.97] ${
+                  isActive ? "text-dg-accent font-medium" : "text-dg-text-tertiary"
                 }`}
               >
                 {t.label}
                 {count > 0 && (
-                  <span className="text-[0.65rem] opacity-60">{count.toLocaleString()}</span>
+                  <span className="text-xs opacity-60 font-mono">{count.toLocaleString()}</span>
                 )}
               </button>
             );
@@ -366,7 +367,7 @@ function CatalogPage() {
         <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 pb-2">
           <Link
             to="/"
-            className="block border border-dg-accent/20 bg-dg-accent/[0.04] rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-150"
+            className="block bg-dg-accent/[0.04] rounded px-4 py-3 text-xs text-dg-text-secondary no-underline transition-colors duration-100"
           >
             <span className="text-dg-accent">Sign in</span> to add titles to your watchlist and
             track your progress.
@@ -374,10 +375,7 @@ function CatalogPage() {
         </div>
       )}
 
-      {/* Virtual list — relative+absolute ensures a definite height for the
-           scroll container regardless of the outer flex chain (min-h-dvh on
-           root doesn't give flex children a definite height, which would make
-           the virtualizer think ALL items are visible and fetchNextPage loops) */}
+      {/* Virtual list */}
       <div className="flex-1 relative min-h-0">
         <div
           ref={parentRef}
@@ -395,13 +393,13 @@ function CatalogPage() {
                 return (
                   <div
                     key="loader"
-                    className="w-full left-0 border-b border-dg-surface absolute flex items-center justify-center overflow-hidden"
+                    className="w-full left-0 absolute flex items-center justify-center overflow-hidden"
                     style={{
                       top: virtualRow.start,
                       height: virtualRow.size,
                     }}
                   >
-                    <span className="text-dg-text-tertiary">
+                    <span className="text-dg-text-tertiary text-sm">
                       {isFetchingNextPage ? "Loading..." : ""}
                     </span>
                   </div>
@@ -422,7 +420,7 @@ function CatalogPage() {
                   to="/catalog/$wikidataId"
                   params={{ wikidataId: item.wikidataId }}
                   preload="intent"
-                  className={`w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group overflow-hidden${isCursorActive ? " dg-cursor-active" : ""}`}
+                  className={`dg-catalog-row w-full left-0 border-b border-dg-border-subtle/20 absolute no-underline text-inherit block group overflow-hidden transition-[background-color] duration-[60ms]${isCursorActive ? " dg-cursor-active" : ""}`}
                   style={{
                     top: virtualRow.start,
                     height: virtualRow.size,
@@ -493,27 +491,27 @@ const MediaRow = memo(function MediaRow({
           />
         )}
         {addState === "pending" ? (
-          <span className="text-[0.75rem] font-bold text-dg-accent font-mono shrink-0">
+          <span className="text-xs font-bold text-dg-accent font-mono shrink-0">
             [<span className="dg-ellipsis" />]
           </span>
         ) : addState === "done" ? (
-          <span className="text-[0.75rem] font-bold text-dg-game font-mono shrink-0">[ok]</span>
+          <span className="text-xs font-bold text-dg-game font-mono shrink-0">[ok]</span>
         ) : showAdd ? (
           <button
             type="button"
             onClick={(e) => onQuickAdd(item.wikidataId, item.mediaType, e)}
-            className="text-[0.75rem] font-bold text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent"
+            className="text-xs font-bold text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent active:scale-[0.97]"
           >
             [+]
           </button>
         ) : null}
         <span
-          className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm border uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center ${badgeClass}`}
+          className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center font-mono ${badgeClass}`}
         >
           {mediaTypeLabel(item.mediaType, true)}
         </span>
         <div className="flex items-baseline gap-2 min-w-0 overflow-hidden">
-          <span className="text-[0.85rem] font-medium truncate text-dg-text">{item.title}</span>
+          <span className="text-sm font-medium truncate text-dg-text">{item.title}</span>
           {trackedStatus && (
             <span
               className={`text-sm shrink-0 ${STATUS_ACCENT[trackedStatus as StatusValue] ?? "text-dg-text-tertiary"}`}
@@ -522,7 +520,7 @@ const MediaRow = memo(function MediaRow({
             </span>
           )}
           {item.originalTitle && (
-            <span className="text-xs text-dg-text-tertiary truncate hidden sm:inline">
+            <span className="text-xs text-dg-text-tertiary italic truncate hidden sm:inline">
               {item.originalTitle}
             </span>
           )}
@@ -530,12 +528,12 @@ const MediaRow = memo(function MediaRow({
       </div>
       <div className="flex items-center gap-4 shrink-0">
         {meta && (
-          <span className="text-[0.7rem] text-dg-text-tertiary min-w-12 text-right tabular-nums hidden sm:flex">
+          <span className="text-xs text-dg-text-tertiary min-w-12 text-right tabular-nums hidden sm:flex font-mono">
             {meta}
           </span>
         )}
         {item.startYear && (
-          <span className="text-xs text-dg-text-secondary tabular-nums">
+          <span className="text-xs text-dg-text-secondary tabular-nums font-mono">
             {item.startYear}
             {item.endYear && item.endYear !== item.startYear ? `–${item.endYear}` : ""}
           </span>
