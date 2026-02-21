@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { handleOAuthCallback } from "../../lib/auth.functions";
+import styles from "./callback.module.css";
 
 export const Route = createFileRoute("/auth/callback")({
   validateSearch: z.object({
@@ -34,20 +35,18 @@ function CallbackPage() {
   }, []);
 
   return (
-    <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[600px] mx-auto px-6 py-16">
+    <div className={styles.page}>
+      <div className={styles.container}>
         {error ? (
-          <div className="border border-dg-movie/30 rounded p-5 bg-dg-surface">
-            <p className="text-dg-movie text-[0.8rem] uppercase tracking-wider mb-3">
-              Authentication error
-            </p>
-            <p className="text-dg-text-secondary text-[0.85rem] leading-relaxed mb-4">{error}</p>
-            <a href="/" className="text-[0.85rem] text-dg-accent no-underline">
+          <div className={styles.errorCard}>
+            <p className={styles.errorTitle}>Authentication error</p>
+            <p className={styles.errorMsg}>{error}</p>
+            <a href="/" className={styles.backLink}>
               Back to home
             </a>
           </div>
         ) : (
-          <p className="text-dg-text-secondary text-[0.85rem]">
+          <p className={styles.loading}>
             <span className="dg-ellipsis">Authenticating</span>
           </p>
         )}

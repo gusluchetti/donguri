@@ -1,36 +1,23 @@
-export const TYPE_BADGE_CLASSES: Record<string, string> = {
-  movie: "bg-dg-movie/20 text-dg-movie border-dg-movie/40",
-  tv_series: "bg-dg-tv/20 text-dg-tv border-dg-tv/40",
-  anime: "bg-dg-anime/20 text-dg-anime border-dg-anime/40",
-  game: "bg-dg-game/20 text-dg-game border-dg-game/40",
-};
-
-const BADGE_FALLBACK = "bg-dg-elevated text-dg-text-tertiary border-dg-border";
-
-export function typeBadgeClass(mediaType?: string | null): string {
-  return TYPE_BADGE_CLASSES[mediaType ?? ""] ?? BADGE_FALLBACK;
-}
-
 export function mediaTypeLabel(type: string, short = false): string {
   if (type === "tv_series") return short ? "TV" : "TV Series";
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
-/** Maps 0–100 rating to a color: dark red → amber → green */
+/** Maps 0–100 rating to a bioluminescent emission: red (350) → violet (280) → green (160) */
 export function ratingColor(value: number | null): string | undefined {
   if (value == null || value === 0) return undefined;
   const t = value / 100;
   let h: number, s: number, l: number;
   if (t <= 0.5) {
     const p = t / 0.5;
-    h = 0 + p * 40;
-    s = 70 + p * 10;
-    l = 45 + p * 10;
+    h = 350 - p * 70; // 350 → 280 (red → violet)
+    s = 80 + p * 10;
+    l = 50 + p * 5;
   } else {
     const p = (t - 0.5) / 0.5;
-    h = 40 + p * 100;
-    s = 80 - p * 20;
-    l = 55 - p * 10;
+    h = 280 - p * 120; // 280 → 160 (violet → green)
+    s = 90 - p * 20;
+    l = 55 - p * 5;
   }
   return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`;
 }
@@ -105,26 +92,16 @@ export function replayCountLabel(count: number, mediaType?: string): string | nu
   return `${verb} x${count + 1}`;
 }
 
-// ─── Status Colors ──────────────────────────────────────────────────────────
+// ─── Status CSS var references ──────────────────────────────────────────────
 
-/** Text color per status (homepage section headers) */
-export const STATUS_ACCENT: Record<StatusValue, string> = {
-  in_progress: "text-dg-accent",
-  planned: "text-dg-tv",
-  on_hold: "text-dg-text-tertiary",
-  completed: "text-dg-game",
-  dropped: "text-dg-anime",
-  mastered: "text-dg-accent",
-};
-
-/** Border + bg + text per status (detail page buttons) */
-export const STATUS_BUTTON_COLORS: Record<StatusValue, string> = {
-  in_progress: "border-dg-accent text-dg-accent bg-dg-accent/10",
-  planned: "border-dg-tv text-dg-tv bg-dg-tv/10",
-  on_hold: "border-dg-text-tertiary text-dg-text-tertiary bg-dg-text-tertiary/10",
-  completed: "border-dg-game text-dg-game bg-dg-game/10",
-  dropped: "border-dg-anime text-dg-anime bg-dg-anime/10",
-  mastered: "border-dg-accent text-dg-accent bg-dg-accent/10",
+/** Returns CSS var reference for status accent color */
+export const STATUS_ACCENT_VAR: Record<StatusValue, string> = {
+  in_progress: "var(--dg-accent)",
+  planned: "var(--dg-tv)",
+  on_hold: "var(--dg-text-tertiary)",
+  completed: "var(--dg-game)",
+  dropped: "var(--dg-movie)",
+  mastered: "var(--dg-accent)",
 };
 
 // ─── Watched Episodes Helpers ────────────────────────────────────────────────
@@ -150,19 +127,20 @@ export function countSeasonWatched(
   return eps ? Object.keys(eps).length : 0;
 }
 
-/** Mark episodes 1..ep as watched for a given season. Preserves existing dates. */
+/** Mark episodes 1..ep as watched for a given season. Preserves existing dates.
+ *  Pass `null` for date to record episodes without a timestamp (backfill). */
 export function markThroughEpisode(
   watched: WatchedEpisodes | null | undefined,
   season: number,
   ep: number,
-  date: string,
+  date: string | null,
 ): WatchedEpisodes {
   const result: WatchedEpisodes = watched ? structuredClone(watched) : {};
   const key = String(season);
   if (!result[key]) result[key] = {};
   for (let i = 1; i <= ep; i++) {
     const epKey = String(i);
-    if (!result[key][epKey]) result[key][epKey] = date;
+    if (!result[key][epKey]) result[key][epKey] = date ?? "";
   }
   return result;
 }

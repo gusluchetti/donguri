@@ -1,0 +1,46 @@
+.page {
+  background: var(--dg-bg);
+  color: var(--dg-text);
+  min-height: 100vh;
+  font-family: var(--dg-font-mono);
+}
+
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+}
+
+.errorCard {
+  border: 1px solid rgba(255, 107, 74, 0.3);
+  border-radius: var(--dg-radius);
+  padding: 1.25rem;
+  background: var(--dg-surface);
+  box-shadow: var(--dg-glow-card);
+}
+
+.errorTitle {
+  color: var(--dg-movie);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+
+.errorMsg {
+  color: var(--dg-text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.backLink {
+  font-size: 0.85rem;
+  color: var(--dg-accent);
+  text-decoration: none;
+}
+
+.loading {
+  color: var(--dg-text-secondary);
+  font-size: 0.85rem;
+}

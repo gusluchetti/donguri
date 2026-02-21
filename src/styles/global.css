@@ -1,0 +1,257 @@
+@import "./fonts.css";
+@import "./tokens.css";
+
+/* ─── Reset ────────────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ─── Base ─────────────────────────────────────────────────────────────────── */
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--dg-font-mono);
+  background: var(--dg-bg);
+  color: var(--dg-text-secondary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Scrollbar ────────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--dg-border);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dg-accent);
+  box-shadow: 0 0 6px var(--dg-accent-glow);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--dg-border) transparent;
+}
+
+.scrollbar-hide {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Theme transition ─────────────────────────────────────────────────────── */
+
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition:
+    background-color 200ms ease,
+    color 200ms ease,
+    border-color 200ms ease !important;
+}
+
+/* ─── Range input ──────────────────────────────────────────────────────────── */
+
+input[type="range"].dg-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  height: 1.5rem;
+}
+
+input[type="range"].dg-range::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--dg-elevated);
+  border-radius: var(--dg-radius-sm);
+  border: 1px solid var(--dg-border-subtle);
+}
+
+input[type="range"].dg-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--dg-radius-sm);
+  background: var(--rating-color, var(--dg-accent));
+  border: 1px solid var(--dg-border);
+  margin-top: -6px;
+}
+
+input[type="range"].dg-range::-moz-range-track {
+  height: 4px;
+  background: var(--dg-elevated);
+  border-radius: var(--dg-radius-sm);
+  border: 1px solid var(--dg-border-subtle);
+}
+
+input[type="range"].dg-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--dg-radius-sm);
+  background: var(--rating-color, var(--dg-accent));
+  border: 1px solid var(--dg-border);
+}
+
+input[type="range"].dg-range:disabled {
+  opacity: 0.5;
+}
+
+@media (pointer: coarse) {
+  input[type="range"].dg-range::-webkit-slider-runnable-track {
+    height: 6px;
+  }
+
+  input[type="range"].dg-range::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+    margin-top: -10px;
+  }
+
+  input[type="range"].dg-range::-moz-range-track {
+    height: 6px;
+  }
+
+  input[type="range"].dg-range::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* ─── Skeleton shimmer ─────────────────────────────────────────────────────── */
+
+.dg-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--dg-surface) 25%,
+    var(--dg-elevated) 50%,
+    var(--dg-surface) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--dg-radius-sm);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ─── Cursor highlight ─────────────────────────────────────────────────────── */
+
+.dg-cursor-active {
+  background-color: var(--dg-accent-glow);
+  outline: 1px solid var(--dg-accent-dim);
+  outline-offset: -1px;
+}
+
+/* ─── Ellipsis loading ─────────────────────────────────────────────────────── */
+
+.dg-ellipsis::after {
+  content: "";
+  animation: ellipsis 1.2s steps(4) infinite;
+}
+
+@keyframes ellipsis {
+  0% {
+    content: "";
+  }
+  25% {
+    content: ".";
+  }
+  50% {
+    content: "..";
+  }
+  75% {
+    content: "...";
+  }
+}
+
+/* ─── Bioluminescent breathe ───────────────────────────────────────────────── */
+
+.dg-breathe {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ─── Save pulse ───────────────────────────────────────────────────────────── */
+
+@keyframes save-pulse {
+  0% {
+    box-shadow: var(--dg-glow-card);
+  }
+  30% {
+    box-shadow:
+      0 0 16px var(--dg-accent-dim),
+      0 0 32px var(--dg-accent-glow);
+  }
+  100% {
+    box-shadow: var(--dg-glow-card);
+  }
+}
+
+@keyframes save-error-pulse {
+  0% {
+    box-shadow: var(--dg-glow-card);
+  }
+  30% {
+    box-shadow:
+      0 0 16px rgba(255, 107, 74, 0.15),
+      0 0 32px rgba(255, 107, 74, 0.06);
+  }
+  100% {
+    box-shadow: var(--dg-glow-card);
+  }
+}
+
+/* ─── Tron dev grid overlay ────────────────────────────────────────────────── */
+
+[data-env="dev"][data-grid] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 68, 68, 0.04) 0 1px, transparent 1px 8px),
+    repeating-linear-gradient(0deg, rgba(255, 68, 68, 0.04) 0 1px, transparent 1px 8px),
+    repeating-linear-gradient(90deg, rgba(255, 68, 68, 0.08) 0 1px, transparent 1px 48px),
+    repeating-linear-gradient(0deg, rgba(255, 68, 68, 0.08) 0 1px, transparent 1px 48px);
+}

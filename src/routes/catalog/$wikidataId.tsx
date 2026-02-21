@@ -22,15 +22,15 @@ import {
   mediaTypeLabel,
   ratingColor,
   replayCountLabel,
-  STATUS_BUTTON_COLORS,
   statusLabel,
   todayISO,
-  typeBadgeClass,
   type WatchedEpisodes,
 } from "../../lib/media-types";
 import { ogTags, pageTitle } from "../../lib/og";
 import { catalogEntryOptions, mediaDetailOptions } from "../../lib/query-options";
+import { RotaryKnob } from "../../lib/RotaryKnob";
 import { useAction } from "../../lib/use-action";
+import styles from "./$wikidataId.module.css";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -89,7 +89,6 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
       wikidataId = m.wikidataId;
       description = m.description ?? "";
 
-      // Build fallback description from structured data
       if (!description) {
         const parts: string[] = [];
         if (m.startYear) parts.push(String(m.startYear));
@@ -99,12 +98,11 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
         description = `${parts.join(" \u00b7 ")} \u2014 Track on donguri`;
       }
 
-      // Map media type to OG type
       if (m.mediaType === "movie") ogType = "video.movie";
       else if (m.mediaType === "tv_series" || m.mediaType === "anime") ogType = "video.tv_show";
     } else if (loaderData?.kind === "stub") {
       wikidataId = loaderData.stub.wikidataId;
-      description = `Track on donguri`;
+      description = "Track on donguri";
     }
 
     return {
@@ -131,31 +129,31 @@ function MediaDetailRouter() {
 
 function MediaDetailSkeleton() {
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
-      <div className="max-w-[1000px] mx-auto p-4 sm:p-5">
-        <button
-          type="button"
-          onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block"
-        >
+    <div className={styles.page}>
+      <div className={styles.container}>
+        <button type="button" onClick={() => window.history.back()} className={styles.backBtn}>
           &larr; back
         </button>
-        <div className="mb-5">
-          <div className="w-16 h-5 bg-dg-surface rounded-sm mb-3 animate-pulse" />
-          <div className="w-2/3 h-8 bg-dg-surface rounded animate-pulse" />
+        <div style={{ marginBottom: "1.25rem" }}>
+          <div className={`dg-skeleton ${styles.skeleton} ${styles.skeletonBadge}`} />
+          <div className={`dg-skeleton ${styles.skeleton} ${styles.skeletonTitle}`} />
         </div>
-        <div className="flex flex-wrap gap-x-6 gap-y-3 mb-4 sm:mb-5 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
+        <div className={styles.skeletonMeta}>
           {[...Array(4)].map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton items
-            <div key={i} className="flex flex-col gap-1">
-              <div className="w-12 h-3 bg-dg-elevated rounded animate-pulse" />
-              <div className="w-16 h-4 bg-dg-elevated rounded animate-pulse" />
+            <div key={i} className={styles.skeletonMetaItem}>
+              <div className={`dg-skeleton ${styles.skeleton} ${styles.skeletonMetaLabel}`} />
+              <div className={`dg-skeleton ${styles.skeleton} ${styles.skeletonMetaValue}`} />
             </div>
           ))}
         </div>
-        <div className="space-y-2 mb-6">
-          <div className="w-full h-4 bg-dg-surface rounded animate-pulse" />
-          <div className="w-4/5 h-4 bg-dg-surface rounded animate-pulse" />
+        <div className={styles.skeletonLines}>
+          <div
+            className={`dg-skeleton ${styles.skeleton} ${styles.skeletonLine} ${styles.skeletonLineFull}`}
+          />
+          <div
+            className={`dg-skeleton ${styles.skeleton} ${styles.skeletonLine} ${styles.skeletonLinePartial}`}
+          />
         </div>
       </div>
     </div>
@@ -168,34 +166,25 @@ function MediaStubPage({
   stub: { wikidataId: string; title: string; mediaType: string | null };
 }) {
   const { auth } = rootRoute.useLoaderData();
-  const badgeClass = typeBadgeClass(stub.mediaType);
 
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
-      <div className="max-w-[1000px] mx-auto p-4 sm:p-5">
-        <button
-          type="button"
-          onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block"
-        >
+    <div className={styles.page}>
+      <div className={styles.container}>
+        <button type="button" onClick={() => window.history.back()} className={styles.backBtn}>
           &larr; back
         </button>
 
-        <div className="mb-4 sm:mb-5">
+        <div style={{ marginBottom: "1rem" }}>
           {stub.mediaType && (
-            <span
-              className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
-            >
+            <span className={styles.badge} data-type={stub.mediaType}>
               {mediaTypeLabel(stub.mediaType)}
             </span>
           )}
-          <h1 className="text-[1.35rem] sm:text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
-            {stub.title}
-          </h1>
+          <h1 className={styles.titleMain}>{stub.title}</h1>
         </div>
 
-        <div className="border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5">
-          <p className="text-[0.8rem] text-dg-text-tertiary">
+        <div className={styles.stubCard}>
+          <p className={styles.stubText}>
             This title has not been imported into the catalog yet. Metadata will appear after the
             next data import.
           </p>
@@ -205,16 +194,14 @@ function MediaStubPage({
           <TrackingPanel wikidataId={stub.wikidataId} mediaType={stub.mediaType ?? undefined} />
         )}
 
-        <div className="mb-4 sm:mb-5">
-          <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-            Links
-          </h3>
-          <div className="flex flex-wrap gap-2">
+        <div className={styles.linksSection}>
+          <h3 className={styles.sectionLabel}>Links</h3>
+          <div className={styles.externalLinks}>
             <a
               href={`https://www.wikidata.org/wiki/${stub.wikidataId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-dg-accent/70 no-underline py-2 px-3 sm:py-1.5 sm:px-2.5 border border-dg-accent/15 rounded-sm transition-all duration-150"
+              className={styles.extLink}
             >
               Wikidata {"\u2197"}
             </a>
@@ -234,7 +221,6 @@ function MediaDetailPage({
 }) {
   const { auth } = rootRoute.useLoaderData();
   const router = useRouter();
-  const badgeClass = typeBadgeClass(data.mediaType);
   const [localIsFavorite, setLocalIsFavorite] = useState(initialEntry?.isFavorite ?? false);
   const [localWatchedEpisodes, setLocalWatchedEpisodes] = useState<WatchedEpisodes>(
     (initialEntry?.watchedEpisodes as WatchedEpisodes) ?? {},
@@ -244,12 +230,9 @@ function MediaDetailPage({
   );
   const [localStatus, setLocalStatus] = useState<string | null>(initialEntry?.status ?? null);
 
-  // ─── Detail page shortcuts ──────────────────────────────────────────────
-  // h / ArrowLeft / Backspace — go back
   useHotkey("H", () => router.history.back());
   useHotkey("ArrowLeft", () => router.history.back());
   useHotkey("Backspace", () => router.history.back());
-  // f — toggle favorite
   useHotkey("F", () => setLocalIsFavorite((v) => !v), {
     enabled: !!auth && !!initialEntry?.status,
   });
@@ -275,7 +258,6 @@ function MediaDetailPage({
     [localStatus],
   );
 
-  // Auto-complete: when all episodes watched while in_progress
   useEffect(() => {
     if (localStatus === "in_progress" && totalEps > 0) {
       if (countWatchedEpisodes(localWatchedEpisodes) >= totalEps) {
@@ -284,7 +266,6 @@ function MediaDetailPage({
     }
   }, [localStatus, localWatchedEpisodes, totalEps]);
 
-  // Dedup genres: if a sub-genre is present, suppress its standalone parent
   const subGenreParentIds = new Set(
     data.genres.flatMap((g: { parentId: string | null }) => (g.parentId ? [g.parentId] : [])),
   );
@@ -295,10 +276,7 @@ function MediaDetailPage({
 
   const externalLinks: { label: string; url: string }[] = [];
   if (data.imdbId)
-    externalLinks.push({
-      label: "IMDb",
-      url: `https://www.imdb.com/title/${data.imdbId}`,
-    });
+    externalLinks.push({ label: "IMDb", url: `https://www.imdb.com/title/${data.imdbId}` });
   if (data.tmdbId && !isGame) {
     externalLinks.push({
       label: "TMDB",
@@ -314,25 +292,16 @@ function MediaDetailPage({
       url: `https://myanimelist.net/anime/${data.malId}`,
     });
   if (data.anilistId && isAnime)
-    externalLinks.push({
-      label: "AniList",
-      url: `https://anilist.co/anime/${data.anilistId}`,
-    });
+    externalLinks.push({ label: "AniList", url: `https://anilist.co/anime/${data.anilistId}` });
   if (data.anidbId && isAnime)
-    externalLinks.push({
-      label: "AniDB",
-      url: `https://anidb.net/anime/${data.anidbId}`,
-    });
+    externalLinks.push({ label: "AniDB", url: `https://anidb.net/anime/${data.anidbId}` });
   if (data.annId && isAnime)
     externalLinks.push({
       label: "ANN",
       url: `https://www.animenewsnetwork.com/encyclopedia/anime.php?id=${data.annId}`,
     });
   if (data.igdbId && isGame)
-    externalLinks.push({
-      label: "IGDB",
-      url: `https://www.igdb.com/games/${data.igdbId}`,
-    });
+    externalLinks.push({ label: "IGDB", url: `https://www.igdb.com/games/${data.igdbId}` });
   if (data.tvdbId && isTvOrAnime) {
     const isNumeric = /^\d+$/.test(data.tvdbId);
     externalLinks.push({
@@ -348,44 +317,31 @@ function MediaDetailPage({
   });
 
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
-      <div className="max-w-[1000px] mx-auto p-4 sm:p-5">
-        {/* Back link */}
-        <button
-          type="button"
-          onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block"
-        >
+    <div className={styles.page}>
+      <div className={styles.container}>
+        <button type="button" onClick={() => window.history.back()} className={styles.backBtn}>
           &larr; back
         </button>
 
-        {/* Header + meta combined row */}
-        <div className="flex gap-4 sm:gap-5 mb-4 sm:mb-5 relative">
+        <div className={styles.headerRow}>
           {data.posterUrl && (
             <img
               src={data.posterUrl}
               alt={`${data.title} poster`}
               width={160}
-              className="w-[160px] rounded border border-dg-border-subtle shrink-0 self-stretch object-cover hidden sm:block"
+              className={styles.posterLarge}
               loading="eager"
             />
           )}
-          <div className="min-w-0 flex-1">
-            <span
-              className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
-            >
+          <div className={styles.headerContent}>
+            <span className={styles.badge} data-type={data.mediaType}>
               {mediaTypeLabel(data.mediaType)}
             </span>
-            <h1 className="text-[1.35rem] sm:text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
-              {data.title}
-            </h1>
-            {data.originalTitle && (
-              <p className="text-base text-dg-text-secondary mt-1.5">{data.originalTitle}</p>
-            )}
+            <h1 className={styles.titleMain}>{data.title}</h1>
+            {data.originalTitle && <p className={styles.titleOriginal}>{data.originalTitle}</p>}
 
-            {/* Meta slab */}
-            <div className="mt-3 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
-              <div className="flex flex-wrap gap-x-6 gap-y-3">
+            <div className={styles.metaSlab}>
+              <div className={styles.metaGrid}>
                 {data.startYear && (
                   <MetaItem
                     label="Year"
@@ -405,34 +361,30 @@ function MediaDetailPage({
                   <MetaItem label="Episodes" value={String(data.episodeCount)} />
                 )}
                 {data.qrankPct != null && (
-                  <div className="flex flex-col gap-0.5">
+                  <div className={styles.metaItem}>
                     <a
                       href="https://qrank.wmcloud.org/"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider whitespace-nowrap hover:text-dg-accent transition-colors"
+                      className={styles.metaLabelLink}
                     >
                       Popularity (QRank) ↗
                     </a>
-                    <span className="text-[0.85rem] text-dg-text">Top {data.qrankPct}%</span>
+                    <span className={styles.metaValue}>Top {data.qrankPct}%</span>
                   </div>
                 )}
                 <MetaItem label="Sitelinks" value={String(data.sitelinksCount ?? 0)} />
               </div>
               {visibleGenres.length > 0 && (
-                <div className="border-t border-dg-border-subtle mt-3 pt-3">
-                  <div className="flex flex-wrap gap-1.5">
+                <>
+                  <hr className={styles.metaDivider} />
+                  <div className={styles.genreList}>
                     {visibleGenres.map(
                       (g: { id: string; name: string; parentName?: string | null }) => (
-                        <span
-                          key={g.id}
-                          className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                        >
+                        <span key={g.id} className={styles.genreChip}>
                           {g.parentName ? (
                             <>
-                              <span className="text-dg-text-tertiary">
-                                {g.parentName} &rsaquo;{" "}
-                              </span>
+                              <span className={styles.genreParent}>{g.parentName} &rsaquo; </span>
                               {g.name}
                             </>
                           ) : (
@@ -442,39 +394,34 @@ function MediaDetailPage({
                       ),
                     )}
                   </div>
-                </div>
+                </>
               )}
               {data.description && (
-                <div className="border-t border-dg-border-subtle mt-3 pt-3">
-                  <p className="text-[0.8rem] text-dg-text-secondary m-0 leading-relaxed">
-                    {data.description}
-                  </p>
-                </div>
+                <>
+                  <hr className={styles.metaDivider} />
+                  <p className={styles.description}>{data.description}</p>
+                </>
               )}
-
-              {/* External links */}
-              <div className="border-t border-dg-border-subtle mt-3 pt-3">
-                <div className="flex flex-wrap gap-1.5">
-                  {externalLinks.map((link) => (
-                    <a
-                      key={link.label}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-150"
-                    >
-                      {link.label} {"\u2197"}
-                    </a>
-                  ))}
-                </div>
+              <hr className={styles.metaDivider} />
+              <div className={styles.externalLinks}>
+                {externalLinks.map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.extLink}
+                  >
+                    {link.label} {"\u2197"}
+                  </a>
+                ))}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Tracking + Episodes unified card */}
         {auth && (
-          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-4 sm:mb-5">
+          <div className={styles.trackingCard}>
             <TrackingPanel
               wikidataId={data.wikidataId}
               mediaType={data.mediaType}
@@ -500,25 +447,20 @@ function MediaDetailPage({
           </div>
         )}
 
-        {/* No auth: standalone episode tracker (read-only) */}
         {!auth && hasSeasons && data.seasons && (
-          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-4 sm:mb-5 p-3 sm:p-4">
-            <EpisodeTracker seasons={data.seasons} />
+          <div className={styles.trackingCard}>
+            <div className={styles.trackingInner}>
+              <EpisodeTracker seasons={data.seasons} />
+            </div>
           </div>
         )}
 
-        {/* Platforms (games) */}
         {data.platforms.length > 0 && (
-          <div className="mb-4 sm:mb-5">
-            <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-              Platforms
-            </h3>
-            <div className="flex flex-wrap gap-1.5">
+          <div className={styles.platformsSection}>
+            <h3 className={styles.sectionLabel}>Platforms</h3>
+            <div className={styles.chipList}>
               {data.platforms.map((p: { id: string; name: string }) => (
-                <span
-                  key={p.id}
-                  className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                >
+                <span key={p.id} className={styles.chip}>
                   {p.name}
                 </span>
               ))}
@@ -548,7 +490,6 @@ function EpisodeTracker({
   const interactive = !!onWatchedChange && !!watchedEpisodes;
   const isMultiSeason = seasons.length > 1;
 
-  // Auto-select first incomplete season on mount
   const [selectedSeason, setSelectedSeason] = useState(() => {
     for (const s of seasons) {
       if (s.episodeCount == null) continue;
@@ -568,12 +509,10 @@ function EpisodeTracker({
   );
   const seasonPct = seasonEpCount > 0 ? Math.round((seasonWatched / seasonEpCount) * 100) : 0;
 
-  // Series totals
   const totalEps = seasons.reduce((sum, s) => sum + (s.episodeCount ?? 0), 0);
   const totalWatched = countWatchedEpisodes(watchedEpisodes);
   const totalPct = totalEps > 0 ? Math.round((totalWatched / totalEps) * 100) : 0;
 
-  // Cross-season navigation
   const idx = seasons.findIndex((s) => s.seasonNumber === currentSeason.seasonNumber);
   const nextSeason = isMultiSeason
     ? seasons.slice(idx + 1).find((s) => (s.episodeCount ?? 0) > 0)
@@ -604,31 +543,34 @@ function EpisodeTracker({
   };
 
   const handleDecrement = () => {
-    if (consecutiveEp > 0) {
+    // BUG FIX: only delete the last consecutive episode, not from current to end
+    if (consecutiveEp > 1) {
       onWatchedChange?.(
-        clearSeasonFrom(watchedEpisodes, currentSeason.seasonNumber, consecutiveEp, seasonEpCount),
+        clearSeasonFrom(watchedEpisodes, currentSeason.seasonNumber, consecutiveEp, consecutiveEp),
+      );
+    } else if (consecutiveEp === 1 && !prevSeason) {
+      // At ep 1 with no previous season — clear all episodes for this season
+      onWatchedChange?.(
+        clearSeasonFrom(watchedEpisodes, currentSeason.seasonNumber, 1, seasonEpCount),
       );
     } else if (prevSeason) {
       const pc = highestConsecutiveEpisode(watchedEpisodes, prevSeason.seasonNumber);
-      onWatchedChange?.(
-        clearSeasonFrom(watchedEpisodes, prevSeason.seasonNumber, pc, prevSeason.episodeCount ?? 0),
-      );
+      if (pc > 0) {
+        onWatchedChange?.(clearSeasonFrom(watchedEpisodes, prevSeason.seasonNumber, pc, pc));
+      }
       setSelectedSeason(prevSeason.seasonNumber);
     }
   };
 
   return (
     <div>
-      {/* Header row: label + season dropdown */}
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider m-0">
-          Episodes
-        </h3>
+      <div className={styles.episodesHeader}>
+        <h3 className={styles.episodesLabel}>Episodes</h3>
         {isMultiSeason && (
           <select
             value={selectedSeason}
             onChange={(e) => setSelectedSeason(Number(e.target.value))}
-            className="text-[0.75rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none focus:border-dg-accent transition-colors cursor-pointer"
+            className={styles.seasonSelect}
           >
             {seasons.map((s) => (
               <option key={s.id} value={s.seasonNumber}>
@@ -640,110 +582,88 @@ function EpisodeTracker({
         )}
       </div>
 
-      {/* Current season progress bar */}
       {seasonEpCount > 0 && (
-        <div className="mb-2">
-          <div className="flex items-center gap-2">
-            {isMultiSeason && (
-              <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
-                S{String(currentSeason.seasonNumber).padStart(2, "0")}
-              </span>
-            )}
-            <div className="flex-1 h-[6px] bg-dg-elevated rounded-full overflow-hidden">
-              <div
-                className="h-full bg-dg-accent rounded-full transition-all duration-300"
-                style={{ width: `${seasonPct}%` }}
-              />
-            </div>
-            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums shrink-0">
-              {seasonWatched}/{seasonEpCount}
+        <div className={styles.progressRow}>
+          {isMultiSeason && (
+            <span className={styles.progressLabel}>
+              S{String(currentSeason.seasonNumber).padStart(2, "0")}
             </span>
+          )}
+          <div className={styles.progressTrack}>
+            <div className={styles.progressFill} style={{ width: `${seasonPct}%` }} />
           </div>
+          <span className={styles.progressCount}>
+            {seasonWatched}/{seasonEpCount}
+          </span>
         </div>
       )}
 
-      {/* Total series progress bar (multi-season only) */}
       {isMultiSeason && totalEps > 0 && (
-        <div className="mb-3">
-          <div className="flex items-center gap-2">
-            <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
-              ALL
-            </span>
-            <div className="flex-1 h-[6px] bg-dg-elevated rounded-full overflow-hidden">
-              <div
-                className="h-full bg-dg-accent/60 rounded-full transition-all duration-300"
-                style={{ width: `${totalPct}%` }}
-              />
+        <div className={styles.progressSection}>
+          <div className={styles.progressRow}>
+            <span className={styles.progressLabel}>ALL</span>
+            <div className={styles.progressTrack}>
+              <div className={styles.progressFillDim} style={{ width: `${totalPct}%` }} />
             </div>
-            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums shrink-0">
+            <span className={styles.progressCount}>
               {totalWatched}/{totalEps}
             </span>
           </div>
         </div>
       )}
 
-      {/* Counter controls (interactive only) */}
       {interactive && seasonEpCount > 0 && (
-        <div className="flex flex-col items-center gap-3 py-3">
-          <div className="flex items-center gap-4">
+        <div className={styles.counterControls}>
+          <div className={styles.counterRow}>
             <button
               type="button"
               onClick={handleDecrement}
               disabled={consecutiveEp <= 0 && !prevSeason}
-              className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-150 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono"
+              className={styles.counterBtn}
             >
               -
             </button>
-            <span className="text-[0.9rem] tabular-nums text-dg-text min-w-[5rem] text-center">
+            <span className={styles.counterDisplay}>
               {consecutiveEp} / {seasonEpCount}
             </span>
             <button
               type="button"
               onClick={handleIncrement}
               disabled={consecutiveEp >= seasonEpCount && !nextSeason}
-              className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-150 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono"
+              className={styles.counterBtn}
             >
               +
             </button>
           </div>
 
-          {/* Date picker for episode watched date */}
-          <div className="flex items-center gap-2">
-            <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider">
-              Watched on
-            </span>
+          <div className={styles.dateRow}>
+            <span className={styles.dateLabelSmall}>Watched on</span>
             <input
               type="date"
               value={episodeDate}
               max={todayISO()}
               onChange={(e) => setEpisodeDate(e.target.value || todayISO())}
-              className="text-[0.75rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none focus:border-dg-accent transition-colors"
+              className={styles.dateInputSmall}
             />
           </div>
         </div>
       )}
 
-      {/* Read-only: just show season episode counts */}
       {!interactive && seasons.length > 0 && (
-        <div className="space-y-1.5 mt-2">
+        <div className={styles.readOnlySeasons}>
           {seasons.map((s) => {
             const w = countSeasonWatched(watchedEpisodes, s.seasonNumber);
             const epCount = s.episodeCount ?? 0;
             const pct = epCount > 0 ? Math.round((w / epCount) * 100) : 0;
             return (
-              <div key={s.id} className="flex items-center gap-2">
-                <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
+              <div key={s.id} className={styles.readOnlyRow}>
+                <span className={styles.readOnlyLabel}>
                   S{String(s.seasonNumber).padStart(2, "0")}
                 </span>
-                <div className="flex-1 h-[4px] bg-dg-elevated rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-dg-accent/40 rounded-full"
-                    style={{ width: `${pct}%` }}
-                  />
+                <div className={styles.readOnlyTrack}>
+                  <div className={styles.readOnlyFill} style={{ width: `${pct}%` }} />
                 </div>
-                <span className="text-[0.6rem] text-dg-text-tertiary tabular-nums shrink-0">
-                  {epCount > 0 ? `${epCount} ep` : "?"}
-                </span>
+                <span className={styles.readOnlyCount}>{epCount > 0 ? `${epCount} ep` : "?"}</span>
               </div>
             );
           })}
@@ -782,7 +702,7 @@ function TrackingPanel({
   const [entry, setEntry] = useState<CatalogEntry | null>(hasInitial ? initialEntry : null);
   const [loaded, setLoaded] = useState(hasInitial);
   const action = useAction();
-  // Local state tracks UI; saved* refs track what the server has
+  const cardRef = useRef<HTMLDivElement>(null);
   const [localRating, setLocalRating] = useState<number | null>(
     hasInitial ? (initialEntry?.rating ?? null) : null,
   );
@@ -806,7 +726,6 @@ function TrackingPanel({
   const localWatchedAt = watchedAtState?.value ?? null;
   const setLocalWatchedAt = watchedAtState?.set;
 
-  // When loader didn't provide the entry, use TanStack Query to fetch it
   const entryQuery = useQuery({
     ...catalogEntryOptions(wikidataId),
     enabled: !hasInitial,
@@ -908,6 +827,14 @@ function TrackingPanel({
         serverEntry.current = fresh;
         queryClient.invalidateQueries({ queryKey: ["user"] });
         router.invalidate();
+        // Save pulse animation
+        const card = cardRef.current?.closest(`.${styles.trackingCard}`) as HTMLElement | null;
+        if (card) {
+          card.removeAttribute("data-save-pulse");
+          void card.offsetWidth;
+          card.setAttribute("data-save-pulse", "");
+          setTimeout(() => card.removeAttribute("data-save-pulse"), 900);
+        }
       } catch (err) {
         console.error("[tracking] save %s → FAILED:", wikidataId, err);
         setEntry(prev);
@@ -917,6 +844,14 @@ function TrackingPanel({
         setLocalReplayCount(prev?.replayCount ?? 0);
         setLocalWatchedEpisodes?.((prev?.watchedEpisodes as WatchedEpisodes) ?? {});
         setLocalWatchedAt?.(prev?.watchedAt ?? null);
+        // Error pulse animation
+        const card = cardRef.current?.closest(`.${styles.trackingCard}`) as HTMLElement | null;
+        if (card) {
+          card.removeAttribute("data-save-error");
+          void card.offsetWidth;
+          card.setAttribute("data-save-error", "");
+          setTimeout(() => card.removeAttribute("data-save-error"), 900);
+        }
         throw err;
       }
     });
@@ -938,6 +873,51 @@ function TrackingPanel({
     setLocalWatchedAt,
   ]);
 
+  // ─── Auto-save: 1s debounce ────────────────────────────────────────────
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
+  const isDirtyRef = useRef(isDirty);
+  isDirtyRef.current = isDirty;
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: extra deps intentionally trigger debounce reset on value changes
+  useEffect(() => {
+    if (!isDirty || !localStatus || action.state === "pending") {
+      clearTimeout(autoSaveTimer.current);
+      return;
+    }
+    autoSaveTimer.current = setTimeout(() => {
+      if (isDirtyRef.current) {
+        handleSaveRef.current();
+      }
+    }, 1000);
+    return () => clearTimeout(autoSaveTimer.current);
+  }, [
+    isDirty,
+    localStatus,
+    action.state,
+    localRating,
+    localIsFavorite,
+    localReplayCount,
+    localWatchedEpisodes,
+    localWatchedAt,
+  ]);
+
+  // Flush pending save on navigation / page close
+  useEffect(() => {
+    const flush = () => {
+      if (isDirtyRef.current && autoSaveTimer.current) {
+        clearTimeout(autoSaveTimer.current);
+        handleSaveRef.current();
+      }
+    };
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      flush();
+    };
+  }, []);
+
   const handleRemove = useCallback(async () => {
     console.debug("[tracking] remove %s", wikidataId);
     await action.run(async () => {
@@ -949,10 +929,8 @@ function TrackingPanel({
 
   const statuses = availableStatuses(mediaType);
 
-  // ─── Tracking shortcuts ───────────────────────────────────────────────
   const notBusy = action.state !== "pending";
 
-  // Status keys — only fire if the status is visible for this media type
   const statusKeyMap: Record<string, string> = {
     P: "planned",
     W: "in_progress",
@@ -968,7 +946,6 @@ function TrackingPanel({
     });
   }
 
-  // = N — rating input mode: press =, then type 0–100
   const [ratingMode, setRatingMode] = useState(false);
   const ratingBuf = useRef("");
 
@@ -1009,13 +986,11 @@ function TrackingPanel({
         e.preventDefault();
         ratingBuf.current += e.key;
         const val = Number.parseInt(ratingBuf.current, 10);
-        // Auto-commit: 3 digits, or 2+ digits where next digit can't stay ≤100
         if (ratingBuf.current.length >= 3 || (ratingBuf.current.length === 2 && val > 10)) {
           commit();
         }
         return;
       }
-      // Non-digit, non-Enter, non-Escape → cancel
       cancel();
     };
 
@@ -1023,16 +998,17 @@ function TrackingPanel({
     return () => document.removeEventListener("keydown", onKey, true);
   }, [ratingMode]);
 
-  // s — save
   useHotkey(
     "S",
     () => {
-      if (isDirty) handleSave();
+      if (isDirty) {
+        clearTimeout(autoSaveTimer.current);
+        handleSave();
+      }
     },
     { enabled: loaded && notBusy && isDirty },
   );
 
-  // D (shift+d) — delete entry
   useHotkey(
     "Shift+D",
     () => {
@@ -1043,35 +1019,34 @@ function TrackingPanel({
 
   if (!loaded) {
     return (
-      <div
-        className={
-          bare
-            ? "p-3 sm:p-4"
-            : "border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5"
-        }
-      >
-        <div className="w-20 h-3 bg-dg-elevated rounded animate-pulse" />
+      <div ref={cardRef} className={bare ? styles.trackingInner : styles.trackingCard}>
+        <div
+          className={`dg-skeleton ${styles.skeleton}`}
+          style={{ width: "5rem", height: "0.75rem" }}
+        />
       </div>
     );
   }
 
+  const saveState =
+    action.state === "pending"
+      ? "pending"
+      : action.state === "error"
+        ? "error"
+        : isDirty
+          ? "dirty"
+          : "clean";
+
   return (
-    <div
-      className={
-        bare
-          ? "p-3 sm:p-4"
-          : "border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5"
-      }
-    >
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider m-0">Status</h3>
+    <div ref={cardRef} className={bare ? styles.trackingInner : styles.trackingCard}>
+      <div className={styles.trackingHeader}>
+        <h3 className={styles.trackingLabel}>Status</h3>
         {localStatus && (
           <button
             type="button"
             onClick={() => setLocalIsFavorite(!localIsFavorite)}
-            className={`text-[1.1rem] bg-transparent border-none cursor-pointer p-1 -m-1 transition-colors duration-150 ${
-              localIsFavorite ? "text-dg-accent" : "text-dg-text-tertiary hover:text-dg-accent/60"
-            }`}
+            className={styles.favBtn}
+            {...(localIsFavorite ? { "data-active": "" } : {})}
             title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
           >
             {localIsFavorite ? "\u2605" : "\u2606"}
@@ -1079,11 +1054,9 @@ function TrackingPanel({
         )}
       </div>
 
-      {/* Status buttons — horizontal scroll on mobile, wrap on desktop */}
-      <div className="flex flex-nowrap overflow-x-auto sm:flex-wrap gap-1.5 mb-4 scrollbar-hide">
+      <div className={styles.statusRow}>
         {statuses.map((s) => {
           const isActive = localStatus === s;
-          const colorClass = STATUS_BUTTON_COLORS[s];
           const label = statusLabel(s, mediaType);
           return (
             <button
@@ -1091,11 +1064,9 @@ function TrackingPanel({
               type="button"
               onClick={() => setLocalStatus(s)}
               disabled={action.state === "pending"}
-              className={`text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-mono cursor-pointer shrink-0 transition-all duration-150 disabled:opacity-50 ${
-                isActive
-                  ? colorClass
-                  : "border-dg-border-subtle text-dg-text-secondary bg-transparent hover:border-dg-border"
-              }`}
+              className={styles.statusBtn}
+              data-status={s}
+              {...(isActive ? { "data-active": "" } : {})}
             >
               {label}
             </button>
@@ -1103,44 +1074,39 @@ function TrackingPanel({
         })}
       </div>
 
-      {/* Rating (only when watching, completed, or mastered) */}
       {(localStatus === "in_progress" ||
         localStatus === "completed" ||
         localStatus === "mastered") && (
-        <div className="mb-4">
-          <h4 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+        <div className={styles.ratingSection}>
+          <h4 className={styles.ratingLabel}>
             Rating
             {ratingMode && (
-              <span className="ml-2 text-dg-accent normal-case tracking-normal">
-                = <span className="animate-pulse">_</span>
+              <span className={styles.ratingMode}>
+                = <span className="dg-breathe">_</span>
               </span>
             )}
           </h4>
-          <div className="flex items-center gap-3">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              value={localRating ?? 0}
-              onChange={(e) => {
-                setLocalRating(Number.parseInt(e.target.value, 10) || null);
-              }}
-              disabled={action.state === "pending"}
-              className="dg-range flex-1"
-              style={{ "--rating-color": ratingColor(localRating) } as React.CSSProperties}
-            />
-            <RatingInput
-              value={localRating}
-              onChange={setLocalRating}
-              disabled={action.state === "pending"}
-            />
+          <div className={styles.ratingControls}>
+            <div className={styles.knobWrapper}>
+              <RotaryKnob
+                value={localRating ?? 0}
+                onChange={(v) => setLocalRating(v || null)}
+                size={80}
+                color={ratingColor(localRating) ?? "var(--dg-accent)"}
+                disabled={action.state === "pending"}
+              />
+              <RatingInput
+                value={localRating}
+                onChange={setLocalRating}
+                disabled={action.state === "pending"}
+              />
+            </div>
             {localRating != null && (
               <button
                 type="button"
                 onClick={() => setLocalRating(null)}
                 disabled={action.state === "pending"}
-                className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-2 -m-2 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
+                className={styles.ratingClearBtn}
                 title="Clear rating"
               >
                 <X size={14} />
@@ -1150,67 +1116,57 @@ function TrackingPanel({
         </div>
       )}
 
-      {/* Replay count (when completed or mastered) */}
       {(localStatus === "completed" || localStatus === "mastered") && (
-        <div className="flex items-center gap-2 mb-4">
+        <div className={styles.replayRow}>
           <button
             type="button"
             onClick={() => setLocalReplayCount(Math.max(0, localReplayCount - 1))}
             disabled={action.state === "pending" || localReplayCount <= 0}
-            className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30"
+            className={styles.replayBtn}
           >
             -
           </button>
-          <span className="text-[0.75rem] text-dg-text-secondary min-w-[5rem] text-center">
+          <span className={styles.replayLabel}>
             {replayCountLabel(localReplayCount, mediaType) ?? "First time"}
           </span>
           <button
             type="button"
             onClick={() => setLocalReplayCount(localReplayCount + 1)}
             disabled={action.state === "pending"}
-            className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30"
+            className={styles.replayBtn}
           >
             +
           </button>
         </div>
       )}
 
-      {/* Movie date picker */}
       {isMovie && localStatus && setLocalWatchedAt && (
-        <div className="mb-4">
-          <h4 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-            Watched on
-          </h4>
+        <div className={styles.dateSection}>
+          <h4 className={styles.dateLabel}>Watched on</h4>
           <input
             type="date"
             value={localWatchedAt ?? ""}
             max={todayISO()}
             onChange={(e) => setLocalWatchedAt(e.target.value || null)}
             disabled={action.state === "pending"}
-            className="text-[0.8rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1.5 text-dg-text outline-none focus:border-dg-accent transition-colors disabled:opacity-50"
+            className={styles.dateInput}
           />
         </div>
       )}
 
-      {/* Children slot (e.g., EpisodeGrid) */}
-      {children && <div className="mt-5">{children}</div>}
+      {children && <div className={styles.childrenSlot}>{children}</div>}
 
-      {/* Bottom bar: save (left) + remove (right) */}
       {localStatus && (
-        <div className="flex items-center justify-between pt-3 mt-4 border-t border-dg-border-subtle">
+        <div className={styles.bottomBar}>
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => {
+              clearTimeout(autoSaveTimer.current);
+              handleSave();
+            }}
             disabled={action.state === "pending" || !isDirty}
-            className={`text-[0.75rem] font-mono rounded-sm border px-3 py-1 bg-transparent cursor-pointer transition-all duration-150 disabled:cursor-default ${
-              action.state === "pending"
-                ? "border-dg-accent/50 text-dg-accent/70"
-                : action.state === "error"
-                  ? "border-dg-anime/40 text-dg-anime"
-                  : isDirty
-                    ? "border-dg-accent text-dg-accent bg-dg-accent/10"
-                    : "border-dg-border-subtle text-dg-text-tertiary opacity-50"
-            }`}
+            className={styles.saveBtn}
+            data-state={saveState}
             title="Save changes"
           >
             {action.state === "pending" ? (
@@ -1230,7 +1186,7 @@ function TrackingPanel({
               type="button"
               onClick={handleRemove}
               disabled={action.state === "pending"}
-              className="text-[0.75rem] font-mono rounded-sm border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 cursor-pointer transition-all duration-150 hover:text-dg-anime hover:border-dg-anime/40 disabled:opacity-50 disabled:cursor-default"
+              className={styles.deleteBtn}
               title="Remove from list"
             >
               delete
@@ -1254,7 +1210,7 @@ function RatingInput({
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const color = ratingColor(value) ?? "var(--color-dg-accent)";
+  const color = ratingColor(value) ?? "var(--dg-accent)";
 
   const startEditing = () => {
     if (disabled) return;
@@ -1291,7 +1247,7 @@ function RatingInput({
           if (e.key === "Enter") commit();
           if (e.key === "Escape") setEditing(false);
         }}
-        className="w-[4ch] text-[0.85rem] tabular-nums text-right bg-dg-bg border border-dg-border rounded-sm px-1 py-0 font-mono outline-none shrink-0"
+        className={styles.ratingInputEditing}
         style={{ color, borderColor: color }}
       />
     );
@@ -1302,7 +1258,7 @@ function RatingInput({
       type="button"
       onClick={startEditing}
       disabled={disabled}
-      className="text-[0.85rem] tabular-nums w-[4ch] text-right bg-transparent border-none font-mono cursor-text p-0 shrink-0 hover:underline disabled:cursor-default disabled:no-underline"
+      className={styles.ratingInputDisplay}
       style={{ color, textDecorationColor: `${color}50` }}
       title="Click to type a rating"
     >
@@ -1313,9 +1269,9 @@ function RatingInput({
 
 function MetaItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider">{label}</span>
-      <span className="text-[0.85rem] text-dg-text">{value}</span>
+    <div className={styles.metaItem}>
+      <span className={styles.metaLabel}>{label}</span>
+      <span className={styles.metaValue}>{value}</span>
     </div>
   );
 }

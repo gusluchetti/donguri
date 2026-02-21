@@ -11,8 +11,8 @@ import {
 } from "@tanstack/react-router";
 import { clear } from "idb-keyval";
 import { Moon, Sun } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
-import "../app.css";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
+import "../styles/global.css";
 import { getAuthState, logout } from "../lib/auth.functions";
 import { getCatalogFingerprint } from "../lib/catalog.functions";
 import { HelpOverlay } from "../lib/hotkeys/HelpOverlay";
@@ -21,8 +21,8 @@ import { ogTags, pageTitle } from "../lib/og";
 import { checkCatalogFreshness } from "../lib/query";
 import { trackedIdsOptions } from "../lib/query-options";
 import { getThemeCookie, ThemeProvider, useTheme } from "../lib/theme";
+import styles from "./__root.module.css";
 
-// Sets data-theme before first paint. Also syncs the cookie for SSR on next visit.
 const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('dg-theme');if(!t){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.setAttribute('data-theme',t);document.cookie='dg-theme='+t+';path=/;max-age=34560000;samesite=lax'}catch(e){document.documentElement.setAttribute('data-theme','dark')}})()`;
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -30,7 +30,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1" },
-      { name: "theme-color", content: "#d4a44a" },
+      { name: "theme-color", content: "#00E5CC" },
       { title: pageTitle("donguri") },
       {
         name: "description",
@@ -43,14 +43,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       }),
     ],
     links: [
-      {
-        rel: "icon",
-        href: "/favicon.ico",
-      },
-      {
-        rel: "manifest",
-        href: "/manifest.json",
-      },
+      { rel: "icon", href: "/favicon.ico" },
+      { rel: "manifest", href: "/manifest.json" },
     ],
   }),
   loader: async ({ context }) => {
@@ -84,7 +78,7 @@ function RootDocument({ children, theme }: { children: ReactNode; theme: string 
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
-      <body className="bg-dg-bg m-0 p-0">
+      <body>
         {children}
         <Scripts />
       </body>
@@ -102,7 +96,6 @@ function RootComponent() {
   const { auth, theme } = Route.useLoaderData();
   const queryClient = Route.useRouteContext().queryClient;
 
-  // Global error handler: stale deploys + expired AT Protocol sessions
   useEffect(() => {
     const onError = (e: PromiseRejectionEvent) => {
       const msg = e.reason?.message ?? String(e.reason ?? "");
@@ -125,38 +118,66 @@ function RootComponent() {
 
   const [showHelp, setShowHelp] = useState(false);
 
+  // ─── Tron dev grid toggle (Shift+G) ──────────────────────────────────
+  const toggleGrid = useCallback(() => {
+    if (!import.meta.env.DEV) return;
+    const html = document.documentElement;
+    if (html.hasAttribute("data-grid")) {
+      html.removeAttribute("data-grid");
+      localStorage.removeItem("dg-dev-grid");
+    } else {
+      html.setAttribute("data-grid", "");
+      localStorage.setItem("dg-dev-grid", "1");
+    }
+  }, []);
+
+  // Restore grid on mount (dev only)
+  useEffect(() => {
+    if (import.meta.env.DEV && localStorage.getItem("dg-dev-grid")) {
+      document.documentElement.setAttribute("data-grid", "");
+    }
+  }, []);
+
   return (
     <RootDocument theme={theme}>
       <ThemeProvider initialTheme={theme}>
         <HotkeysProvider>
-          <GlobalShortcuts showHelp={showHelp} setShowHelp={setShowHelp} />
-          <div className="min-h-dvh flex flex-col">
-            <nav className="border-b border-dg-border-subtle px-4 sm:px-6 py-2 font-mono shrink-0">
-              <div className="max-w-[1000px] mx-auto flex items-center min-h-[44px] gap-4 sm:gap-6">
-                {NAV_LINKS.map((link) => (
-                  <Link
-                    key={link.to}
-                    to={link.to}
-                    activeOptions={{ exact: link.exact !== false }}
-                    className="text-[0.85rem] no-underline transition-colors duration-150 min-h-[44px] flex items-center"
-                    activeProps={{ className: "text-dg-accent" }}
-                    inactiveProps={{
-                      className: link.accent ? "text-dg-accent" : "text-dg-text-secondary",
-                    }}
-                  >
-                    {link.accent ? <span className="font-semibold">{link.label}</span> : link.label}
-                  </Link>
-                ))}
-                <div className="ml-auto flex items-center gap-3">
+          <GlobalShortcuts showHelp={showHelp} setShowHelp={setShowHelp} toggleGrid={toggleGrid} />
+          <div className={styles.shell}>
+            <nav className={styles.nav}>
+              <div className={styles.navInner}>
+                {NAV_LINKS.map((link) =>
+                  link.accent ? (
+                    <Link
+                      key={link.to}
+                      to={link.to}
+                      activeOptions={{ exact: link.exact !== false }}
+                      className={styles.navLinkBrand}
+                    >
+                      {link.label}
+                    </Link>
+                  ) : (
+                    <Link
+                      key={link.to}
+                      to={link.to}
+                      activeOptions={{ exact: link.exact !== false }}
+                      className={styles.navLink}
+                      activeProps={{ "data-active": "" } as Record<string, string>}
+                    >
+                      {link.label}
+                    </Link>
+                  ),
+                )}
+                <div className={styles.navRight}>
                   <ThemeToggle />
                   {auth ? (
-                    <div className="flex items-center gap-4">
-                      <span className="text-[0.8rem] text-dg-accent hidden sm:inline">
+                    <>
+                      <span className={styles.handle}>
                         {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
                       </span>
                       <button
                         type="button"
-                        className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none font-mono min-h-[44px] flex items-center"
+                        className={styles.logoutBtn}
                         onClick={async () => {
                           await logout();
                           queryClient.clear();
@@ -166,12 +187,9 @@ function RootComponent() {
                       >
                         logout
                       </button>
-                    </div>
+                    </>
                   ) : (
-                    <Link
-                      to="/"
-                      className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-150 min-h-[44px] flex items-center"
-                    >
+                    <Link to="/" className={styles.loginLink}>
                       login
                     </Link>
                   )}
@@ -179,14 +197,14 @@ function RootComponent() {
               </div>
             </nav>
             <Outlet />
-            <footer className="border-t border-dg-border-subtle px-4 sm:px-6 py-3 font-mono shrink-0">
-              <div className="max-w-[1000px] mx-auto flex items-center justify-between text-[0.7rem] text-dg-text-tertiary">
-                <span className="flex items-center gap-2">
+            <footer className={styles.footer}>
+              <div className={styles.footerInner}>
+                <span className={styles.footerLeft}>
                   <span>v0.3.0</span>
                   <button
                     type="button"
                     onClick={() => setShowHelp(true)}
-                    className="text-dg-text-tertiary hover:text-dg-text-secondary bg-transparent border-none font-mono cursor-pointer p-0 text-[0.7rem] transition-colors"
+                    className={styles.shortcutsBtn}
                   >
                     shortcuts (?)
                   </button>
@@ -197,7 +215,7 @@ function RootComponent() {
                     href="https://www.wikidata.org"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                    className={styles.footerLink}
                   >
                     Wikidata
                   </a>
@@ -206,7 +224,7 @@ function RootComponent() {
                     href="https://www.themoviedb.org"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                    className={styles.footerLink}
                   >
                     TMDB
                   </a>
@@ -215,7 +233,7 @@ function RootComponent() {
                     href="https://www.tvmaze.com"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                    className={styles.footerLink}
                   >
                     TVMaze
                   </a>
@@ -224,7 +242,7 @@ function RootComponent() {
                     href="https://github.com/manami-project/anime-offline-database"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-dg-text-tertiary underline decoration-dg-border hover:text-dg-text-secondary transition-colors"
+                    className={styles.footerLink}
                   >
                     anime-offline-database
                   </a>
@@ -241,32 +259,31 @@ function RootComponent() {
 function GlobalShortcuts({
   showHelp,
   setShowHelp,
+  toggleGrid,
 }: {
   showHelp: boolean;
   setShowHelp: React.Dispatch<React.SetStateAction<boolean>>;
+  toggleGrid: () => void;
 }) {
   const navigate = useNavigate();
   const { toggleTheme } = useTheme();
 
-  // ? — toggle help overlay (Shift+/ produces "?")
   useHotkey({ key: "?", shift: true }, () => setShowHelp((v) => !v));
-
-  // . — toggle theme
   useHotkey(".", toggleTheme);
 
-  // g h — go home (sequence, needs input guard)
+  // Shift+G — toggle dev grid
+  useHotkey({ key: "G", shift: true }, toggleGrid);
+
   useHotkeySequence(["G", "H"], () => {
     if (isInputFocused()) return;
     navigate({ to: "/" });
   });
 
-  // g c — go to catalog
   useHotkeySequence(["G", "C"], () => {
     if (isInputFocused()) return;
     navigate({ to: "/catalog" });
   });
 
-  // g r — go to roadmap
   useHotkeySequence(["G", "R"], () => {
     if (isInputFocused()) return;
     navigate({ to: "/roadmap" });
@@ -290,23 +307,16 @@ function RootError({ error, reset }: ErrorComponentProps) {
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
-      <body className="bg-dg-bg m-0 p-0">
-        <div className="min-h-dvh flex items-center justify-center font-mono text-dg-text">
-          <div className="text-center px-4 py-16">
-            <p className="text-[2rem] font-semibold text-dg-anime mb-2">error</p>
-            <p className="text-[0.9rem] text-dg-text-secondary mb-6">Something went wrong.</p>
-            <div className="flex items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={reset}
-                className="text-[0.85rem] text-dg-accent font-mono bg-transparent py-2 px-4 border border-dg-accent/20 rounded-sm cursor-pointer transition-all duration-150"
-              >
+      <body className={styles.errorBody}>
+        <div className={styles.errorPage}>
+          <div className={styles.errorCenter}>
+            <p className={styles.errorTitle}>error</p>
+            <p className={styles.errorMsg}>Something went wrong.</p>
+            <div className={styles.errorActions}>
+              <button type="button" onClick={reset} className={styles.errorRetry}>
                 Try again
               </button>
-              <a
-                href="/"
-                className="text-[0.85rem] text-dg-text-secondary no-underline py-2 px-4 border border-dg-border-subtle rounded-sm transition-all duration-150"
-              >
+              <a href="/" className={styles.errorHome}>
                 Go home
               </a>
             </div>
@@ -320,14 +330,11 @@ function RootError({ error, reset }: ErrorComponentProps) {
 
 function NotFound() {
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono flex items-center justify-center">
-      <div className="text-center px-4 py-16">
-        <p className="text-[2rem] font-semibold text-dg-accent mb-2">404</p>
-        <p className="text-[0.9rem] text-dg-text-secondary mb-6">Page not found.</p>
-        <Link
-          to="/"
-          className="text-[0.85rem] text-dg-accent no-underline py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-150"
-        >
+    <div className={styles.notFound}>
+      <div className={styles.notFoundCenter}>
+        <p className={styles.notFoundTitle}>404</p>
+        <p className={styles.notFoundMsg}>Page not found.</p>
+        <Link to="/" className={styles.notFoundLink}>
           Go home
         </Link>
       </div>
@@ -343,7 +350,7 @@ function ThemeToggle() {
     <button
       type="button"
       onClick={toggleTheme}
-      className="text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none p-2 -m-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+      className={styles.themeBtn}
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
       title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
     >

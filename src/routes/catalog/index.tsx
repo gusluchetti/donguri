@@ -15,14 +15,10 @@ import type { Media } from "../../db/schema";
 import { setCatalogEntry } from "../../lib/catalog.functions";
 import { isInputFocused } from "../../lib/hotkeys/shortcuts";
 import { useCatalogCursor } from "../../lib/hotkeys/use-catalog-cursor";
-import {
-  mediaTypeLabel,
-  STATUS_ACCENT,
-  type StatusValue,
-  typeBadgeClass,
-} from "../../lib/media-types";
+import { mediaTypeLabel, STATUS_ACCENT_VAR, type StatusValue } from "../../lib/media-types";
 import { ogTags, pageTitle } from "../../lib/og";
 import { catalogInfiniteOptions, mediaStatsOptions } from "../../lib/query-options";
+import styles from "./index.module.css";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -80,7 +76,6 @@ const SearchInput = forwardRef<HTMLInputElement, { initialValue: string }>(funct
   const [value, setValue] = useState(initialValue);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Sync when URL changes externally (e.g. back/forward)
   useEffect(() => {
     setValue(q ?? "");
   }, [q]);
@@ -103,7 +98,7 @@ const SearchInput = forwardRef<HTMLInputElement, { initialValue: string }>(funct
       placeholder="Search titles..."
       value={value}
       onChange={(e) => handleChange(e.target.value)}
-      className="w-full py-2.5 px-3 bg-dg-surface border border-dg-border rounded text-dg-text font-mono text-base sm:text-[0.85rem] outline-none box-border"
+      className={styles.searchInput}
     />
   );
 });
@@ -185,7 +180,6 @@ function CatalogPage() {
     [router, queryClient],
   );
 
-  // Clean up quick-add timers on unmount
   useEffect(
     () => () => {
       for (const t of quickAddTimers.current.values()) clearTimeout(t);
@@ -193,12 +187,10 @@ function CatalogPage() {
     [],
   );
 
-  // Scroll restoration for the custom scroll container via TanStack Router
   const scrollEntry = useElementScrollRestoration({
     getElement: () => parentRef.current,
   });
 
-  // Restore scroll position after data is available and virtualizer has rendered
   const didRestore = useRef(false);
   useEffect(() => {
     if (didRestore.current || !scrollEntry || allItems.length === 0) return;
@@ -219,7 +211,6 @@ function CatalogPage() {
 
   const virtualItems = virtualizer.getVirtualItems();
 
-  // ─── Keyboard shortcuts ─────────────────────────────────────────────────
   const { selectedIndex, setSelectedIndex } = useCatalogCursor({
     itemCount: allItems.length,
     virtualizer,
@@ -227,7 +218,6 @@ function CatalogPage() {
     hasNextPage,
   });
 
-  // Reset cursor when search/filter changes
   const prevQ = useRef(q);
   const prevType = useRef(mediaType);
   useEffect(() => {
@@ -238,7 +228,6 @@ function CatalogPage() {
     }
   }, [q, mediaType, setSelectedIndex]);
 
-  // Enter — blur search (if focused) or open selected item
   useHotkey(
     "Enter",
     () => {
@@ -252,7 +241,6 @@ function CatalogPage() {
     { ignoreInputs: false },
   );
 
-  // l / ArrowRight — open selected item
   const openSelected = () => {
     const item = allItems[selectedIndex];
     if (item) navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
@@ -260,12 +248,10 @@ function CatalogPage() {
   useHotkey("L", openSelected, { enabled: selectedIndex >= 0 });
   useHotkey("ArrowRight", openSelected, { enabled: selectedIndex >= 0 });
 
-  // / — focus search
   useHotkey("/", () => {
     searchRef.current?.focus();
   });
 
-  // Esc — blur search or deselect cursor
   useHotkey(
     "Escape",
     () => {
@@ -278,7 +264,6 @@ function CatalogPage() {
     { ignoreInputs: false, conflictBehavior: "allow" },
   );
 
-  // f + key — type filter sequences
   const typeFilter = (type: "movie" | "tv_series" | "anime" | "game" | undefined) => () => {
     if (isInputFocused()) return;
     handleTypeChange(type);
@@ -289,22 +274,19 @@ function CatalogPage() {
   useHotkeySequence(["F", "A"], typeFilter("anime"));
   useHotkeySequence(["F", "G"], typeFilter("game"));
 
-  // a — quick-add selected item
   useHotkey(
     "A",
     () => {
       const item = allItems[selectedIndex];
       if (!item || !auth) return;
       const status = trackedIds[item.wikidataId] ?? null;
-      if (status !== null) return; // already tracked
-      // Synthesize a mouse event for the existing handler
+      if (status !== null) return;
       const fakeEvent = { preventDefault: () => {}, stopPropagation: () => {} } as React.MouseEvent;
       handleQuickAdd(item.wikidataId, item.mediaType, fakeEvent);
     },
     { enabled: selectedIndex >= 0 && !!auth },
   );
 
-  // Trigger load more when approaching end
   useEffect(() => {
     const lastItem = virtualItems[virtualItems.length - 1];
     if (!lastItem) return;
@@ -314,11 +296,10 @@ function CatalogPage() {
   }, [virtualItems, allItems.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="px-4 sm:px-6 pt-3 pb-1">
-        <div className="max-w-[1000px] mx-auto">
-          <p className="text-dg-text-tertiary text-[0.8rem]">
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.headerInner}>
+          <p className={styles.statsText}>
             {stats.total > 0
               ? `${stats.total.toLocaleString()} titles across the catalog`
               : "\u00a0"}
@@ -326,15 +307,12 @@ function CatalogPage() {
         </div>
       </header>
 
-      {/* Controls */}
-      <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 py-2 flex flex-col gap-2">
-        {/* Search */}
-        <div className="w-full">
+      <div className={styles.controls}>
+        <div style={{ width: "100%" }}>
           <SearchInput ref={searchRef} initialValue={q ?? ""} />
         </div>
 
-        {/* Type filter tabs */}
-        <div className="flex gap-1 flex-nowrap overflow-x-auto sm:flex-wrap scrollbar-hide">
+        <div className={styles.filters}>
           {MEDIA_TYPES.map((t) => {
             const isActive = mediaType === t.value;
             const count = t.value
@@ -345,44 +323,28 @@ function CatalogPage() {
                 type="button"
                 key={t.label}
                 onClick={() => handleTypeChange(t.value)}
-                className={`py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 border rounded-sm font-mono text-xs cursor-pointer flex items-center gap-1.5 shrink-0 transition-all duration-150 ${
-                  isActive
-                    ? "bg-dg-accent/[0.08] border-dg-accent/25 text-dg-accent"
-                    : "bg-transparent border-dg-border-subtle text-dg-text-secondary"
-                }`}
+                className={styles.filterBtn}
+                {...(isActive ? { "data-active": "" } : {})}
               >
                 {t.label}
-                {count > 0 && (
-                  <span className="text-[0.65rem] opacity-60">{count.toLocaleString()}</span>
-                )}
+                {count > 0 && <span className={styles.filterCount}>{count.toLocaleString()}</span>}
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Login prompt */}
       {!auth && (
-        <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 pb-2">
-          <Link
-            to="/"
-            className="block border border-dg-accent/20 bg-dg-accent/[0.04] rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-150"
-          >
-            <span className="text-dg-accent">Sign in</span> to add titles to your watchlist and
+        <div className={styles.loginPrompt}>
+          <Link to="/" className={styles.loginBanner}>
+            <span className={styles.loginAccent}>Sign in</span> to add titles to your watchlist and
             track your progress.
           </Link>
         </div>
       )}
 
-      {/* Virtual list — relative+absolute ensures a definite height for the
-           scroll container regardless of the outer flex chain (min-h-dvh on
-           root doesn't give flex children a definite height, which would make
-           the virtualizer think ALL items are visible and fetchNextPage loops) */}
-      <div className="flex-1 relative min-h-0">
-        <div
-          ref={parentRef}
-          className="absolute inset-0 overflow-auto max-w-[1000px] mx-auto w-full px-4 sm:px-6"
-        >
+      <div className={styles.listWrapper}>
+        <div ref={parentRef} className={styles.listScroller}>
           <div
             style={{
               height: virtualizer.getTotalSize(),
@@ -395,15 +357,13 @@ function CatalogPage() {
                 return (
                   <div
                     key="loader"
-                    className="w-full left-0 border-b border-dg-surface absolute flex items-center justify-center overflow-hidden"
+                    className={styles.loader}
                     style={{
                       top: virtualRow.start,
                       height: virtualRow.size,
                     }}
                   >
-                    <span className="text-dg-text-tertiary">
-                      {isFetchingNextPage ? "Loading..." : ""}
-                    </span>
+                    <span>{isFetchingNextPage ? "Loading..." : ""}</span>
                   </div>
                 );
               }
@@ -413,7 +373,6 @@ function CatalogPage() {
               const isTracked = status !== null;
               const showAdd = auth && !isTracked;
               const addState = quickAddState[item.wikidataId] ?? null;
-
               const isCursorActive = virtualRow.index === selectedIndex;
 
               return (
@@ -422,7 +381,7 @@ function CatalogPage() {
                   to="/catalog/$wikidataId"
                   params={{ wikidataId: item.wikidataId }}
                   preload="intent"
-                  className={`w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group overflow-hidden${isCursorActive ? " dg-cursor-active" : ""}`}
+                  className={`${styles.listItem}${isCursorActive ? " dg-cursor-active" : ""}`}
                   style={{
                     top: virtualRow.start,
                     height: virtualRow.size,
@@ -475,67 +434,58 @@ const MediaRow = memo(function MediaRow({
   addState: "pending" | "done" | null;
   onQuickAdd: (wikidataId: string, mediaType: string, e: React.MouseEvent) => void;
 }) {
-  const badgeClass = typeBadgeClass(item.mediaType);
-
   const meta = formatMeta(item);
 
   return (
-    <div className="flex items-center justify-between py-1.5 px-1 h-full gap-2 sm:gap-4">
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+    <div className={styles.row}>
+      <div className={styles.rowLeft}>
         {item.posterUrl && (
           <img
             src={item.posterUrl}
             alt=""
             width={40}
             height={60}
-            className="rounded-sm border border-dg-border-subtle object-cover shrink-0 hidden sm:block"
+            className={styles.poster}
             loading="lazy"
           />
         )}
         {addState === "pending" ? (
-          <span className="text-[0.75rem] font-bold text-dg-accent font-mono shrink-0">
+          <span className={styles.addPending}>
             [<span className="dg-ellipsis" />]
           </span>
         ) : addState === "done" ? (
-          <span className="text-[0.75rem] font-bold text-dg-game font-mono shrink-0">[ok]</span>
+          <span className={styles.addDone}>[ok]</span>
         ) : showAdd ? (
           <button
             type="button"
             onClick={(e) => onQuickAdd(item.wikidataId, item.mediaType, e)}
-            className="text-[0.75rem] font-bold text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent"
+            className={styles.addBtn}
           >
             [+]
           </button>
         ) : null}
-        <span
-          className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm border uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center ${badgeClass}`}
-        >
+        <span className={styles.badge} data-type={item.mediaType}>
           {mediaTypeLabel(item.mediaType, true)}
         </span>
-        <div className="flex items-baseline gap-2 min-w-0 overflow-hidden">
-          <span className="text-[0.85rem] font-medium truncate text-dg-text">{item.title}</span>
+        <div className={styles.titleGroup}>
+          <span className={styles.title}>{item.title}</span>
           {trackedStatus && (
             <span
-              className={`text-sm shrink-0 ${STATUS_ACCENT[trackedStatus as StatusValue] ?? "text-dg-text-tertiary"}`}
+              className={styles.trackedDot}
+              style={{
+                color: STATUS_ACCENT_VAR[trackedStatus as StatusValue] ?? "var(--dg-text-tertiary)",
+              }}
             >
               *
             </span>
           )}
-          {item.originalTitle && (
-            <span className="text-xs text-dg-text-tertiary truncate hidden sm:inline">
-              {item.originalTitle}
-            </span>
-          )}
+          {item.originalTitle && <span className={styles.originalTitle}>{item.originalTitle}</span>}
         </div>
       </div>
-      <div className="flex items-center gap-4 shrink-0">
-        {meta && (
-          <span className="text-[0.7rem] text-dg-text-tertiary min-w-12 text-right tabular-nums hidden sm:flex">
-            {meta}
-          </span>
-        )}
+      <div className={styles.rowRight}>
+        {meta && <span className={styles.meta}>{meta}</span>}
         {item.startYear && (
-          <span className="text-xs text-dg-text-secondary tabular-nums">
+          <span className={styles.year}>
             {item.startYear}
             {item.endYear && item.endYear !== item.startYear ? `–${item.endYear}` : ""}
           </span>

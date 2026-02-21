@@ -1,0 +1,103 @@
+/* ─── Design Tokens ────────────────────────────────────────────────────────── */
+/* Bioluminescent dark theme (default) + cool light theme overrides           */
+
+:root,
+[data-theme="dark"] {
+  /* Backgrounds */
+  --dg-bg: #060912;
+  --dg-surface: #0a0f1a;
+  --dg-elevated: #101828;
+
+  /* Borders */
+  --dg-border-subtle: #141e30;
+  --dg-border: #1c2940;
+
+  /* Text hierarchy */
+  --dg-text: #e8edf4;
+  --dg-text-secondary: #8899aa;
+  --dg-text-tertiary: #556677;
+
+  /* Primary emission (cold blue-green) */
+  --dg-accent: #00e5cc;
+  --dg-accent-dim: rgba(0, 229, 204, 0.15);
+  --dg-accent-mid: rgba(0, 229, 204, 0.3);
+  --dg-accent-glow: rgba(0, 229, 204, 0.08);
+
+  /* Secondary emission (violet) */
+  --dg-violet: #8a5cf6;
+  --dg-violet-dim: rgba(138, 92, 246, 0.15);
+  --dg-violet-glow: rgba(138, 92, 246, 0.08);
+
+  /* Media type emissions */
+  --dg-movie: #ff6b4a;
+  --dg-tv: #00b4d8;
+  --dg-anime: #e040fb;
+  --dg-game: #00e676;
+
+  /* Typography */
+  --dg-font-mono: "Geist Mono", "SF Mono", "Fira Code", monospace;
+
+  /* Radii */
+  --dg-radius-sm: 2px;
+  --dg-radius: 4px;
+
+  /* Motion */
+  --dg-transition-fast: 200ms ease;
+  --dg-transition-glow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+  --dg-transition-slow: 600ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Glow presets */
+  --dg-glow-card: inset 0 1px 0 rgba(0, 229, 204, 0.08), inset 1px 0 0 rgba(0, 229, 204, 0.04);
+  --dg-glow-hover: 0 0 12px rgba(0, 229, 204, 0.08), 0 0 32px rgba(0, 229, 204, 0.04);
+  --dg-glow-active: 0 0 16px rgba(138, 92, 246, 0.12), 0 0 32px rgba(138, 92, 246, 0.06);
+}
+
+/* ─── Light theme ──────────────────────────────────────────────────────────── */
+
+[data-theme="light"] {
+  --dg-bg: #f0f2f5;
+  --dg-surface: #e8ecf0;
+  --dg-elevated: #dde2e8;
+
+  --dg-border-subtle: #cdd4dc;
+  --dg-border: #b8c2cc;
+
+  --dg-text: #1a1e2e;
+  --dg-text-secondary: #4a5568;
+  --dg-text-tertiary: #8895a7;
+
+  --dg-accent: #0099aa;
+  --dg-accent-dim: rgba(0, 153, 170, 0.12);
+  --dg-accent-mid: rgba(0, 153, 170, 0.25);
+  --dg-accent-glow: rgba(0, 153, 170, 0.06);
+
+  --dg-violet: #6b3fa0;
+  --dg-violet-dim: rgba(107, 63, 160, 0.12);
+  --dg-violet-glow: rgba(107, 63, 160, 0.06);
+
+  --dg-movie: #d4522e;
+  --dg-tv: #0090b0;
+  --dg-anime: #b030d0;
+  --dg-game: #00a858;
+
+  /* Glow → subtle shadows in light mode */
+  --dg-glow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --dg-glow-hover: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --dg-glow-active: 0 2px 8px rgba(107, 63, 160, 0.1);
+}
+
+/* ─── Dev mode accent ──────────────────────────────────────────────────────── */
+
+[data-env="dev"] {
+  --dg-accent: #ff4444;
+  --dg-accent-dim: rgba(255, 68, 68, 0.15);
+  --dg-accent-mid: rgba(255, 68, 68, 0.3);
+  --dg-accent-glow: rgba(255, 68, 68, 0.08);
+}
+
+[data-env="dev"][data-theme="light"] {
+  --dg-accent: #cc2222;
+  --dg-accent-dim: rgba(204, 34, 34, 0.12);
+  --dg-accent-mid: rgba(204, 34, 34, 0.25);
+  --dg-accent-glow: rgba(204, 34, 34, 0.06);
+}

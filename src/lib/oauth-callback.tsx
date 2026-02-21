@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { handleOAuthProviderCallback } from "./auth.functions";
+import styles from "./oauth-callback.module.css";
 
 export function OAuthProviderCallback({
   provider,
@@ -33,20 +34,18 @@ export function OAuthProviderCallback({
   }, []);
 
   return (
-    <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[600px] mx-auto px-6 py-16">
+    <div className={styles.page}>
+      <div className={styles.container}>
         {error ? (
-          <div className="border border-dg-movie/30 rounded p-5 bg-dg-surface">
-            <p className="text-dg-movie text-[0.8rem] uppercase tracking-wider mb-3">
-              Authentication error
-            </p>
-            <p className="text-dg-text-secondary text-[0.85rem] leading-relaxed mb-4">{error}</p>
-            <a href="/" className="text-[0.85rem] text-dg-accent no-underline">
+          <div className={styles.errorCard}>
+            <p className={styles.errorTitle}>Authentication error</p>
+            <p className={styles.errorMsg}>{error}</p>
+            <a href="/" className={styles.backLink}>
               Back to home
             </a>
           </div>
         ) : (
-          <p className="text-dg-text-secondary text-[0.85rem]">
+          <p className={styles.loading}>
             <span className="dg-ellipsis">Signing in with {label}</span>
           </p>
         )}
