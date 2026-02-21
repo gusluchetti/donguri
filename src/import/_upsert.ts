@@ -44,7 +44,6 @@ export const STAGING_COLUMNS = [
   "country_of_origin",
   "imdb_id",
   "tmdb_id",
-  "tmdb_type",
   "mal_id",
   "anilist_id",
   "anidb_id",
@@ -85,7 +84,6 @@ export function toTsvRow(item: ParsedMedia, rowId: string): string {
     item.countryOfOrigin ?? "\\N",
     item.imdbId ?? "\\N",
     item.tmdbId ?? "\\N",
-    item.tmdbType ?? "\\N",
     item.malId ?? "\\N",
     item.anilistId ?? "\\N",
     item.anidbId ?? "\\N",
@@ -207,7 +205,6 @@ export async function processSuperBatch(
 							country_of_origin TEXT,
 							imdb_id TEXT,
 							tmdb_id TEXT,
-							tmdb_type TEXT,
 							mal_id TEXT,
 							anilist_id TEXT,
 							anidb_id TEXT,
@@ -254,14 +251,14 @@ export async function processSuperBatch(
 							id, wikidata_id, media_type, title, original_title, original_language,
 							description, start_year, end_year, runtime_minutes, season_count,
 							episode_count, sitelinks_count, country_of_origin,
-							imdb_id, tmdb_id, tmdb_type, mal_id, anilist_id, anidb_id, igdb_id,
+							imdb_id, tmdb_id, mal_id, anilist_id, anidb_id, igdb_id,
 							ann_id, tvdb_id, tvmaze_id, search_title, created_at, updated_at
 						)
 						SELECT
 							s.id, s.wikidata_id, s.media_type, s.title, s.original_title,
 							s.original_language, s.description, s.start_year, s.end_year,
 							s.runtime_minutes, s.season_count, s.episode_count, s.sitelinks_count,
-							s.country_of_origin, s.imdb_id, s.tmdb_id, s.tmdb_type, s.mal_id, s.anilist_id,
+							s.country_of_origin, s.imdb_id, s.tmdb_id, s.mal_id, s.anilist_id,
 							s.anidb_id, s.igdb_id, s.ann_id, s.tvdb_id, s.tvmaze_id,
 							s.search_title, now(), now()
 						FROM _media_staging s
@@ -279,7 +276,6 @@ export async function processSuperBatch(
 							country_of_origin = COALESCE(EXCLUDED.country_of_origin, media.country_of_origin),
 							imdb_id = COALESCE(EXCLUDED.imdb_id, media.imdb_id),
 							tmdb_id = COALESCE(EXCLUDED.tmdb_id, media.tmdb_id),
-							tmdb_type = COALESCE(EXCLUDED.tmdb_type, media.tmdb_type),
 							mal_id = COALESCE(EXCLUDED.mal_id, media.mal_id),
 							anilist_id = COALESCE(EXCLUDED.anilist_id, media.anilist_id),
 							anidb_id = COALESCE(EXCLUDED.anidb_id, media.anidb_id),

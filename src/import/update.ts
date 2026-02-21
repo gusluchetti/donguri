@@ -929,16 +929,24 @@ interface FetchResult {
 
 async function fetchTmdbPoster(
   tmdbId: string,
-  tmdbType: string,
+  mediaType: string,
   apiKey: string,
 ): Promise<FetchResult> {
-  const res = await fetch(`https://api.themoviedb.org/3/${tmdbType}/${tmdbId}?api_key=${apiKey}`);
-  if (!res.ok) {
-    console.warn(`  [tmdb] ${res.status} for ${tmdbId}`);
-    return { url: null, status: res.status };
+  const primary = mediaType === "movie" ? "movie" : "tv";
+  const res = await fetch(`https://api.themoviedb.org/3/${primary}/${tmdbId}?api_key=${apiKey}`);
+  if (res.ok) {
+    const data = await res.json();
+    return { url: data.poster_path ? `https://image.tmdb.org/t/p/w342${data.poster_path}` : null };
   }
-  const data = await res.json();
-  return { url: data.poster_path ? `https://image.tmdb.org/t/p/w342${data.poster_path}` : null };
+  // Fallback: try the other endpoint (handles TV series with TMDB movie IDs)
+  const fallback = primary === "movie" ? "tv" : "movie";
+  const res2 = await fetch(`https://api.themoviedb.org/3/${fallback}/${tmdbId}?api_key=${apiKey}`);
+  if (res2.ok) {
+    const data = await res2.json();
+    return { url: data.poster_path ? `https://image.tmdb.org/t/p/w342${data.poster_path}` : null };
+  }
+  console.warn(`  [tmdb] ${res.status}/${res2.status} for ${tmdbId}`);
+  return { url: null, status: res.status };
 }
 
 async function fetchAniListCover(anilistId: string): Promise<FetchResult> {
@@ -1008,7 +1016,6 @@ interface CoverCandidate {
   wikidataId: string;
   mediaType: string;
   tmdbId: string | null;
-  tmdbType: string | null;
   anilistId: string | null;
   igdbId: string | null;
 }
@@ -1072,11 +1079,7 @@ async function resolveBatch(
   // Run all three source queues in parallel
   const [tmdbResults, anilistResults, igdbResults] = await Promise.all([
     mapConcurrent(tmdbItems, COVER_CONCURRENCY_TMDB, 200, async (item) => {
-      const r = await fetchTmdbPoster(
-        item.tmdbId,
-        item.tmdbType ?? (item.mediaType === "movie" ? "movie" : "tv"),
-        tmdbApiKey,
-      );
+      const r = await fetchTmdbPoster(item.tmdbId, item.mediaType, tmdbApiKey);
       if (r.url)
         return {
           id: item.id,
@@ -1188,7 +1191,6 @@ async function runCovers(db: DbType): Promise<void> {
         wikidataId: media.wikidataId,
         mediaType: media.mediaType,
         tmdbId: media.tmdbId,
-        tmdbType: media.tmdbType,
         anilistId: media.anilistId,
         igdbId: media.igdbId,
       })
