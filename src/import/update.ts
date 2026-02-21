@@ -1019,55 +1019,31 @@ interface CoverResult {
   source: CoverSource;
 }
 
-const EARLY_ABORT_THRESHOLD = 10;
-
-/** Process items with bounded concurrency + per-item delay for rate limiting.
- *  Supports early abort: if the first `abortAfter` calls all fail (fn returns null),
- *  remaining items are skipped and `aborted` is set on the returned object. */
+/** Process items with bounded concurrency + per-item delay for rate limiting. */
 async function mapConcurrent<T, R>(
   items: T[],
   concurrency: number,
   delayMs: number,
   fn: (item: T) => Promise<R>,
-  abortAfter = EARLY_ABORT_THRESHOLD,
-): Promise<{ results: R[]; aborted: boolean }> {
+): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let next = 0;
-  let completed = 0;
-  let allNullSoFar = true;
-  let aborted = false;
-
   const worker = async () => {
     while (next < items.length) {
-      if (aborted) break;
       const i = next++;
       results[i] = await fn(items[i]);
-      completed++;
-
-      // Track if every result so far is null (= failure)
-      if (results[i] !== null) {
-        allNullSoFar = false;
-      } else if (allNullSoFar && completed >= abortAfter) {
-        aborted = true;
-        break;
-      }
-
-      if (next < items.length && !aborted) await sleep(delayMs);
+      if (next < items.length) await sleep(delayMs);
     }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
-  return { results, aborted };
+  return results;
 }
 
 /** Resolve covers for a batch by splitting into per-source queues and running them in parallel. */
 async function resolveBatch(
   items: CoverCandidate[],
   tmdbApiKey: string,
-  stats: {
-    bySource: Record<CoverSource, number>;
-    failures: Record<CoverSource, number>;
-    aborted: Set<CoverSource>;
-  },
+  stats: { bySource: Record<CoverSource, number>; failures: Record<CoverSource, number> },
 ): Promise<CoverResult[]> {
   // Partition items by primary source
   type WithTmdb = CoverCandidate & { tmdbId: string };
@@ -1079,14 +1055,9 @@ async function resolveBatch(
   const igdbItems: WithIgdb[] = [];
 
   for (const item of items) {
-    if (stats.aborted.has("tmdb") && stats.aborted.has("anilist") && stats.aborted.has("igdb"))
-      break;
-    if (item.tmdbId && item.mediaType !== "game" && !stats.aborted.has("tmdb"))
-      tmdbItems.push(item as WithTmdb);
-    else if (item.anilistId && item.mediaType === "anime" && !stats.aborted.has("anilist"))
-      anilistItems.push(item as WithAnilist);
-    else if (item.igdbId && item.mediaType === "game" && !stats.aborted.has("igdb"))
-      igdbItems.push(item as WithIgdb);
+    if (item.tmdbId && item.mediaType !== "game") tmdbItems.push(item as WithTmdb);
+    else if (item.anilistId && item.mediaType === "anime") anilistItems.push(item as WithAnilist);
+    else if (item.igdbId && item.mediaType === "game") igdbItems.push(item as WithIgdb);
   }
 
   const unmatched = items.length - tmdbItems.length - anilistItems.length - igdbItems.length;
@@ -1098,7 +1069,7 @@ async function resolveBatch(
   const tmdbFailedAnime: WithAnilist[] = [];
 
   // Run all three source queues in parallel
-  const [tmdbOut, anilistOut, igdbOut] = await Promise.all([
+  const [tmdbResults, anilistResults, igdbResults] = await Promise.all([
     mapConcurrent(tmdbItems, COVER_CONCURRENCY_TMDB, 200, async (item) => {
       const r = await fetchTmdbPoster(item.tmdbId, item.mediaType, tmdbApiKey);
       if (r.url)
@@ -1138,33 +1109,13 @@ async function resolveBatch(
     }),
   ]);
 
-  // Check for early aborts and mark sources as dead
-  if (tmdbOut.aborted && !stats.aborted.has("tmdb")) {
-    stats.aborted.add("tmdb");
-    console.error(
-      `  [tmdb] ABORTED — first ${EARLY_ABORT_THRESHOLD} calls all failed, skipping remaining TMDB requests`,
-    );
-  }
-  if (anilistOut.aborted && !stats.aborted.has("anilist")) {
-    stats.aborted.add("anilist");
-    console.error(
-      `  [anilist] ABORTED — first ${EARLY_ABORT_THRESHOLD} calls all failed, skipping remaining AniList requests`,
-    );
-  }
-  if (igdbOut.aborted && !stats.aborted.has("igdb")) {
-    stats.aborted.add("igdb");
-    console.error(
-      `  [igdb] ABORTED — first ${EARLY_ABORT_THRESHOLD} calls all failed, skipping remaining IGDB requests`,
-    );
-  }
+  for (const r of tmdbResults) if (r) results.push(r);
+  for (const r of anilistResults) if (r) results.push(r);
+  for (const r of igdbResults) if (r) results.push(r);
 
-  for (const r of tmdbOut.results) if (r) results.push(r);
-  for (const r of anilistOut.results) if (r) results.push(r);
-  for (const r of igdbOut.results) if (r) results.push(r);
-
-  // AniList fallback for anime that failed TMDB (skip if anilist already aborted)
-  if (tmdbFailedAnime.length > 0 && !stats.aborted.has("anilist")) {
-    const fallbackOut = await mapConcurrent(
+  // AniList fallback for anime that failed TMDB
+  if (tmdbFailedAnime.length > 0) {
+    const fallbackResults = await mapConcurrent(
       tmdbFailedAnime,
       COVER_CONCURRENCY_ANILIST,
       670,
@@ -1181,13 +1132,7 @@ async function resolveBatch(
         return null;
       },
     );
-    if (fallbackOut.aborted && !stats.aborted.has("anilist")) {
-      stats.aborted.add("anilist");
-      console.error(
-        `  [anilist] ABORTED — first ${EARLY_ABORT_THRESHOLD} fallback calls all failed`,
-      );
-    }
-    for (const r of fallbackOut.results) if (r) results.push(r);
+    for (const r of fallbackResults) if (r) results.push(r);
   }
 
   // Track source counts
@@ -1229,7 +1174,6 @@ async function runCovers(db: DbType): Promise<void> {
   const stats = {
     bySource: { tmdb: 0, anilist: 0, igdb: 0 } as Record<CoverSource, number>,
     failures: { tmdb: 0, anilist: 0, igdb: 0 } as Record<CoverSource, number>,
-    aborted: new Set<CoverSource>(),
   };
 
   while (true) {
