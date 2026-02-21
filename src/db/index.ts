@@ -35,10 +35,12 @@ let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
 export function getDb() {
   if (!_db) {
-    const client = postgres(getConnectionString(), {
+    const url = getConnectionString();
+    const isLocal = /localhost|127\.0\.0\.1/.test(url);
+    const client = postgres(url, {
       max: 10,
       idle_timeout: 20,
-      target_session_attrs: "read-write",
+      ssl: isLocal ? undefined : "require",
       debug: debugSlowQueries,
     });
     _db = drizzle(client, { schema });
@@ -48,12 +50,12 @@ export function getDb() {
 
 /** Import-script DB: single pool for both Drizzle ORM and raw postgres.js ops. */
 export function createImportDb(url: string) {
+  const isLocal = /localhost|127\.0\.0\.1/.test(url);
   const client = postgres(url, {
-    max: 5,
+    max: 15,
     idle_timeout: 30,
     connect_timeout: 30,
-    keep_alive: 30,
-    backoff: (n) => Math.min(1000 * 2 ** n, 30_000),
+    ssl: isLocal ? undefined : "require",
   });
   return { db: drizzle(client, { schema }), client };
 }
