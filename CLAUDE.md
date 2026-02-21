@@ -36,7 +36,7 @@ bun run build                 # Vite build → dist/
 bun run dev:prod              # Tunnel + Docker build+run (test prod bundle locally)
 fly deploy                    # Deploy to Fly.io
 
-# ─── Import pipeline ─────────────────────────────────────────────────────────
+# ─── Import pipeline ────────────────────────────────────────────────────────
 # Step 1: Extract media + season subset from full Wikidata dump (single pass)
 lbzip2 -dc /path/to/latest-all.json.bz2 | bun run import:dump > subset.ndjson
 
@@ -55,9 +55,6 @@ bun run src/import/incremental.ts --days=7 --dry-run # Preview only
 # ─── Cron (unattended overnight import) ─────────────────────────────────────
 ./scripts/import-cron.sh                              # Manual run
 # Cron entry (Sunday 2 AM): 0 2 * * 0 cd /path/to/donguri && ./scripts/import-cron.sh
-
-# ─── Production DB access (manual) ──────────────────────────────────────────
-# fly proxy 5432 -a donguri-db   # Then connect with a different DATABASE_URL
 ```
 
 ## Validation (run before every commit)
@@ -156,7 +153,7 @@ Properties extracted: titles, dates, duration, episodes, seasons, country, 9 ext
 ## Environment Variables
 
 ```bash
-DATABASE_URL=          # Postgres connection string (e.g., postgresql://user:pass@host:5432/donguri)
+DATABASE_URL=          # Neon Postgres connection string (e.g., postgresql://user:pass@ep-xxx.neon.tech/donguri)
 OAUTH_PRIVATE_KEY_JWK= # ES256 private key in JWK format
 SESSION_SECRET=        # Session cookie signing secret
 PUBLIC_URL=            # Public-facing URL (e.g., https://donguri.fly.dev)
