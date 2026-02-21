@@ -1,11 +1,11 @@
 export const TYPE_BADGE_CLASSES: Record<string, string> = {
-  movie: "bg-dg-movie/20 text-dg-movie border-dg-movie/40",
-  tv_series: "bg-dg-tv/20 text-dg-tv border-dg-tv/40",
-  anime: "bg-dg-anime/20 text-dg-anime border-dg-anime/40",
-  game: "bg-dg-game/20 text-dg-game border-dg-game/40",
+  movie: "bg-dg-movie text-dg-bg dg-stamp",
+  tv_series: "bg-dg-tv text-dg-bg dg-stamp",
+  anime: "bg-dg-anime text-dg-bg dg-stamp",
+  game: "bg-dg-game text-dg-bg dg-stamp",
 };
 
-const BADGE_FALLBACK = "bg-dg-elevated text-dg-text-tertiary border-dg-border";
+const BADGE_FALLBACK = "bg-dg-elevated text-dg-text-tertiary dg-stamp";
 
 export function typeBadgeClass(mediaType?: string | null): string {
   return TYPE_BADGE_CLASSES[mediaType ?? ""] ?? BADGE_FALLBACK;

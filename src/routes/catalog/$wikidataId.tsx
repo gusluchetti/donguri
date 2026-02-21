@@ -189,16 +189,14 @@ function MediaStubPage({
 
         <div className="mb-4 sm:mb-5">
           {stub.mediaType && (
-            <span
-              className={`text-[0.6rem] font-semibold py-1 px-2 rounded-sm uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
-            >
+            <span className={`inline-block mb-3 whitespace-nowrap ${badgeClass}`}>
               {mediaTypeLabel(stub.mediaType)}
             </span>
           )}
-          <h1 className="text-lg font-bold m-0 leading-[1.2] text-balance">{stub.title}</h1>
+          <h1 className="text-xl font-bold m-0 leading-[1.2] text-balance">{stub.title}</h1>
         </div>
 
-        <div className="rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5">
+        <div className="rounded p-3 sm:p-4 bg-dg-surface dg-card mb-4 sm:mb-5">
           <p className="text-xs text-dg-text-tertiary">
             This title has not been imported into the catalog yet. Metadata will appear after the
             next data import.
@@ -210,9 +208,7 @@ function MediaStubPage({
         )}
 
         <div className="mb-4 sm:mb-5">
-          <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2 opacity-60">
-            Links
-          </h3>
+          <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2">See also</h3>
           <div className="flex flex-wrap gap-2">
             <a
               href={`https://www.wikidata.org/wiki/${stub.wikidataId}`}
@@ -368,9 +364,9 @@ function MediaDetailPage({
         <button
           type="button"
           onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-xs bg-transparent border-none cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block active:scale-[0.97]"
+          className="text-dg-text-tertiary text-xs bg-transparent border-none cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block active:scale-[0.97] hover:[&>span]:mr-1 group"
         >
-          &larr; back
+          <span className="inline-block transition-[margin] duration-100 mr-0.5">&larr;</span> back
         </button>
 
         {/* Header + meta combined row */}
@@ -380,23 +376,21 @@ function MediaDetailPage({
               src={data.posterUrl}
               alt={`${data.title} poster`}
               width={160}
-              className="w-[160px] rounded border border-dg-border-subtle shrink-0 self-stretch object-cover hidden sm:block shadow-lg"
+              className="w-[160px] rounded border border-dg-border-subtle shrink-0 self-stretch object-cover hidden sm:block shadow-[inset_0_1px_3px_oklch(0_0_0/0.15),0_2px_8px_oklch(0_0_0/0.2)]"
               loading="eager"
             />
           )}
           <div className="min-w-0 flex-1">
-            <span
-              className={`text-[0.6rem] font-semibold py-1 px-2 rounded-sm uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
-            >
+            <span className={`inline-block mb-3 whitespace-nowrap ${badgeClass}`}>
               {mediaTypeLabel(data.mediaType)}
             </span>
-            <h1 className="text-lg font-bold m-0 leading-[1.2] text-balance">{data.title}</h1>
+            <h1 className="text-xl font-bold m-0 leading-[1.2] text-balance">{data.title}</h1>
             {data.originalTitle && (
-              <p className="text-sm text-dg-text-secondary mt-1.5 italic">{data.originalTitle}</p>
+              <p className="text-sm text-dg-text-secondary mt-1.5">{data.originalTitle}</p>
             )}
 
-            {/* Meta slab */}
-            <div className="mt-3 p-3 sm:p-4 bg-dg-surface rounded dg-grain">
+            {/* Meta slab — the card face */}
+            <div className="mt-3 p-3 sm:p-4 bg-dg-surface rounded dg-grain dg-card">
               <div className="flex flex-wrap gap-x-6 gap-y-3">
                 {data.startYear && (
                   <MetaItem
@@ -422,11 +416,11 @@ function MediaDetailPage({
                       href="https://qrank.wmcloud.org/"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-dg-text-tertiary uppercase tracking-wider whitespace-nowrap hover:text-dg-accent transition-colors opacity-60"
+                      className="text-xs text-dg-text-tertiary uppercase tracking-wider whitespace-nowrap hover:text-dg-accent transition-colors"
                     >
                       Popularity (QRank) ↗
                     </a>
-                    <span className="text-sm text-dg-text">Top {data.qrankPct}%</span>
+                    <span className="text-sm text-dg-text tabular-nums">Top {data.qrankPct}%</span>
                   </div>
                 )}
                 <MetaItem label="Sitelinks" value={String(data.sitelinksCount ?? 0)} />
@@ -438,7 +432,7 @@ function MediaDetailPage({
                       (g: { id: string; name: string; parentName?: string | null }) => (
                         <span
                           key={g.id}
-                          className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated rounded-sm text-dg-text-secondary"
+                          className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated rounded-[1px] text-dg-text-secondary uppercase tracking-wide"
                         >
                           {g.parentName ? (
                             <>
@@ -457,25 +451,31 @@ function MediaDetailPage({
                 </div>
               )}
               {data.description && (
-                <div className="mt-4 pt-0">
+                <div className="mt-4 pt-0 border-l-2 border-dg-accent/30 pl-3">
                   <p className="text-xs text-dg-text-secondary m-0 leading-relaxed">
                     {data.description}
                   </p>
                 </div>
               )}
 
-              {/* External links */}
+              {/* External links — cross-references */}
               <div className="mt-4 pt-0">
-                <div className="flex flex-wrap gap-2">
+                <h4 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2">
+                  See also
+                </h4>
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
                   {externalLinks.map((link) => (
                     <a
                       key={link.label}
                       href={link.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-dg-accent/70 no-underline transition-colors duration-100 hover:text-dg-accent"
+                      className="text-xs text-dg-accent/70 no-underline transition-colors duration-100 hover:text-dg-accent group/link"
                     >
-                      {link.label} {"\u2197"}
+                      {link.label}{" "}
+                      <span className="inline-block transition-transform duration-100 group-hover/link:translate-x-0.5">
+                        {"\u2192"}
+                      </span>
                     </a>
                   ))}
                 </div>
@@ -522,14 +522,14 @@ function MediaDetailPage({
         {/* Platforms (games) */}
         {data.platforms.length > 0 && (
           <div className="mb-4 sm:mb-5">
-            <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2 opacity-60">
+            <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2">
               Platforms
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {data.platforms.map((p: { id: string; name: string }) => (
                 <span
                   key={p.id}
-                  className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated rounded-sm text-dg-text-secondary"
+                  className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated rounded-[1px] text-dg-text-secondary uppercase tracking-wide"
                 >
                   {p.name}
                 </span>
@@ -636,9 +636,7 @@ function EpisodeTracker({
     <div>
       {/* Header row: label + season dropdown */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider m-0 opacity-60">
-          Episodes
-        </h3>
+        <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider m-0">Episodes</h3>
         {isMultiSeason && (
           <select
             value={selectedSeason}
@@ -1071,11 +1069,13 @@ function TrackingPanel({
   }
 
   return (
-    <div className={bare ? "p-3 sm:p-4" : "rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5"}>
+    <div
+      className={
+        bare ? "p-3 sm:p-4" : "rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5 dg-grain dg-card"
+      }
+    >
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider m-0 opacity-60">
-          Status
-        </h3>
+        <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider m-0">Status</h3>
         {localStatus && (
           <button
             type="button"
@@ -1125,7 +1125,7 @@ function TrackingPanel({
         localStatus === "completed" ||
         localStatus === "mastered") && (
         <div className="mb-4">
-          <h4 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2 opacity-60">
+          <h4 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2">
             Rating
             {ratingMode && (
               <span className="ml-2 text-dg-accent normal-case tracking-normal">
@@ -1195,7 +1195,7 @@ function TrackingPanel({
       {/* Movie date picker */}
       {isMovie && localStatus && setLocalWatchedAt && (
         <div className="mb-4">
-          <h4 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2 opacity-60">
+          <h4 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2">
             Watched on
           </h4>
           <input
@@ -1219,14 +1219,14 @@ function TrackingPanel({
             type="button"
             onClick={handleSave}
             disabled={action.state === "pending" || !isDirty}
-            className={`text-xs rounded-sm border px-3 py-1 bg-transparent cursor-pointer transition-all duration-100 disabled:cursor-default active:scale-[0.97] ${
+            className={`text-xs rounded-sm border px-3 py-1.5 cursor-pointer transition-all duration-100 disabled:cursor-default active:scale-[0.97] ${
               action.state === "pending"
-                ? "border-dg-accent/50 text-dg-accent/70"
+                ? "border-dg-accent/50 text-dg-accent/70 bg-transparent"
                 : action.state === "error"
-                  ? "border-dg-anime/40 text-dg-anime"
+                  ? "border-dg-anime/40 text-dg-anime bg-transparent"
                   : isDirty
-                    ? "border-dg-accent text-dg-accent bg-dg-accent/10"
-                    : "border-dg-border-subtle text-dg-text-tertiary opacity-50"
+                    ? "border-dg-accent bg-dg-accent text-dg-bg font-medium"
+                    : "border-dg-border-subtle text-dg-text-tertiary bg-transparent opacity-50"
             }`}
             title="Save changes"
           >
@@ -1331,10 +1331,8 @@ function RatingInput({
 function MetaItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-xs text-dg-text-tertiary uppercase tracking-wider opacity-60">
-        {label}
-      </span>
-      <span className="text-sm text-dg-text">{value}</span>
+      <span className="text-xs text-dg-text-tertiary uppercase tracking-wider">{label}</span>
+      <span className="text-sm text-dg-text tabular-nums">{value}</span>
     </div>
   );
 }

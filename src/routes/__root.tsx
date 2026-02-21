@@ -47,7 +47,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       {
         rel: "preload",
-        href: "/fonts/cmu-typewriter-text-500-roman.woff2",
+        href: "/fonts/CMUSansSerif.woff2",
         as: "font",
         type: "font/woff2",
         crossOrigin: "anonymous",
@@ -152,27 +152,35 @@ function RootComponent() {
           <HotkeysProvider>
             <GlobalShortcuts showHelp={showHelp} setShowHelp={setShowHelp} />
             <div className="min-h-dvh flex flex-col">
-              <nav className="px-4 sm:px-6 py-2 shrink-0 shadow-[0_1px_0_oklch(0_0_0/0.06)]">
-                <div className="max-w-[1000px] mx-auto flex items-center min-h-[44px] gap-4 sm:gap-6">
+              <nav className="px-4 sm:px-6 shrink-0 border-b dg-gradient-line">
+                <div className="max-w-[1000px] mx-auto flex items-center min-h-[44px] gap-5 sm:gap-7">
                   {NAV_LINKS.map((link) => (
                     <Link
                       key={link.to}
                       to={link.to}
                       activeOptions={{ exact: link.exact !== false }}
-                      className="text-sm no-underline transition-colors duration-[80ms] ease-out min-h-[44px] flex items-center"
-                      activeProps={{ className: "text-dg-accent" }}
+                      className={`no-underline min-h-[44px] flex items-center border-b-2 transition-all duration-[120ms] ease-out ${
+                        link.accent
+                          ? "text-base font-bold text-dg-accent border-transparent"
+                          : "text-sm border-transparent"
+                      }`}
+                      activeProps={{
+                        className: link.accent
+                          ? "text-base font-bold text-dg-accent border-dg-accent"
+                          : "text-dg-accent border-dg-accent",
+                      }}
                       inactiveProps={{
-                        className: link.accent ? "text-dg-accent" : "text-dg-text-secondary",
+                        className: link.accent ? "" : "text-dg-text-secondary hover:text-dg-text",
                       }}
                     >
-                      {link.accent ? <span className="font-bold">{link.label}</span> : link.label}
+                      {link.label}
                     </Link>
                   ))}
-                  <div className="ml-auto flex items-center gap-2">
+                  <div className="ml-auto flex items-center gap-1">
                     <SoundToggle />
                     <ThemeToggle />
                     {auth ? (
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3 ml-2">
                         <span className="text-xs text-dg-accent hidden sm:inline">
                           {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
                         </span>
@@ -192,7 +200,7 @@ function RootComponent() {
                     ) : (
                       <Link
                         to="/"
-                        className="text-xs text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-[80ms] min-h-[44px] flex items-center"
+                        className="text-xs text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-[80ms] min-h-[44px] flex items-center ml-2"
                       >
                         login
                       </Link>
@@ -201,9 +209,9 @@ function RootComponent() {
                 </div>
               </nav>
               <Outlet />
-              <footer className="px-4 sm:px-6 py-3 shrink-0">
+              <footer className="px-4 sm:px-6 py-3 shrink-0 border-t dg-gradient-line bg-dg-surface/40">
                 <div className="max-w-[1000px] mx-auto flex items-center justify-between text-xs text-dg-text-tertiary">
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-3">
                     <span>v0.3.0</span>
                     <button
                       type="button"
@@ -213,7 +221,7 @@ function RootComponent() {
                       shortcuts (?)
                     </button>
                   </span>
-                  <span>
+                  <span className="hidden sm:inline">
                     data from{" "}
                     <a
                       href="https://www.wikidata.org"

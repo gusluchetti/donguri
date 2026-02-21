@@ -104,25 +104,25 @@ function HomePage() {
   return (
     <div className="flex-1">
       <div className="max-w-[1000px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
-        <h1 className="text-base font-bold mb-2 text-balance">
+        <h1 className="text-xl font-bold mb-2 text-balance">
           <span className="text-dg-accent">donguri</span>
         </h1>
-        <p className="text-dg-text-secondary text-sm leading-relaxed mb-4 sm:mb-5">
+        <p className="text-dg-text-secondary text-sm leading-relaxed mb-5 sm:mb-6">
           Track movies, TV, anime, and games.
         </p>
 
         <SignInSection />
 
-        <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-5">
+        <div className="flex flex-col sm:flex-row gap-3 mt-5 sm:mt-6">
           <Link
             to="/catalog"
-            className="text-sm text-dg-accent no-underline py-2.5 sm:py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-100 text-center sm:text-left active:scale-[0.97]"
+            className="text-sm text-dg-bg no-underline py-2.5 sm:py-2 px-5 bg-dg-accent rounded-sm transition-all duration-100 text-center sm:text-left active:scale-[0.97] font-medium"
           >
             Browse catalog
           </Link>
           <Link
             to="/roadmap"
-            className="text-sm text-dg-text-secondary no-underline py-2.5 sm:py-2 px-4 border border-dg-border-subtle rounded-sm transition-all duration-100 text-center sm:text-left active:scale-[0.97]"
+            className="text-sm text-dg-text-secondary no-underline py-2.5 sm:py-2 px-5 border border-dg-border-subtle rounded-sm transition-all duration-100 text-center sm:text-left active:scale-[0.97] hover:border-dg-border"
           >
             Roadmap
           </Link>
@@ -134,19 +134,29 @@ function HomePage() {
 
 function SignInSection() {
   return (
-    <div className="flex flex-col gap-3">
-      <div className="text-xs text-dg-text-secondary uppercase tracking-wider opacity-60">
-        Sign in
-      </div>
+    <div className="border-l-[3px] border-l-dg-accent pl-4 sm:pl-5 flex flex-col gap-3">
+      <div className="text-xs text-dg-text-secondary uppercase tracking-wider">Sign in</div>
 
       {/* Bluesky — primary */}
       <BlueskyLoginForm />
 
       {/* Divider */}
       <div className="flex items-center gap-3">
-        <div className="flex-1 border-t border-dg-border-subtle" />
+        <div
+          className="flex-1 h-px"
+          style={{
+            backgroundImage:
+              "linear-gradient(90deg, transparent, var(--color-dg-border-subtle), transparent)",
+          }}
+        />
         <span className="text-xs text-dg-text-tertiary">or</span>
-        <div className="flex-1 border-t border-dg-border-subtle" />
+        <div
+          className="flex-1 h-px"
+          style={{
+            backgroundImage:
+              "linear-gradient(90deg, transparent, var(--color-dg-border-subtle), transparent)",
+          }}
+        />
       </div>
 
       {/* Google + GitHub */}
@@ -183,11 +193,11 @@ function BlueskyLoginForm() {
   };
 
   return (
-    <div className="rounded p-4 sm:p-5 bg-dg-surface dg-grain">
+    <div className="rounded p-4 sm:p-5 bg-dg-surface dg-grain dg-card">
       <form onSubmit={onSubmit}>
         <label
           htmlFor="handle"
-          className="block text-xs text-dg-text-secondary uppercase tracking-wider mb-3 opacity-60"
+          className="block text-xs text-dg-text-secondary uppercase tracking-wider mb-3"
         >
           Bluesky
         </label>
@@ -204,7 +214,7 @@ function BlueskyLoginForm() {
           <button
             type="submit"
             disabled={loading || !handle.trim()}
-            className="bg-transparent border border-dg-accent/30 text-dg-accent px-4 py-2.5 sm:py-2 rounded-sm text-sm cursor-pointer transition-all duration-100 hover:border-dg-accent/60 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
+            className="bg-dg-accent text-dg-bg px-4 py-2.5 sm:py-2 rounded-sm text-sm font-medium cursor-pointer transition-all duration-100 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97]"
           >
             {loading ? <span className="dg-ellipsis">Signing in</span> : "Sign in"}
           </button>
@@ -236,7 +246,7 @@ function OAuthButton({ provider, label }: { provider: "google" | "github"; label
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="w-full bg-transparent border border-dg-border-subtle text-dg-text-secondary px-4 py-2.5 sm:py-2 rounded-sm text-sm cursor-pointer transition-all duration-100 hover:border-dg-border hover:text-dg-text disabled:opacity-40 disabled:cursor-not-allowed text-center active:scale-[0.97]"
+      className="w-full bg-transparent border border-dg-border text-dg-text-secondary px-4 py-2.5 sm:py-2 rounded-sm text-sm cursor-pointer transition-all duration-100 hover:bg-dg-surface hover:text-dg-text disabled:opacity-40 disabled:cursor-not-allowed text-center active:scale-[0.97] dg-hover-lift"
     >
       {loading ? <span className="dg-ellipsis">Redirecting</span> : label}
     </button>
@@ -265,9 +275,14 @@ function LoggedInView() {
   return (
     <div>
       {grouped.size === 0 ? (
-        <p className="text-sm text-dg-text-tertiary">Nothing here yet.</p>
+        <div className="border border-dashed border-dg-border rounded p-8 text-center dg-grain">
+          <p className="text-sm text-dg-text-secondary mb-1">your catalog is empty</p>
+          <Link to="/catalog" className="text-sm text-dg-accent no-underline hover:underline">
+            browse titles to start filing &rarr;
+          </Link>
+        </div>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
           {STATUS_ORDER.map((status) => {
             const items = grouped.get(status);
             if (!items) return null;
@@ -284,12 +299,15 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
 
   return (
     <div>
-      <h2 className={`text-xs uppercase tracking-wider mb-2 opacity-50 font-normal ${accentClass}`}>
-        {STATUS_LABELS_GENERIC[status as StatusValue] ?? status}{" "}
-        <span className="text-dg-text-tertiary font-normal">({items.length})</span>
-      </h2>
-      <div className="rounded bg-dg-surface divide-y divide-dg-border-subtle/30">
-        {items.map((item) => {
+      <div className="flex items-center gap-3 mb-2">
+        <h2 className={`text-xs font-bold uppercase tracking-widest m-0 ${accentClass}`}>
+          {STATUS_LABELS_GENERIC[status as StatusValue] ?? status}
+        </h2>
+        <div className="flex-1 border-t border-dotted border-dg-border-subtle" />
+        <span className="text-xs text-dg-text-tertiary tabular-nums">({items.length})</span>
+      </div>
+      <div className="rounded bg-dg-surface dg-grain dg-card">
+        {items.map((item, i) => {
           const badgeClass = typeBadgeClass(item.mediaType);
           const replay = replayCountLabel(item.replayCount, item.mediaType ?? undefined);
           return (
@@ -297,11 +315,18 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
               key={item.id}
               to="/catalog/$wikidataId"
               params={{ wikidataId: item.mediaWikidataId }}
-              className="flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-2.5 no-underline text-inherit hover:bg-dg-elevated/50 transition-colors duration-[60ms]"
+              className={`flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-2.5 no-underline text-inherit hover:bg-dg-elevated/50 transition-colors duration-[60ms] dg-tab-in${i < items.length - 1 ? "" : ""}`}
+              style={
+                i < items.length - 1
+                  ? {
+                      borderBottom: "1px solid transparent",
+                      borderImage:
+                        "linear-gradient(90deg, transparent, var(--color-dg-border-subtle), transparent) 1",
+                    }
+                  : undefined
+              }
             >
-              <span
-                className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center ${badgeClass}`}
-              >
+              <span className={`whitespace-nowrap shrink-0 min-w-[3rem] text-center ${badgeClass}`}>
                 {mediaTypeLabel(item.mediaType ?? "", true)}
               </span>
               <span className="text-sm text-dg-text truncate flex-1">

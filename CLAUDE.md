@@ -181,18 +181,19 @@ TWITCH_CLIENT_SECRET=  # Twitch app client secret (for IGDB)
 
 ## Frontend Aesthetics
 
-**Single-font system**: CMU Typewriter Text for everything. Self-hosted WOFF2 in `public/fonts/`.
-- Both `--font-sans` and `--font-mono` resolve to CMU Typewriter Text. Weight differentiates hierarchy: bold (700) for titles/headers, normal (400) for body, semibold for badges.
+**Single-font system**: CMU Sans Serif (`--font-sans`) for all text. Self-hosted WOFF2 in `public/fonts/`. Hierarchy is achieved through weight (400 vs 700), size, color, letter-spacing, and `text-transform: uppercase` rather than a second typeface.
 
-**Color system**: `oklch()` color space for perceptual uniformity. OLED-black dark mode with subtle cyan tint (hue ~210-220), warm amber accent. Media-type colors at L=0.68 (dark) / L=0.48 (light).
-Dark/light theme toggle. Light mode uses cool-tinted cream, dark mode uses near-OLED black with faint blue undertone.
+**Color system**: `oklch()` color space for perceptual uniformity. "Deep Ink" dark mode (indigo-navy, hue ~260-270), "Kraft Card Stock" light mode (warm cream, hue ~76-80). Rich honey/amber accent. Media-type stamp inks at L=0.70 (dark) / L=0.45 (light).
+Dark/light theme toggle. Light mode uses warm kraft parchment tones, dark mode uses deep indigo-navy with blue substance.
 
 **Motion**: Custom easing curves (`--ease-weighted`, `--ease-snap`, `--ease-bounce`). View Transitions API for page navigation. `@starting-style` for modal entry. `active:scale-[0.97]` on all interactive elements.
 
 **Sound**: Optional Web Audio oscillator engine (`src/lib/sound.tsx`). Sine wave bleeps (Wii-inspired). Off by default, toggle in nav.
 
-**Surfaces**: `dg-grain` CSS-only SVG noise texture on key surfaces. `oklch()` elevation system (bg → surface → elevated → overlay).
+**Surfaces**: `dg-grain` CSS-only SVG noise texture (card stock feel, baseFrequency 0.65). `dg-card` edge highlight. `oklch()` elevation system (bg → surface → elevated → overlay). Inset depth on inputs.
 
-Type badges color-coded: movie (copper), TV (teal), anime (rose), game (sage).
+**Stamp system**: `dg-stamp` class for type badges — solid ink on card stock. CMU Sans Serif, uppercase, 0.1em tracking, barely-rounded, inset shadow. Movie (copper), TV (cerulean), Anime (fuchsia), Game (jade).
+
+**Physical Catalog motif**: Nav = filing tabs (bottom-border active state). Footer = colophon. Rows = index cards (gradient dividers, `dg-tab-in` left-border hover). Status sections = drawer labels. Roadmap = bulletin board with confidence gradient.
 
 Avoid generic AI design patterns. Be creative but restrained — this is a data-dense catalog, not a marketing page.

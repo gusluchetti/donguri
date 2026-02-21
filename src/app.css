@@ -1,60 +1,61 @@
 @import "tailwindcss";
 
-/* ─── Phase 0: Font Infrastructure ────────────────────────────────────────── */
+/* ─── Font Infrastructure ────────────────────────────────────────────────── */
 
 @font-face {
-  font-family: "CMU Typewriter Text";
-  src: url("/fonts/cmu-typewriter-text-500-roman.woff2") format("woff2");
+  font-family: "CMU Sans Serif";
+  src: url("/fonts/CMUSansSerif.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: "CMU Typewriter Text";
-  src: url("/fonts/cmu-typewriter-text-700-roman.woff2") format("woff2");
+  font-family: "CMU Sans Serif";
+  src: url("/fonts/CMUSansSerif-Bold.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
-/* ─── Theme Tokens ────────────────────────────────────────────────────────── */
+/* ─── Theme Tokens ───────────────────────────────────────────────────────── */
 
 @theme {
-  --font-sans: "CMU Typewriter Text", "CMU Typewriter", monospace;
-  --font-mono: "CMU Typewriter Text", "CMU Typewriter", monospace;
+  --font-sans: "CMU Sans Serif", "Helvetica Neue", sans-serif;
+  --font-mono: "Courier New", monospace;
 
-  /* Surfaces — OLED black with barely-there cyan */
-  --color-dg-bg: oklch(0.07 0.01 220);
-  --color-dg-surface: oklch(0.12 0.012 215);
-  --color-dg-elevated: oklch(0.17 0.014 210);
-  --color-dg-overlay: oklch(0.21 0.015 210);
+  /* Surfaces — Deep Ink: indigo-navy with blue substance */
+  --color-dg-bg: oklch(0.11 0.025 270);
+  --color-dg-surface: oklch(0.15 0.022 265);
+  --color-dg-elevated: oklch(0.2 0.018 260);
+  --color-dg-overlay: oklch(0.25 0.014 255);
 
-  /* Borders — cool-tinted */
-  --color-dg-border-subtle: oklch(0.2 0.012 215);
-  --color-dg-border: oklch(0.28 0.015 210);
-  --color-dg-border-focus: oklch(0.38 0.018 200);
+  /* Borders */
+  --color-dg-border-subtle: oklch(0.22 0.018 265);
+  --color-dg-border: oklch(0.3 0.02 260);
+  --color-dg-border-focus: oklch(0.4 0.024 255);
 
-  /* Text — brighter for more contrast against OLED black */
-  --color-dg-text: oklch(0.93 0.01 210);
-  --color-dg-text-secondary: oklch(0.72 0.02 210);
-  --color-dg-text-tertiary: oklch(0.52 0.02 210);
+  /* Text — warm white with amber cast like aged paper */
+  --color-dg-text: oklch(0.92 0.012 70);
+  --color-dg-text-secondary: oklch(0.68 0.018 70);
+  --color-dg-text-tertiary: oklch(0.46 0.015 265);
 
-  /* Accent — warm amber pops against cool bg */
-  --color-dg-accent: oklch(0.78 0.15 75);
+  /* Accent — rich honey/amber */
+  --color-dg-accent: oklch(0.76 0.17 70);
 
-  /* Media types — L=0.68 for better contrast on dark bg */
-  --color-dg-movie: oklch(0.68 0.13 55);
-  --color-dg-tv: oklch(0.68 0.09 230);
-  --color-dg-anime: oklch(0.68 0.14 350);
-  --color-dg-game: oklch(0.68 0.11 145);
+  /* Media type stamp inks — L=0.70 for dark mode */
+  --color-dg-movie: oklch(0.7 0.16 45);
+  --color-dg-tv: oklch(0.7 0.12 240);
+  --color-dg-anime: oklch(0.7 0.18 340);
+  --color-dg-game: oklch(0.7 0.14 155);
 
   /* Easing curves */
   --ease-weighted: cubic-bezier(0.76, 0, 0.24, 1);
   --ease-snap: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-bounce: cubic-bezier(0.22, 1.15, 0.36, 1);
+  --ease-settle: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-/* ─── Animatable custom properties ────────────────────────────────────────── */
+/* ─── Animatable custom properties ───────────────────────────────────────── */
 
 @property --dg-glow-opacity {
   syntax: "<number>";
@@ -62,36 +63,37 @@
   initial-value: 0;
 }
 
-/* ─── Root-level modern CSS features ──────────────────────────────────────── */
+/* ─── Root-level modern CSS features ─────────────────────────────────────── */
 
 :root {
   interpolate-size: allow-keywords;
 }
 
-/* ─── Light Theme ─────────────────────────────────────────────────────────── */
+/* ─── Light Theme — Kraft Card Stock ─────────────────────────────────────── */
 
 @layer base {
   [data-theme="light"] {
     color-scheme: light;
-    --color-dg-bg: oklch(0.96 0.01 210);
-    --color-dg-surface: oklch(0.93 0.012 208);
-    --color-dg-elevated: oklch(0.89 0.015 206);
-    --color-dg-overlay: oklch(0.86 0.017 205);
+    --color-dg-bg: oklch(0.95 0.02 80);
+    --color-dg-surface: oklch(0.91 0.025 78);
+    --color-dg-elevated: oklch(0.87 0.028 76);
+    --color-dg-overlay: oklch(0.83 0.03 74);
 
-    --color-dg-border-subtle: oklch(0.84 0.015 210);
-    --color-dg-border: oklch(0.76 0.018 208);
-    --color-dg-border-focus: oklch(0.6 0.025 200);
+    --color-dg-border-subtle: oklch(0.85 0.022 80);
+    --color-dg-border: oklch(0.78 0.025 78);
+    --color-dg-border-focus: oklch(0.65 0.03 75);
 
-    --color-dg-text: oklch(0.15 0.01 210);
-    --color-dg-text-secondary: oklch(0.38 0.025 210);
-    --color-dg-text-tertiary: oklch(0.5 0.02 210);
+    --color-dg-text: oklch(0.16 0.03 270);
+    --color-dg-text-secondary: oklch(0.38 0.025 260);
+    --color-dg-text-tertiary: oklch(0.55 0.02 80);
 
-    --color-dg-accent: oklch(0.52 0.16 75);
+    --color-dg-accent: oklch(0.48 0.18 70);
 
-    --color-dg-movie: oklch(0.48 0.14 55);
-    --color-dg-tv: oklch(0.48 0.1 230);
-    --color-dg-anime: oklch(0.48 0.15 350);
-    --color-dg-game: oklch(0.48 0.12 145);
+    /* Media type stamp inks — L=0.45 for light mode */
+    --color-dg-movie: oklch(0.45 0.16 45);
+    --color-dg-tv: oklch(0.45 0.12 240);
+    --color-dg-anime: oklch(0.45 0.18 340);
+    --color-dg-game: oklch(0.45 0.14 155);
   }
 
   [data-theme="dark"] {
@@ -107,7 +109,7 @@
   }
 }
 
-/* ─── Mobile touch & scroll ───────────────────────────────────────────────── */
+/* ─── Mobile touch & scroll ──────────────────────────────────────────────── */
 
 html {
   -webkit-tap-highlight-color: transparent;
@@ -121,7 +123,7 @@ html {
   display: none;
 }
 
-/* ─── Theme transition (applied temporarily during toggle) ────────────────── */
+/* ─── Theme transition (applied temporarily during toggle) ───────────────── */
 
 html.theme-transition,
 html.theme-transition *,
@@ -134,27 +136,29 @@ html.theme-transition *::after {
     box-shadow 200ms var(--ease-weighted) !important;
 }
 
-/* ─── View Transitions (page navigation) ──────────────────────────────────── */
+/* ─── View Transitions (page navigation) — card filing motion ────────────── */
 
 ::view-transition-old(root) {
-  animation: 90ms ease-out both dg-fade-out;
+  animation: 90ms ease-out both dg-page-out;
 }
 ::view-transition-new(root) {
-  animation: 90ms ease-in both dg-fade-in;
+  animation: 90ms ease-in both dg-page-in;
 }
 
-@keyframes dg-fade-out {
+@keyframes dg-page-out {
   to {
     opacity: 0;
+    transform: translateY(-4px);
   }
 }
-@keyframes dg-fade-in {
+@keyframes dg-page-in {
   from {
     opacity: 0;
+    transform: translateY(4px);
   }
 }
 
-/* ─── @starting-style for modal/overlay entry ─────────────────────────────── */
+/* ─── @starting-style for modal/overlay entry ────────────────────────────── */
 
 .dg-modal {
   opacity: 1;
@@ -169,7 +173,7 @@ html.theme-transition *::after {
   }
 }
 
-/* ─── Surface grain texture ───────────────────────────────────────────────── */
+/* ─── Surface grain texture — card stock feel ────────────────────────────── */
 
 .dg-grain {
   position: relative;
@@ -180,46 +184,101 @@ html.theme-transition *::after {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.035;
+  opacity: 0.05;
   mix-blend-mode: overlay;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   border-radius: inherit;
   z-index: 1;
 }
 
-/* ─── Focus glow — radiates from the input ────────────────────────────────── */
+/* ─── Card edge highlight — physical card depth ──────────────────────────── */
+
+.dg-card {
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 0.04),
+    0 1px 3px oklch(0 0 0 / 0.06);
+}
+
+/* ─── Inset depth — pressed-in inputs ────────────────────────────────────── */
+
+input:not([type="range"]):not([type="date"]):not([type="checkbox"]),
+select {
+  box-shadow: inset 0 1px 3px oklch(0 0 0 / 0.12);
+}
+
+/* ─── Focus glow — radiates from the input ───────────────────────────────── */
 
 input:focus,
 select:focus {
   box-shadow:
+    inset 0 1px 3px oklch(0 0 0 / 0.12),
     0 0 0 1px var(--color-dg-accent),
-    0 0 8px color-mix(in oklch, var(--color-dg-accent) 15%, transparent);
+    0 0 12px -2px color-mix(in oklch, var(--color-dg-accent) 25%, transparent);
   outline: none;
   transition: box-shadow 120ms var(--ease-snap);
 }
 
-/* ─── Cursor highlight for keyboard navigation ────────────────────────────── */
+/* ─── Stamp system — rubber stamp aesthetic ──────────────────────────────── */
+
+.dg-stamp {
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 0.55rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 1px;
+  box-shadow: inset 0 1px 2px oklch(0 0 0 / 0.2);
+}
+
+/* ─── Hover lift — card lifts from drawer ────────────────────────────────── */
+
+.dg-hover-lift {
+  transition:
+    transform 120ms var(--ease-settle),
+    box-shadow 120ms var(--ease-settle);
+}
+.dg-hover-lift:hover {
+  transform: translateY(-1px);
+}
+
+/* ─── Left-border slide-in — tab into position ───────────────────────────── */
+
+.dg-tab-in {
+  border-left: 2px solid transparent;
+  transition: border-left-color 80ms var(--ease-snap);
+}
+.dg-tab-in:hover {
+  border-left-color: var(--color-dg-accent);
+}
+
+/* ─── Nav gradient separator ─────────────────────────────────────────────── */
+
+.dg-gradient-line {
+  border-image: linear-gradient(90deg, transparent, var(--color-dg-border-subtle), transparent) 1;
+}
+
+/* ─── Cursor highlight for keyboard navigation ───────────────────────────── */
 
 .dg-cursor-active {
   border-left: 2px solid var(--color-dg-accent) !important;
   background-color: color-mix(in oklch, var(--color-dg-accent) 4%, transparent);
 }
 
-/* ─── :has() contextual styling ────────────────────────────────────────────── */
+/* ─── :has() contextual styling ──────────────────────────────────────────── */
 
 .dg-input-wrap:has(input:focus) {
   border-radius: inherit;
   box-shadow: 0 0 8px color-mix(in oklch, var(--color-dg-accent) 10%, transparent);
 }
 
-/* ─── Content visibility for catalog performance ──────────────────────────── */
+/* ─── Content visibility for catalog performance ─────────────────────────── */
 
 .dg-catalog-row {
   content-visibility: auto;
   contain-intrinsic-size: auto 60px;
 }
 
-/* ─── Range input styling ─────────────────────────────────────────────────── */
+/* ─── Range input styling ────────────────────────────────────────────────── */
 
 input[type="range"].dg-range {
   -webkit-appearance: none;
@@ -239,12 +298,13 @@ input[type="range"].dg-range::-webkit-slider-runnable-track {
 input[type="range"].dg-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 2px;
   background: var(--rating-color, var(--color-dg-accent));
   border: 1px solid var(--color-dg-border);
-  margin-top: -6px;
+  margin-top: -7px;
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.15);
 }
 
 input[type="range"].dg-range::-moz-range-track {
@@ -255,11 +315,12 @@ input[type="range"].dg-range::-moz-range-track {
 }
 
 input[type="range"].dg-range::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 2px;
   background: var(--rating-color, var(--color-dg-accent));
   border: 1px solid var(--color-dg-border);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.15);
 }
 
 input[type="range"].dg-range:disabled {
@@ -288,7 +349,7 @@ input[type="range"].dg-range:focus {
   }
 }
 
-/* ─── Skeleton shimmer ────────────────────────────────────────────────────── */
+/* ─── Skeleton shimmer ───────────────────────────────────────────────────── */
 
 @keyframes dg-shimmer {
   0% {
@@ -311,7 +372,7 @@ input[type="range"].dg-range:focus {
   border-radius: 2px;
 }
 
-/* ─── Ellipsis loading animation ──────────────────────────────────────────── */
+/* ─── Ellipsis loading animation ─────────────────────────────────────────── */
 
 .dg-ellipsis::after {
   content: "";

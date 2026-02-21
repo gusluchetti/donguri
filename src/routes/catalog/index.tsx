@@ -105,7 +105,7 @@ const SearchInput = forwardRef<HTMLInputElement, { initialValue: string }>(funct
         placeholder="Search titles..."
         value={value}
         onChange={(e) => handleChange(e.target.value)}
-        className="w-full py-2.5 px-3 bg-dg-surface border border-dg-border rounded text-dg-text text-base sm:text-sm outline-none box-border transition-[border-color] duration-100"
+        className="w-full py-3 px-4 bg-dg-bg border border-dg-border rounded text-dg-text text-base sm:text-sm outline-none box-border transition-[border-color,box-shadow] duration-100"
       />
     </div>
   );
@@ -321,9 +321,9 @@ function CatalogPage() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="px-4 sm:px-6 pt-3 pb-1">
+      <header className="px-4 sm:px-6 pt-4 pb-1">
         <div className="max-w-[1000px] mx-auto">
-          <p className="text-dg-text-tertiary text-xs">
+          <p className="text-dg-text-secondary text-sm tabular-nums">
             {stats.total > 0
               ? `${stats.total.toLocaleString()} titles across the catalog`
               : "\u00a0"}
@@ -336,8 +336,8 @@ function CatalogPage() {
         {/* Search */}
         <SearchInput ref={searchRef} initialValue={q ?? ""} />
 
-        {/* Type filter tabs — text-only toggles */}
-        <div className="flex gap-3 flex-nowrap overflow-x-auto sm:flex-wrap scrollbar-hide">
+        {/* Type filter tabs — section dividers */}
+        <div className="flex gap-2 flex-nowrap overflow-x-auto sm:flex-wrap scrollbar-hide">
           {MEDIA_TYPES.map((t) => {
             const isActive = mediaType === t.value;
             const count = t.value
@@ -348,12 +348,18 @@ function CatalogPage() {
                 type="button"
                 key={t.label}
                 onClick={() => handleTypeChange(t.value)}
-                className={`py-2 sm:py-1.5 px-1 min-h-[44px] sm:min-h-0 text-sm cursor-pointer flex items-center gap-1.5 shrink-0 transition-colors duration-100 bg-transparent border-none active:scale-[0.97] ${
-                  isActive ? "text-dg-accent font-medium" : "text-dg-text-tertiary"
+                className={`py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 text-sm cursor-pointer flex items-center gap-1.5 shrink-0 transition-[background-color,border-color] duration-[120ms] border rounded-sm active:scale-[0.97] ${
+                  isActive
+                    ? "bg-dg-elevated border-dg-border text-dg-accent dg-card"
+                    : "bg-transparent border-dg-border-subtle text-dg-text-secondary hover:border-dg-border"
                 }`}
               >
                 {t.label}
-                {count > 0 && <span className="text-xs opacity-60">{count.toLocaleString()}</span>}
+                {count > 0 && (
+                  <span className="text-xs text-dg-text-tertiary tabular-nums">
+                    {count >= 1000 ? `${Math.round(count / 1000)}k` : count.toLocaleString()}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -418,10 +424,13 @@ function CatalogPage() {
                   to="/catalog/$wikidataId"
                   params={{ wikidataId: item.wikidataId }}
                   preload="intent"
-                  className={`dg-catalog-row w-full left-0 border-b border-dg-border-subtle/40 absolute no-underline text-inherit block group overflow-hidden transition-[background-color] duration-[60ms]${isCursorActive ? " dg-cursor-active" : ""}`}
+                  className={`dg-catalog-row dg-tab-in w-full left-0 absolute no-underline text-inherit block group overflow-hidden transition-[background-color,border-left-color] duration-[60ms] hover:bg-dg-surface/60${isCursorActive ? " dg-cursor-active" : ""}`}
                   style={{
                     top: virtualRow.start,
                     height: virtualRow.size,
+                    borderBottom: "1px solid transparent",
+                    borderImage:
+                      "linear-gradient(90deg, transparent, var(--color-dg-border-subtle), transparent) 1",
                   }}
                 >
                   <MediaRow
@@ -484,7 +493,7 @@ const MediaRow = memo(function MediaRow({
             alt=""
             width={40}
             height={60}
-            className="rounded-sm border border-dg-border-subtle object-cover shrink-0 hidden sm:block"
+            className="rounded-sm border border-dg-border-subtle object-cover shrink-0 hidden sm:block shadow-[inset_0_1px_3px_oklch(0_0_0/0.15)]"
             loading="lazy"
           />
         )}
@@ -498,14 +507,12 @@ const MediaRow = memo(function MediaRow({
           <button
             type="button"
             onClick={(e) => onQuickAdd(item.wikidataId, item.mediaType, e)}
-            className="text-xs font-bold text-dg-text-tertiary bg-transparent border-none cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent active:scale-[0.97]"
+            className="text-xs font-bold text-dg-text-tertiary bg-transparent border-none cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent hover:border hover:border-dg-border-subtle hover:px-1 hover:rounded-sm active:scale-[0.97] transition-all duration-100"
           >
             [+]
           </button>
         ) : null}
-        <span
-          className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center ${badgeClass}`}
-        >
+        <span className={`whitespace-nowrap shrink-0 min-w-[3rem] text-center ${badgeClass}`}>
           {mediaTypeLabel(item.mediaType, true)}
         </span>
         <div className="flex items-baseline gap-2 min-w-0 overflow-hidden">
