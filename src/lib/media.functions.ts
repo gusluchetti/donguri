@@ -19,7 +19,7 @@ import {
 
 type CacheEntry<T> = { data: T; expires: number };
 const mediaCache = new Map<string, CacheEntry<unknown>>();
-const MEDIA_TTL = 10 * 60 * 1000; // 10 minutes
+const MEDIA_TTL = 5 * 60 * 1000; // 5 minutes — aligned with client staleTime
 const STATS_TTL = 30 * 60 * 1000; // 30 minutes
 const STATS_KEY = "__stats__";
 
