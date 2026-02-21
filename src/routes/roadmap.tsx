@@ -75,7 +75,7 @@ function RoadmapPage() {
         <Markdown
           components={{
             h1: ({ children }) => (
-              <h1 className="text-xl font-bold mb-2 text-balance">
+              <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-balance">
                 <span className="text-dg-accent">{children}</span>
               </h1>
             ),
@@ -87,7 +87,7 @@ function RoadmapPage() {
               // "What we believe" gets special treatment
               if (text === "What we believe") {
                 return (
-                  <h2 className="text-sm font-bold uppercase tracking-widest mb-4 mt-10 text-dg-accent">
+                  <h2 className="text-base font-bold uppercase tracking-widest mb-4 mt-10 text-dg-accent">
                     {children}
                   </h2>
                 );
@@ -95,7 +95,7 @@ function RoadmapPage() {
 
               return (
                 <h2
-                  className={`text-xs uppercase tracking-widest mb-2 mt-6 first:mt-0 ${tier?.headingClass ?? "text-dg-text-secondary"}`}
+                  className={`text-sm uppercase tracking-widest mb-2 mt-6 first:mt-0 ${tier?.headingClass ?? "text-dg-text-secondary"}`}
                 >
                   {children}
                 </h2>
@@ -105,13 +105,13 @@ function RoadmapPage() {
               // Manifesto paragraphs get distinct treatment
               if (currentSection === "What we believe") {
                 return (
-                  <p className="text-dg-text-secondary text-sm leading-loose mb-4 sm:mb-5 pl-6">
+                  <p className="text-dg-text-secondary text-base leading-loose mb-4 sm:mb-5 pl-6">
                     {children}
                   </p>
                 );
               }
               return (
-                <p className="text-dg-text-secondary text-sm leading-relaxed mb-4 sm:mb-5">
+                <p className="text-dg-text-secondary text-base leading-relaxed mb-4 sm:mb-5">
                   {children}
                 </p>
               );
@@ -127,7 +127,7 @@ function RoadmapPage() {
               );
             },
             li: ({ children }) => (
-              <div className="px-3 sm:px-4 py-3 sm:py-2.5 text-sm text-dg-text-secondary">
+              <div className="px-3 sm:px-4 py-3 sm:py-2.5 text-base text-dg-text-secondary">
                 {children}
               </div>
             ),

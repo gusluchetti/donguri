@@ -17,7 +17,7 @@ export function HelpOverlay({ open, onClose }: { open: boolean; onClose: () => v
     >
       <div className="dg-modal bg-dg-overlay border border-dg-border rounded max-w-[720px] w-[92vw] max-h-[80vh] overflow-y-auto p-4 sm:p-5">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold text-dg-text m-0">Keyboard Shortcuts</h2>
+          <h2 className="text-lg font-bold text-dg-text m-0">Keyboard Shortcuts</h2>
           <button
             type="button"
             onClick={onClose}
@@ -39,20 +39,20 @@ export function HelpOverlay({ open, onClose }: { open: boolean; onClose: () => v
 function ShortcutGroup({ section }: { section: ShortcutSection }) {
   return (
     <div>
-      <h3 className="text-[0.6rem] text-dg-text-tertiary uppercase tracking-wider mb-1.5 opacity-60">
+      <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-1.5 opacity-60">
         {section.title}
       </h3>
       <div className="space-y-0.5">
         {section.shortcuts.map((shortcut) => (
           <div key={shortcut.description} className="flex items-center justify-between gap-2 py-px">
-            <span className="text-xs text-dg-text-secondary leading-tight">
+            <span className="text-sm text-dg-text-secondary leading-tight">
               {shortcut.description}
             </span>
             <span className="flex items-center gap-0.5 shrink-0">
               {shortcut.keys.map((key) => (
                 <kbd
                   key={key}
-                  className="text-[0.6rem] px-1 py-px bg-dg-elevated border border-dg-border rounded text-dg-text min-w-[1.25rem] text-center inline-block leading-relaxed"
+                  className="text-xs px-1 py-px bg-dg-elevated border border-dg-border rounded text-dg-text min-w-[1.25rem] text-center inline-block leading-relaxed"
                 >
                   {key}
                 </kbd>

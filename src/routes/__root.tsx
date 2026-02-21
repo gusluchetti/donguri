@@ -161,12 +161,12 @@ function RootComponent() {
                       activeOptions={{ exact: link.exact !== false }}
                       className={`no-underline min-h-[44px] flex items-center border-b-2 transition-all duration-[120ms] ease-out ${
                         link.accent
-                          ? "text-base font-bold text-dg-accent border-transparent"
-                          : "text-sm border-transparent"
+                          ? "text-lg font-bold text-dg-accent border-transparent"
+                          : "text-base border-transparent"
                       }`}
                       activeProps={{
                         className: link.accent
-                          ? "text-base font-bold text-dg-accent border-dg-accent"
+                          ? "text-lg font-bold text-dg-accent border-dg-accent"
                           : "text-dg-accent border-dg-accent",
                       }}
                       inactiveProps={{
@@ -181,12 +181,12 @@ function RootComponent() {
                     <ThemeToggle />
                     {auth ? (
                       <div className="flex items-center gap-3 ml-2">
-                        <span className="text-xs text-dg-accent hidden sm:inline">
+                        <span className="text-sm text-dg-accent hidden sm:inline">
                           {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
                         </span>
                         <button
                           type="button"
-                          className="text-xs text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-[80ms] cursor-pointer bg-transparent border-none min-h-[44px] flex items-center active:scale-[0.97]"
+                          className="text-sm text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-[80ms] cursor-pointer bg-transparent border-none min-h-[44px] flex items-center active:scale-[0.97]"
                           onClick={async () => {
                             await logout();
                             queryClient.clear();
@@ -200,7 +200,7 @@ function RootComponent() {
                     ) : (
                       <Link
                         to="/"
-                        className="text-xs text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-[80ms] min-h-[44px] flex items-center ml-2"
+                        className="text-sm text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-[80ms] min-h-[44px] flex items-center ml-2"
                       >
                         login
                       </Link>
@@ -210,13 +210,13 @@ function RootComponent() {
               </nav>
               <Outlet />
               <footer className="px-4 sm:px-6 py-3 shrink-0 border-t dg-gradient-line bg-dg-surface/40">
-                <div className="max-w-[1000px] mx-auto flex items-center justify-between text-xs text-dg-text-tertiary">
+                <div className="max-w-[1000px] mx-auto flex items-center justify-between text-[0.8125rem] text-dg-text-tertiary">
                   <span className="flex items-center gap-3">
                     <span>v0.3.0</span>
                     <button
                       type="button"
                       onClick={() => setShowHelp(true)}
-                      className="text-dg-text-tertiary hover:text-dg-text-secondary bg-transparent border-none cursor-pointer p-0 text-xs transition-colors active:scale-[0.97]"
+                      className="text-dg-text-tertiary hover:text-dg-text-secondary bg-transparent border-none cursor-pointer p-0 text-[0.8125rem] transition-colors active:scale-[0.97]"
                     >
                       shortcuts (?)
                     </button>
@@ -331,8 +331,8 @@ function RootError({ error, reset }: ErrorComponentProps) {
       <body className="bg-dg-bg text-dg-text font-sans m-0 p-0">
         <div className="min-h-dvh flex items-center justify-center">
           <div className="text-center px-4 py-16">
-            <p className="text-lg font-bold text-dg-anime mb-2">error</p>
-            <p className="text-sm text-dg-text-secondary mb-6">Something went wrong.</p>
+            <p className="text-2xl font-bold text-dg-anime mb-2">error</p>
+            <p className="text-base text-dg-text-secondary mb-6">Something went wrong.</p>
             <div className="flex items-center justify-center gap-3">
               <button
                 type="button"
@@ -360,8 +360,8 @@ function NotFound() {
   return (
     <div className="bg-dg-bg text-dg-text flex-1 flex items-center justify-center">
       <div className="text-center px-4 py-16">
-        <p className="text-lg font-bold text-dg-accent mb-2">404</p>
-        <p className="text-sm text-dg-text-secondary mb-6">Page not found.</p>
+        <p className="text-2xl font-bold text-dg-accent mb-2">404</p>
+        <p className="text-base text-dg-text-secondary mb-6">Page not found.</p>
         <Link
           to="/"
           className="text-sm text-dg-accent no-underline py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-100 active:scale-[0.97]"

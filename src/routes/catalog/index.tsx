@@ -105,7 +105,7 @@ const SearchInput = forwardRef<HTMLInputElement, { initialValue: string }>(funct
         placeholder="Search titles..."
         value={value}
         onChange={(e) => handleChange(e.target.value)}
-        className="w-full py-3 px-4 bg-dg-bg border border-dg-border rounded text-dg-text text-base sm:text-sm outline-none box-border transition-[border-color,box-shadow] duration-100"
+        className="w-full py-3 px-4 bg-dg-bg border border-dg-border rounded text-dg-text text-base outline-none box-border transition-[border-color,box-shadow] duration-100"
       />
     </div>
   );
@@ -218,7 +218,7 @@ function CatalogPage() {
   const virtualizer = useVirtualizer({
     count: hasNextPage ? allItems.length + 1 : allItems.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 60,
+    estimateSize: () => 68,
     overscan: 10,
   });
 
@@ -323,7 +323,7 @@ function CatalogPage() {
       {/* Header */}
       <header className="px-4 sm:px-6 pt-4 pb-1">
         <div className="max-w-[1000px] mx-auto">
-          <p className="text-dg-text-secondary text-sm tabular-nums">
+          <p className="text-dg-text-secondary text-base tabular-nums">
             {stats.total > 0
               ? `${stats.total.toLocaleString()} titles across the catalog`
               : "\u00a0"}
@@ -348,7 +348,7 @@ function CatalogPage() {
                 type="button"
                 key={t.label}
                 onClick={() => handleTypeChange(t.value)}
-                className={`py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 text-sm cursor-pointer flex items-center gap-1.5 shrink-0 transition-[background-color,border-color] duration-[120ms] border rounded-sm active:scale-[0.97] ${
+                className={`py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 text-base cursor-pointer flex items-center gap-1.5 shrink-0 transition-[background-color,border-color] duration-[120ms] border rounded-sm active:scale-[0.97] ${
                   isActive
                     ? "bg-dg-elevated border-dg-border text-dg-accent dg-card"
                     : "bg-transparent border-dg-border-subtle text-dg-text-secondary hover:border-dg-border"
@@ -356,7 +356,7 @@ function CatalogPage() {
               >
                 {t.label}
                 {count > 0 && (
-                  <span className="text-xs text-dg-text-tertiary tabular-nums">
+                  <span className="text-[0.8125rem] text-dg-text-tertiary tabular-nums">
                     {count >= 1000 ? `${Math.round(count / 1000)}k` : count.toLocaleString()}
                   </span>
                 )}
@@ -371,7 +371,7 @@ function CatalogPage() {
         <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 pb-2">
           <Link
             to="/"
-            className="block bg-dg-accent/[0.04] rounded px-4 py-3 text-xs text-dg-text-secondary no-underline transition-colors duration-100"
+            className="block bg-dg-accent/[0.04] rounded px-4 py-3 text-sm text-dg-text-secondary no-underline transition-colors duration-100"
           >
             <span className="text-dg-accent">Sign in</span> to add titles to your watchlist and
             track your progress.
@@ -498,16 +498,16 @@ const MediaRow = memo(function MediaRow({
           />
         )}
         {addState === "pending" ? (
-          <span className="text-xs font-bold text-dg-accent shrink-0">
+          <span className="text-sm font-bold text-dg-accent shrink-0">
             [<span className="dg-ellipsis" />]
           </span>
         ) : addState === "done" ? (
-          <span className="text-xs font-bold text-dg-game shrink-0">[ok]</span>
+          <span className="text-sm font-bold text-dg-game shrink-0">[ok]</span>
         ) : showAdd ? (
           <button
             type="button"
             onClick={(e) => onQuickAdd(item.wikidataId, item.mediaType, e)}
-            className="text-xs font-bold text-dg-text-tertiary bg-transparent border-none cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent hover:border hover:border-dg-border-subtle hover:px-1 hover:rounded-sm active:scale-[0.97] transition-all duration-100"
+            className="text-sm font-bold text-dg-text-tertiary bg-transparent border-none cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent hover:border hover:border-dg-border-subtle hover:px-1 hover:rounded-sm active:scale-[0.97] transition-all duration-100"
           >
             [+]
           </button>
@@ -516,7 +516,7 @@ const MediaRow = memo(function MediaRow({
           {mediaTypeLabel(item.mediaType, true)}
         </span>
         <div className="flex items-baseline gap-2 min-w-0 overflow-hidden">
-          <span className="text-sm font-medium truncate text-dg-text">{item.title}</span>
+          <span className="text-base font-medium truncate text-dg-text">{item.title}</span>
           {trackedStatus && (
             <span
               className={`text-sm shrink-0 ${STATUS_ACCENT[trackedStatus as StatusValue] ?? "text-dg-text-tertiary"}`}
@@ -525,7 +525,7 @@ const MediaRow = memo(function MediaRow({
             </span>
           )}
           {item.originalTitle && (
-            <span className="text-xs text-dg-text-tertiary italic truncate hidden sm:inline">
+            <span className="text-[0.8125rem] text-dg-text-tertiary italic truncate hidden sm:inline">
               {item.originalTitle}
             </span>
           )}
@@ -533,12 +533,12 @@ const MediaRow = memo(function MediaRow({
       </div>
       <div className="flex items-center gap-4 shrink-0">
         {meta && (
-          <span className="text-xs text-dg-text-tertiary min-w-12 text-right tabular-nums hidden sm:flex">
+          <span className="text-[0.8125rem] text-dg-text-tertiary min-w-12 text-right tabular-nums hidden sm:flex">
             {meta}
           </span>
         )}
         {item.startYear && (
-          <span className="text-xs text-dg-text-secondary tabular-nums">
+          <span className="text-[0.8125rem] text-dg-text-secondary tabular-nums">
             {item.startYear}
             {item.endYear && item.endYear !== item.startYear ? `–${item.endYear}` : ""}
           </span>

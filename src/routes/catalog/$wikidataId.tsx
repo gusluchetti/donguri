@@ -142,7 +142,7 @@ function MediaDetailSkeleton() {
         <button
           type="button"
           onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-xs bg-transparent border-none cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block active:scale-[0.97]"
+          className="text-dg-text-tertiary text-sm bg-transparent border-none cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block active:scale-[0.97]"
         >
           &larr; back
         </button>
@@ -182,7 +182,7 @@ function MediaStubPage({
         <button
           type="button"
           onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-xs bg-transparent border-none cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block active:scale-[0.97]"
+          className="text-dg-text-tertiary text-sm bg-transparent border-none cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block active:scale-[0.97]"
         >
           &larr; back
         </button>
@@ -193,11 +193,13 @@ function MediaStubPage({
               {mediaTypeLabel(stub.mediaType)}
             </span>
           )}
-          <h1 className="text-xl font-bold m-0 leading-[1.2] text-balance">{stub.title}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold m-0 leading-[1.2] text-balance">
+            {stub.title}
+          </h1>
         </div>
 
         <div className="rounded p-3 sm:p-4 bg-dg-surface dg-card mb-4 sm:mb-5">
-          <p className="text-xs text-dg-text-tertiary">
+          <p className="text-sm text-dg-text-tertiary">
             This title has not been imported into the catalog yet. Metadata will appear after the
             next data import.
           </p>
@@ -208,13 +210,15 @@ function MediaStubPage({
         )}
 
         <div className="mb-4 sm:mb-5">
-          <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2">See also</h3>
+          <h3 className="text-[0.8125rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+            See also
+          </h3>
           <div className="flex flex-wrap gap-2">
             <a
               href={`https://www.wikidata.org/wiki/${stub.wikidataId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-dg-accent/70 no-underline py-2 px-3 sm:py-1.5 sm:px-2.5 transition-colors duration-100 hover:text-dg-accent"
+              className="text-sm text-dg-accent/70 no-underline py-2 px-3 sm:py-1.5 sm:px-2.5 transition-colors duration-100 hover:text-dg-accent"
             >
               Wikidata {"\u2197"}
             </a>
@@ -364,7 +368,7 @@ function MediaDetailPage({
         <button
           type="button"
           onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-xs bg-transparent border-none cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block active:scale-[0.97] hover:[&>span]:mr-1 group"
+          className="text-dg-text-tertiary text-sm bg-transparent border-none cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block active:scale-[0.97] hover:[&>span]:mr-1 group"
         >
           <span className="inline-block transition-[margin] duration-100 mr-0.5">&larr;</span> back
         </button>
@@ -384,9 +388,11 @@ function MediaDetailPage({
             <span className={`inline-block mb-3 whitespace-nowrap ${badgeClass}`}>
               {mediaTypeLabel(data.mediaType)}
             </span>
-            <h1 className="text-xl font-bold m-0 leading-[1.2] text-balance">{data.title}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold m-0 leading-[1.2] text-balance">
+              {data.title}
+            </h1>
             {data.originalTitle && (
-              <p className="text-sm text-dg-text-secondary mt-1.5">{data.originalTitle}</p>
+              <p className="text-base text-dg-text-secondary mt-1.5">{data.originalTitle}</p>
             )}
 
             {/* Meta slab — the card face */}
@@ -416,11 +422,13 @@ function MediaDetailPage({
                       href="https://qrank.wmcloud.org/"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-dg-text-tertiary uppercase tracking-wider whitespace-nowrap hover:text-dg-accent transition-colors"
+                      className="text-[0.8125rem] text-dg-text-tertiary uppercase tracking-wider whitespace-nowrap hover:text-dg-accent transition-colors"
                     >
                       Popularity (QRank) ↗
                     </a>
-                    <span className="text-sm text-dg-text tabular-nums">Top {data.qrankPct}%</span>
+                    <span className="text-base text-dg-text tabular-nums">
+                      Top {data.qrankPct}%
+                    </span>
                   </div>
                 )}
                 <MetaItem label="Sitelinks" value={String(data.sitelinksCount ?? 0)} />
@@ -432,7 +440,7 @@ function MediaDetailPage({
                       (g: { id: string; name: string; parentName?: string | null }) => (
                         <span
                           key={g.id}
-                          className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated rounded-[1px] text-dg-text-secondary uppercase tracking-wide"
+                          className="text-[0.8125rem] py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated rounded-[1px] text-dg-text-secondary uppercase tracking-wide"
                         >
                           {g.parentName ? (
                             <>
@@ -452,7 +460,7 @@ function MediaDetailPage({
               )}
               {data.description && (
                 <div className="mt-4 pt-0 border-l-2 border-dg-accent/30 pl-3">
-                  <p className="text-xs text-dg-text-secondary m-0 leading-relaxed">
+                  <p className="text-sm text-dg-text-secondary m-0 leading-relaxed">
                     {data.description}
                   </p>
                 </div>
@@ -460,7 +468,7 @@ function MediaDetailPage({
 
               {/* External links — cross-references */}
               <div className="mt-4 pt-0">
-                <h4 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2">
+                <h4 className="text-[0.8125rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
                   See also
                 </h4>
                 <div className="flex flex-wrap gap-x-3 gap-y-1">
@@ -470,7 +478,7 @@ function MediaDetailPage({
                       href={link.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-dg-accent/70 no-underline transition-colors duration-100 hover:text-dg-accent group/link"
+                      className="text-sm text-dg-accent/70 no-underline transition-colors duration-100 hover:text-dg-accent group/link"
                     >
                       {link.label}{" "}
                       <span className="inline-block transition-transform duration-100 group-hover/link:translate-x-0.5">
@@ -522,14 +530,14 @@ function MediaDetailPage({
         {/* Platforms (games) */}
         {data.platforms.length > 0 && (
           <div className="mb-4 sm:mb-5">
-            <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2">
+            <h3 className="text-sm text-dg-text-tertiary uppercase tracking-wider mb-2">
               Platforms
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {data.platforms.map((p: { id: string; name: string }) => (
                 <span
                   key={p.id}
-                  className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated rounded-[1px] text-dg-text-secondary uppercase tracking-wide"
+                  className="text-[0.8125rem] py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated rounded-[1px] text-dg-text-secondary uppercase tracking-wide"
                 >
                   {p.name}
                 </span>
@@ -636,12 +644,12 @@ function EpisodeTracker({
     <div>
       {/* Header row: label + season dropdown */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider m-0">Episodes</h3>
+        <h3 className="text-sm text-dg-text-tertiary uppercase tracking-wider m-0">Episodes</h3>
         {isMultiSeason && (
           <select
             value={selectedSeason}
             onChange={(e) => setSelectedSeason(Number(e.target.value))}
-            className="text-xs bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none transition-colors cursor-pointer"
+            className="text-sm bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none transition-colors cursor-pointer"
           >
             {seasons.map((s) => (
               <option key={s.id} value={s.seasonNumber}>
@@ -658,7 +666,7 @@ function EpisodeTracker({
         <div className="mb-2">
           <div className="flex items-center gap-2">
             {isMultiSeason && (
-              <span className="text-xs text-dg-text-tertiary tabular-nums w-6 shrink-0">
+              <span className="text-sm text-dg-text-tertiary tabular-nums w-6 shrink-0">
                 S{String(currentSeason.seasonNumber).padStart(2, "0")}
               </span>
             )}
@@ -671,7 +679,7 @@ function EpisodeTracker({
                 }}
               />
             </div>
-            <span className="text-xs text-dg-text-secondary tabular-nums shrink-0">
+            <span className="text-sm text-dg-text-secondary tabular-nums shrink-0">
               {seasonWatched}/{seasonEpCount}
             </span>
           </div>
@@ -682,7 +690,7 @@ function EpisodeTracker({
       {isMultiSeason && totalEps > 0 && (
         <div className="mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-dg-text-tertiary tabular-nums w-6 shrink-0">ALL</span>
+            <span className="text-sm text-dg-text-tertiary tabular-nums w-6 shrink-0">ALL</span>
             <div className="flex-1 h-[6px] bg-dg-elevated rounded-sm overflow-hidden">
               <div
                 className="h-full bg-dg-accent/60 rounded-sm transition-[width] duration-300"
@@ -692,7 +700,7 @@ function EpisodeTracker({
                 }}
               />
             </div>
-            <span className="text-xs text-dg-text-secondary tabular-nums shrink-0">
+            <span className="text-sm text-dg-text-secondary tabular-nums shrink-0">
               {totalWatched}/{totalEps}
             </span>
           </div>
@@ -707,18 +715,18 @@ function EpisodeTracker({
               type="button"
               onClick={handleDecrement}
               disabled={consecutiveEp <= 0 && !prevSeason}
-              className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-100 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default active:scale-[0.97]"
+              className="w-9 h-9 flex items-center justify-center text-lg bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-100 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default active:scale-[0.97]"
             >
               -
             </button>
-            <span className="text-sm tabular-nums text-dg-text min-w-[5rem] text-center">
+            <span className="text-base tabular-nums text-dg-text min-w-[5rem] text-center">
               {consecutiveEp} / {seasonEpCount}
             </span>
             <button
               type="button"
               onClick={handleIncrement}
               disabled={consecutiveEp >= seasonEpCount && !nextSeason}
-              className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-100 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default active:scale-[0.97]"
+              className="w-9 h-9 flex items-center justify-center text-lg bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-100 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default active:scale-[0.97]"
             >
               +
             </button>
@@ -726,7 +734,7 @@ function EpisodeTracker({
 
           {/* Date picker for episode watched date */}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-dg-text-tertiary uppercase tracking-wider opacity-60">
+            <span className="text-sm text-dg-text-tertiary uppercase tracking-wider opacity-60">
               Watched on
             </span>
             <input
@@ -734,7 +742,7 @@ function EpisodeTracker({
               value={episodeDate}
               max={todayISO()}
               onChange={(e) => setEpisodeDate(e.target.value || todayISO())}
-              className="text-xs bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none transition-colors"
+              className="text-sm bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none transition-colors"
             />
           </div>
         </div>
@@ -749,13 +757,13 @@ function EpisodeTracker({
             const pct = epCount > 0 ? Math.round((w / epCount) * 100) : 0;
             return (
               <div key={s.id} className="flex items-center gap-2">
-                <span className="text-xs text-dg-text-tertiary tabular-nums w-6 shrink-0">
+                <span className="text-sm text-dg-text-tertiary tabular-nums w-6 shrink-0">
                   S{String(s.seasonNumber).padStart(2, "0")}
                 </span>
                 <div className="flex-1 h-[4px] bg-dg-elevated rounded-sm overflow-hidden">
                   <div className="h-full bg-dg-accent/40 rounded-sm" style={{ width: `${pct}%` }} />
                 </div>
-                <span className="text-[0.6rem] text-dg-text-tertiary tabular-nums shrink-0">
+                <span className="text-[0.75rem] text-dg-text-tertiary tabular-nums shrink-0">
                   {epCount > 0 ? `${epCount} ep` : "?"}
                 </span>
               </div>
@@ -1075,7 +1083,7 @@ function TrackingPanel({
       }
     >
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider m-0">Status</h3>
+        <h3 className="text-sm text-dg-text-tertiary uppercase tracking-wider m-0">Status</h3>
         {localStatus && (
           <button
             type="button"
@@ -1108,7 +1116,7 @@ function TrackingPanel({
               type="button"
               onClick={() => setLocalStatus(s)}
               disabled={action.state === "pending"}
-              className={`text-xs py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border cursor-pointer shrink-0 transition-all duration-100 disabled:opacity-50 active:scale-[0.97] ${
+              className={`text-sm py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border cursor-pointer shrink-0 transition-all duration-100 disabled:opacity-50 active:scale-[0.97] ${
                 isActive
                   ? colorClass
                   : "border-dg-border-subtle text-dg-text-secondary bg-transparent hover:border-dg-border"
@@ -1125,7 +1133,7 @@ function TrackingPanel({
         localStatus === "completed" ||
         localStatus === "mastered") && (
         <div className="mb-4">
-          <h4 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2">
+          <h4 className="text-sm text-dg-text-tertiary uppercase tracking-wider mb-2">
             Rating
             {ratingMode && (
               <span className="ml-2 text-dg-accent normal-case tracking-normal">
@@ -1174,18 +1182,18 @@ function TrackingPanel({
             type="button"
             onClick={() => setLocalReplayCount(Math.max(0, localReplayCount - 1))}
             disabled={action.state === "pending" || localReplayCount <= 0}
-            className="text-xs bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30 active:scale-[0.97]"
+            className="text-sm bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30 active:scale-[0.97]"
           >
             -
           </button>
-          <span className="text-xs text-dg-text-secondary min-w-[5rem] text-center">
+          <span className="text-sm text-dg-text-secondary min-w-[5rem] text-center">
             {replayCountLabel(localReplayCount, mediaType) ?? "First time"}
           </span>
           <button
             type="button"
             onClick={() => setLocalReplayCount(localReplayCount + 1)}
             disabled={action.state === "pending"}
-            className="text-xs bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30 active:scale-[0.97]"
+            className="text-sm bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30 active:scale-[0.97]"
           >
             +
           </button>
@@ -1195,7 +1203,7 @@ function TrackingPanel({
       {/* Movie date picker */}
       {isMovie && localStatus && setLocalWatchedAt && (
         <div className="mb-4">
-          <h4 className="text-xs text-dg-text-tertiary uppercase tracking-wider mb-2">
+          <h4 className="text-sm text-dg-text-tertiary uppercase tracking-wider mb-2">
             Watched on
           </h4>
           <input
@@ -1204,7 +1212,7 @@ function TrackingPanel({
             max={todayISO()}
             onChange={(e) => setLocalWatchedAt(e.target.value || null)}
             disabled={action.state === "pending"}
-            className="text-xs bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1.5 text-dg-text outline-none transition-colors disabled:opacity-50"
+            className="text-sm bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1.5 text-dg-text outline-none transition-colors disabled:opacity-50"
           />
         </div>
       )}
@@ -1219,7 +1227,7 @@ function TrackingPanel({
             type="button"
             onClick={handleSave}
             disabled={action.state === "pending" || !isDirty}
-            className={`text-xs rounded-sm border px-3 py-1.5 cursor-pointer transition-all duration-100 disabled:cursor-default active:scale-[0.97] ${
+            className={`text-sm rounded-sm border px-3 py-1.5 cursor-pointer transition-all duration-100 disabled:cursor-default active:scale-[0.97] ${
               action.state === "pending"
                 ? "border-dg-accent/50 text-dg-accent/70 bg-transparent"
                 : action.state === "error"
@@ -1247,7 +1255,7 @@ function TrackingPanel({
               type="button"
               onClick={handleRemove}
               disabled={action.state === "pending"}
-              className="text-xs rounded-sm border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 cursor-pointer transition-all duration-100 hover:text-dg-anime hover:border-dg-anime/40 disabled:opacity-50 disabled:cursor-default active:scale-[0.97]"
+              className="text-sm rounded-sm border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 cursor-pointer transition-all duration-100 hover:text-dg-anime hover:border-dg-anime/40 disabled:opacity-50 disabled:cursor-default active:scale-[0.97]"
               title="Remove from list"
             >
               delete
@@ -1331,8 +1339,10 @@ function RatingInput({
 function MetaItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-xs text-dg-text-tertiary uppercase tracking-wider">{label}</span>
-      <span className="text-sm text-dg-text tabular-nums">{value}</span>
+      <span className="text-[0.8125rem] text-dg-text-tertiary uppercase tracking-wider">
+        {label}
+      </span>
+      <span className="text-base text-dg-text tabular-nums">{value}</span>
     </div>
   );
 }

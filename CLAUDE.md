@@ -192,7 +192,7 @@ Dark/light theme toggle. Light mode uses warm kraft parchment tones, dark mode u
 
 **Surfaces**: `dg-grain` CSS-only SVG noise texture (card stock feel, baseFrequency 0.65). `dg-card` edge highlight. `oklch()` elevation system (bg → surface → elevated → overlay). Inset depth on inputs.
 
-**Stamp system**: `dg-stamp` class for type badges — solid ink on card stock. CMU Sans Serif, uppercase, 0.1em tracking, barely-rounded, inset shadow. Movie (copper), TV (cerulean), Anime (fuchsia), Game (jade).
+**Stamp system**: `dg-stamp` class for type badges — solid ink on card stock. CMU Sans Serif, uppercase, 0.1em tracking, 0.6875rem font-size, barely-rounded, inset shadow. Movie (copper), TV (cerulean), Anime (fuchsia), Game (jade).
 
 **Physical Catalog motif**: Nav = filing tabs (bottom-border active state). Footer = colophon. Rows = index cards (gradient dividers, `dg-tab-in` left-border hover). Status sections = drawer labels. Roadmap = bulletin board with confidence gradient.
 
