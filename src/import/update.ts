@@ -16,7 +16,7 @@ import readline from "node:readline";
 import zlib from "node:zlib";
 import * as clack from "@clack/prompts";
 import { eq, inArray, sql } from "drizzle-orm";
-import { cleanEnv, createImportDb } from "../db";
+import { cleanEnv, getDb } from "../db";
 import { TRGM_SETUP_SQL } from "../db/fts";
 import {
   genres,
@@ -31,7 +31,7 @@ import { parseMediaEntity, shouldImportEntity } from "./_filters";
 import { formatDuration, withRetry } from "./_retry";
 import type { ParsedMedia, ParsedSeason, WikibaseEntityIdValue, WikidataEntity } from "./_types";
 import { WikidataProperties } from "./_types";
-import { type DbType, type ImportStats, processSuperBatch, type RawClient } from "./_upsert";
+import { type DbType, type ImportStats, processSuperBatch } from "./_upsert";
 
 // ═══ Constants ══════════════════════════════════════════════════════════════
 
@@ -112,20 +112,20 @@ const RECREATE_INDEX_SQL = [
   `CREATE INDEX IF NOT EXISTS idx_media_popularity ON media (popularity_score)`,
 ];
 
-async function dropIndexes(rawClient: RawClient): Promise<void> {
+async function dropIndexes(db: DbType): Promise<void> {
   console.log("Dropping non-essential indexes for faster import...");
   for (const idx of DROPPABLE_INDEXES) {
-    await rawClient.unsafe(`DROP INDEX IF EXISTS ${idx}`);
+    await db.execute(sql.raw(`DROP INDEX IF EXISTS ${idx}`));
   }
 }
 
-async function recreateIndexes(rawClient: RawClient): Promise<void> {
+async function recreateIndexes(db: DbType): Promise<void> {
   console.log("Recreating indexes...");
   for (const stmt of RECREATE_INDEX_SQL) {
-    await rawClient.unsafe(stmt);
+    await db.execute(sql.raw(stmt));
   }
   for (const stmt of TRGM_SETUP_SQL) {
-    await rawClient.unsafe(stmt);
+    await db.execute(sql.raw(stmt));
   }
   console.log("Indexes recreated.");
 }
@@ -140,11 +140,7 @@ interface MediaImportOpts {
   qrankPath: string | null;
 }
 
-async function runMediaImport(
-  db: DbType,
-  rawClient: RawClient,
-  opts: MediaImportOpts,
-): Promise<void> {
+async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> {
   const { subsetPath, reset, limit, batchSize, qrankPath } = opts;
   const startTime = Date.now();
 
@@ -156,7 +152,7 @@ async function runMediaImport(
     await db.delete(genres);
     await db.delete(platforms);
     await db.delete(importProgress);
-    await dropIndexes(rawClient);
+    await dropIndexes(db);
   } else {
     console.log("Setting up trigram indexes...");
     for (const stmt of TRGM_SETUP_SQL) {
@@ -236,21 +232,21 @@ async function runMediaImport(
       batch.push(parsed);
 
       if (batch.length >= batchSize) {
-        await processSuperBatch(rawClient, db, batch, genreCache, platformCache, stats);
+        await processSuperBatch(db, batch, genreCache, platformCache, stats);
         batch = [];
       }
     }
 
     if (batch.length > 0) {
-      await processSuperBatch(rawClient, db, batch, genreCache, platformCache, stats);
+      await processSuperBatch(db, batch, genreCache, platformCache, stats);
     }
 
     if (reset) {
-      await recreateIndexes(rawClient);
+      await recreateIndexes(db);
     }
 
     if (qrankPath) {
-      await applyQRank(rawClient, qrankPath);
+      await applyQRank(db, qrankPath);
     }
 
     await db
@@ -297,14 +293,14 @@ async function runMediaImport(
 
 // ═══ Feature: Percentiles ═══════════════════════════════════════════════════
 
-async function applyQRank(rawClient: RawClient, filePath: string): Promise<void> {
-  console.log(`\nApplying QRank from: ${filePath} (filter-first batch INSERT)`);
+async function applyQRank(db: DbType, filePath: string): Promise<void> {
+  console.log(`\nApplying QRank from: ${filePath} (in-memory percentiles)`);
   const startTime = Date.now();
 
   // Load all media wikidata IDs into a Set for fast lookups
   const mediaIds = new Set<string>();
-  const rows = await rawClient.unsafe(`SELECT wikidata_id FROM media`);
-  for (const row of rows) mediaIds.add(row.wikidata_id);
+  const rows = await db.execute(sql.raw(`SELECT wikidata_id FROM media`));
+  for (const row of rows) mediaIds.add((row as { wikidata_id: string }).wikidata_id);
   console.log(`  Loaded ${mediaIds.size.toLocaleString()} media IDs`);
 
   // Stream CSV, filter to matching IDs only
@@ -347,58 +343,51 @@ async function applyQRank(rawClient: RawClient, filePath: string): Promise<void>
     `  Scan complete in ${scanElapsed}: ${scanned.toLocaleString()} rows → ${matched.length.toLocaleString()} matched`,
   );
 
-  const conn = await rawClient.reserve();
-  try {
-    await conn.unsafe(`CREATE TEMP TABLE _qrank (wikidata_id TEXT, score INT)`);
-
-    // Batch INSERT matched rows
-    const QRANK_BATCH = 5_000;
-    for (let i = 0; i < matched.length; i += QRANK_BATCH) {
-      const chunk = matched.slice(i, i + QRANK_BATCH);
-      const values = chunk
-        .map((r) => `(${escapePostgresLiteral(r.wikidataId)}, ${r.score})`)
-        .join(", ");
-      await conn.unsafe(`INSERT INTO _qrank (wikidata_id, score) VALUES ${values}`);
-    }
-    console.log(`  Inserted ${matched.length.toLocaleString()} rows into _qrank`);
-
-    await conn.unsafe(`CREATE INDEX ON _qrank (wikidata_id)`);
-
-    const [{ count: prevScored }] = await conn.unsafe(
-      `SELECT COUNT(*)::int AS count FROM media WHERE qrank_pct IS NOT NULL`,
-    );
-
-    const result = await conn.unsafe(`
-      WITH matched AS (
-        SELECT q.wikidata_id, q.score
-        FROM _qrank q
-        INNER JOIN media m ON m.wikidata_id = q.wikidata_id
-      ),
-      ranked AS (
-        SELECT wikidata_id,
-          (PERCENT_RANK() OVER (ORDER BY score DESC)) * 100 AS pct
-        FROM matched
-      )
-      UPDATE media SET qrank_pct = r.pct::numeric(5,2)
-      FROM ranked r
-      WHERE media.wikidata_id = r.wikidata_id
-    `);
-
-    const totalScored = Number(result.count);
-    const newlyScored = totalScored - Number(prevScored);
-    const reScored = Number(prevScored);
-    const elapsed = formatDuration(Date.now() - startTime);
-    console.log(
-      `  QRank: ${totalScored} scored in ${elapsed} (${newlyScored} new, ${reScored} re-scored)`,
-    );
-
-    await conn.unsafe(`DROP TABLE IF EXISTS _qrank`);
-  } finally {
-    conn.release();
+  // Compute PERCENT_RANK in JS — no temp table needed
+  matched.sort((a, b) => b.score - a.score); // DESC
+  const n = matched.length;
+  const ranked: { wikidataId: string; pct: string }[] = [];
+  for (let i = 0; i < n; i++) {
+    // PERCENT_RANK: (rank - 1) / (n - 1), where ties share the same rank
+    const rank =
+      i > 0 && matched[i].score === matched[i - 1].score
+        ? ranked[i - 1].pct
+        : n > 1
+          ? ((i / (n - 1)) * 100).toFixed(2)
+          : "0.00";
+    ranked.push({ wikidataId: matched[i].wikidataId, pct: typeof rank === "string" ? rank : rank });
   }
+
+  const [{ count: prevScored }] = (await db.execute(
+    sql.raw(`SELECT COUNT(*)::int AS count FROM media WHERE qrank_pct IS NOT NULL`),
+  )) as unknown as [{ count: number }];
+
+  // Batch UPDATE directly — no temp table, no extra storage
+  const UPDATE_BATCH = 5_000;
+  let totalUpdated = 0;
+  for (let i = 0; i < ranked.length; i += UPDATE_BATCH) {
+    const chunk = ranked.slice(i, i + UPDATE_BATCH);
+    const values = chunk
+      .map((r) => `(${escapePostgresLiteral(r.wikidataId)}, ${r.pct})`)
+      .join(", ");
+    const result = await db.execute(
+      sql.raw(`
+      UPDATE media SET qrank_pct = v.pct::numeric(5,2)
+      FROM (VALUES ${values}) AS v(wikidata_id, pct)
+      WHERE media.wikidata_id = v.wikidata_id
+    `),
+    );
+    totalUpdated += Number(result.count);
+  }
+
+  const newlyScored = totalUpdated - Number(prevScored);
+  const elapsed = formatDuration(Date.now() - startTime);
+  console.log(
+    `  QRank: ${totalUpdated} scored in ${elapsed} (${newlyScored} new, ${Number(prevScored)} re-scored)`,
+  );
 }
 
-async function runPercentiles(rawClient: RawClient, qrankPath: string | null): Promise<void> {
+async function runPercentiles(db: DbType, qrankPath: string | null): Promise<void> {
   const startTime = Date.now();
 
   if (qrankPath) {
@@ -406,17 +395,19 @@ async function runPercentiles(rawClient: RawClient, qrankPath: string | null): P
       console.error(`QRank file not found: ${qrankPath}`);
       return;
     }
-    await applyQRank(rawClient, qrankPath);
+    await applyQRank(db, qrankPath);
   }
 
   console.log("\nComputing sitelinks percentiles...");
-  const slResult = await rawClient.unsafe(`
+  const slResult = await db.execute(
+    sql.raw(`
     WITH ranked AS (
       SELECT id, PERCENT_RANK() OVER (ORDER BY sitelinks_count DESC) * 100 AS pct
       FROM media
     )
     UPDATE media SET sitelinks_pct = ranked.pct FROM ranked WHERE media.id = ranked.id
-  `);
+  `),
+  );
   console.log(
     `  Sitelinks: ${slResult.count} rows updated (popularity_score auto-updated via generated column)`,
   );
@@ -1037,21 +1028,23 @@ async function resolveUrl(
 }
 
 async function batchUpdatePosters(
-  rawClient: RawClient,
+  db: DbType,
   updates: { id: string; posterUrl: string }[],
 ): Promise<void> {
   if (updates.length === 0) return;
   const values = updates
     .map((u) => `(${escapePostgresLiteral(u.id)}, ${escapePostgresLiteral(u.posterUrl)})`)
     .join(", ");
-  await rawClient.unsafe(
-    `UPDATE media SET poster_url = v.url, updated_at = now()
+  await db.execute(
+    sql.raw(
+      `UPDATE media SET poster_url = v.url, updated_at = now()
      FROM (VALUES ${values}) AS v(id, url)
      WHERE media.id = v.id`,
+    ),
   );
 }
 
-async function runCovers(db: DbType, rawClient: RawClient): Promise<void> {
+async function runCovers(db: DbType): Promise<void> {
   const tmdbApiKey = cleanEnv(process.env.TMDB_API_KEY);
   if (!tmdbApiKey) {
     console.error("TMDB_API_KEY required for cover art — skipping");
@@ -1110,7 +1103,7 @@ async function runCovers(db: DbType, rawClient: RawClient): Promise<void> {
     }
 
     if (updates.length > 0) {
-      await batchUpdatePosters(rawClient, updates);
+      await batchUpdatePosters(db, updates);
     }
   }
 
@@ -1283,12 +1276,7 @@ async function main() {
   const cliResult = parseCliArgs();
   const config = cliResult === "interactive" ? await interactiveMenu() : cliResult;
 
-  if (!process.env.DATABASE_URL) {
-    console.error("DATABASE_URL required");
-    process.exit(1);
-  }
-
-  const { db, client: rawClient } = createImportDb(process.env.DATABASE_URL);
+  const db = getDb();
   const results: StepResult[] = [];
   const startTime = Date.now();
 
@@ -1324,7 +1312,7 @@ async function main() {
             results.push({ label, status: "skipped", elapsed: "-" });
             continue;
           }
-          await runMediaImport(db, rawClient, {
+          await runMediaImport(db, {
             subsetPath: config.subsetPath,
             reset: config.reset,
             limit: config.limit,
@@ -1333,13 +1321,13 @@ async function main() {
           });
           break;
         case "percentiles":
-          await runPercentiles(rawClient, config.qrankPath);
+          await runPercentiles(db, config.qrankPath);
           break;
         case "seasons":
           await runSeasons(db, config.subsetPath, config.animeOfflinePath);
           break;
         case "covers":
-          await runCovers(db, rawClient);
+          await runCovers(db);
           break;
       }
 
@@ -1351,13 +1339,13 @@ async function main() {
       results.push({ label, status: "failed", elapsed });
       console.error(`\n  "${label}" failed:`, err);
       printSummary(results, startTime);
-      await rawClient.end();
+      await db.$client.end();
       process.exit(1);
     }
   }
 
   printSummary(results, startTime);
-  await rawClient.end();
+  await db.$client.end();
 }
 
 main().catch((err) => {
