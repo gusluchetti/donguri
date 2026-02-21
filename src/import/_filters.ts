@@ -466,10 +466,20 @@ export function parseMediaEntity(entity: WikidataEntity): ParsedMedia | null {
   const { title: originalTitle, language: originalLanguage } = getOriginalTitleAndLanguage(entity);
 
   let tmdbId: string | null = null;
+  let tmdbType: "movie" | "tv" | null = null;
   if (mediaType === "movie") {
     tmdbId = getStringClaim(entity, P.TMDB_MOVIE_ID);
+    if (tmdbId) tmdbType = "movie";
   } else if (mediaType === "tv_series" || mediaType === "anime") {
-    tmdbId = getStringClaim(entity, P.TMDB_TV_ID) ?? getStringClaim(entity, P.TMDB_MOVIE_ID);
+    const tvId = getStringClaim(entity, P.TMDB_TV_ID);
+    const movieId = getStringClaim(entity, P.TMDB_MOVIE_ID);
+    if (tvId) {
+      tmdbId = tvId;
+      tmdbType = "tv";
+    } else if (movieId) {
+      tmdbId = movieId;
+      tmdbType = "movie";
+    }
   }
 
   const searchParts = [titleEn];
@@ -492,6 +502,7 @@ export function parseMediaEntity(entity: WikidataEntity): ParsedMedia | null {
     countryOfOrigin: getCountryOfOrigin(entity),
     imdbId: getStringClaim(entity, P.IMDB_ID),
     tmdbId,
+    tmdbType,
     malId: getStringClaim(entity, P.MAL_ID),
     anilistId: getStringClaim(entity, P.ANILIST_ID),
     anidbId: getStringClaim(entity, P.ANIDB_ID),

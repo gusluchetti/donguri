@@ -929,11 +929,10 @@ interface FetchResult {
 
 async function fetchTmdbPoster(
   tmdbId: string,
-  mediaType: string,
+  tmdbType: string,
   apiKey: string,
 ): Promise<FetchResult> {
-  const type = mediaType === "movie" ? "movie" : "tv";
-  const res = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=${apiKey}`);
+  const res = await fetch(`https://api.themoviedb.org/3/${tmdbType}/${tmdbId}?api_key=${apiKey}`);
   if (!res.ok) {
     console.warn(`  [tmdb] ${res.status} for ${tmdbId}`);
     return { url: null, status: res.status };
@@ -1009,6 +1008,7 @@ interface CoverCandidate {
   wikidataId: string;
   mediaType: string;
   tmdbId: string | null;
+  tmdbType: string | null;
   anilistId: string | null;
   igdbId: string | null;
 }
@@ -1072,7 +1072,11 @@ async function resolveBatch(
   // Run all three source queues in parallel
   const [tmdbResults, anilistResults, igdbResults] = await Promise.all([
     mapConcurrent(tmdbItems, COVER_CONCURRENCY_TMDB, 200, async (item) => {
-      const r = await fetchTmdbPoster(item.tmdbId, item.mediaType, tmdbApiKey);
+      const r = await fetchTmdbPoster(
+        item.tmdbId,
+        item.tmdbType ?? (item.mediaType === "movie" ? "movie" : "tv"),
+        tmdbApiKey,
+      );
       if (r.url)
         return {
           id: item.id,
@@ -1184,6 +1188,7 @@ async function runCovers(db: DbType): Promise<void> {
         wikidataId: media.wikidataId,
         mediaType: media.mediaType,
         tmdbId: media.tmdbId,
+        tmdbType: media.tmdbType,
         anilistId: media.anilistId,
         igdbId: media.igdbId,
       })
