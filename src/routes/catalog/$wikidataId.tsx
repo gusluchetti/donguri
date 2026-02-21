@@ -1,6 +1,6 @@
 import type { Hotkey } from "@tanstack/hotkeys";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -124,9 +124,14 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
 });
 
 function MediaDetailRouter() {
-  const data = Route.useLoaderData();
-  if (data.kind === "stub") return <MediaStubPage stub={data.stub} />;
-  return <MediaDetailPage data={data.media} initialEntry={data.initialEntry} />;
+  const loaderData = Route.useLoaderData();
+  if (loaderData.kind === "stub") return <MediaStubPage stub={loaderData.stub} />;
+  return (
+    <MediaDetailPage
+      wikidataId={loaderData.media.wikidataId}
+      initialEntry={loaderData.initialEntry}
+    />
+  );
 }
 
 function MediaDetailSkeleton() {
@@ -226,12 +231,14 @@ function MediaStubPage({
 }
 
 function MediaDetailPage({
-  data,
+  wikidataId,
   initialEntry,
 }: {
-  data: NonNullable<Awaited<ReturnType<typeof getMedia>>>;
+  wikidataId: string;
   initialEntry?: CatalogEntry | null;
 }) {
+  const { data } = useSuspenseQuery(mediaDetailOptions(wikidataId));
+  if (!data) throw new Error("Media not found");
   const { auth } = rootRoute.useLoaderData();
   const router = useRouter();
   const badgeClass = typeBadgeClass(data.mediaType);
