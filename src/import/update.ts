@@ -978,26 +978,27 @@ async function getTwitchToken(): Promise<string> {
   return twitchAccessToken;
 }
 
-async function fetchIgdbCover(igdbId: string): Promise<FetchResult> {
+async function fetchIgdbCover(igdbSlug: string): Promise<FetchResult> {
   const token = await getTwitchToken();
   const clientId = cleanEnv(process.env.TWITCH_CLIENT_ID);
 
-  const res = await fetch("https://api.igdb.com/v4/covers", {
+  const res = await fetch("https://api.igdb.com/v4/games", {
     method: "POST",
     headers: {
       "Client-ID": clientId,
       Authorization: `Bearer ${token}`,
     },
-    body: `fields url; where game = ${igdbId}; limit 1;`,
+    body: `fields cover.url; where slug = "${igdbSlug}"; limit 1;`,
   });
   if (!res.ok) {
-    console.warn(`  [igdb] ${res.status} for ${igdbId}`);
+    console.warn(`  [igdb] ${res.status} for ${igdbSlug}`);
     return { url: null, status: res.status };
   }
   const data = await res.json();
-  if (!data[0]?.url) return { url: null };
+  const coverUrl = data[0]?.cover?.url;
+  if (!coverUrl) return { url: null };
   return {
-    url: data[0].url.replace("t_thumb", "t_cover_big").replace(/^\/\//, "https://"),
+    url: coverUrl.replace("t_thumb", "t_cover_big").replace(/^\/\//, "https://"),
   };
 }
 
