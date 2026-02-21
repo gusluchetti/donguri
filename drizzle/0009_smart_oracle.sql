@@ -1,1 +1,0 @@
-ALTER TABLE "media" ADD COLUMN "tmdb_type" text;
