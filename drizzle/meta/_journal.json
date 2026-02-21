@@ -64,6 +64,13 @@
       "when": 1771269445889,
       "tag": "0008_melted_agent_brand",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771686682725,
+      "tag": "0009_smart_oracle",
+      "breakpoints": true
     }
   ]
 }

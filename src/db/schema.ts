@@ -55,6 +55,7 @@ export const media = pgTable(
     // External IDs
     imdbId: text("imdb_id"),
     tmdbId: text("tmdb_id"),
+    tmdbType: text("tmdb_type"),
     malId: text("mal_id"),
     anilistId: text("anilist_id"),
     anidbId: text("anidb_id"),

@@ -183,6 +183,7 @@ export interface ParsedMedia {
   countryOfOrigin: string | null;
   imdbId: string | null;
   tmdbId: string | null;
+  tmdbType: "movie" | "tv" | null;
   malId: string | null;
   anilistId: string | null;
   anidbId: string | null;
