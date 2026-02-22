@@ -108,7 +108,7 @@ function HomePage() {
   if (auth) {
     return (
       <div className="text-dg-text flex-1 font-body">
-        <div className="max-w-[960px] mx-auto px-g3 py-6 sm:py-8">
+        <div className="max-w-[1100px] mx-auto px-g3 py-6 sm:py-8">
           <LoggedInView />
         </div>
       </div>
@@ -117,7 +117,7 @@ function HomePage() {
 
   return (
     <div className="text-dg-text flex-1 font-body">
-      <div className="max-w-[960px] mx-auto px-g3 py-6 sm:py-8">
+      <div className="max-w-[1100px] mx-auto px-g3 py-6 sm:py-8">
         <h1 className="font-display text-[1.8rem] sm:text-[2.25rem] font-normal tracking-[-0.03em] mb-2">
           <span className="text-dg-accent">donguri</span>
         </h1>

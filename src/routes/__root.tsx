@@ -141,7 +141,7 @@ function RootComponent() {
                 borderBottom: "1px solid var(--color-dg-border-subtle)",
               }}
             >
-              <div className="max-w-[960px] mx-auto px-3 sm:px-g3 flex items-center justify-between h-12">
+              <div className="max-w-[1100px] mx-auto px-3 sm:px-g3 flex items-center justify-between h-12">
                 {/* Left: logo + nav items */}
                 <div className="flex items-center gap-1 sm:gap-g1">
                   <Link
@@ -229,7 +229,7 @@ function RootComponent() {
             </nav>
             <Outlet />
             <footer className="border-t border-dg-border-subtle px-g3 py-3 font-body shrink-0">
-              <div className="max-w-[960px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[0.7rem] text-dg-text-tertiary">
+              <div className="max-w-[1100px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[0.7rem] text-dg-text-tertiary">
                 <span className="flex items-center gap-2">
                   <span>v0.3.0</span>
                   <button

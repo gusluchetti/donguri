@@ -370,8 +370,8 @@ function CatalogPage() {
   return (
     <div className="text-dg-text flex-1 font-body flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="px-4 sm:px-6 pt-3 pb-1">
-        <div className="max-w-[960px] mx-auto">
+      <header className="pt-3 pb-1">
+        <div className="max-w-[1100px] mx-auto px-4 sm:px-6">
           <p className="text-dg-text-tertiary text-[0.8rem]">
             {stats.total > 0
               ? `${stats.total.toLocaleString()} titles across the catalog`
@@ -381,7 +381,7 @@ function CatalogPage() {
       </header>
 
       {/* Controls */}
-      <div className="max-w-[960px] mx-auto w-full px-4 sm:px-6 py-2 flex flex-col gap-2">
+      <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 py-2 flex flex-col gap-2">
         {/* Search */}
         <div className="w-full">
           <SearchBar ref={searchRef} initialValue={q ?? ""} />
@@ -430,7 +430,7 @@ function CatalogPage() {
 
       {/* Login prompt */}
       {!auth && (
-        <div className="max-w-[960px] mx-auto w-full px-4 sm:px-6 pb-2">
+        <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 pb-2">
           <Link
             to="/"
             className="block border border-dg-accent/20 bg-dg-accent-soft rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-150"
@@ -445,7 +445,7 @@ function CatalogPage() {
       <div className="flex-1 relative min-h-0">
         <div
           ref={parentRef}
-          className="absolute inset-0 overflow-auto max-w-[960px] mx-auto w-full px-4 sm:px-6"
+          className="absolute inset-0 overflow-auto max-w-[1100px] mx-auto w-full px-4 sm:px-6"
         >
           <div
             style={{

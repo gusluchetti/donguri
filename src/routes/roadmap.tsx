@@ -28,7 +28,7 @@ export const Route = createFileRoute("/roadmap")({
 function RoadmapPage() {
   return (
     <div className="text-dg-text min-h-screen font-body">
-      <div className="max-w-[960px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
+      <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
         <Markdown
           components={{
             h1: ({ children }) => (

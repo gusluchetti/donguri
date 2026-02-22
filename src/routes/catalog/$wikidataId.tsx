@@ -138,7 +138,7 @@ function MediaDetailRouter() {
 function MediaDetailSkeleton() {
   return (
     <div className="text-dg-text flex-1 font-body">
-      <div className="max-w-[960px] mx-auto px-g3 py-g3 sm:py-g4">
+      <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <button
           type="button"
           onClick={() => window.history.back()}
@@ -177,7 +177,7 @@ function MediaStubPage({
 
   return (
     <div className="text-dg-text flex-1 font-body">
-      <div className="max-w-[960px] mx-auto px-g3 py-g3 sm:py-g4">
+      <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <button
           type="button"
           onClick={() => {
@@ -365,7 +365,7 @@ function MediaDetailPage({
 
   return (
     <div className="text-dg-text flex-1 font-body">
-      <div className="max-w-[960px] mx-auto px-g3 py-g3 sm:py-g4">
+      <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         {/* Back link */}
         <button
           type="button"
