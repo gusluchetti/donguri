@@ -141,9 +141,9 @@ function RootComponent() {
                 borderBottom: "1px solid var(--color-dg-border-subtle)",
               }}
             >
-              <div className="max-w-[960px] mx-auto px-g3 flex items-center justify-between h-12">
+              <div className="max-w-[960px] mx-auto px-3 sm:px-g3 flex items-center justify-between h-12">
                 {/* Left: logo + nav items */}
-                <div className="flex items-center gap-g1">
+                <div className="flex items-center gap-1 sm:gap-g1">
                   <Link
                     to="/"
                     className="flex items-center gap-g1 no-underline cursor-pointer"
@@ -169,7 +169,9 @@ function RootComponent() {
                         }}
                       />
                     </div>
-                    <span className="font-display text-lg font-medium text-dg-text">donguri</span>
+                    <span className="hidden sm:inline font-display text-lg font-medium text-dg-text">
+                      donguri
+                    </span>
                   </Link>
                   {import.meta.env.DEV && (
                     <span className="text-[0.65rem] font-bold font-mono text-dg-movie tracking-wider bg-dg-movie/10 border border-dg-movie/30 rounded-sm px-1.5 py-0.5">
@@ -227,7 +229,7 @@ function RootComponent() {
             </nav>
             <Outlet />
             <footer className="border-t border-dg-border-subtle px-g3 py-3 font-body shrink-0">
-              <div className="max-w-[960px] mx-auto flex items-center justify-between text-[0.7rem] text-dg-text-tertiary">
+              <div className="max-w-[960px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[0.7rem] text-dg-text-tertiary">
                 <span className="flex items-center gap-2">
                   <span>v0.3.0</span>
                   <button
@@ -395,7 +397,7 @@ function NavButton({
     <Link
       to={to}
       activeOptions={{ exact }}
-      className="no-underline font-body text-xs tracking-[0.06em] uppercase rounded-[3px] py-[5px] px-3 transition-all duration-150 border relative"
+      className="no-underline font-body text-xs tracking-[0.06em] uppercase rounded-[3px] py-[5px] px-2 sm:px-3 transition-all duration-150 border relative"
       activeProps={{
         className: "bg-dg-accent-soft border-dg-accent text-dg-accent font-semibold",
       }}
