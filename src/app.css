@@ -14,53 +14,119 @@ html {
 }
 
 @theme {
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", "SF Mono", "Fira Code", monospace;
 
-  --color-dg-bg: #0f0e0c;
-  --color-dg-surface: #1a1815;
-  --color-dg-elevated: #242119;
-  --color-dg-border-subtle: #2e2a21;
-  --color-dg-border: #3d3628;
+  /* Spacing — 8px grid */
+  --spacing-g1: 8px;
+  --spacing-g2: 16px;
+  --spacing-g3: 24px;
+  --spacing-g4: 32px;
+  --spacing-g5: 40px;
+  --spacing-g6: 48px;
+  --spacing-g8: 64px;
 
-  --color-dg-text: #e8e0d4;
-  --color-dg-text-secondary: #a8997f;
-  --color-dg-text-tertiary: #776b57;
+  /* Animation easings */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
-  --color-dg-accent: #d4a44a;
+  /* Dark theme (default) */
+  --color-dg-bg: #0d0f15;
+  --color-dg-surface: #131620;
+  --color-dg-elevated: #191d28;
+  --color-dg-row-hover: #1c2130;
+  --color-dg-border-subtle: #1d2130;
+  --color-dg-border: #252a38;
+  --color-dg-border-strong: #313747;
 
-  --color-dg-movie: #c17a50;
-  --color-dg-tv: #5a8fa0;
-  --color-dg-anime: #c25d7e;
-  --color-dg-game: #6a9f5a;
+  --color-dg-text: #e0ddd6;
+  --color-dg-text-secondary: #b5b0a5;
+  --color-dg-text-tertiary: #79746c;
+  --color-dg-text-muted: #4a4640;
+
+  --color-dg-accent: #b8a472;
+  --color-dg-accent-soft: rgba(184, 164, 114, 0.05);
+  --color-dg-accent-glow: rgba(184, 164, 114, 0.1);
+
+  /* Stamp colors (type badges) */
+  --color-dg-movie: #c05621;
+  --color-dg-tv: #1a7a6d;
+  --color-dg-anime: #8b3a3a;
+  --color-dg-game: #2a7a50;
+
+  /* Status colors */
+  --color-dg-charted: #c4b86a;
+  --color-dg-enroute: #5db8a0;
+  --color-dg-paused: #79746c;
+  --color-dg-stamped: #62c48e;
+  --color-dg-sealed: #b8a472;
+  --color-dg-dropped: #4a4640;
+
+  /* Seal tier colors */
+  --color-dg-seal-common: #79746c;
+  --color-dg-seal-rare: #5db8a0;
+  --color-dg-seal-legendary: #b8a472;
+}
+
+/* Atmosphere variables (outside @theme — need rgba) */
+:root {
+  --topo-color: rgba(164, 174, 114, 0.035);
+  --grid-color: rgba(164, 174, 114, 0.03);
+  --noise-opacity: 0.15;
+  --grain-blend: soft-light;
+  --nav-bg: rgba(13, 15, 21, 0.94);
+  --stamp-bg: rgba(255, 255, 255, 0.02);
+  --vignette: radial-gradient(ellipse 80% 70% at 50% 45%, transparent 30%, var(--color-dg-bg) 100%);
 }
 
 /* Light theme overrides — must be in @layer base to beat @layer theme */
 @layer base {
   [data-theme="light"] {
-    --color-dg-bg: #f5f0e8;
-    --color-dg-surface: #ebe5d9;
-    --color-dg-elevated: #dfd8ca;
-    --color-dg-border-subtle: #d4cbb8;
-    --color-dg-border: #c2b69e;
+    --color-dg-bg: #ece8de;
+    --color-dg-surface: #e3ded3;
+    --color-dg-elevated: #d9d3c6;
+    --color-dg-row-hover: #e8e3d8;
+    --color-dg-border-subtle: #ddd7cc;
+    --color-dg-border: #ccc4b5;
+    --color-dg-border-strong: #b8af9e;
 
-    --color-dg-text: #1a1815;
-    --color-dg-text-secondary: #5c5141;
-    --color-dg-text-tertiary: #8a7d68;
+    --color-dg-text: #1a1714;
+    --color-dg-text-secondary: #3d3730;
+    --color-dg-text-tertiary: #6b6359;
+    --color-dg-text-muted: #958c80;
 
-    --color-dg-accent: #b08930;
+    --color-dg-accent: #6b5b33;
+    --color-dg-accent-soft: rgba(107, 91, 51, 0.06);
+    --color-dg-accent-glow: rgba(107, 91, 51, 0.12);
 
-    --color-dg-movie: #a86638;
-    --color-dg-tv: #3d7589;
-    --color-dg-anime: #a84968;
-    --color-dg-game: #4e8540;
-  }
+    --color-dg-movie: #c05621;
+    --color-dg-tv: #1a7a6d;
+    --color-dg-anime: #8b3a3a;
+    --color-dg-game: #2a7a50;
 
-  /* Dev mode accent — red tint so you never confuse dev with prod */
-  [data-env="dev"] {
-    --color-dg-accent: #e05555;
-  }
-  [data-env="dev"][data-theme="light"] {
-    --color-dg-accent: #c43535;
+    --color-dg-charted: #7a7028;
+    --color-dg-enroute: #1a7a6d;
+    --color-dg-paused: #6b6359;
+    --color-dg-stamped: #2a7a50;
+    --color-dg-sealed: #6b5b33;
+    --color-dg-dropped: #958c80;
+
+    --color-dg-seal-common: #6b6359;
+    --color-dg-seal-rare: #1a7a6d;
+    --color-dg-seal-legendary: #6b5b33;
+
+    --topo-color: rgba(107, 115, 85, 0.08);
+    --grid-color: rgba(107, 115, 85, 0.055);
+    --noise-opacity: 0.4;
+    --grain-blend: multiply;
+    --nav-bg: rgba(236, 232, 222, 0.92);
+    --stamp-bg: rgba(0, 0, 0, 0.02);
+    --vignette: radial-gradient(
+      ellipse 80% 70% at 50% 45%,
+      transparent 30%,
+      var(--color-dg-bg) 100%
+    );
   }
 }
 
@@ -75,7 +141,140 @@ html.theme-transition *::after {
     border-color 200ms ease !important;
 }
 
-/* Range input styling */
+/* ─── Keyframes ─────────────────────────────────────────────────── */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes stampDown {
+  0% {
+    transform: scale(1.35) rotate(var(--stamp-r, -1deg));
+    opacity: 0;
+  }
+  50% {
+    transform: scale(0.93) rotate(var(--stamp-r, -1deg));
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(var(--stamp-r, -1deg));
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes sealPop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ─── Background atmosphere layers ──────────────────────────────── */
+
+.bg-grid {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px),
+    linear-gradient(0deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+.bg-topo {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 120% 80% at 25% 35%, var(--topo-color), transparent 60%),
+    radial-gradient(ellipse 100% 120% at 75% 65%, var(--topo-color), transparent 55%),
+    radial-gradient(ellipse 140% 60% at 50% 20%, var(--topo-color), transparent 70%);
+  filter: blur(40px);
+}
+
+.bg-vig {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: var(--vignette);
+}
+
+.noise {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: var(--noise-opacity);
+  mix-blend-mode: var(--grain-blend);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px;
+}
+
+/* ─── Ink grain effect on stamps ────────────────────────────────── */
+
+[data-stamp-idx] {
+  position: relative;
+}
+[data-stamp-idx]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.15'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* ─── Range input styling ───────────────────────────────────────── */
+
 input[type="range"].dg-range {
   -webkit-appearance: none;
   appearance: none;

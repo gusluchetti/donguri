@@ -1,19 +1,21 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { CoverThumb } from "../components/CoverThumb";
+import { SectionHeader } from "../components/SectionHeader";
+import { StampBadge } from "../components/StampBadge";
 import { initiateLogin, initiateOAuthLogin } from "../lib/auth.functions";
 import {
-  mediaTypeLabel,
   ratingColor,
   replayCountLabel,
-  STATUS_ACCENT,
+  STATUS_ICONS,
   STATUS_LABELS_GENERIC,
   STATUS_ORDER,
   type StatusValue,
-  typeBadgeClass,
 } from "../lib/media-types";
 import { ogTags, pageTitle } from "../lib/og";
 import { watchlistOptions } from "../lib/query-options";
+import { SoundEngine } from "../lib/sound";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -88,13 +90,25 @@ export const Route = createFileRoute("/")({
   component: HomePage,
 });
 
+const STATUS_SECTION_COLORS: Record<StatusValue, string> = {
+  planned: "var(--color-dg-charted)",
+  in_progress: "var(--color-dg-enroute)",
+  on_hold: "var(--color-dg-paused)",
+  completed: "var(--color-dg-stamped)",
+  mastered: "var(--color-dg-sealed)",
+  dropped: "var(--color-dg-dropped)",
+};
+
+/** Completed and mastered sections get cover grid layout */
+const GRID_STATUSES = new Set<string>(["completed", "mastered"]);
+
 function HomePage() {
   const { auth } = rootRoute.useLoaderData();
 
   if (auth) {
     return (
-      <div className="bg-dg-bg text-dg-text flex-1 font-mono">
-        <div className="max-w-[1000px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
+      <div className="text-dg-text flex-1 font-body">
+        <div className="max-w-[960px] mx-auto px-g3 py-6 sm:py-8">
           <LoggedInView />
         </div>
       </div>
@@ -102,9 +116,9 @@ function HomePage() {
   }
 
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
-      <div className="max-w-[1000px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
-        <h1 className="text-[1.6rem] sm:text-[2rem] font-semibold -tracking-[0.02em] mb-2">
+    <div className="text-dg-text flex-1 font-body">
+      <div className="max-w-[960px] mx-auto px-g3 py-6 sm:py-8">
+        <h1 className="font-display text-[1.8rem] sm:text-[2.25rem] font-normal tracking-[-0.03em] mb-2">
           <span className="text-dg-accent">donguri</span>
         </h1>
         <p className="text-dg-text-secondary text-[0.9rem] leading-relaxed mb-4 sm:mb-5">
@@ -202,7 +216,7 @@ function BlueskyLoginForm() {
           <button
             type="submit"
             disabled={loading || !handle.trim()}
-            className="bg-transparent border border-dg-accent/30 text-dg-accent px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-mono cursor-pointer transition-all duration-150 hover:border-dg-accent/60 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="bg-transparent border border-dg-accent/30 text-dg-accent px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-body cursor-pointer transition-all duration-150 hover:border-dg-accent/60 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loading ? <span className="dg-ellipsis">Signing in</span> : "Sign in"}
           </button>
@@ -234,7 +248,7 @@ function OAuthButton({ provider, label }: { provider: "google" | "github"; label
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="w-full bg-transparent border border-dg-border-subtle text-dg-text-secondary px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-mono cursor-pointer transition-all duration-150 hover:border-dg-border hover:text-dg-text disabled:opacity-40 disabled:cursor-not-allowed text-center"
+      className="w-full bg-transparent border border-dg-border-subtle text-dg-text-secondary px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-body cursor-pointer transition-all duration-150 hover:border-dg-border hover:text-dg-text disabled:opacity-40 disabled:cursor-not-allowed text-center"
     >
       {loading ? <span className="dg-ellipsis">Redirecting</span> : label}
     </button>
@@ -282,61 +296,120 @@ function LoggedInView() {
 }
 
 function WatchlistSection({ status, items }: { status: string; items: CatalogEntryRow[] }) {
-  const accentClass = STATUS_ACCENT[status as StatusValue] ?? "text-dg-text-secondary";
+  const s = status as StatusValue;
+  const isGrid = GRID_STATUSES.has(status);
 
   return (
     <div>
-      <h2 className={`text-[0.8rem] uppercase tracking-wider mb-2 ${accentClass}`}>
-        {STATUS_LABELS_GENERIC[status as StatusValue] ?? status}{" "}
-        <span className="text-dg-text-tertiary font-normal">({items.length})</span>
-      </h2>
-      <div className="border border-dg-border-subtle rounded bg-dg-surface divide-y divide-dg-border-subtle">
-        {items.map((item) => {
-          const badgeClass = typeBadgeClass(item.mediaType);
-          const replay = replayCountLabel(item.replayCount, item.mediaType ?? undefined);
-          return (
-            <Link
-              key={item.id}
-              to="/catalog/$wikidataId"
-              params={{ wikidataId: item.mediaWikidataId }}
-              className="flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-2.5 no-underline text-inherit hover:bg-dg-elevated/50 transition-colors duration-100"
+      <SectionHeader
+        label={STATUS_LABELS_GENERIC[s] ?? status}
+        color={STATUS_SECTION_COLORS[s] ?? "var(--color-dg-text-secondary)"}
+        count={items.length}
+        icon={STATUS_ICONS[s] ?? "\u00b7"}
+      />
+      {isGrid ? <WatchlistGrid items={items} /> : <WatchlistList items={items} />}
+    </div>
+  );
+}
+
+/** Cover grid for completed/mastered sections */
+function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
+  return (
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-g1">
+      {items.map((item, i) => (
+        <Link
+          key={item.id}
+          to="/catalog/$wikidataId"
+          params={{ wikidataId: item.mediaWikidataId }}
+          className="no-underline text-inherit cursor-pointer group"
+          onClick={() => SoundEngine.navForward()}
+          style={{
+            animation: `fadeIn 320ms var(--ease-smooth) both ${i * 30}ms`,
+          }}
+        >
+          {/* Cover */}
+          <div className="w-full aspect-[2/3] rounded overflow-hidden relative transition-all duration-[120ms] ease-[var(--ease-spring)] group-hover:scale-[1.04] group-hover:shadow-[0_4px_20px_rgba(184,164,114,0.15)]">
+            {item.mediaTitle ? (
+              <CoverThumb title={item.mediaTitle} size={200} posterUrl={undefined} />
+            ) : (
+              <CoverThumb title="?" size={200} />
+            )}
+          </div>
+          {/* Title — lifts up on group hover */}
+          <div className="mt-1 text-xs font-medium text-dg-text truncate transition-all duration-150 group-hover:text-dg-accent group-hover:-translate-y-1">
+            {item.isFavorite && <span className="text-dg-accent mr-0.5">&#9733;</span>}
+            {item.mediaTitle ?? item.mediaWikidataId}
+          </div>
+          {/* Badge */}
+          <div className="mt-0.5 flex items-center gap-1">
+            <StampBadge type={item.mediaType ?? ""} index={i} />
+          </div>
+          {/* Rating */}
+          {item.rating != null && (
+            <div
+              className="text-[0.65rem] tabular-nums font-mono mt-0.5"
+              style={{ color: ratingColor(item.rating) ?? "var(--color-dg-accent)" }}
             >
-              <span
-                className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm border uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center ${badgeClass}`}
-              >
-                {mediaTypeLabel(item.mediaType ?? "", true)}
-              </span>
-              <span className="text-[0.85rem] text-dg-text truncate flex-1">
-                {item.isFavorite && (
-                  <span className="text-dg-accent mr-1" title="Favorite">
-                    &#9733;
-                  </span>
-                )}
-                {item.mediaTitle ?? item.mediaWikidataId}
-              </span>
-              {(() => {
-                const pos = episodePosition(item);
-                return pos ? (
-                  <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums shrink-0">
-                    {pos}
-                  </span>
-                ) : null;
-              })()}
-              {replay && (
-                <span className="text-[0.65rem] text-dg-text-tertiary shrink-0">{replay}</span>
-              )}
-              {item.rating != null && (
-                <span
-                  className="text-[0.75rem] tabular-nums shrink-0"
-                  style={{ color: ratingColor(item.rating) ?? "var(--color-dg-accent)" }}
-                >
-                  {item.rating}/100
+              {item.rating}/100
+            </div>
+          )}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+/** List rows for in-progress, planned, on-hold, dropped sections */
+function WatchlistList({ items }: { items: CatalogEntryRow[] }) {
+  return (
+    <div className="border border-dg-border-subtle rounded bg-dg-surface divide-y divide-dg-border-subtle overflow-hidden">
+      {items.map((item, i) => {
+        const replay = replayCountLabel(item.replayCount, item.mediaType ?? undefined);
+        return (
+          <Link
+            key={item.id}
+            to="/catalog/$wikidataId"
+            params={{ wikidataId: item.mediaWikidataId }}
+            className="flex items-center gap-3 px-3 sm:px-g3 py-3 sm:py-2.5 no-underline text-inherit transition-all duration-100 relative group hover:bg-dg-row-hover hover:translate-x-[3px]"
+            onClick={() => SoundEngine.navForward()}
+            onMouseEnter={() => SoundEngine.tick()}
+            style={{
+              animation: `fadeIn 320ms var(--ease-smooth) both ${i * 25}ms`,
+            }}
+          >
+            {/* Left selection bar */}
+            <div className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm bg-transparent group-hover:bg-dg-accent transition-all duration-150 group-hover:shadow-[0_0_8px_rgba(184,164,114,0.3)]" />
+            <StampBadge type={item.mediaType ?? ""} index={i} />
+            <span className="text-[0.85rem] text-dg-text truncate flex-1 font-medium">
+              {item.isFavorite && (
+                <span className="text-dg-accent mr-1" title="Favorite">
+                  &#9733;
                 </span>
               )}
-            </Link>
-          );
-        })}
-      </div>
+              {item.mediaTitle ?? item.mediaWikidataId}
+            </span>
+            {(() => {
+              const pos = episodePosition(item);
+              return pos ? (
+                <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums shrink-0 font-mono">
+                  {pos}
+                </span>
+              ) : null;
+            })()}
+            {replay && (
+              <span className="text-[0.65rem] text-dg-text-tertiary shrink-0">{replay}</span>
+            )}
+            {item.rating != null && (
+              <span
+                className="text-[0.75rem] tabular-nums shrink-0 font-mono"
+                style={{ color: ratingColor(item.rating) ?? "var(--color-dg-accent)" }}
+              >
+                {item.rating}/100
+              </span>
+            )}
+          </Link>
+        );
+      })}
     </div>
   );
 }

@@ -9,20 +9,19 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { Dice5, Search, X } from "lucide-react";
 import { forwardRef, memo, useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
+import { CoverThumb } from "../../components/CoverThumb";
+import { StampBadge } from "../../components/StampBadge";
 import type { Media } from "../../db/schema";
 import { setCatalogEntry } from "../../lib/catalog.functions";
 import { isInputFocused } from "../../lib/hotkeys/shortcuts";
 import { useCatalogCursor } from "../../lib/hotkeys/use-catalog-cursor";
-import {
-  mediaTypeLabel,
-  STATUS_ACCENT,
-  type StatusValue,
-  typeBadgeClass,
-} from "../../lib/media-types";
+import { STATUS_ACCENT, type StatusValue } from "../../lib/media-types";
 import { ogTags, pageTitle } from "../../lib/og";
 import { catalogInfiniteOptions, mediaStatsOptions } from "../../lib/query-options";
+import { SoundEngine } from "../../lib/sound";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -71,13 +70,14 @@ export const Route = createFileRoute("/catalog/")({
   component: CatalogPage,
 });
 
-const SearchInput = forwardRef<HTMLInputElement, { initialValue: string }>(function SearchInput(
+const SearchBar = forwardRef<HTMLInputElement, { initialValue: string }>(function SearchBar(
   { initialValue },
   ref,
 ) {
   const navigate = useNavigate({ from: "/catalog/" });
   const { q } = Route.useSearch();
   const [value, setValue] = useState(initialValue);
+  const [focused, setFocused] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Sync when URL changes externally (e.g. back/forward)
@@ -87,6 +87,7 @@ const SearchInput = forwardRef<HTMLInputElement, { initialValue: string }>(funct
 
   const handleChange = (input: string) => {
     setValue(input);
+    if (input.length > 0) SoundEngine.search();
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
       navigate({
@@ -96,15 +97,61 @@ const SearchInput = forwardRef<HTMLInputElement, { initialValue: string }>(funct
     }, 300);
   };
 
+  const handleClear = () => {
+    setValue("");
+    navigate({ search: (prev) => ({ ...prev, q: undefined }), replace: true });
+  };
+
   return (
-    <input
-      ref={ref}
-      type="text"
-      placeholder="Search titles..."
-      value={value}
-      onChange={(e) => handleChange(e.target.value)}
-      className="w-full py-2.5 px-3 bg-dg-surface border border-dg-border rounded text-dg-text font-mono text-base sm:text-[0.85rem] outline-none box-border"
-    />
+    <div className="relative flex gap-1.5">
+      <div className="relative flex-1">
+        <div
+          className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors duration-[120ms]"
+          style={{ color: focused ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)" }}
+        >
+          <Search size={14} />
+        </div>
+        <input
+          ref={ref}
+          type="text"
+          placeholder="Search catalog..."
+          value={value}
+          onChange={(e) => handleChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          className="w-full py-2.5 pl-9 pr-8 bg-dg-surface border rounded text-dg-text font-body text-base sm:text-[0.85rem] outline-none box-border transition-all duration-[120ms]"
+          style={{
+            borderColor: focused ? "var(--color-dg-accent)" : "var(--color-dg-border)",
+            boxShadow: focused ? "0 0 0 2px var(--color-dg-accent-glow)" : "none",
+          }}
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-dg-elevated border-none rounded-sm w-4 h-4 flex items-center justify-center cursor-pointer text-dg-text-tertiary hover:text-dg-text-secondary transition-colors"
+          >
+            <X size={10} />
+          </button>
+        )}
+      </div>
+      <button
+        type="button"
+        title="Random title"
+        onClick={() => {
+          SoundEngine.dice();
+          // Pick a random item from the catalog by navigating to a random page
+          // For now, just scroll to a random position
+          navigate({
+            search: (prev) => ({ ...prev, q: undefined }),
+            replace: true,
+          });
+        }}
+        className="w-[42px] h-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+      >
+        <Dice5 size={18} />
+      </button>
+    </div>
   );
 });
 
@@ -131,6 +178,7 @@ function CatalogPage() {
 
   const handleTypeChange = useCallback(
     (type: "movie" | "tv_series" | "anime" | "game" | undefined) => {
+      SoundEngine.click();
       navigate({
         search: (prev) => ({
           ...prev,
@@ -247,7 +295,10 @@ function CatalogPage() {
         return;
       }
       const item = allItems[selectedIndex];
-      if (item) navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
+      if (item) {
+        SoundEngine.navForward();
+        navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
+      }
     },
     { ignoreInputs: false },
   );
@@ -255,7 +306,10 @@ function CatalogPage() {
   // l / ArrowRight — open selected item
   const openSelected = () => {
     const item = allItems[selectedIndex];
-    if (item) navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
+    if (item) {
+      SoundEngine.navForward();
+      navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
+    }
   };
   useHotkey("L", openSelected, { enabled: selectedIndex >= 0 });
   useHotkey("ArrowRight", openSelected, { enabled: selectedIndex >= 0 });
@@ -314,10 +368,10 @@ function CatalogPage() {
   }, [virtualItems, allItems.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono flex flex-col overflow-hidden">
+    <div className="text-dg-text flex-1 font-body flex flex-col overflow-hidden">
       {/* Header */}
       <header className="px-4 sm:px-6 pt-3 pb-1">
-        <div className="max-w-[1000px] mx-auto">
+        <div className="max-w-[960px] mx-auto">
           <p className="text-dg-text-tertiary text-[0.8rem]">
             {stats.total > 0
               ? `${stats.total.toLocaleString()} titles across the catalog`
@@ -327,15 +381,15 @@ function CatalogPage() {
       </header>
 
       {/* Controls */}
-      <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 py-2 flex flex-col gap-2">
+      <div className="max-w-[960px] mx-auto w-full px-4 sm:px-6 py-2 flex flex-col gap-2">
         {/* Search */}
         <div className="w-full">
-          <SearchInput ref={searchRef} initialValue={q ?? ""} />
+          <SearchBar ref={searchRef} initialValue={q ?? ""} />
         </div>
 
-        {/* Type filter tabs */}
-        <div className="flex gap-1 flex-nowrap overflow-x-auto sm:flex-wrap scrollbar-hide">
-          {MEDIA_TYPES.map((t) => {
+        {/* Type filter tabs — joined segment style */}
+        <div className="flex gap-0 border border-dg-border rounded-sm overflow-hidden bg-dg-surface">
+          {MEDIA_TYPES.map((t, i) => {
             const isActive = mediaType === t.value;
             const count = t.value
               ? ((stats.byType as Record<string, number>)[t.value] ?? 0)
@@ -345,15 +399,28 @@ function CatalogPage() {
                 type="button"
                 key={t.label}
                 onClick={() => handleTypeChange(t.value)}
-                className={`py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 border rounded-sm font-mono text-xs cursor-pointer flex items-center gap-1.5 shrink-0 transition-all duration-150 ${
-                  isActive
-                    ? "bg-dg-accent/[0.08] border-dg-accent/25 text-dg-accent"
-                    : "bg-transparent border-dg-border-subtle text-dg-text-secondary"
-                }`}
+                className="py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 font-body text-xs cursor-pointer flex items-center gap-1.5 flex-1 justify-center transition-all duration-150 relative"
+                style={{
+                  background: isActive ? "var(--color-dg-elevated)" : "transparent",
+                  color: isActive ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)",
+                  fontWeight: isActive ? 600 : 400,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  borderRight:
+                    i < MEDIA_TYPES.length - 1 ? "1px solid var(--color-dg-border-subtle)" : "none",
+                }}
               >
                 {t.label}
                 {count > 0 && (
-                  <span className="text-[0.65rem] opacity-60">{count.toLocaleString()}</span>
+                  <span
+                    className="text-[0.65rem] tabular-nums"
+                    style={{ opacity: isActive ? 0.8 : 0.4 }}
+                  >
+                    {count.toLocaleString()}
+                  </span>
+                )}
+                {isActive && (
+                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-dg-accent" />
                 )}
               </button>
             );
@@ -363,10 +430,10 @@ function CatalogPage() {
 
       {/* Login prompt */}
       {!auth && (
-        <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 pb-2">
+        <div className="max-w-[960px] mx-auto w-full px-4 sm:px-6 pb-2">
           <Link
             to="/"
-            className="block border border-dg-accent/20 bg-dg-accent/[0.04] rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-150"
+            className="block border border-dg-accent/20 bg-dg-accent-soft rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-150"
           >
             <span className="text-dg-accent">Sign in</span> to add titles to your watchlist and
             track your progress.
@@ -374,14 +441,11 @@ function CatalogPage() {
         </div>
       )}
 
-      {/* Virtual list — relative+absolute ensures a definite height for the
-           scroll container regardless of the outer flex chain (min-h-dvh on
-           root doesn't give flex children a definite height, which would make
-           the virtualizer think ALL items are visible and fetchNextPage loops) */}
+      {/* Virtual list */}
       <div className="flex-1 relative min-h-0">
         <div
           ref={parentRef}
-          className="absolute inset-0 overflow-auto max-w-[1000px] mx-auto w-full px-4 sm:px-6"
+          className="absolute inset-0 overflow-auto max-w-[960px] mx-auto w-full px-4 sm:px-6"
         >
           <div
             style={{
@@ -422,14 +486,19 @@ function CatalogPage() {
                   to="/catalog/$wikidataId"
                   params={{ wikidataId: item.wikidataId }}
                   preload="intent"
-                  className={`w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group overflow-hidden${isCursorActive ? " dg-cursor-active" : ""}`}
+                  className={`w-full left-0 border-b border-dg-border-subtle absolute no-underline text-inherit block group overflow-hidden transition-all duration-100 hover:bg-dg-row-hover hover:translate-x-[3px]${isCursorActive ? " dg-cursor-active" : ""}`}
                   style={{
                     top: virtualRow.start,
                     height: virtualRow.size,
                   }}
+                  onClick={() => SoundEngine.navForward()}
+                  onMouseEnter={() => SoundEngine.tick()}
                 >
+                  {/* Left selection bar */}
+                  <div className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm bg-transparent group-hover:bg-dg-accent transition-all duration-150 group-hover:shadow-[0_0_8px_rgba(184,164,114,0.3)]" />
                   <MediaRow
                     item={item}
+                    index={virtualRow.index}
                     trackedStatus={status}
                     showAdd={!!showAdd}
                     addState={addState}
@@ -464,80 +533,79 @@ function formatMeta(item: Media): string {
 
 const MediaRow = memo(function MediaRow({
   item,
+  index,
   trackedStatus,
   showAdd,
   addState,
   onQuickAdd,
 }: {
   item: Media;
+  index: number;
   trackedStatus: string | null;
   showAdd: boolean;
   addState: "pending" | "done" | null;
   onQuickAdd: (wikidataId: string, mediaType: string, e: React.MouseEvent) => void;
 }) {
-  const badgeClass = typeBadgeClass(item.mediaType);
-
   const meta = formatMeta(item);
 
   return (
-    <div className="flex items-center justify-between py-1.5 px-1 h-full gap-2 sm:gap-4">
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-        {item.posterUrl && (
-          <img
-            src={item.posterUrl}
-            alt=""
-            width={40}
-            height={60}
-            className="rounded-sm border border-dg-border-subtle object-cover shrink-0 hidden sm:block"
-            loading="lazy"
-          />
-        )}
+    <div
+      className="grid items-center h-full gap-g2 py-2 px-g3"
+      style={{
+        gridTemplateColumns: showAdd || addState ? "36px 52px 1fr auto auto" : "36px 52px 1fr auto",
+      }}
+    >
+      {/* Cover thumb */}
+      <CoverThumb title={item.title} size={36} posterUrl={item.posterUrl ?? undefined} />
+
+      {/* Stamp badge + quick add + tracked indicator */}
+      <div className="flex items-center gap-1">
         {addState === "pending" ? (
           <span className="text-[0.75rem] font-bold text-dg-accent font-mono shrink-0">
             [<span className="dg-ellipsis" />]
           </span>
         ) : addState === "done" ? (
-          <span className="text-[0.75rem] font-bold text-dg-game font-mono shrink-0">[ok]</span>
+          <span className="text-[0.75rem] font-bold text-dg-stamped font-mono shrink-0">[ok]</span>
         ) : showAdd ? (
           <button
             type="button"
             onClick={(e) => onQuickAdd(item.wikidataId, item.mediaType, e)}
-            className="text-[0.75rem] font-bold text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent"
+            className="text-[0.75rem] font-bold text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-100"
           >
             [+]
           </button>
         ) : null}
-        <span
-          className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm border uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center ${badgeClass}`}
-        >
-          {mediaTypeLabel(item.mediaType, true)}
-        </span>
-        <div className="flex items-baseline gap-2 min-w-0 overflow-hidden">
-          <span className="text-[0.85rem] font-medium truncate text-dg-text">{item.title}</span>
-          {trackedStatus && (
-            <span
-              className={`text-sm shrink-0 ${STATUS_ACCENT[trackedStatus as StatusValue] ?? "text-dg-text-tertiary"}`}
-            >
-              *
-            </span>
-          )}
-          {item.originalTitle && (
-            <span className="text-xs text-dg-text-tertiary truncate hidden sm:inline">
-              {item.originalTitle}
-            </span>
-          )}
-        </div>
+        <StampBadge type={item.mediaType} index={index} />
+        {trackedStatus && (
+          <span
+            className={`text-[8px] shrink-0 ${STATUS_ACCENT[trackedStatus as StatusValue] ?? "text-dg-text-tertiary"}`}
+          >
+            {"\u25CF"}
+          </span>
+        )}
       </div>
+
+      {/* Title + subtitle */}
+      <div className="min-w-0">
+        <div className="text-[0.85rem] font-medium text-dg-text truncate">{item.title}</div>
+        {item.originalTitle && (
+          <div className="text-xs text-dg-text-tertiary truncate hidden sm:block mt-0">
+            {item.originalTitle}
+          </div>
+        )}
+      </div>
+
+      {/* Right side: meta + year */}
       <div className="flex items-center gap-4 shrink-0">
         {meta && (
-          <span className="text-[0.7rem] text-dg-text-tertiary min-w-12 text-right tabular-nums hidden sm:flex">
+          <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums hidden sm:inline font-mono">
             {meta}
           </span>
         )}
         {item.startYear && (
-          <span className="text-xs text-dg-text-secondary tabular-nums">
+          <span className="text-xs text-dg-text-secondary tabular-nums font-mono">
             {item.startYear}
-            {item.endYear && item.endYear !== item.startYear ? `–${item.endYear}` : ""}
+            {item.endYear && item.endYear !== item.startYear ? `\u2013${item.endYear}` : ""}
           </span>
         )}
       </div>

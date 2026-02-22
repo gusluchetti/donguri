@@ -27,12 +27,12 @@ export const Route = createFileRoute("/roadmap")({
 
 function RoadmapPage() {
   return (
-    <div className="bg-dg-bg text-dg-text min-h-screen font-mono">
-      <div className="max-w-[1000px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
+    <div className="text-dg-text min-h-screen font-body">
+      <div className="max-w-[960px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
         <Markdown
           components={{
             h1: ({ children }) => (
-              <h1 className="text-[1.6rem] sm:text-[2rem] font-semibold -tracking-[0.02em] mb-2">
+              <h1 className="font-display text-[1.8rem] sm:text-[2.25rem] font-normal tracking-[-0.03em] mb-2">
                 <span className="text-dg-accent">{children}</span>
               </h1>
             ),

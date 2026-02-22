@@ -1,16 +1,3 @@
-export const TYPE_BADGE_CLASSES: Record<string, string> = {
-  movie: "bg-dg-movie/20 text-dg-movie border-dg-movie/40",
-  tv_series: "bg-dg-tv/20 text-dg-tv border-dg-tv/40",
-  anime: "bg-dg-anime/20 text-dg-anime border-dg-anime/40",
-  game: "bg-dg-game/20 text-dg-game border-dg-game/40",
-};
-
-const BADGE_FALLBACK = "bg-dg-elevated text-dg-text-tertiary border-dg-border";
-
-export function typeBadgeClass(mediaType?: string | null): string {
-  return TYPE_BADGE_CLASSES[mediaType ?? ""] ?? BADGE_FALLBACK;
-}
-
 export function mediaTypeLabel(type: string, short = false): string {
   if (type === "tv_series") return short ? "TV" : "TV Series";
   return type.charAt(0).toUpperCase() + type.slice(1);
@@ -105,26 +92,45 @@ export function replayCountLabel(count: number, mediaType?: string): string | nu
   return `${verb} x${count + 1}`;
 }
 
+// ─── Status Icons ───────────────────────────────────────────────────────────
+
+export const STATUS_ICONS: Record<StatusValue, string> = {
+  planned: "\u25C7", // ◇
+  in_progress: "\u25B8", // ▸
+  on_hold: "\u2016", // ‖
+  completed: "\u25A0", // ■
+  mastered: "\u2726", // ✦
+  dropped: "\u2715", // ✕
+};
+
 // ─── Status Colors ──────────────────────────────────────────────────────────
 
 /** Text color per status (homepage section headers) */
 export const STATUS_ACCENT: Record<StatusValue, string> = {
-  in_progress: "text-dg-accent",
-  planned: "text-dg-tv",
-  on_hold: "text-dg-text-tertiary",
-  completed: "text-dg-game",
-  dropped: "text-dg-anime",
-  mastered: "text-dg-accent",
+  planned: "text-dg-charted",
+  in_progress: "text-dg-enroute",
+  on_hold: "text-dg-paused",
+  completed: "text-dg-stamped",
+  mastered: "text-dg-sealed",
+  dropped: "text-dg-dropped",
 };
 
 /** Border + bg + text per status (detail page buttons) */
 export const STATUS_BUTTON_COLORS: Record<StatusValue, string> = {
-  in_progress: "border-dg-accent text-dg-accent bg-dg-accent/10",
-  planned: "border-dg-tv text-dg-tv bg-dg-tv/10",
-  on_hold: "border-dg-text-tertiary text-dg-text-tertiary bg-dg-text-tertiary/10",
-  completed: "border-dg-game text-dg-game bg-dg-game/10",
-  dropped: "border-dg-anime text-dg-anime bg-dg-anime/10",
-  mastered: "border-dg-accent text-dg-accent bg-dg-accent/10",
+  planned: "border-dg-charted text-dg-charted bg-dg-charted/10",
+  in_progress: "border-dg-enroute text-dg-enroute bg-dg-enroute/10",
+  on_hold: "border-dg-paused text-dg-paused bg-dg-paused/10",
+  completed: "border-dg-stamped text-dg-stamped bg-dg-stamped/10",
+  mastered: "border-dg-sealed text-dg-sealed bg-dg-sealed/10",
+  dropped: "border-dg-dropped text-dg-dropped bg-dg-dropped/10",
+};
+
+/** Stamp (type badge) color token name per media type */
+export const STAMP_COLORS: Record<string, string> = {
+  movie: "var(--color-dg-movie)",
+  tv_series: "var(--color-dg-tv)",
+  anime: "var(--color-dg-anime)",
+  game: "var(--color-dg-game)",
 };
 
 // ─── Watched Episodes Helpers ────────────────────────────────────────────────

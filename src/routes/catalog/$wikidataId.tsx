@@ -4,6 +4,7 @@ import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-quer
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { StampBadge } from "../../components/StampBadge";
 import type { CatalogEntry } from "../../db/schema";
 import {
   getCatalogEntry,
@@ -25,11 +26,11 @@ import {
   STATUS_BUTTON_COLORS,
   statusLabel,
   todayISO,
-  typeBadgeClass,
   type WatchedEpisodes,
 } from "../../lib/media-types";
 import { ogTags, pageTitle } from "../../lib/og";
 import { catalogEntryOptions, mediaDetailOptions } from "../../lib/query-options";
+import { SoundEngine } from "../../lib/sound";
 import { useAction } from "../../lib/use-action";
 
 const rootRoute = getRouteApi("__root__");
@@ -104,7 +105,7 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
       else if (m.mediaType === "tv_series" || m.mediaType === "anime") ogType = "video.tv_show";
     } else if (loaderData?.kind === "stub") {
       wikidataId = loaderData.stub.wikidataId;
-      description = `Track on donguri`;
+      description = "Track on donguri";
     }
 
     return {
@@ -136,20 +137,20 @@ function MediaDetailRouter() {
 
 function MediaDetailSkeleton() {
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
-      <div className="max-w-[1000px] mx-auto p-4 sm:p-5">
+    <div className="text-dg-text flex-1 font-body">
+      <div className="max-w-[960px] mx-auto px-g3 py-g3 sm:py-g4">
         <button
           type="button"
           onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block"
+          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-body cursor-pointer py-2 -my-2 px-0 mb-g2 inline-block"
         >
           &larr; back
         </button>
-        <div className="mb-5">
+        <div className="mb-g3">
           <div className="w-16 h-5 bg-dg-surface rounded-sm mb-3 animate-pulse" />
           <div className="w-2/3 h-8 bg-dg-surface rounded animate-pulse" />
         </div>
-        <div className="flex flex-wrap gap-x-6 gap-y-3 mb-4 sm:mb-5 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
+        <div className="flex flex-wrap gap-x-6 gap-y-3 mb-g3 p-g2 sm:p-g3 bg-dg-surface rounded border border-dg-border-subtle">
           {[...Array(4)].map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton items
             <div key={i} className="flex flex-col gap-1">
@@ -158,7 +159,7 @@ function MediaDetailSkeleton() {
             </div>
           ))}
         </div>
-        <div className="space-y-2 mb-6">
+        <div className="space-y-2 mb-g4">
           <div className="w-full h-4 bg-dg-surface rounded animate-pulse" />
           <div className="w-4/5 h-4 bg-dg-surface rounded animate-pulse" />
         </div>
@@ -173,33 +174,33 @@ function MediaStubPage({
   stub: { wikidataId: string; title: string; mediaType: string | null };
 }) {
   const { auth } = rootRoute.useLoaderData();
-  const badgeClass = typeBadgeClass(stub.mediaType);
 
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
-      <div className="max-w-[1000px] mx-auto p-4 sm:p-5">
+    <div className="text-dg-text flex-1 font-body">
+      <div className="max-w-[960px] mx-auto px-g3 py-g3 sm:py-g4">
         <button
           type="button"
-          onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block"
+          onClick={() => {
+            SoundEngine.navBack();
+            window.history.back();
+          }}
+          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-body cursor-pointer py-2 -my-2 px-0 mb-g2 inline-block hover:text-dg-text-secondary transition-colors"
         >
           &larr; back
         </button>
 
-        <div className="mb-4 sm:mb-5">
+        <div className="mb-g3">
           {stub.mediaType && (
-            <span
-              className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
-            >
-              {mediaTypeLabel(stub.mediaType)}
-            </span>
+            <div className="mb-2">
+              <StampBadge type={stub.mediaType} />
+            </div>
           )}
-          <h1 className="text-[1.35rem] sm:text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
+          <h1 className="font-display text-[1.6rem] sm:text-[2.25rem] font-normal m-0 leading-[1.15] tracking-[-0.03em]">
             {stub.title}
           </h1>
         </div>
 
-        <div className="border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5">
+        <div className="border border-dg-border-subtle rounded p-g2 sm:p-g3 bg-dg-surface mb-g3">
           <p className="text-[0.8rem] text-dg-text-tertiary">
             This title has not been imported into the catalog yet. Metadata will appear after the
             next data import.
@@ -210,16 +211,16 @@ function MediaStubPage({
           <TrackingPanel wikidataId={stub.wikidataId} mediaType={stub.mediaType ?? undefined} />
         )}
 
-        <div className="mb-4 sm:mb-5">
+        <div className="mb-g3">
           <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
             Links
           </h3>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             <a
               href={`https://www.wikidata.org/wiki/${stub.wikidataId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-dg-accent/70 no-underline py-2 px-3 sm:py-1.5 sm:px-2.5 border border-dg-accent/15 rounded-sm transition-all duration-150"
+              className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-150"
             >
               Wikidata {"\u2197"}
             </a>
@@ -241,7 +242,6 @@ function MediaDetailPage({
   if (!data) throw new Error("Media not found");
   const { auth } = rootRoute.useLoaderData();
   const router = useRouter();
-  const badgeClass = typeBadgeClass(data.mediaType);
   const [localIsFavorite, setLocalIsFavorite] = useState(initialEntry?.isFavorite ?? false);
   const [localWatchedEpisodes, setLocalWatchedEpisodes] = useState<WatchedEpisodes>(
     (initialEntry?.watchedEpisodes as WatchedEpisodes) ?? {},
@@ -253,9 +253,18 @@ function MediaDetailPage({
 
   // ─── Detail page shortcuts ──────────────────────────────────────────────
   // h / ArrowLeft / Backspace — go back
-  useHotkey("H", () => router.history.back());
-  useHotkey("ArrowLeft", () => router.history.back());
-  useHotkey("Backspace", () => router.history.back());
+  useHotkey("H", () => {
+    SoundEngine.navBack();
+    router.history.back();
+  });
+  useHotkey("ArrowLeft", () => {
+    SoundEngine.navBack();
+    router.history.back();
+  });
+  useHotkey("Backspace", () => {
+    SoundEngine.navBack();
+    router.history.back();
+  });
   // f — toggle favorite
   useHotkey("F", () => setLocalIsFavorite((v) => !v), {
     enabled: !!auth && !!initialEntry?.status,
@@ -355,43 +364,44 @@ function MediaDetailPage({
   });
 
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
-      <div className="max-w-[1000px] mx-auto p-4 sm:p-5">
+    <div className="text-dg-text flex-1 font-body">
+      <div className="max-w-[960px] mx-auto px-g3 py-g3 sm:py-g4">
         {/* Back link */}
         <button
           type="button"
-          onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block"
+          onClick={() => {
+            SoundEngine.navBack();
+            window.history.back();
+          }}
+          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-body cursor-pointer py-2 -my-2 px-0 mb-g2 inline-block hover:text-dg-text-secondary transition-colors"
         >
           &larr; back
         </button>
 
         {/* Header + meta combined row */}
-        <div className="flex gap-4 sm:gap-5 mb-4 sm:mb-5 relative">
+        <div className="flex gap-g3 sm:gap-g4 mb-g3 sm:mb-g4 relative">
           {data.posterUrl && (
             <img
               src={data.posterUrl}
               alt={`${data.title} poster`}
               width={160}
-              className="w-[160px] rounded border border-dg-border-subtle shrink-0 self-stretch object-cover hidden sm:block"
+              className="w-[120px] sm:w-[160px] rounded border border-dg-border-subtle shrink-0 self-start object-cover"
               loading="eager"
             />
           )}
           <div className="min-w-0 flex-1">
-            <span
-              className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
-            >
-              {mediaTypeLabel(data.mediaType)}
-            </span>
-            <h1 className="text-[1.35rem] sm:text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
+            <div className="mb-2">
+              <StampBadge type={data.mediaType} />
+            </div>
+            <h1 className="font-display text-[1.6rem] sm:text-[2.25rem] font-normal m-0 leading-[1.15] tracking-[-0.03em]">
               {data.title}
             </h1>
             {data.originalTitle && (
-              <p className="text-base text-dg-text-secondary mt-1.5">{data.originalTitle}</p>
+              <p className="text-[0.85rem] text-dg-text-secondary mt-1">{data.originalTitle}</p>
             )}
 
             {/* Meta slab */}
-            <div className="mt-3 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
+            <div className="mt-g2 p-g2 sm:p-g3 bg-dg-surface rounded border border-dg-border-subtle">
               <div className="flex flex-wrap gap-x-6 gap-y-3">
                 {data.startYear && (
                   <MetaItem
@@ -481,7 +491,7 @@ function MediaDetailPage({
 
         {/* Tracking + Episodes unified card */}
         {auth && (
-          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-4 sm:mb-5">
+          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-g3 sm:mb-g4">
             <TrackingPanel
               wikidataId={data.wikidataId}
               mediaType={data.mediaType}
@@ -509,14 +519,14 @@ function MediaDetailPage({
 
         {/* No auth: standalone episode tracker (read-only) */}
         {!auth && hasSeasons && data.seasons && (
-          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-4 sm:mb-5 p-3 sm:p-4">
+          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-g3 sm:mb-g4 p-g2 sm:p-g3">
             <EpisodeTracker seasons={data.seasons} />
           </div>
         )}
 
         {/* Platforms (games) */}
         {data.platforms.length > 0 && (
-          <div className="mb-4 sm:mb-5">
+          <div className="mb-g3 sm:mb-g4">
             <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
               Platforms
             </h3>
@@ -640,7 +650,7 @@ function EpisodeTracker({
             {seasons.map((s) => (
               <option key={s.id} value={s.seasonNumber}>
                 S{String(s.seasonNumber).padStart(2, "0")}
-                {s.title ? ` — ${s.title}` : ""}
+                {s.title ? ` \u2014 ${s.title}` : ""}
               </option>
             ))}
           </select>
@@ -652,7 +662,7 @@ function EpisodeTracker({
         <div className="mb-2">
           <div className="flex items-center gap-2">
             {isMultiSeason && (
-              <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
+              <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0 font-mono">
                 S{String(currentSeason.seasonNumber).padStart(2, "0")}
               </span>
             )}
@@ -662,7 +672,7 @@ function EpisodeTracker({
                 style={{ width: `${seasonPct}%` }}
               />
             </div>
-            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums shrink-0">
+            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums shrink-0 font-mono">
               {seasonWatched}/{seasonEpCount}
             </span>
           </div>
@@ -673,7 +683,7 @@ function EpisodeTracker({
       {isMultiSeason && totalEps > 0 && (
         <div className="mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
+            <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0 font-mono">
               ALL
             </span>
             <div className="flex-1 h-[6px] bg-dg-elevated rounded-full overflow-hidden">
@@ -682,7 +692,7 @@ function EpisodeTracker({
                 style={{ width: `${totalPct}%` }}
               />
             </div>
-            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums shrink-0">
+            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums shrink-0 font-mono">
               {totalWatched}/{totalEps}
             </span>
           </div>
@@ -701,7 +711,7 @@ function EpisodeTracker({
             >
               -
             </button>
-            <span className="text-[0.9rem] tabular-nums text-dg-text min-w-[5rem] text-center">
+            <span className="text-[0.9rem] tabular-nums text-dg-text min-w-[5rem] text-center font-mono">
               {consecutiveEp} / {seasonEpCount}
             </span>
             <button
@@ -739,7 +749,7 @@ function EpisodeTracker({
             const pct = epCount > 0 ? Math.round((w / epCount) * 100) : 0;
             return (
               <div key={s.id} className="flex items-center gap-2">
-                <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
+                <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0 font-mono">
                   S{String(s.seasonNumber).padStart(2, "0")}
                 </span>
                 <div className="flex-1 h-[4px] bg-dg-elevated rounded-full overflow-hidden">
@@ -748,7 +758,7 @@ function EpisodeTracker({
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <span className="text-[0.6rem] text-dg-text-tertiary tabular-nums shrink-0">
+                <span className="text-[0.6rem] text-dg-text-tertiary tabular-nums shrink-0 font-mono">
                   {epCount > 0 ? `${epCount} ep` : "?"}
                 </span>
               </div>
@@ -812,6 +822,21 @@ function TrackingPanel({
   const setLocalWatchedEpisodes = watchedEpisodesState?.set;
   const localWatchedAt = watchedAtState?.value ?? null;
   const setLocalWatchedAt = watchedAtState?.set;
+
+  // Track status changes for stamp animation
+  const prevStatusRef = useRef(localStatus);
+  const [statusAnimating, setStatusAnimating] = useState(false);
+
+  useEffect(() => {
+    if (localStatus !== prevStatusRef.current && prevStatusRef.current !== null) {
+      SoundEngine.stamp();
+      setStatusAnimating(true);
+      const t = setTimeout(() => setStatusAnimating(false), 350);
+      prevStatusRef.current = localStatus;
+      return () => clearTimeout(t);
+    }
+    prevStatusRef.current = localStatus;
+  }, [localStatus]);
 
   // When loader didn't provide the entry, use TanStack Query to fetch it
   const entryQuery = useQuery({
@@ -1098,11 +1123,15 @@ function TrackingPanel({
               type="button"
               onClick={() => setLocalStatus(s)}
               disabled={action.state === "pending"}
-              className={`text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-mono cursor-pointer shrink-0 transition-all duration-150 disabled:opacity-50 ${
+              className={`text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-body cursor-pointer shrink-0 transition-all duration-150 disabled:opacity-50 ${
                 isActive
                   ? colorClass
                   : "border-dg-border-subtle text-dg-text-secondary bg-transparent hover:border-dg-border"
               }`}
+              style={{
+                animation:
+                  isActive && statusAnimating ? "stampDown 300ms var(--ease-smooth) both" : "none",
+              }}
             >
               {label}
             </button>
@@ -1209,7 +1238,7 @@ function TrackingPanel({
             type="button"
             onClick={handleSave}
             disabled={action.state === "pending" || !isDirty}
-            className={`text-[0.75rem] font-mono rounded-sm border px-3 py-1 bg-transparent cursor-pointer transition-all duration-150 disabled:cursor-default ${
+            className={`text-[0.75rem] font-body rounded-sm border px-3 py-1 bg-transparent cursor-pointer transition-all duration-150 disabled:cursor-default ${
               action.state === "pending"
                 ? "border-dg-accent/50 text-dg-accent/70"
                 : action.state === "error"
@@ -1237,7 +1266,7 @@ function TrackingPanel({
               type="button"
               onClick={handleRemove}
               disabled={action.state === "pending"}
-              className="text-[0.75rem] font-mono rounded-sm border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 cursor-pointer transition-all duration-150 hover:text-dg-anime hover:border-dg-anime/40 disabled:opacity-50 disabled:cursor-default"
+              className="text-[0.75rem] font-body rounded-sm border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 cursor-pointer transition-all duration-150 hover:text-dg-anime hover:border-dg-anime/40 disabled:opacity-50 disabled:cursor-default"
               title="Remove from list"
             >
               delete
