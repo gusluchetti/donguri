@@ -552,7 +552,7 @@ const MediaRow = memo(function MediaRow({
     <div
       className="grid items-center h-full gap-2 sm:gap-g2 py-2 px-3 sm:px-g3"
       style={{
-        gridTemplateColumns: showAdd || addState ? "36px 52px 1fr auto auto" : "36px 52px 1fr auto",
+        gridTemplateColumns: showAdd || addState ? "36px auto 1fr auto auto" : "36px auto 1fr auto",
       }}
     >
       {/* Cover thumb */}
