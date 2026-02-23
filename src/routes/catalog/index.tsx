@@ -18,7 +18,12 @@ import type { Media } from "../../db/schema";
 import { setCatalogEntry } from "../../lib/catalog.functions";
 import { isInputFocused } from "../../lib/hotkeys/shortcuts";
 import { useCatalogCursor } from "../../lib/hotkeys/use-catalog-cursor";
-import { STAMP_COLORS } from "../../lib/media-types";
+import {
+  STAMP_COLORS,
+  STATUS_BUTTON_COLORS,
+  STATUS_ICONS,
+  type StatusValue,
+} from "../../lib/media-types";
 import { ogTags, pageTitle } from "../../lib/og";
 import { catalogInfiniteOptions, mediaStatsOptions } from "../../lib/query-options";
 import { SoundEngine } from "../../lib/sound";
@@ -566,6 +571,7 @@ function formatMeta(item: Media): string {
 const MediaRow = memo(function MediaRow({
   item,
   index,
+  trackedStatus,
   showAdd,
   addState,
   onQuickAdd,
@@ -578,50 +584,36 @@ const MediaRow = memo(function MediaRow({
   onQuickAdd: (wikidataId: string, mediaType: string, e: React.MouseEvent) => void;
 }) {
   const meta = formatMeta(item);
-  const panelOpen = addState !== null;
+  const [swiped, setSwiped] = useState(false);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const panelOpen = addState !== null || swiped;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!showAdd) return;
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStart.current) return;
+    const dx = e.changedTouches[0].clientX - touchStart.current.x;
+    const dy = e.changedTouches[0].clientY - touchStart.current.y;
+    touchStart.current = null;
+    if (Math.abs(dx) < Math.abs(dy) * 1.2) return; // mostly vertical — let scroll through
+    if (dx < -30) setSwiped(true);
+    else if (dx > 20) setSwiped(false);
+  };
 
   return (
-    <div className="h-full flex items-center relative">
-      {/* Left pop-out quick-add panel */}
-      {showAdd && (
-        <div
-          className={`shrink-0 overflow-hidden transition-[width] duration-150 h-full flex items-center ${panelOpen ? "w-10" : "w-0 group-hover:w-10"}`}
-        >
-          <div
-            className="w-10 h-full flex items-center justify-center"
-            style={{
-              borderLeft: "2px solid var(--type-color)",
-              background: "var(--color-dg-elevated)",
-            }}
-          >
-            <button
-              type="button"
-              onClick={(e) => onQuickAdd(item.wikidataId, item.mediaType, e)}
-              className="w-full h-full flex items-center justify-center bg-transparent border-none cursor-pointer transition-colors duration-100"
-              style={{
-                color:
-                  addState === "done" ? "var(--color-dg-stamped)" : "var(--color-dg-text-tertiary)",
-              }}
-            >
-              {addState === "pending" ? (
-                <CircleNotch size={14} className="animate-spin" />
-              ) : addState === "done" ? (
-                <Check size={14} weight="bold" />
-              ) : (
-                <Plus size={14} weight="bold" />
-              )}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Left color bar — only when no pop-out panel */}
-      {!showAdd && (
-        <div
-          className="absolute left-0 top-0 bottom-0 w-[2.5px] opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-          style={{ backgroundColor: "var(--type-color)" }}
-        />
-      )}
+    <div
+      className="h-full flex items-center relative"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Left color bar — always on hover */}
+      <div
+        className="absolute left-0 top-0 bottom-0 w-[2.5px] opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+        style={{ backgroundColor: "var(--type-color)" }}
+      />
 
       {/* Grid content */}
       <div
@@ -641,9 +633,20 @@ const MediaRow = memo(function MediaRow({
           <StampBadge type={item.mediaType} index={index} />
         </div>
 
-        {/* Title + subtitle */}
+        {/* Title + tracked pill + subtitle */}
         <div className="min-w-0">
-          <div className="text-[0.85rem] font-medium text-dg-text truncate">{item.title}</div>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[0.85rem] font-medium text-dg-text truncate flex-1 min-w-0">
+              {item.title}
+            </span>
+            {trackedStatus && (
+              <span
+                className={`text-[0.58rem] font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none ${STATUS_BUTTON_COLORS[trackedStatus as StatusValue] ?? ""}`}
+              >
+                {STATUS_ICONS[trackedStatus as StatusValue]}
+              </span>
+            )}
+          </div>
           {(() => {
             const year = item.startYear
               ? `${item.startYear}${item.endYear && item.endYear !== item.startYear ? `\u2013${item.endYear}` : ""}`
@@ -670,6 +673,42 @@ const MediaRow = memo(function MediaRow({
           ) : null}
         </div>
       </div>
+
+      {/* Right pop-out quick-add panel */}
+      {showAdd && (
+        <div
+          className={`shrink-0 overflow-hidden transition-[width] duration-150 h-full flex items-center ${panelOpen ? "w-10" : "w-0 group-hover:w-10"}`}
+        >
+          <div
+            className="w-10 h-full flex items-center justify-center"
+            style={{
+              borderLeft: "2px solid var(--type-color)",
+              background: "var(--color-dg-elevated)",
+            }}
+          >
+            <button
+              type="button"
+              onClick={(e) => {
+                setSwiped(false);
+                onQuickAdd(item.wikidataId, item.mediaType, e);
+              }}
+              className="w-full h-full flex items-center justify-center bg-transparent border-none cursor-pointer transition-colors duration-100"
+              style={{
+                color:
+                  addState === "done" ? "var(--color-dg-stamped)" : "var(--color-dg-text-tertiary)",
+              }}
+            >
+              {addState === "pending" ? (
+                <CircleNotch size={14} className="animate-spin" />
+              ) : addState === "done" ? (
+                <Check size={14} weight="bold" />
+              ) : (
+                <Plus size={14} weight="bold" />
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 });
