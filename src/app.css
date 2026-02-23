@@ -38,20 +38,20 @@ img {
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Dark theme (default) — OLED dark base, hsl(194) teal-blue tint */
-  --color-dg-bg: #060e11;
-  --color-dg-surface: #0b171b;
-  --color-dg-elevated: #101e23;
-  --color-dg-row-hover: #142429;
-  --color-dg-border-subtle: #1a2b30;
-  --color-dg-border: #23373d;
-  --color-dg-border-strong: #30484f;
+  /* Dark theme (default) — OLED dark base, hsl(194) teal-blue tint, +2% blue */
+  --color-dg-bg: #060e13;
+  --color-dg-surface: #0b171e;
+  --color-dg-elevated: #101e26;
+  --color-dg-row-hover: #14242c;
+  --color-dg-border-subtle: #1a2b34;
+  --color-dg-border: #233742;
+  --color-dg-border-strong: #304855;
 
   /* Warm text on cool bg — intentional tension, classic film look */
   --color-dg-text: #e0ddd6;
-  --color-dg-text-secondary: #a8b5b8;
-  --color-dg-text-tertiary: #5e7e8a;
-  --color-dg-text-muted: #365865;
+  --color-dg-text-secondary: #a8b5bc;
+  --color-dg-text-tertiary: #5e7e8e;
+  --color-dg-text-muted: #365868;
 
   --color-dg-accent: #e8702e;
   --color-dg-accent-soft: rgba(232, 112, 46, 0.07);
@@ -87,13 +87,13 @@ img {
 /* Atmosphere defaults are also here so light overrides can win (unlayered :root would beat @layer base) */
 @layer base {
   :root {
-    --topo-color: rgba(48, 190, 232, 0.07);
-    --grid-color: rgba(48, 190, 232, 0.042);
+    --topo-color: rgba(40, 185, 242, 0.07);
+    --grid-color: rgba(40, 185, 242, 0.042);
     --noise-opacity: 0.15;
     --grain-blend: soft-light;
-    --nav-bg: rgba(6, 14, 17, 0.94);
+    --nav-bg: rgba(6, 14, 19, 0.94);
     --stamp-bg: rgba(255, 255, 255, 0.02);
-    --vignette: radial-gradient(circle at 50% 50%, transparent 25%, var(--color-dg-bg) 70%);
+    --vignette: radial-gradient(circle at 50% 50%, transparent 35%, var(--color-dg-bg) 90%);
   }
 
   [data-theme="light"] {
@@ -357,8 +357,8 @@ html[data-nav-back] ::view-transition-new(detail-content) {
     linear-gradient(0deg, var(--grid-color) 1px, transparent 1px);
   background-size: 64px 64px;
   /* Radial mask centered on content area — fades toward edges */
-  mask-image: radial-gradient(circle at 50% 50%, black 0%, transparent 75%);
-  -webkit-mask-image: radial-gradient(circle at 50% 50%, black 0%, transparent 75%);
+  mask-image: radial-gradient(circle at 50% 50%, black 0%, transparent 85%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, black 0%, transparent 85%);
   filter: blur(0.4px);
 }
 
