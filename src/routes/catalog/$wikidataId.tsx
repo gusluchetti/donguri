@@ -386,7 +386,7 @@ function MediaDetailPage({
         {/* Header + meta combined row */}
         <div className="flex flex-col sm:flex-row gap-g3 sm:gap-g4 mb-g3 sm:mb-g4">
           {/* Poster — portrait on mobile, stretches to match right column on desktop */}
-          <div className="w-[150px] sm:w-[210px] shrink-0">
+          <div className="hidden sm:block sm:w-[210px] shrink-0">
             {data.posterUrl ? (
               <img
                 src={data.posterUrl}
