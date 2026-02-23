@@ -153,17 +153,14 @@ function SignInSection() {
     <div className="flex flex-col gap-3">
       <div className="text-[0.8rem] text-dg-text-secondary uppercase tracking-wider">Sign in</div>
 
-      {/* Bluesky — primary */}
       <BlueskyLoginForm />
 
-      {/* Divider */}
       <div className="flex items-center gap-3">
         <div className="flex-1 border-t border-dg-border-subtle" />
         <span className="text-[0.75rem] text-dg-text-tertiary">or</span>
         <div className="flex-1 border-t border-dg-border-subtle" />
       </div>
 
-      {/* Google + GitHub */}
       <div className="flex flex-col gap-2">
         <OAuthButton provider="google" label="Continue with Google" />
         <OAuthButton provider="github" label="Continue with GitHub" />
@@ -329,7 +326,6 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
             animation: `fadeIn 320ms var(--ease-smooth) both ${i * 30}ms`,
           }}
         >
-          {/* Cover */}
           <div className="w-full aspect-[2/3] rounded overflow-hidden relative transition-all duration-[120ms] ease-[var(--ease-spring)] group-hover:scale-[1.04] group-hover:shadow-[0_4px_20px_rgba(184,164,114,0.15)]">
             <CoverThumb
               title={item.mediaTitle ?? "?"}
@@ -338,18 +334,15 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
               posterUrl={item.posterUrl ?? undefined}
             />
           </div>
-          {/* Title — lifts up on group hover */}
           <div className="mt-1 text-xs font-medium text-dg-text truncate transition-all duration-150 group-hover:text-dg-accent group-hover:-translate-y-1">
             {item.isFavorite && (
               <Star size={10} weight="fill" className="text-dg-accent mr-0.5 inline-block" />
             )}
             {item.mediaTitle ?? item.mediaWikidataId}
           </div>
-          {/* Badge */}
           <div className="mt-0.5 flex items-center gap-1">
             <StampBadge type={item.mediaType ?? ""} index={i} />
           </div>
-          {/* Rating */}
           {item.rating != null && (
             <div
               className="text-[0.65rem] tabular-nums font-mono mt-0.5"
@@ -393,9 +386,7 @@ function WatchlistListItem({ item, index }: { item: CatalogEntryRow; index: numb
           {pos}
         </span>
       )}
-      {replay && (
-        <span className="text-[0.65rem] text-dg-text-tertiary shrink-0">{replay}</span>
-      )}
+      {replay && <span className="text-[0.65rem] text-dg-text-tertiary shrink-0">{replay}</span>}
       {item.rating != null && (
         <span
           className="text-[0.75rem] tabular-nums shrink-0 font-mono"

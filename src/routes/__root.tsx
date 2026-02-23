@@ -160,7 +160,6 @@ function RootComponent() {
               }}
             >
               <div className="max-w-[1100px] mx-auto px-3 sm:px-g3 flex items-center justify-between h-12">
-                {/* Left: logo + nav items */}
                 <div className="flex items-center gap-1 sm:gap-g1">
                   <Link
                     to="/"
@@ -189,7 +188,6 @@ function RootComponent() {
                   </div>
                 </div>
 
-                {/* Right: controls */}
                 <div className="flex items-center gap-1">
                   {auth && (
                     <span className="text-xs text-dg-accent hidden sm:inline mr-2">
@@ -289,25 +287,19 @@ function GlobalShortcuts({
   const navigate = useNavigate();
   const { toggleTheme } = useTheme();
 
-  // ? — toggle help overlay (Shift+/ produces "?")
   useHotkey({ key: "?", shift: true }, () => setShowHelp((v) => !v));
-
-  // . — toggle theme
   useHotkey(".", toggleTheme);
 
-  // g h — go home (sequence, needs input guard)
   useHotkeySequence(["G", "H"], () => {
     if (isInputFocused()) return;
     navigate({ to: "/" });
   });
 
-  // g c — go to catalog
   useHotkeySequence(["G", "C"], () => {
     if (isInputFocused()) return;
     navigate({ to: "/catalog" });
   });
 
-  // g r — go to roadmap
   useHotkeySequence(["G", "R"], () => {
     if (isInputFocused()) return;
     navigate({ to: "/roadmap" });
@@ -436,13 +428,11 @@ function BottomNav() {
       }}
     >
       <div className="flex items-stretch h-14">
-        {/* Watchlist */}
         <Link to="/" activeOptions={{ exact: true }} activeProps={active} inactiveProps={inactive}>
           <Bookmark size={22} weight="bold" />
           <span className="text-[0.6rem] uppercase tracking-wider">watchlist</span>
         </Link>
 
-        {/* Home / Acorn */}
         <Link
           to="/"
           activeOptions={{ exact: true }}
@@ -454,7 +444,6 @@ function BottomNav() {
           <span className="text-[0.6rem] uppercase tracking-wider">home</span>
         </Link>
 
-        {/* Catalog */}
         <Link
           to="/catalog"
           activeOptions={{ exact: false }}

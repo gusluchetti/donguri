@@ -73,8 +73,6 @@ export const Route = createFileRoute("/catalog/")({
   component: CatalogPage,
 });
 
-// ─── Hooks ────────────────────────────────────────────────────────────────────
-
 type QuickAddState = "pending" | "done";
 
 function useQuickAdd() {
@@ -125,7 +123,6 @@ function useQuickAdd() {
     [router, queryClient],
   );
 
-  // Clear timers on unmount
   useEffect(
     () => () => {
       for (const t of timers.current.values()) clearTimeout(t);
@@ -135,8 +132,6 @@ function useQuickAdd() {
 
   return { localOverrides, quickAddState, handleQuickAdd };
 }
-
-// ─── Components ───────────────────────────────────────────────────────────────
 
 type MediaStats = {
   total: number;
@@ -200,12 +195,11 @@ const SearchBar = forwardRef<HTMLInputElement, { initialValue: string; onRandom?
     const [focused, setFocused] = useState(false);
     const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-    // Sync when URL changes externally (e.g. back/forward) — but not while typing or debounce pending
+    // Sync when URL changes externally (back/forward) but not while typing
     useEffect(() => {
       if (!focused && !timeoutRef.current) setValue(q ?? "");
     }, [q, focused]);
 
-    // Clear pending debounce on unmount so stale navigate() can't fire after page transition
     useEffect(
       () => () => {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -321,7 +315,6 @@ function CatalogPage() {
     [navigate],
   );
 
-  // Scroll restoration for the custom scroll container via TanStack Router
   const scrollEntry = useElementScrollRestoration({
     getElement: () => parentRef.current,
   });
@@ -345,7 +338,6 @@ function CatalogPage() {
 
   const virtualItems = virtualizer.getVirtualItems();
 
-  // ─── Keyboard shortcuts ─────────────────────────────────────────────────
   const { selectedIndex, setSelectedIndex } = useCatalogCursor({
     itemCount: allItems.length,
     virtualizer,
@@ -353,7 +345,6 @@ function CatalogPage() {
     hasNextPage,
   });
 
-  // Reset cursor when search/filter changes
   const prevQ = useRef(q);
   const prevType = useRef(mediaType);
   useEffect(() => {
@@ -372,7 +363,6 @@ function CatalogPage() {
     }
   }, [allItems, selectedIndex, navigate]);
 
-  // Enter — blur search (if focused) or open selected item
   useHotkey(
     "Enter",
     () => {
@@ -388,10 +378,8 @@ function CatalogPage() {
   useHotkey("L", openSelected, { enabled: selectedIndex >= 0 });
   useHotkey("ArrowRight", openSelected, { enabled: selectedIndex >= 0 });
 
-  // / — focus search
   useHotkey("/", () => searchRef.current?.focus());
 
-  // Esc — blur search or deselect cursor
   useHotkey(
     "Escape",
     () => {
@@ -429,7 +417,13 @@ function CatalogPage() {
     { enabled: selectedIndex >= 0 && !!auth },
   );
 
-  // Trigger load more when approaching end
+  const handleRandom = useCallback(() => {
+    if (!allItems.length) return;
+    const item = allItems[Math.floor(Math.random() * allItems.length)];
+    SoundEngine.navForward();
+    navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
+  }, [allItems, navigate]);
+
   useEffect(() => {
     const lastItem = virtualItems[virtualItems.length - 1];
     if (!lastItem) return;
@@ -451,21 +445,8 @@ function CatalogPage() {
       </header>
 
       <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 py-2 flex flex-col gap-2">
-        <SearchBar
-          ref={searchRef}
-          initialValue={q ?? ""}
-          onRandom={() => {
-            if (!allItems.length) return;
-            const item = allItems[Math.floor(Math.random() * allItems.length)];
-            SoundEngine.navForward();
-            navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
-          }}
-        />
-        <TypeFilterBar
-          mediaType={mediaType}
-          stats={stats}
-          onTypeChange={handleTypeChange}
-        />
+        <SearchBar ref={searchRef} initialValue={q ?? ""} onRandom={handleRandom} />
+        <TypeFilterBar mediaType={mediaType} stats={stats} onTypeChange={handleTypeChange} />
       </div>
 
       {!auth && (
@@ -620,7 +601,6 @@ const MediaRow = memo(function MediaRow({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Left color bar — always on hover */}
       <div
         className="absolute left-0 top-0 bottom-0 w-[2.5px] opacity-0 group-hover:opacity-100 transition-opacity duration-150"
         style={{ backgroundColor: "var(--type-color)" }}
