@@ -60,13 +60,10 @@ bun run src/import/incremental.ts --days=7 --dry-run # Preview only
 
 ## Validation (run before every commit)
 
-**Always run these four commands to validate changes. Fix any errors before committing.**
+**Always run `bun run validate` to validate changes. Fix any errors before committing.**
 
 ```bash
-bun run typecheck             # TypeScript type checking — fix all errors
-bun run format                # Biome formatter — auto-fixes in place
-bun run lint                  # Biome linter — fix all errors, warnings are OK
-bun run build                 # Vite production build — must succeed cleanly
+bun run validate              # format + lint + typecheck + build (stops on first failure)
 ```
 
 ## Architecture

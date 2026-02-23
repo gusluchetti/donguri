@@ -13,7 +13,9 @@
  */
 
 import fs from "node:fs";
+import path from "node:path";
 import readline from "node:readline";
+import { format } from "node:util";
 import zlib from "node:zlib";
 import * as clack from "@clack/prompts";
 import { eq, inArray, sql } from "drizzle-orm";
@@ -225,13 +227,14 @@ async function seedCanonicalMappings(db: DbType): Promise<void> {
 interface MediaImportOpts {
   subsetPath: string;
   reset: boolean;
+  recheck: boolean;
   limit: number;
   batchSize: number;
   qrankPath: string | null;
 }
 
 async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> {
-  const { subsetPath, reset, limit, batchSize, qrankPath } = opts;
+  const { subsetPath, reset, recheck, limit, batchSize, qrankPath } = opts;
   const startTime = Date.now();
 
   if (reset) {
@@ -307,6 +310,7 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
   );
 
   let batch: ParsedMedia[] = [];
+  const importedIds = new Set<string>();
 
   try {
     const rl = readline.createInterface({
@@ -346,6 +350,7 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
       const parsed = parseMediaEntity(entity);
       if (!parsed) continue;
 
+      importedIds.add(parsed.wikidataId);
       stats.byType[parsed.mediaType] = (stats.byType[parsed.mediaType] || 0) + 1;
       batch.push(parsed);
 
@@ -365,6 +370,72 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
 
     if (qrankPath) {
       await applyQRank(db, qrankPath);
+    }
+
+    // ── Prune stale media + orphaned catalog entries on --recheck ──
+    if (recheck && importedIds.size > 0) {
+      console.log(
+        `\nPruning media not in subset (${importedIds.size.toLocaleString()} valid IDs)...`,
+      );
+
+      await db.execute(sql`CREATE TEMP TABLE _valid_ids (id text NOT NULL)`);
+      const ids = [...importedIds];
+      for (let i = 0; i < ids.length; i += 5000) {
+        const chunk = ids.slice(i, i + 5000);
+        const values = chunk.map((id) => `(${escapePostgresLiteral(id)})`).join(",");
+        await db.execute(sql.raw(`INSERT INTO _valid_ids (id) VALUES ${values}`));
+      }
+
+      const [{ cnt }] = (await db.execute(
+        sql`SELECT COUNT(*)::int AS cnt FROM media WHERE wikidata_id NOT IN (SELECT id FROM _valid_ids)`,
+      )) as unknown as [{ cnt: number }];
+
+      if (cnt > 0) {
+        await db.execute(
+          sql`DELETE FROM media WHERE wikidata_id NOT IN (SELECT id FROM _valid_ids)`,
+        );
+        console.log(`  Pruned ${cnt.toLocaleString()} stale media rows`);
+      } else {
+        console.log("  No stale media to prune");
+      }
+
+      await db.execute(sql`DROP TABLE _valid_ids`);
+
+      // Clean orphaned catalog entries (media_wikidata_id not in media table)
+      const orphans = (await db.execute(
+        sql`SELECT ce.id, ce.media_wikidata_id, ce.media_title, ce.media_type,
+                   u.handle, u.auth_method
+            FROM catalog_entries ce
+            JOIN users u ON u.id = ce.user_id
+            LEFT JOIN media m ON m.wikidata_id = ce.media_wikidata_id
+            WHERE m.id IS NULL`,
+      )) as unknown as {
+        id: string;
+        media_wikidata_id: string;
+        media_title: string | null;
+        media_type: string | null;
+        handle: string;
+        auth_method: string;
+      }[];
+
+      if (orphans.length > 0) {
+        for (const o of orphans) {
+          console.log(
+            `[PRUNE] Removing orphaned catalog entry:\n` +
+              `  User: ${o.handle} (${o.auth_method}) | Media: ${o.media_wikidata_id} "${o.media_title ?? "?"}" (${o.media_type ?? "?"})`,
+          );
+        }
+        await db.execute(
+          sql`DELETE FROM catalog_entries WHERE id IN (
+            SELECT ce.id FROM catalog_entries ce
+            LEFT JOIN media m ON m.wikidata_id = ce.media_wikidata_id
+            WHERE m.id IS NULL
+          )`,
+        );
+        console.log(`  Pruned ${orphans.length} orphaned catalog entries`);
+      } else {
+        console.log("  No orphaned catalog entries");
+      }
     }
 
     await db
@@ -1519,9 +1590,9 @@ async function interactiveMenu(): Promise<RunConfig> {
   }
 
   let recheck = false;
-  if (features.includes("covers")) {
+  if (features.includes("covers") || features.includes("media")) {
     const recheckResult = await clack.confirm({
-      message: "Re-check items that already have covers?",
+      message: "Re-check covers + prune stale media?",
       initialValue: false,
     });
     if (clack.isCancel(recheckResult)) {
@@ -1543,9 +1614,38 @@ async function interactiveMenu(): Promise<RunConfig> {
   };
 }
 
+// ═══ File Logging ════════════════════════════════════════════════════════════
+
+function setupFileLogging(): void {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const logDir = path.join(import.meta.dirname, "../../logs");
+  const logPath = path.join(logDir, `import-${timestamp}.log`);
+
+  fs.mkdirSync(logDir, { recursive: true });
+
+  const logStream = fs.createWriteStream(logPath, { flags: "a" });
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI escape sequences
+  const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
+
+  const tee =
+    (original: (...args: unknown[]) => void, prefix: string) =>
+    (...args: unknown[]) => {
+      original(...args);
+      logStream.write(`${prefix}${stripAnsi(format(...args))}\n`);
+    };
+
+  console.log = tee(console.log, "");
+  console.warn = tee(console.warn, "[WARN] ");
+  console.error = tee(console.error, "[ERR]  ");
+
+  process.on("exit", () => logStream.end());
+  console.log(`Logging to ${logPath}`);
+}
+
 // ═══ Main ═══════════════════════════════════════════════════════════════════
 
 async function main() {
+  setupFileLogging();
   const cliResult = parseCliArgs();
   const config = cliResult === "interactive" ? await interactiveMenu() : cliResult;
 
@@ -1588,6 +1688,7 @@ async function main() {
           await runMediaImport(db, {
             subsetPath: config.subsetPath,
             reset: config.reset,
+            recheck: config.recheck,
             limit: config.limit,
             batchSize: config.batchSize,
             qrankPath: config.qrankPath,
