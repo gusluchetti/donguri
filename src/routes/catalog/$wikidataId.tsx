@@ -252,13 +252,8 @@ function MediaDetailPage({
   if (!data) throw new Error("Media not found");
   const { auth } = rootRoute.useLoaderData();
   const router = useRouter();
-  const coverRef = useRef<HTMLElement | null>(null);
-
   const handleBack = useCallback(() => {
     SoundEngine.navBack();
-    // Suppress shared cover element on back — virtual list may not have it rendered
-    if (coverRef.current) coverRef.current.style.viewTransitionName = "none";
-    // Signal CSS for reverse slide direction
     document.documentElement.dataset.navBack = "1";
     router.history.back();
     setTimeout(() => delete document.documentElement.dataset.navBack, 500);
@@ -394,23 +389,13 @@ function MediaDetailPage({
           <div className="w-[150px] sm:w-[210px] shrink-0 sm:self-start">
             {data.posterUrl ? (
               <img
-                ref={(el) => {
-                  coverRef.current = el;
-                }}
                 src={data.posterUrl}
                 alt={`${data.title} poster`}
                 className="w-full rounded border border-dg-border-subtle object-cover aspect-[2/3]"
                 loading="eager"
-                style={{ viewTransitionName: `cover-${wikidataId}` }}
               />
             ) : (
-              <div
-                ref={(el) => {
-                  coverRef.current = el;
-                }}
-                className="aspect-[2/3] w-full"
-                style={{ viewTransitionName: `cover-${wikidataId}` }}
-              >
+              <div className="aspect-[2/3] w-full">
                 <CoverThumb title={data.title} mediaType={data.mediaType ?? undefined} size={210} />
               </div>
             )}

@@ -634,7 +634,6 @@ const MediaRow = memo(function MediaRow({
           mediaType={item.mediaType}
           size={36}
           posterUrl={item.posterUrl ?? undefined}
-          vtName={`cover-${item.wikidataId}`}
         />
 
         {/* Stamp badge */}
