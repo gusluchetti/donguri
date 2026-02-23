@@ -47,7 +47,18 @@ export function CoverThumb({
   }
 
   const h = hue ?? (mediaType ? (TYPE_HUES[mediaType] ?? 0) : 0);
-  const ch = title[0]?.toUpperCase() ?? "?";
+
+  // Build acronym from first letter of each word, capped at 5 chars
+  const initials = title
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase())
+    .join("")
+    .slice(0, 5) || "?";
+
+  // Scale font size down as more letters appear
+  const smallFontSize = initials.length <= 1 ? 14 : initials.length <= 2 ? 12 : initials.length <= 3 ? 10 : initials.length <= 4 ? 8 : 7;
+  const largeFontSize = initials.length <= 1 ? 32 : initials.length <= 2 ? 26 : initials.length <= 3 ? 20 : initials.length <= 4 ? 16 : 13;
 
   if (isLarge) {
     // Cover grid card — 2/3 aspect ratio, deep gradient, large watermark
@@ -63,13 +74,13 @@ export function CoverThumb({
         }}
       >
         <span
-          className="relative font-display font-semibold select-none"
+          className="relative font-display font-semibold select-none tracking-tight"
           style={{
-            fontSize: 32,
+            fontSize: largeFontSize,
             color: isLight ? `hsla(${h},30%,30%,0.15)` : `hsla(${h},25%,70%,0.15)`,
           }}
         >
-          {ch}
+          {initials}
         </span>
         <div
           className="absolute inset-0 rounded pointer-events-none"
@@ -97,13 +108,13 @@ export function CoverThumb({
       }}
     >
       <span
-        className="relative font-display font-semibold select-none"
+        className="relative font-display font-semibold select-none tracking-tight"
         style={{
-          fontSize: 14,
+          fontSize: smallFontSize,
           color: isLight ? `hsla(${h},30%,30%,0.3)` : `hsla(${h},25%,70%,0.3)`,
         }}
       >
-        {ch}
+        {initials}
       </span>
       <div
         className="absolute inset-0 rounded-[3px] pointer-events-none"
