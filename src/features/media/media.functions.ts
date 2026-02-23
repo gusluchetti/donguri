@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { getDb } from "~/db";
@@ -13,8 +13,7 @@ import {
   seasons,
 } from "~/db/schema";
 import { getSessionData } from "~/features/auth/auth.session";
-import { normalizeForSearch } from "~/lib/search";
-import { getPopularPage, searchPopular } from "./popular-cache";
+import { getMediaSource } from "./media-source";
 
 const parentGenres = alias(canonicalGenres, "parent_genres");
 const parentPlatforms = alias(canonicalPlatforms, "parent_platforms");
@@ -59,71 +58,6 @@ const GetMediaInput = z.object({
   wikidataId: z.string(),
 });
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-async function searchMedia(
-  db: ReturnType<typeof getDb>,
-  searchTerm: string,
-  cursor: string | undefined,
-  limit: number,
-  mediaType?: string,
-) {
-  const offset = cursor ? Number.parseInt(cursor, 10) : 0;
-  const normalizedTerm = normalizeForSearch(searchTerm);
-  const ilikeTerm = `%${searchTerm.replace(/[%_\\]/g, "\\$&")}%`;
-  const normalizedIlike = `%${normalizedTerm.replace(/[%_\\]/g, "\\$&")}%`;
-  // Pipe-delimited alias patterns for exact matching
-  const aliasExact = `%|${searchTerm}|%`;
-  const aliasIlike = `%|${searchTerm}|%`;
-  // Pad aliases with pipes for exact boundary matching
-  const aliasLikeTerm = `%${searchTerm.replace(/[%_\\]/g, "\\$&")}%`;
-
-  const relevance = sql<number>`GREATEST(
-    CASE WHEN ${media.aliases} IS NOT NULL AND '|' || ${media.aliases} || '|' LIKE ${aliasExact} THEN 2.0 ELSE 0 END,
-    CASE WHEN ${media.aliases} IS NOT NULL AND '|' || ${media.aliases} || '|' ILIKE ${aliasIlike} THEN 1.9 ELSE 0 END,
-    word_similarity(${searchTerm}, ${media.title}),
-    word_similarity(${searchTerm}, COALESCE(${media.originalTitle}, '')),
-    word_similarity(${normalizedTerm}, COALESCE(${media.searchTitle}, ''))
-  )`;
-
-  const fuzzyCondition = sql`(
-    ${searchTerm} <% ${media.title}
-    OR ${searchTerm} <% COALESCE(${media.originalTitle}, '')
-    OR ${normalizedTerm} <% COALESCE(${media.searchTitle}, '')
-    OR ${media.title} ILIKE ${ilikeTerm}
-    OR ${media.originalTitle} ILIKE ${ilikeTerm}
-    OR ${media.searchTitle} ILIKE ${normalizedIlike}
-    OR ${media.aliases} ILIKE ${aliasLikeTerm}
-  )`;
-
-  const conditions = [fuzzyCondition];
-  if (mediaType)
-    conditions.push(eq(media.mediaType, mediaType as "movie" | "tv_series" | "anime" | "game"));
-
-  const results = await db.transaction(async (tx) => {
-    await tx.execute(sql`SET LOCAL pg_trgm.word_similarity_threshold = 0.2`);
-    return tx
-      .select(getTableColumns(media))
-      .from(media)
-      .where(and(...conditions))
-      .orderBy(
-        desc(relevance),
-        sql`${media.popularityScore} ASC NULLS LAST`,
-        desc(media.sitelinksCount),
-        asc(media.id),
-      )
-      .limit(limit + 1)
-      .offset(offset);
-  });
-
-  const hasMore = results.length > limit;
-  const page = hasMore ? results.slice(0, limit) : results;
-  return {
-    items: page,
-    nextCursor: hasMore ? String(offset + limit) : null,
-  };
-}
-
 // ─── Server functions ───────────────────────────────────────────────────────
 
 /**
@@ -137,83 +71,23 @@ export const listMedia = createServerFn({ method: "GET" })
     const { cursor, limit, mediaType, search } = data;
     const trimmedSearch = search?.trim();
 
-    // Non-logged users get served from the in-memory popular cache
     const session = await getSessionData();
-    if (!session?.userId) {
-      if (trimmedSearch) return searchPopular(trimmedSearch, mediaType, cursor, limit);
-      return getPopularPage(mediaType, cursor, limit);
-    }
-
-    const db = getDb();
+    const source = getMediaSource(session);
 
     if (trimmedSearch) {
-      return searchMedia(db, trimmedSearch, cursor, limit, mediaType);
+      return source.search(trimmedSearch, { cursor, limit, mediaType });
     }
-
-    // ── Browse mode (no search) ─────────────────────────────────────────
-    const conditions = [];
-
-    // Type filter
-    if (mediaType) conditions.push(eq(media.mediaType, mediaType));
-
-    // Keyset cursor pagination (popularity_score ASC NULLS LAST, sitelinks_count DESC, id ASC)
-    if (cursor) {
-      const [cursorItem] = await db
-        .select({
-          popularityScore: media.popularityScore,
-          sitelinksCount: media.sitelinksCount,
-          id: media.id,
-        })
-        .from(media)
-        .where(eq(media.id, cursor))
-        .limit(1);
-
-      if (cursorItem) {
-        const ps = cursorItem.popularityScore;
-        const sc = cursorItem.sitelinksCount ?? 0;
-        if (ps != null) {
-          conditions.push(
-            sql`(
-              (${media.popularityScore} IS NOT NULL AND (
-                ${media.popularityScore} > ${ps}
-                OR (${media.popularityScore} = ${ps} AND COALESCE(${media.sitelinksCount}, 0) < ${sc})
-                OR (${media.popularityScore} = ${ps} AND COALESCE(${media.sitelinksCount}, 0) = ${sc} AND ${media.id} > ${cursor})
-              ))
-              OR ${media.popularityScore} IS NULL
-            )`,
-          );
-        } else {
-          conditions.push(
-            sql`(
-              ${media.popularityScore} IS NULL AND (
-                COALESCE(${media.sitelinksCount}, 0) < ${sc}
-                OR (COALESCE(${media.sitelinksCount}, 0) = ${sc} AND ${media.id} > ${cursor})
-              )
-            )`,
-          );
-        }
-      }
-    }
-
-    const items = await db
-      .select()
-      .from(media)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(
-        sql`${media.popularityScore} ASC NULLS LAST`,
-        desc(media.sitelinksCount),
-        asc(media.id),
-      )
-      .limit(limit + 1);
-
-    const hasMore = items.length > limit;
-    const page = hasMore ? items.slice(0, limit) : items;
-
-    return {
-      items: page,
-      nextCursor: hasMore ? page[page.length - 1].id : null,
-    };
+    return source.list({ cursor, limit, mediaType });
   });
+
+/**
+ * Get a random media wikidata ID. Works for both logged-in (DB) and logged-out (cache) users.
+ */
+export const getRandomMediaId = createServerFn({ method: "GET" }).handler(async () => {
+  const session = await getSessionData();
+  const source = getMediaSource(session);
+  return source.randomId();
+});
 
 /**
  * Get a single media item by Wikidata ID, including genres and platforms.

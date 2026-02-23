@@ -1,5 +1,5 @@
 /**
- * Server-side in-memory cache of the top 2k media per type.
+ * Server-side in-memory cache of the top 1k media per type.
  *
  * Non-logged users get served from this cache (zero DB queries).
  * Logged-in users bypass the cache and hit Postgres directly.
@@ -8,12 +8,11 @@
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "~/db";
 import { type Media, media } from "~/db/schema";
-import { normalizeForSearch } from "~/lib/search";
 
 type MediaType = "movie" | "tv_series" | "anime" | "game";
 const MEDIA_TYPES: MediaType[] = ["movie", "tv_series", "anime", "game"];
-const ITEMS_PER_TYPE = 2000;
-const TTL_MS = 60 * 60 * 1000; // 1 hour
+const ITEMS_PER_TYPE = 1000;
+const TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 // ─── Cache state ────────────────────────────────────────────────────────────
 
@@ -96,77 +95,11 @@ async function ensureWarmed(): Promise<void> {
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
-export async function getPopularPage(
-  mediaType: MediaType | undefined,
-  cursor: string | undefined,
-  limit: number,
-): Promise<{ items: Media[]; nextCursor: string | null }> {
+/** Ensure cache is warm, then return the arrays. */
+export async function getCacheArrays(): Promise<{
+  byType: Record<MediaType, Media[]>;
+  all: Media[];
+}> {
   await ensureWarmed();
-
-  const source = mediaType ? byType[mediaType] : all;
-  const offset = cursor ? Number.parseInt(cursor, 10) : 0;
-  const page = source.slice(offset, offset + limit);
-  const hasMore = offset + limit < source.length;
-
-  return {
-    items: page,
-    nextCursor: hasMore ? String(offset + limit) : null,
-  };
-}
-
-export async function searchPopular(
-  search: string,
-  mediaType: MediaType | undefined,
-  cursor: string | undefined,
-  limit: number,
-): Promise<{ items: Media[]; nextCursor: string | null }> {
-  await ensureWarmed();
-
-  const source = mediaType ? byType[mediaType] : all;
-  const lower = search.toLowerCase();
-  const normalized = normalizeForSearch(search);
-
-  // Score and filter
-  const scored: { item: Media; score: number }[] = [];
-  for (const item of source) {
-    const titleLower = item.title.toLowerCase();
-    const origLower = item.originalTitle?.toLowerCase() ?? "";
-    const itemAliases = item.aliases ? item.aliases.split("|") : [];
-    const searchTitleVal = item.searchTitle ?? "";
-
-    // Score 5: exact case-sensitive alias match
-    if (itemAliases.includes(search)) {
-      scored.push({ item, score: 5 });
-      continue;
-    }
-    // Score 4: case-insensitive alias match
-    if (itemAliases.some((a) => a.toLowerCase() === lower)) {
-      scored.push({ item, score: 4 });
-      continue;
-    }
-    // Score 3: exact title match
-    if (titleLower === lower || origLower === lower) {
-      scored.push({ item, score: 3 });
-    } else if (titleLower.startsWith(lower) || origLower.startsWith(lower)) {
-      scored.push({ item, score: 2 });
-    } else if (
-      titleLower.includes(lower) ||
-      origLower.includes(lower) ||
-      searchTitleVal.includes(normalized)
-    ) {
-      scored.push({ item, score: 1 });
-    }
-  }
-
-  // Sort by score desc, then original popularity order (already sorted in source)
-  scored.sort((a, b) => b.score - a.score);
-
-  const offset = cursor ? Number.parseInt(cursor, 10) : 0;
-  const page = scored.slice(offset, offset + limit).map((s) => s.item);
-  const hasMore = offset + limit < scored.length;
-
-  return {
-    items: page,
-    nextCursor: hasMore ? String(offset + limit) : null,
-  };
+  return { byType, all };
 }

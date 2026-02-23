@@ -19,6 +19,7 @@ import { catalogInfiniteOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
+import { getRandomMediaId } from "~/features/media/media.functions";
 import {
   STAMP_COLORS,
   STATUS_BUTTON_COLORS,
@@ -249,10 +250,7 @@ const SearchBar = forwardRef<HTMLInputElement, { initialValue: string; onRandom?
         <button
           type="button"
           title="Random title"
-          onClick={() => {
-            SoundEngine.dice();
-            onRandom?.();
-          }}
+          onClick={() => onRandom?.()}
           className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
         >
           <Shuffle size={17} weight="bold" />
@@ -399,12 +397,14 @@ function CatalogPage() {
     { enabled: selectedIndex >= 0 && !!auth },
   );
 
-  const handleRandom = useCallback(() => {
-    if (!allItems.length) return;
-    const item = allItems[Math.floor(Math.random() * allItems.length)];
-    SoundEngine.navForward();
-    navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
-  }, [allItems, navigate]);
+  const handleRandom = useCallback(async () => {
+    SoundEngine.dice();
+    const id = await getRandomMediaId();
+    if (id) {
+      SoundEngine.navForward();
+      navigate({ to: "/catalog/$wikidataId", params: { wikidataId: id } });
+    }
+  }, [navigate]);
 
   useEffect(() => {
     const lastItem = virtualItems[virtualItems.length - 1];

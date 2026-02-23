@@ -1,6 +1,7 @@
+import { Shuffle } from "@phosphor-icons/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, useNavigate, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import type { CatalogEntry } from "~/db/schema";
 import { getMediaStub } from "~/features/catalog/catalog.functions";
@@ -9,6 +10,7 @@ import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
 import type { getMedia } from "~/features/media/media.functions";
+import { getRandomMediaId } from "~/features/media/media.functions";
 import { mediaDetailOptions } from "~/features/media/media.queries";
 import {
   countWatchedEpisodes,
@@ -114,6 +116,18 @@ function triggerNavBack() {
   setTimeout(() => delete document.documentElement.dataset.navBack, 500);
 }
 
+function useShuffleNav() {
+  const navigate = useNavigate();
+  return useCallback(async () => {
+    SoundEngine.dice();
+    const id = await getRandomMediaId();
+    if (id) {
+      SoundEngine.navForward();
+      navigate({ to: "/catalog/$wikidataId", params: { wikidataId: id } });
+    }
+  }, [navigate]);
+}
+
 function MediaDetailRouter() {
   const loaderData = Route.useLoaderData();
   if (loaderData.kind === "stub") return <MediaStubPage stub={loaderData.stub} />;
@@ -126,19 +140,30 @@ function MediaDetailRouter() {
 }
 
 function MediaDetailSkeleton() {
+  const handleShuffle = useShuffleNav();
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
-        <button
-          type="button"
-          onClick={() => {
-            SoundEngine.navBack();
-            triggerNavBack();
-          }}
-          className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm transition-all duration-150"
-        >
-          &larr; back
-        </button>
+        <div className="flex items-center gap-1.5 mb-g2">
+          <button
+            type="button"
+            onClick={() => {
+              SoundEngine.navBack();
+              triggerNavBack();
+            }}
+            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm transition-all duration-150"
+          >
+            &larr; back
+          </button>
+          <button
+            type="button"
+            title="Random title"
+            onClick={handleShuffle}
+            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+          >
+            <Shuffle size={17} weight="bold" />
+          </button>
+        </div>
         <div className="mb-g3">
           <div className="w-16 h-5 bg-dg-surface rounded-sm mb-3 animate-pulse" />
           <div className="w-2/3 h-8 bg-dg-surface rounded animate-pulse" />
@@ -167,20 +192,31 @@ function MediaStubPage({
   stub: { wikidataId: string; title: string; mediaType: string | null };
 }) {
   const { auth } = rootRoute.useLoaderData();
+  const handleShuffle = useShuffleNav();
 
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
-        <button
-          type="button"
-          onClick={() => {
-            SoundEngine.navBack();
-            triggerNavBack();
-          }}
-          className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
-        >
-          &larr; back
-        </button>
+        <div className="flex items-center gap-1.5 mb-g2">
+          <button
+            type="button"
+            onClick={() => {
+              SoundEngine.navBack();
+              triggerNavBack();
+            }}
+            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
+          >
+            &larr; back
+          </button>
+          <button
+            type="button"
+            title="Random title"
+            onClick={handleShuffle}
+            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+          >
+            <Shuffle size={17} weight="bold" />
+          </button>
+        </div>
 
         <div className="mb-g3">
           {stub.mediaType && (
@@ -241,6 +277,7 @@ function MediaDetailPage({
     router.history.back();
     setTimeout(() => delete document.documentElement.dataset.navBack, 500);
   }, [router]);
+  const handleShuffle = useShuffleNav();
 
   const [localIsFavorite, setLocalIsFavorite] = useState(initialEntry?.isFavorite ?? false);
   const [localWatchedEpisodes, setLocalWatchedEpisodes] = useState<WatchedEpisodes>(
@@ -351,13 +388,23 @@ function MediaDetailPage({
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
-        <button
-          type="button"
-          onClick={handleBack}
-          className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
-        >
-          &larr; back
-        </button>
+        <div className="flex items-center gap-1.5 mb-g2">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
+          >
+            &larr; back
+          </button>
+          <button
+            type="button"
+            title="Random title"
+            onClick={handleShuffle}
+            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+          >
+            <Shuffle size={17} weight="bold" />
+          </button>
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-g3 sm:gap-g4 mb-g3 sm:mb-g4">
           {/* Poster — portrait on mobile, stretches to match right column on desktop */}
