@@ -378,28 +378,26 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
         `\nPruning media not in subset (${importedIds.size.toLocaleString()} valid IDs)...`,
       );
 
-      await db.execute(sql`CREATE TEMP TABLE _valid_ids (id text NOT NULL)`);
-      const ids = [...importedIds];
-      for (let i = 0; i < ids.length; i += 5000) {
-        const chunk = ids.slice(i, i + 5000);
-        const values = chunk.map((id) => `(${escapePostgresLiteral(id)})`).join(",");
-        await db.execute(sql.raw(`INSERT INTO _valid_ids (id) VALUES ${values}`));
-      }
+      await db.$client.begin(async (tx) => {
+        await tx.unsafe(`CREATE TEMP TABLE _valid_ids (id text NOT NULL) ON COMMIT DROP`);
+        const ids = [...importedIds];
+        for (let i = 0; i < ids.length; i += 5000) {
+          const chunk = ids.slice(i, i + 5000);
+          const values = chunk.map((id) => `(${escapePostgresLiteral(id)})`).join(",");
+          await tx.unsafe(`INSERT INTO _valid_ids (id) VALUES ${values}`);
+        }
 
-      const [{ cnt }] = (await db.execute(
-        sql`SELECT COUNT(*)::int AS cnt FROM media WHERE wikidata_id NOT IN (SELECT id FROM _valid_ids)`,
-      )) as unknown as [{ cnt: number }];
+        const [{ cnt }] = (await tx.unsafe(
+          `SELECT COUNT(*)::int AS cnt FROM media WHERE wikidata_id NOT IN (SELECT id FROM _valid_ids)`,
+        )) as [{ cnt: number }];
 
-      if (cnt > 0) {
-        await db.execute(
-          sql`DELETE FROM media WHERE wikidata_id NOT IN (SELECT id FROM _valid_ids)`,
-        );
-        console.log(`  Pruned ${cnt.toLocaleString()} stale media rows`);
-      } else {
-        console.log("  No stale media to prune");
-      }
-
-      await db.execute(sql`DROP TABLE _valid_ids`);
+        if (cnt > 0) {
+          await tx.unsafe(`DELETE FROM media WHERE wikidata_id NOT IN (SELECT id FROM _valid_ids)`);
+          console.log(`  Pruned ${cnt.toLocaleString()} stale media rows`);
+        } else {
+          console.log("  No stale media to prune");
+        }
+      });
 
       // Clean orphaned catalog entries (media_wikidata_id not in media table)
       const orphans = (await db.execute(
