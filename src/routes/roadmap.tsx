@@ -59,7 +59,7 @@ function RoadmapPage() {
 
               if (key === "what we believe") {
                 return (
-                  <h2 className="font-display text-[1.5rem] sm:text-[1.75rem] font-light italic tracking-[-0.02em] text-dg-text mt-8 mb-5">
+                  <h2 className="font-display text-[1.25rem] sm:text-[1.4rem] font-light italic tracking-[-0.02em] text-dg-text mt-8 mb-4">
                     {children}
                   </h2>
                 );
@@ -92,7 +92,7 @@ function RoadmapPage() {
               if (_sectionKey === "what we believe") {
                 _beliefIndex = 0;
                 return (
-                  <div className="flex flex-col gap-5 mb-10 pb-8 border-b border-dg-border-subtle">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10 pb-8 border-b border-dg-border-subtle">
                     {children}
                   </div>
                 );
@@ -103,11 +103,11 @@ function RoadmapPage() {
               if (_sectionKey === "what we believe") {
                 const num = String(++_beliefIndex).padStart(2, "0");
                 return (
-                  <div className="flex gap-4 items-start">
-                    <span className="text-[9px] text-dg-text-tertiary tabular-nums w-5 text-right shrink-0 mt-[6px]">
+                  <div className="flex gap-3 items-start">
+                    <span className="text-[9px] text-dg-text-tertiary tabular-nums w-5 text-right shrink-0 mt-[5px]">
                       {num}
                     </span>
-                    <p className="font-display text-[1.05rem] sm:text-[1.15rem] font-light text-dg-text leading-relaxed max-w-[560px]">
+                    <p className="font-display text-[0.875rem] sm:text-[0.9rem] font-light text-dg-text leading-relaxed">
                       {children}
                     </p>
                   </div>
