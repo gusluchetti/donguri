@@ -8,7 +8,9 @@
  * the import on the client bundle.
  */
 import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server";
-import { cleanEnv } from "../../db";
+import { eq } from "drizzle-orm";
+import { cleanEnv, getDb } from "../../db";
+import { users } from "../../db/schema";
 
 export type SessionData = {
   userId: string;
@@ -85,8 +87,22 @@ export function clearSessionCookie(): void {
 }
 
 export async function requireAuth(): Promise<SessionData> {
-  // Session cookie is HMAC-signed — no DB round trip needed to verify user existence.
   const session = await getSessionData();
   if (!session) throw new Error("Not authenticated");
+
+  // Verify the user actually exists in the DB — catches stale cookies from
+  // other environments (e.g. prod session used against a fresh local DB).
+  const db = getDb();
+  const [row] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.id, session.userId))
+    .limit(1);
+
+  if (!row) {
+    clearSessionCookie();
+    throw new Error("SESSION_EXPIRED");
+  }
+
   return session;
 }
