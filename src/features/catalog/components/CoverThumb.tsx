@@ -22,6 +22,7 @@ type CoverThumbProps = {
   size?: number;
   posterUrl?: string;
   vtName?: string;
+  loading?: "lazy" | "eager";
 };
 
 /** Swap TMDB image size variant in a URL. No-op for non-TMDB URLs. */
@@ -62,6 +63,7 @@ export function CoverThumb({
   size = 36,
   posterUrl,
   vtName,
+  loading = "lazy",
 }: CoverThumbProps) {
   const { theme } = useTheme();
   const [loaded, setLoaded] = useState(false);
@@ -108,7 +110,7 @@ export function CoverThumb({
           <img
             src={imgSrc}
             alt=""
-            loading="lazy"
+            loading={loading}
             onLoad={() => setLoaded(true)}
             className="absolute inset-0 w-full h-full object-cover rounded"
             style={{ opacity: loaded ? 1 : 0, transition: "opacity 150ms ease-in" }}
@@ -151,7 +153,7 @@ export function CoverThumb({
         <img
           src={imgSrc}
           alt=""
-          loading="lazy"
+          loading={loading}
           onLoad={() => setLoaded(true)}
           className="absolute inset-0 w-full h-full object-cover rounded-[3px]"
           style={{ opacity: loaded ? 1 : 0, transition: "opacity 150ms ease-in" }}
