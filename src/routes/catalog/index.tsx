@@ -40,13 +40,13 @@ const MEDIA_TYPES = [
 
 export const Route = createFileRoute("/catalog/")({
   validateSearch: catalogSearchSchema,
-  loaderDeps: ({ search }) => ({ q: search.q, mediaType: search.type }),
+  loaderDeps: ({ search }) => ({ mediaType: search.type }),
   loader: async ({ deps, context }) => {
-    const { q, mediaType } = deps;
+    const { mediaType } = deps;
 
     const stats = await context.queryClient.ensureQueryData(mediaStatsOptions());
     await context.queryClient.prefetchInfiniteQuery(
-      catalogInfiniteOptions(mediaType, q || undefined),
+      catalogInfiniteOptions(mediaType, undefined),
     );
     return { stats };
   },
