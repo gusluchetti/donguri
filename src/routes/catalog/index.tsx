@@ -80,9 +80,9 @@ const SearchBar = forwardRef<HTMLInputElement, { initialValue: string }>(functio
   const [focused, setFocused] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Sync when URL changes externally (e.g. back/forward) — but not while typing
+  // Sync when URL changes externally (e.g. back/forward) — but not while typing or debounce pending
   useEffect(() => {
-    if (!focused) setValue(q ?? "");
+    if (!focused && !timeoutRef.current) setValue(q ?? "");
   }, [q, focused]);
 
   const handleChange = (input: string) => {
@@ -90,6 +90,7 @@ const SearchBar = forwardRef<HTMLInputElement, { initialValue: string }>(functio
     if (input.length > 0) SoundEngine.search();
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
+      timeoutRef.current = undefined;
       navigate({
         search: (prev) => ({ ...prev, q: input || undefined }),
         replace: true,
