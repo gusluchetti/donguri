@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { handleOAuthCallback } from "../../lib/auth.functions";
+import { handleOAuthCallback } from "~/features/auth/auth.functions";
 
 export const Route = createFileRoute("/auth/callback")({
   validateSearch: z.object({

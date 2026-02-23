@@ -5,8 +5,8 @@ import type {
   NodeSavedStateStore,
 } from "@atproto/oauth-client-node";
 import { eq, lt } from "drizzle-orm";
-import { getDb } from "../../db";
-import { oauthSessions, oauthStates } from "../../db/schema";
+import { getDb } from "~/db";
+import { oauthSessions, oauthStates } from "~/db/schema";
 
 /**
  * Postgres-backed state store for OAuth PKCE/DPoP state during redirects.

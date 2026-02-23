@@ -12,21 +12,21 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { z } from "zod";
-import { CoverThumb } from "../../components/CoverThumb";
-import { StampBadge } from "../../components/StampBadge";
-import type { Media } from "../../db/schema";
-import { setCatalogEntry } from "../../lib/catalog.functions";
-import { isInputFocused } from "../../lib/hotkeys/shortcuts";
-import { useCatalogCursor } from "../../lib/hotkeys/use-catalog-cursor";
+import type { Media } from "~/db/schema";
+import { useCatalogCursor } from "~/features/catalog/catalog.cursor";
+import { setCatalogEntry } from "~/features/catalog/catalog.functions";
+import { catalogInfiniteOptions, mediaStatsOptions } from "~/features/catalog/catalog.queries";
+import { SoundEngine } from "~/features/catalog/catalog.sound";
+import { CoverThumb } from "~/features/catalog/components/CoverThumb";
+import { StampBadge } from "~/features/catalog/components/StampBadge";
 import {
   STAMP_COLORS,
   STATUS_BUTTON_COLORS,
   STATUS_ICONS,
   type StatusValue,
-} from "../../lib/media-types";
-import { ogTags, pageTitle } from "../../lib/og";
-import { catalogInfiniteOptions, mediaStatsOptions } from "../../lib/query-options";
-import { SoundEngine } from "../../lib/sound";
+} from "~/features/media/media-types";
+import { isInputFocused } from "~/lib/hotkeys/shortcuts";
+import { ogTags, pageTitle } from "~/lib/og";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -73,6 +73,120 @@ export const Route = createFileRoute("/catalog/")({
   component: CatalogPage,
 });
 
+type QuickAddState = "pending" | "done";
+
+function useQuickAdd() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
+  const [quickAddState, setQuickAddState] = useState<Record<string, QuickAddState>>({});
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  const handleQuickAdd = useCallback(
+    async (wikidataId: string, itemMediaType: string, e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const defaultStatus: "planned" | "in_progress" =
+        itemMediaType === "movie" ? "planned" : "in_progress";
+      setLocalOverrides((prev) => ({ ...prev, [wikidataId]: defaultStatus }));
+      setQuickAddState((prev) => ({ ...prev, [wikidataId]: "pending" }));
+      try {
+        await setCatalogEntry({ data: { wikidataId, status: defaultStatus } });
+        setQuickAddState((prev) => ({ ...prev, [wikidataId]: "done" }));
+        clearTimeout(timers.current.get(wikidataId));
+        timers.current.set(
+          wikidataId,
+          setTimeout(() => {
+            timers.current.delete(wikidataId);
+            setQuickAddState((prev) => {
+              const next = { ...prev };
+              delete next[wikidataId];
+              return next;
+            });
+          }, 1500),
+        );
+        queryClient.invalidateQueries({ queryKey: ["user"] });
+        router.invalidate();
+      } catch {
+        setQuickAddState((prev) => {
+          const next = { ...prev };
+          delete next[wikidataId];
+          return next;
+        });
+        setLocalOverrides((prev) => {
+          const next = { ...prev };
+          delete next[wikidataId];
+          return next;
+        });
+      }
+    },
+    [router, queryClient],
+  );
+
+  useEffect(
+    () => () => {
+      for (const t of timers.current.values()) clearTimeout(t);
+    },
+    [],
+  );
+
+  return { localOverrides, quickAddState, handleQuickAdd };
+}
+
+type MediaStats = {
+  total: number;
+  byType: Record<string, number>;
+};
+
+type FilterType = "movie" | "tv_series" | "anime" | "game" | undefined;
+
+function TypeFilterBar({
+  mediaType,
+  stats,
+  onTypeChange,
+}: {
+  mediaType: FilterType;
+  stats: MediaStats;
+  onTypeChange: (type: FilterType) => void;
+}) {
+  return (
+    <div className="flex gap-0 border border-dg-border rounded-sm overflow-hidden bg-dg-surface">
+      {MEDIA_TYPES.map((t, i) => {
+        const isActive = mediaType === t.value;
+        const count = t.value ? (stats.byType[t.value] ?? 0) : stats.total;
+        return (
+          <button
+            type="button"
+            key={t.label}
+            onClick={() => onTypeChange(t.value)}
+            className="py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 font-body text-xs cursor-pointer flex items-center gap-1.5 flex-1 justify-center transition-all duration-150 relative"
+            style={{
+              background: isActive ? "var(--color-dg-elevated)" : "transparent",
+              color: isActive ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)",
+              fontWeight: isActive ? 600 : 400,
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+              borderRight:
+                i < MEDIA_TYPES.length - 1 ? "1px solid var(--color-dg-border-subtle)" : "none",
+            }}
+          >
+            {t.label}
+            {count > 0 && (
+              <span
+                className="text-[0.65rem] tabular-nums"
+                style={{ opacity: isActive ? 0.8 : 0.4 }}
+              >
+                {count.toLocaleString()}
+              </span>
+            )}
+            {isActive && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-dg-accent" />}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 const SearchBar = forwardRef<HTMLInputElement, { initialValue: string; onRandom?: () => void }>(
   function SearchBar({ initialValue, onRandom }, ref) {
     const navigate = useNavigate({ from: "/catalog/" });
@@ -81,12 +195,11 @@ const SearchBar = forwardRef<HTMLInputElement, { initialValue: string; onRandom?
     const [focused, setFocused] = useState(false);
     const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-    // Sync when URL changes externally (e.g. back/forward) — but not while typing or debounce pending
+    // Sync when URL changes externally (back/forward) but not while typing
     useEffect(() => {
       if (!focused && !timeoutRef.current) setValue(q ?? "");
     }, [q, focused]);
 
-    // Clear pending debounce on unmount so stale navigate() can't fire after page transition
     useEffect(
       () => () => {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -169,8 +282,6 @@ const SearchBar = forwardRef<HTMLInputElement, { initialValue: string; onRandom?
 function CatalogPage() {
   const { stats } = Route.useLoaderData();
   const { auth, trackedIds: rootTrackedIds } = rootRoute.useLoaderData();
-  const router = useRouter();
-  const queryClient = useQueryClient();
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog/" });
 
@@ -190,81 +301,20 @@ function CatalogPage() {
     if (!isPlaceholderData && allItems.length > 0) seenQueryKeys.current.add(currentQueryKey);
   }, [currentQueryKey, isPlaceholderData, allItems.length]);
 
-  const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
-  const [quickAddState, setQuickAddState] = useState<Record<string, "pending" | "done">>({});
-  const quickAddTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const { localOverrides, quickAddState, handleQuickAdd } = useQuickAdd();
   const parentRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const trackedIds: Record<string, string | null> = { ...rootTrackedIds, ...localOverrides };
 
   const handleTypeChange = useCallback(
-    (type: "movie" | "tv_series" | "anime" | "game" | undefined) => {
+    (type: FilterType) => {
       SoundEngine.click();
-      navigate({
-        search: (prev) => ({
-          ...prev,
-          type,
-        }),
-        viewTransition: false,
-      });
+      navigate({ search: (prev) => ({ ...prev, type }), viewTransition: false });
     },
     [navigate],
   );
 
-  const handleQuickAdd = useCallback(
-    async (wikidataId: string, itemMediaType: string, e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const defaultStatus: "planned" | "in_progress" =
-        itemMediaType === "movie" ? "planned" : "in_progress";
-      console.debug("[quick-add] %s → %s (optimistic)", wikidataId, defaultStatus);
-      setLocalOverrides((prev) => ({ ...prev, [wikidataId]: defaultStatus }));
-      setQuickAddState((prev) => ({ ...prev, [wikidataId]: "pending" }));
-      try {
-        await setCatalogEntry({ data: { wikidataId, status: defaultStatus } });
-        console.debug("[quick-add] %s → server ok", wikidataId);
-        setQuickAddState((prev) => ({ ...prev, [wikidataId]: "done" }));
-        clearTimeout(quickAddTimers.current.get(wikidataId));
-        quickAddTimers.current.set(
-          wikidataId,
-          setTimeout(() => {
-            quickAddTimers.current.delete(wikidataId);
-            setQuickAddState((prev) => {
-              const next = { ...prev };
-              delete next[wikidataId];
-              return next;
-            });
-          }, 1500),
-        );
-        queryClient.invalidateQueries({ queryKey: ["user"] });
-        router.invalidate();
-      } catch (err) {
-        console.error("[quick-add] %s → FAILED:", wikidataId, err);
-        setQuickAddState((prev) => {
-          const next = { ...prev };
-          delete next[wikidataId];
-          return next;
-        });
-        setLocalOverrides((prev) => {
-          const next = { ...prev };
-          delete next[wikidataId];
-          return next;
-        });
-      }
-    },
-    [router, queryClient],
-  );
-
-  // Clean up quick-add timers on unmount
-  useEffect(
-    () => () => {
-      for (const t of quickAddTimers.current.values()) clearTimeout(t);
-    },
-    [],
-  );
-
-  // Scroll restoration for the custom scroll container via TanStack Router
   const scrollEntry = useElementScrollRestoration({
     getElement: () => parentRef.current,
   });
@@ -288,7 +338,6 @@ function CatalogPage() {
 
   const virtualItems = virtualizer.getVirtualItems();
 
-  // ─── Keyboard shortcuts ─────────────────────────────────────────────────
   const { selectedIndex, setSelectedIndex } = useCatalogCursor({
     itemCount: allItems.length,
     virtualizer,
@@ -296,7 +345,6 @@ function CatalogPage() {
     hasNextPage,
   });
 
-  // Reset cursor when search/filter changes
   const prevQ = useRef(q);
   const prevType = useRef(mediaType);
   useEffect(() => {
@@ -307,7 +355,14 @@ function CatalogPage() {
     }
   }, [q, mediaType, setSelectedIndex]);
 
-  // Enter — blur search (if focused) or open selected item
+  const openSelected = useCallback(() => {
+    const item = allItems[selectedIndex];
+    if (item) {
+      SoundEngine.navForward();
+      navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
+    }
+  }, [allItems, selectedIndex, navigate]);
+
   useHotkey(
     "Enter",
     () => {
@@ -315,32 +370,16 @@ function CatalogPage() {
         searchRef.current?.blur();
         return;
       }
-      const item = allItems[selectedIndex];
-      if (item) {
-        SoundEngine.navForward();
-        navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
-      }
+      openSelected();
     },
     { ignoreInputs: false },
   );
 
-  // l / ArrowRight — open selected item
-  const openSelected = () => {
-    const item = allItems[selectedIndex];
-    if (item) {
-      SoundEngine.navForward();
-      navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
-    }
-  };
   useHotkey("L", openSelected, { enabled: selectedIndex >= 0 });
   useHotkey("ArrowRight", openSelected, { enabled: selectedIndex >= 0 });
 
-  // / — focus search
-  useHotkey("/", () => {
-    searchRef.current?.focus();
-  });
+  useHotkey("/", () => searchRef.current?.focus());
 
-  // Esc — blur search or deselect cursor
   useHotkey(
     "Escape",
     () => {
@@ -354,15 +393,15 @@ function CatalogPage() {
   );
 
   // f + key — type filter sequences
-  const typeFilter = (type: "movie" | "tv_series" | "anime" | "game" | undefined) => () => {
+  const applyTypeFilter = (type: FilterType) => () => {
     if (isInputFocused()) return;
     handleTypeChange(type);
   };
-  useHotkeySequence(["F", "F"], typeFilter(undefined));
-  useHotkeySequence(["F", "M"], typeFilter("movie"));
-  useHotkeySequence(["F", "T"], typeFilter("tv_series"));
-  useHotkeySequence(["F", "A"], typeFilter("anime"));
-  useHotkeySequence(["F", "G"], typeFilter("game"));
+  useHotkeySequence(["F", "F"], applyTypeFilter(undefined));
+  useHotkeySequence(["F", "M"], applyTypeFilter("movie"));
+  useHotkeySequence(["F", "T"], applyTypeFilter("tv_series"));
+  useHotkeySequence(["F", "A"], applyTypeFilter("anime"));
+  useHotkeySequence(["F", "G"], applyTypeFilter("game"));
 
   // a — quick-add selected item
   useHotkey(
@@ -371,15 +410,20 @@ function CatalogPage() {
       const item = allItems[selectedIndex];
       if (!item || !auth) return;
       const status = trackedIds[item.wikidataId] ?? null;
-      if (status !== null) return; // already tracked
-      // Synthesize a mouse event for the existing handler
+      if (status !== null) return;
       const fakeEvent = { preventDefault: () => {}, stopPropagation: () => {} } as React.MouseEvent;
       handleQuickAdd(item.wikidataId, item.mediaType, fakeEvent);
     },
     { enabled: selectedIndex >= 0 && !!auth },
   );
 
-  // Trigger load more when approaching end
+  const handleRandom = useCallback(() => {
+    if (!allItems.length) return;
+    const item = allItems[Math.floor(Math.random() * allItems.length)];
+    SoundEngine.navForward();
+    navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
+  }, [allItems, navigate]);
+
   useEffect(() => {
     const lastItem = virtualItems[virtualItems.length - 1];
     if (!lastItem) return;
@@ -390,7 +434,6 @@ function CatalogPage() {
 
   return (
     <div className="dg-page-enter text-dg-text flex-1 font-body flex flex-col overflow-hidden">
-      {/* Header */}
       <header className="pt-3 pb-1">
         <div className="max-w-[1100px] mx-auto px-4 sm:px-6">
           <p className="text-dg-text-tertiary text-[0.8rem]">
@@ -401,64 +444,11 @@ function CatalogPage() {
         </div>
       </header>
 
-      {/* Controls */}
       <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 py-2 flex flex-col gap-2">
-        {/* Search */}
-        <div className="w-full">
-          <SearchBar
-            ref={searchRef}
-            initialValue={q ?? ""}
-            onRandom={() => {
-              if (!allItems.length) return;
-              const item = allItems[Math.floor(Math.random() * allItems.length)];
-              SoundEngine.navForward();
-              navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
-            }}
-          />
-        </div>
-
-        {/* Type filter tabs — joined segment style */}
-        <div className="flex gap-0 border border-dg-border rounded-sm overflow-hidden bg-dg-surface">
-          {MEDIA_TYPES.map((t, i) => {
-            const isActive = mediaType === t.value;
-            const count = t.value
-              ? ((stats.byType as Record<string, number>)[t.value] ?? 0)
-              : stats.total;
-            return (
-              <button
-                type="button"
-                key={t.label}
-                onClick={() => handleTypeChange(t.value)}
-                className="py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 font-body text-xs cursor-pointer flex items-center gap-1.5 flex-1 justify-center transition-all duration-150 relative"
-                style={{
-                  background: isActive ? "var(--color-dg-elevated)" : "transparent",
-                  color: isActive ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)",
-                  fontWeight: isActive ? 600 : 400,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  borderRight:
-                    i < MEDIA_TYPES.length - 1 ? "1px solid var(--color-dg-border-subtle)" : "none",
-                }}
-              >
-                {t.label}
-                {count > 0 && (
-                  <span
-                    className="text-[0.65rem] tabular-nums"
-                    style={{ opacity: isActive ? 0.8 : 0.4 }}
-                  >
-                    {count.toLocaleString()}
-                  </span>
-                )}
-                {isActive && (
-                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-dg-accent" />
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <SearchBar ref={searchRef} initialValue={q ?? ""} onRandom={handleRandom} />
+        <TypeFilterBar mediaType={mediaType} stats={stats} onTypeChange={handleTypeChange} />
       </div>
 
-      {/* Login prompt */}
       {!auth && (
         <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 pb-2">
           <Link
@@ -471,7 +461,6 @@ function CatalogPage() {
         </div>
       )}
 
-      {/* Virtual list */}
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 pb-4 flex-1 flex flex-col min-h-0">
           <div
@@ -480,11 +469,7 @@ function CatalogPage() {
           >
             <div ref={parentRef} className="flex-1 min-h-0 overflow-auto">
               <div
-                style={{
-                  height: virtualizer.getTotalSize(),
-                  width: "100%",
-                  position: "relative",
-                }}
+                style={{ height: virtualizer.getTotalSize(), width: "100%", position: "relative" }}
               >
                 {virtualItems.map((virtualRow) => {
                   if (virtualRow.index >= allItems.length) {
@@ -492,10 +477,7 @@ function CatalogPage() {
                       <div
                         key="loader"
                         className="w-full left-0 border-b border-dg-border-subtle absolute flex items-center justify-center overflow-hidden"
-                        style={{
-                          top: virtualRow.start,
-                          height: virtualRow.size,
-                        }}
+                        style={{ top: virtualRow.start, height: virtualRow.size }}
                       >
                         <span className="text-dg-text-tertiary">
                           {isFetchingNextPage ? "Loading..." : ""}
@@ -509,7 +491,6 @@ function CatalogPage() {
                   const isTracked = status !== null;
                   const showAdd = auth && !isTracked;
                   const addState = quickAddState[item.wikidataId] ?? null;
-
                   const isCursorActive = virtualRow.index === selectedIndex;
 
                   return (
@@ -524,7 +505,10 @@ function CatalogPage() {
                         height: virtualRow.size,
                         ["--type-color" as string]:
                           STAMP_COLORS[item.mediaType] ?? "var(--color-dg-accent)",
-                        animation: isNewData ? "fadeIn 280ms var(--ease-smooth) both" : "none",
+                        animationName: isNewData ? "fadeIn" : "none",
+                        animationDuration: "280ms",
+                        animationTimingFunction: "var(--ease-smooth)",
+                        animationFillMode: "both",
                         animationDelay:
                           isNewData && virtualRow.index < 20 ? `${virtualRow.index * 25}ms` : "0ms",
                       }}
@@ -580,10 +564,15 @@ const MediaRow = memo(function MediaRow({
   index: number;
   trackedStatus: string | null;
   showAdd: boolean;
-  addState: "pending" | "done" | null;
+  addState: QuickAddState | null;
   onQuickAdd: (wikidataId: string, mediaType: string, e: React.MouseEvent) => void;
 }) {
   const meta = formatMeta(item);
+  const year = item.startYear
+    ? `${item.startYear}${item.endYear && item.endYear !== item.startYear ? `\u2013${item.endYear}` : ""}`
+    : "";
+  const subtitle = [item.originalTitle, year].filter(Boolean).join(" \u00b7 ");
+
   const [swiped, setSwiped] = useState(false);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const panelOpen = addState !== null || swiped;
@@ -598,9 +587,15 @@ const MediaRow = memo(function MediaRow({
     const dx = e.changedTouches[0].clientX - touchStart.current.x;
     const dy = e.changedTouches[0].clientY - touchStart.current.y;
     touchStart.current = null;
-    if (Math.abs(dx) < Math.abs(dy) * 1.2) return; // mostly vertical — let scroll through
+    // Threshold: horizontal gesture beats vertical by 1.2× to avoid interfering with scroll
+    if (Math.abs(dx) < Math.abs(dy) * 1.2) return;
     if (dx < -30) setSwiped(true);
     else if (dx > 20) setSwiped(false);
+  };
+
+  const handleQuickAddClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    setSwiped(false);
+    onQuickAdd(item.wikidataId, item.mediaType, e);
   };
 
   return (
@@ -609,18 +604,15 @@ const MediaRow = memo(function MediaRow({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Left color bar — always on hover */}
       <div
         className="absolute left-0 top-0 bottom-0 w-[2.5px] opacity-0 group-hover:opacity-100 transition-opacity duration-150"
         style={{ backgroundColor: "var(--type-color)" }}
       />
 
-      {/* Grid content */}
       <div
         className="grid items-center flex-1 min-w-0 gap-2 sm:gap-g2 py-1.5 px-3 sm:px-g3 group-hover:bg-dg-row-hover transition-colors duration-100"
         style={{ gridTemplateColumns: "36px auto 1fr auto" }}
       >
-        {/* Cover thumb */}
         <CoverThumb
           title={item.title}
           mediaType={item.mediaType}
@@ -628,12 +620,10 @@ const MediaRow = memo(function MediaRow({
           posterUrl={item.posterUrl ?? undefined}
         />
 
-        {/* Stamp badge */}
         <div className="flex items-center gap-1">
           <StampBadge type={item.mediaType} index={index} />
         </div>
 
-        {/* Title + tracked pill + subtitle */}
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="text-[0.85rem] font-medium text-dg-text truncate flex-1 min-w-0">
@@ -647,20 +637,13 @@ const MediaRow = memo(function MediaRow({
               </span>
             )}
           </div>
-          {(() => {
-            const year = item.startYear
-              ? `${item.startYear}${item.endYear && item.endYear !== item.startYear ? `\u2013${item.endYear}` : ""}`
-              : "";
-            const sub = [item.originalTitle, year].filter(Boolean).join(" \u00b7 ");
-            return sub ? (
-              <div className="text-[0.7rem] text-dg-text-tertiary truncate hidden sm:block">
-                {sub}
-              </div>
-            ) : null;
-          })()}
+          {subtitle && (
+            <div className="text-[0.7rem] text-dg-text-tertiary truncate hidden sm:block">
+              {subtitle}
+            </div>
+          )}
         </div>
 
-        {/* Right: ep count or runtime — fixed width, right-aligned */}
         <div className="w-[4.5rem] flex items-center justify-end shrink-0">
           {item.episodeCount ? (
             <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums text-right">
@@ -674,7 +657,6 @@ const MediaRow = memo(function MediaRow({
         </div>
       </div>
 
-      {/* Right pop-out quick-add panel */}
       {showAdd && (
         <div
           className={`shrink-0 overflow-hidden transition-[width] duration-150 h-full flex items-center ${panelOpen ? "w-10" : "w-0 group-hover:w-10"}`}
@@ -688,10 +670,7 @@ const MediaRow = memo(function MediaRow({
           >
             <button
               type="button"
-              onClick={(e) => {
-                setSwiped(false);
-                onQuickAdd(item.wikidataId, item.mediaType, e);
-              }}
+              onClick={handleQuickAddClick}
               className="w-full h-full flex items-center justify-center bg-transparent border-none cursor-pointer transition-colors duration-100"
               style={{
                 color:

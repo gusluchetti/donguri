@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
-import { getDb } from "../db";
+import { getDb } from "~/db";
 import {
   canonicalGenres,
   genreMappings,
@@ -13,7 +13,7 @@ import {
   mediaPlatforms,
   platforms,
   seasons,
-} from "../db/schema";
+} from "~/db/schema";
 
 const parentGenres = alias(canonicalGenres, "parent_genres");
 
