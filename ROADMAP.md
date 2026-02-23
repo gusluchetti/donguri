@@ -26,6 +26,7 @@ Track what you've watched, what you're playing, and what's next.
 
 ## Next up
 
+- **Watchlist view modes** — per-category display density: fully collapsed (category + count only), normal collapsed (list items), fully expanded (thumbnail grid). Each category independently toggleable.
 - **Better Episode Tracking** - More data, and better usability
 - **Onboarding** — pick your media types and favorite genres on first login
 - **Import from MyAnimeList** — upload your MAL XML export to bring your anime list into donguri
