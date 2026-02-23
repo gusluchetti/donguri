@@ -49,16 +49,35 @@ export function CoverThumb({
   const h = hue ?? (mediaType ? (TYPE_HUES[mediaType] ?? 0) : 0);
 
   // Build acronym from first letter of each word, capped at 5 chars
-  const initials = title
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => w[0].toUpperCase())
-    .join("")
-    .slice(0, 5) || "?";
+  const initials =
+    title
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w[0].toUpperCase())
+      .join("")
+      .slice(0, 5) || "?";
 
   // Scale font size down as more letters appear
-  const smallFontSize = initials.length <= 1 ? 14 : initials.length <= 2 ? 12 : initials.length <= 3 ? 10 : initials.length <= 4 ? 8 : 7;
-  const largeFontSize = initials.length <= 1 ? 32 : initials.length <= 2 ? 26 : initials.length <= 3 ? 20 : initials.length <= 4 ? 16 : 13;
+  const smallFontSize =
+    initials.length <= 1
+      ? 14
+      : initials.length <= 2
+        ? 12
+        : initials.length <= 3
+          ? 10
+          : initials.length <= 4
+            ? 8
+            : 7;
+  const largeFontSize =
+    initials.length <= 1
+      ? 32
+      : initials.length <= 2
+        ? 26
+        : initials.length <= 3
+          ? 20
+          : initials.length <= 4
+            ? 16
+            : 13;
 
   if (isLarge) {
     // Cover grid card — 2/3 aspect ratio, deep gradient, large watermark

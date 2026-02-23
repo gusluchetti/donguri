@@ -45,9 +45,7 @@ export const Route = createFileRoute("/catalog/")({
     const { mediaType } = deps;
 
     const stats = await context.queryClient.ensureQueryData(mediaStatsOptions());
-    await context.queryClient.prefetchInfiniteQuery(
-      catalogInfiniteOptions(mediaType, undefined),
-    );
+    await context.queryClient.prefetchInfiniteQuery(catalogInfiniteOptions(mediaType, undefined));
     return { stats };
   },
   staleTime: 5 * 60 * 1000,
@@ -70,86 +68,85 @@ export const Route = createFileRoute("/catalog/")({
   component: CatalogPage,
 });
 
-const SearchBar = forwardRef<HTMLInputElement, { initialValue: string; onRandom?: () => void }>(function SearchBar(
-  { initialValue, onRandom },
-  ref,
-) {
-  const navigate = useNavigate({ from: "/catalog/" });
-  const { q } = Route.useSearch();
-  const [value, setValue] = useState(initialValue);
-  const [focused, setFocused] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+const SearchBar = forwardRef<HTMLInputElement, { initialValue: string; onRandom?: () => void }>(
+  function SearchBar({ initialValue, onRandom }, ref) {
+    const navigate = useNavigate({ from: "/catalog/" });
+    const { q } = Route.useSearch();
+    const [value, setValue] = useState(initialValue);
+    const [focused, setFocused] = useState(false);
+    const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Sync when URL changes externally (e.g. back/forward) — but not while typing or debounce pending
-  useEffect(() => {
-    if (!focused && !timeoutRef.current) setValue(q ?? "");
-  }, [q, focused]);
+    // Sync when URL changes externally (e.g. back/forward) — but not while typing or debounce pending
+    useEffect(() => {
+      if (!focused && !timeoutRef.current) setValue(q ?? "");
+    }, [q, focused]);
 
-  const handleChange = (input: string) => {
-    setValue(input);
-    if (input.length > 0) SoundEngine.search();
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => {
-      timeoutRef.current = undefined;
-      navigate({
-        search: (prev) => ({ ...prev, q: input || undefined }),
-        replace: true,
-      });
-    }, 300);
-  };
+    const handleChange = (input: string) => {
+      setValue(input);
+      if (input.length > 0) SoundEngine.search();
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        timeoutRef.current = undefined;
+        navigate({
+          search: (prev) => ({ ...prev, q: input || undefined }),
+          replace: true,
+        });
+      }, 300);
+    };
 
-  const handleClear = () => {
-    setValue("");
-    navigate({ search: (prev) => ({ ...prev, q: undefined }), replace: true });
-  };
+    const handleClear = () => {
+      setValue("");
+      navigate({ search: (prev) => ({ ...prev, q: undefined }), replace: true });
+    };
 
-  return (
-    <div className="relative flex gap-1.5">
-      <div className="relative flex-1">
-        <div
-          className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors duration-[120ms]"
-          style={{ color: focused ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)" }}
-        >
-          <Search size={14} />
-        </div>
-        <input
-          ref={ref}
-          type="text"
-          placeholder="Search catalog..."
-          value={value}
-          onChange={(e) => handleChange(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          className="w-full py-2.5 pl-9 pr-8 bg-dg-surface border rounded text-dg-text font-body text-base sm:text-[0.85rem] outline-none box-border transition-all duration-[120ms]"
-          style={{
-            borderColor: focused ? "var(--color-dg-accent)" : "var(--color-dg-border)",
-            boxShadow: focused ? "0 0 0 2px var(--color-dg-accent-glow)" : "none",
-          }}
-        />
-        {value && (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-dg-elevated border-none rounded-sm w-4 h-4 flex items-center justify-center cursor-pointer text-dg-text-tertiary hover:text-dg-text-secondary transition-colors"
+    return (
+      <div className="relative flex gap-1.5">
+        <div className="relative flex-1">
+          <div
+            className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors duration-[120ms]"
+            style={{ color: focused ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)" }}
           >
-            <X size={10} />
-          </button>
-        )}
+            <Search size={14} />
+          </div>
+          <input
+            ref={ref}
+            type="text"
+            placeholder="Search catalog..."
+            value={value}
+            onChange={(e) => handleChange(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            className="w-full py-2.5 pl-9 pr-8 bg-dg-surface border rounded text-dg-text font-body text-base sm:text-[0.85rem] outline-none box-border transition-all duration-[120ms]"
+            style={{
+              borderColor: focused ? "var(--color-dg-accent)" : "var(--color-dg-border)",
+              boxShadow: focused ? "0 0 0 2px var(--color-dg-accent-glow)" : "none",
+            }}
+          />
+          {value && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-dg-elevated border-none rounded-sm w-4 h-4 flex items-center justify-center cursor-pointer text-dg-text-tertiary hover:text-dg-text-secondary transition-colors"
+            >
+              <X size={10} />
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          title="Random title"
+          onClick={() => {
+            SoundEngine.dice();
+            onRandom?.();
+          }}
+          className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+        >
+          <Dice5 size={18} />
+        </button>
       </div>
-      <button
-        type="button"
-        title="Random title"
-        onClick={() => {
-          SoundEngine.dice();
-          onRandom?.();
-        }}
-        className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
-      >
-        <Dice5 size={18} />
-      </button>
-    </div>
-  );
-});
+    );
+  },
+);
 
 function CatalogPage() {
   const { stats } = Route.useLoaderData();
@@ -159,10 +156,11 @@ function CatalogPage() {
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog/" });
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isPlaceholderData } = useInfiniteQuery({
-    ...catalogInfiniteOptions(mediaType, q || undefined),
-    placeholderData: keepPreviousData,
-  });
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isPlaceholderData } =
+    useInfiniteQuery({
+      ...catalogInfiniteOptions(mediaType, q || undefined),
+      placeholderData: keepPreviousData,
+    });
   const allItems = data?.pages.flatMap((p) => p.items) ?? [];
 
   const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
@@ -495,7 +493,8 @@ function CatalogPage() {
                   style={{
                     top: virtualRow.start,
                     height: virtualRow.size,
-                    ["--type-color" as string]: STAMP_COLORS[item.mediaType] ?? "var(--color-dg-accent)",
+                    ["--type-color" as string]:
+                      STAMP_COLORS[item.mediaType] ?? "var(--color-dg-accent)",
                   }}
                   onClick={() => SoundEngine.navForward()}
                   onMouseEnter={() => SoundEngine.tick()}

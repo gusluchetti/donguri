@@ -148,7 +148,10 @@ function MediaDetailSkeleton() {
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <button
           type="button"
-          onClick={() => { SoundEngine.navBack(); triggerNavBack(); }}
+          onClick={() => {
+            SoundEngine.navBack();
+            triggerNavBack();
+          }}
           className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm transition-all duration-150"
         >
           &larr; back
@@ -187,7 +190,10 @@ function MediaStubPage({
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <button
           type="button"
-          onClick={() => { SoundEngine.navBack(); triggerNavBack(); }}
+          onClick={() => {
+            SoundEngine.navBack();
+            triggerNavBack();
+          }}
           className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
         >
           &larr; back

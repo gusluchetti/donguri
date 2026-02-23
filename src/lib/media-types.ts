@@ -135,10 +135,10 @@ export const STAMP_COLORS: Record<string, string> = {
 
 // HSL hues matching the stamp color CSS vars (for gradient placeholders)
 export const TYPE_HUES: Record<string, number> = {
-  movie: 21,       // #c05621 — burnt orange
-  tv_series: 173,  // #1a7a6d — teal
-  anime: 0,        // #8b3a3a — dark red
-  game: 150,       // #2a7a50 — green
+  movie: 21, // #c05621 — burnt orange
+  tv_series: 173, // #1a7a6d — teal
+  anime: 0, // #8b3a3a — dark red
+  game: 150, // #2a7a50 — green
 };
 
 // ─── Watched Episodes Helpers ────────────────────────────────────────────────

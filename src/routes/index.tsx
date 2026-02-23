@@ -330,7 +330,12 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
           {/* Cover */}
           <div className="w-full aspect-[2/3] rounded overflow-hidden relative transition-all duration-[120ms] ease-[var(--ease-spring)] group-hover:scale-[1.04] group-hover:shadow-[0_4px_20px_rgba(184,164,114,0.15)]">
             {item.mediaTitle ? (
-              <CoverThumb title={item.mediaTitle} mediaType={item.mediaType ?? undefined} size={200} posterUrl={undefined} />
+              <CoverThumb
+                title={item.mediaTitle}
+                mediaType={item.mediaType ?? undefined}
+                size={200}
+                posterUrl={undefined}
+              />
             ) : (
               <CoverThumb title="?" mediaType={item.mediaType ?? undefined} size={200} />
             )}
