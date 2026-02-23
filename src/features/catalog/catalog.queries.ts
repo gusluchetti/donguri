@@ -4,7 +4,7 @@ import {
   getUserCatalogEntries,
   getUserTrackedIds,
 } from "~/features/catalog/catalog.functions";
-import { getMediaStats, listMedia } from "~/features/media/media.functions";
+import { listMedia } from "~/features/media/media.functions";
 import { DATA_VERSION, idbPersister } from "~/lib/query";
 
 const persister = idbPersister?.persisterFn;
@@ -25,15 +25,6 @@ export function watchlistOptions() {
     queryFn: () => getUserCatalogEntries({}),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
-    persister,
-  });
-}
-
-export function mediaStatsOptions() {
-  return queryOptions({
-    queryKey: ["catalog", "stats", DATA_VERSION],
-    queryFn: () => getMediaStats({}),
-    staleTime: 30 * 60 * 1000,
     persister,
   });
 }

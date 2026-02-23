@@ -1,7 +1,7 @@
 /**
  * Shared COPY → temp table → upsert logic for bulk media import.
  *
- * Used by both the full import (index.ts) and incremental updates (incremental.ts).
+ * Used by the full import pipeline (update.ts).
  */
 
 import { Writable } from "node:stream";

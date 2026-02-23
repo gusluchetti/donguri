@@ -15,7 +15,7 @@ import { z } from "zod";
 import type { Media } from "~/db/schema";
 import { useCatalogCursor } from "~/features/catalog/catalog.cursor";
 import { setCatalogEntry } from "~/features/catalog/catalog.functions";
-import { catalogInfiniteOptions, mediaStatsOptions } from "~/features/catalog/catalog.queries";
+import { catalogInfiniteOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
@@ -49,9 +49,8 @@ export const Route = createFileRoute("/catalog/")({
   loader: async ({ deps, context }) => {
     const { mediaType } = deps;
 
-    const stats = await context.queryClient.ensureQueryData(mediaStatsOptions());
     await context.queryClient.prefetchInfiniteQuery(catalogInfiniteOptions(mediaType, undefined));
-    return { stats };
+    return {};
   },
   staleTime: 5 * 60 * 1000,
   head: () => ({
@@ -133,27 +132,19 @@ function useQuickAdd() {
   return { localOverrides, quickAddState, handleQuickAdd };
 }
 
-type MediaStats = {
-  total: number;
-  byType: Record<string, number>;
-};
-
 type FilterType = "movie" | "tv_series" | "anime" | "game" | undefined;
 
 function TypeFilterBar({
   mediaType,
-  stats,
   onTypeChange,
 }: {
   mediaType: FilterType;
-  stats: MediaStats;
   onTypeChange: (type: FilterType) => void;
 }) {
   return (
     <div className="flex gap-0 border border-dg-border rounded-sm overflow-hidden bg-dg-surface">
       {MEDIA_TYPES.map((t, i) => {
         const isActive = mediaType === t.value;
-        const count = t.value ? (stats.byType[t.value] ?? 0) : stats.total;
         return (
           <button
             type="button"
@@ -171,14 +162,6 @@ function TypeFilterBar({
             }}
           >
             {t.label}
-            {count > 0 && (
-              <span
-                className="text-[0.65rem] tabular-nums"
-                style={{ opacity: isActive ? 0.8 : 0.4 }}
-              >
-                {count.toLocaleString()}
-              </span>
-            )}
             {isActive && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-dg-accent" />}
           </button>
         );
@@ -280,7 +263,6 @@ const SearchBar = forwardRef<HTMLInputElement, { initialValue: string; onRandom?
 );
 
 function CatalogPage() {
-  const { stats } = Route.useLoaderData();
   const { auth, trackedIds: rootTrackedIds } = rootRoute.useLoaderData();
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog/" });
@@ -434,19 +416,9 @@ function CatalogPage() {
 
   return (
     <div className="dg-page-enter text-dg-text flex-1 font-body flex flex-col overflow-hidden">
-      <header className="pt-3 pb-1">
-        <div className="max-w-[1100px] mx-auto px-4 sm:px-6">
-          <p className="text-dg-text-tertiary text-[0.8rem]">
-            {stats.total > 0
-              ? `${stats.total.toLocaleString()} titles across the catalog`
-              : "\u00a0"}
-          </p>
-        </div>
-      </header>
-
-      <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 py-2 flex flex-col gap-2">
+      <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 pt-3 pb-2 flex flex-col gap-2">
         <SearchBar ref={searchRef} initialValue={q ?? ""} onRandom={handleRandom} />
-        <TypeFilterBar mediaType={mediaType} stats={stats} onTypeChange={handleTypeChange} />
+        <TypeFilterBar mediaType={mediaType} onTypeChange={handleTypeChange} />
       </div>
 
       {!auth && (
