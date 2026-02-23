@@ -1033,17 +1033,34 @@ async function runSeasons(
 interface FetchResult {
   url: string | null;
   status?: number;
+  resolvedTmdbId?: string;
 }
 
-async function fetchTmdbPoster(tmdbId: string, apiKey: string): Promise<FetchResult> {
-  // tmdbId is already type-prefixed ("movie/129" or "tv/456")
-  const res = await fetch(`https://api.themoviedb.org/3/${tmdbId}?api_key=${apiKey}`);
-  if (res.ok) {
-    const data = await res.json();
-    return { url: data.poster_path ? `https://image.tmdb.org/t/p/w342${data.poster_path}` : null };
+async function fetchTmdbPoster(wikidataId: string, apiKey: string): Promise<FetchResult> {
+  const res = await fetch(
+    `https://api.themoviedb.org/3/find/${wikidataId}?api_key=${apiKey}&external_source=wikidata_id`,
+  );
+  if (!res.ok) {
+    console.warn(`  [tmdb] ${res.status} for ${wikidataId}`);
+    return { url: null, status: res.status };
   }
-  console.warn(`  [tmdb] ${res.status} for ${tmdbId}`);
-  return { url: null, status: res.status };
+  const data = await res.json();
+
+  const movie = data.movie_results?.[0];
+  if (movie?.poster_path)
+    return {
+      url: `https://image.tmdb.org/t/p/w342${movie.poster_path}`,
+      resolvedTmdbId: `movie/${movie.id}`,
+    };
+
+  const tv = data.tv_results?.[0];
+  if (tv?.poster_path)
+    return {
+      url: `https://image.tmdb.org/t/p/w342${tv.poster_path}`,
+      resolvedTmdbId: `tv/${tv.id}`,
+    };
+
+  return { url: null };
 }
 
 async function fetchAniListCover(anilistId: string): Promise<FetchResult> {
@@ -1122,6 +1139,7 @@ interface CoverResult {
   wikidataId: string;
   posterUrl: string;
   source: CoverSource;
+  resolvedTmdbId?: string;
 }
 
 /** Process items with bounded concurrency + per-item delay for rate limiting. */
@@ -1150,54 +1168,41 @@ async function resolveBatch(
   tmdbApiKey: string,
   stats: { bySource: Record<CoverSource, number>; failures: Record<CoverSource, number> },
 ): Promise<CoverResult[]> {
-  // Partition items by primary source
-  type WithTmdb = CoverCandidate & { tmdbId: string };
+  // Partition: all non-game items go through TMDB Find (uses wikidataId, no tmdbId required).
+  // Games go to IGDB. Anime without TMDB result falls back to AniList.
   type WithAnilist = CoverCandidate & { anilistId: string };
   type WithIgdb = CoverCandidate & { igdbId: string };
 
-  const tmdbItems: WithTmdb[] = [];
-  const anilistItems: WithAnilist[] = [];
+  const tmdbItems: CoverCandidate[] = [];
   const igdbItems: WithIgdb[] = [];
 
   for (const item of items) {
-    if (item.tmdbId && item.mediaType !== "game") tmdbItems.push(item as WithTmdb);
-    else if (item.anilistId && item.mediaType === "anime") anilistItems.push(item as WithAnilist);
-    else if (item.igdbId && item.mediaType === "game") igdbItems.push(item as WithIgdb);
+    if (item.mediaType === "game" && item.igdbId) igdbItems.push(item as WithIgdb);
+    else if (item.mediaType !== "game") tmdbItems.push(item);
   }
 
-  const unmatched = items.length - tmdbItems.length - anilistItems.length - igdbItems.length;
+  const unmatched = items.length - tmdbItems.length - igdbItems.length;
   console.log(
-    `  Queued: TMDB ${tmdbItems.length}, AniList ${anilistItems.length}, IGDB ${igdbItems.length}, unmatched ${unmatched}`,
+    `  Queued: TMDB Find ${tmdbItems.length}, IGDB ${igdbItems.length}, unmatched ${unmatched}`,
   );
 
   const results: CoverResult[] = [];
   const tmdbFailedAnime: WithAnilist[] = [];
 
-  // Run all three source queues in parallel
-  const [tmdbResults, anilistResults, igdbResults] = await Promise.all([
+  // Run TMDB Find + IGDB queues in parallel
+  const [tmdbResults, igdbResults] = await Promise.all([
     mapConcurrent(tmdbItems, COVER_CONCURRENCY_TMDB, 200, async (item) => {
-      const r = await fetchTmdbPoster(item.tmdbId, tmdbApiKey);
+      const r = await fetchTmdbPoster(item.wikidataId, tmdbApiKey);
       if (r.url)
         return {
           id: item.id,
           wikidataId: item.wikidataId,
           posterUrl: r.url,
           source: "tmdb" as const,
+          resolvedTmdbId: r.resolvedTmdbId,
         };
       stats.failures.tmdb++;
       if (item.anilistId && item.mediaType === "anime") tmdbFailedAnime.push(item as WithAnilist);
-      return null;
-    }),
-    mapConcurrent(anilistItems, COVER_CONCURRENCY_ANILIST, 670, async (item) => {
-      const r = await fetchAniListCover(item.anilistId);
-      if (r.url)
-        return {
-          id: item.id,
-          wikidataId: item.wikidataId,
-          posterUrl: r.url,
-          source: "anilist" as const,
-        };
-      stats.failures.anilist++;
       return null;
     }),
     mapConcurrent(igdbItems, COVER_CONCURRENCY_IGDB, 300, async (item) => {
@@ -1215,10 +1220,9 @@ async function resolveBatch(
   ]);
 
   for (const r of tmdbResults) if (r) results.push(r);
-  for (const r of anilistResults) if (r) results.push(r);
   for (const r of igdbResults) if (r) results.push(r);
 
-  // AniList fallback for anime that failed TMDB
+  // AniList fallback for anime that failed TMDB Find
   if (tmdbFailedAnime.length > 0) {
     const fallbackResults = await mapConcurrent(
       tmdbFailedAnime,
@@ -1248,7 +1252,7 @@ async function resolveBatch(
 
 async function batchUpdatePosters(
   db: DbType,
-  updates: { id: string; posterUrl: string }[],
+  updates: { id: string; posterUrl: string; resolvedTmdbId?: string }[],
 ): Promise<void> {
   if (updates.length === 0) return;
   const values = updates
@@ -1261,6 +1265,21 @@ async function batchUpdatePosters(
      WHERE media.id = v.id`,
     ),
   );
+
+  // Batch-update tmdb_id for items where Find API resolved a value
+  const tmdbUpdates = updates.filter((u) => u.resolvedTmdbId);
+  if (tmdbUpdates.length > 0) {
+    const tmdbValues = tmdbUpdates
+      .map((u) => `(${escapePostgresLiteral(u.id)}, ${escapePostgresLiteral(u.resolvedTmdbId!)})`)
+      .join(", ");
+    await db.execute(
+      sql.raw(
+        `UPDATE media SET tmdb_id = v.tmdb_id, updated_at = now()
+       FROM (VALUES ${tmdbValues}) AS v(id, tmdb_id)
+       WHERE media.id = v.id`,
+      ),
+    );
+  }
 }
 
 async function runCovers(db: DbType): Promise<void> {
@@ -1282,6 +1301,8 @@ async function runCovers(db: DbType): Promise<void> {
   };
 
   while (true) {
+    // Non-game items can always try TMDB Find (uses wikidataId, no tmdbId needed).
+    // Games still need igdbId.
     const candidates = await db
       .select({
         id: media.id,
@@ -1293,7 +1314,7 @@ async function runCovers(db: DbType): Promise<void> {
       })
       .from(media)
       .where(
-        sql`${media.posterUrl} IS NULL AND ${media.id} > ${lastId} AND (${media.tmdbId} IS NOT NULL OR ${media.anilistId} IS NOT NULL OR ${media.igdbId} IS NOT NULL)`,
+        sql`${media.posterUrl} IS NULL AND ${media.id} > ${lastId} AND (${media.mediaType} != 'game' OR ${media.igdbId} IS NOT NULL)`,
       )
       .orderBy(sql`${media.id} ASC`)
       .limit(COVER_BATCH_SIZE);
@@ -1308,7 +1329,11 @@ async function runCovers(db: DbType): Promise<void> {
     if (results.length > 0) {
       await batchUpdatePosters(
         db,
-        results.map((r) => ({ id: r.id, posterUrl: r.posterUrl })),
+        results.map((r) => ({
+          id: r.id,
+          posterUrl: r.posterUrl,
+          resolvedTmdbId: r.resolvedTmdbId,
+        })),
       );
     }
 

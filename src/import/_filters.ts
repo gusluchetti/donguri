@@ -458,13 +458,19 @@ export function parseMediaEntity(entity: WikidataEntity): ParsedMedia | null {
 
   // Store type-prefixed TMDB path ("movie/{id}" or "tv/{id}") so consumers
   // don't have to guess the TMDB namespace from mediaType.
+  // Use P31 instance-of types (not mediaType) so anime films get "movie/" prefix.
   let tmdbId: string | null = null;
   const tmdbMovieId = getStringClaim(entity, P.TMDB_MOVIE_ID);
   const tmdbTvId = getStringClaim(entity, P.TMDB_TV_ID);
-  if (mediaType === "movie") {
+  const instanceOfValues = getInstanceOfValues(entity);
+  const isFilmLike =
+    mediaType === "movie" ||
+    instanceOfValues.includes(Q.ANIME_FILM) ||
+    instanceOfValues.includes(Q.ANIMATED_FILM);
+  if (isFilmLike) {
     if (tmdbMovieId) tmdbId = `movie/${tmdbMovieId}`;
+    else if (tmdbTvId) tmdbId = `tv/${tmdbTvId}`;
   } else {
-    // tv_series / anime: prefer TV endpoint, fall back to movie
     if (tmdbTvId) tmdbId = `tv/${tmdbTvId}`;
     else if (tmdbMovieId) tmdbId = `movie/${tmdbMovieId}`;
   }
