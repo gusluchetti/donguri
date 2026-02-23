@@ -4,6 +4,7 @@ import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-quer
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CoverThumb } from "../../components/CoverThumb";
 import { StampBadge } from "../../components/StampBadge";
 import type { CatalogEntry } from "../../db/schema";
 import {
@@ -380,14 +381,19 @@ function MediaDetailPage({
 
         {/* Header + meta combined row */}
         <div className="flex gap-g3 sm:gap-g4 mb-g3 sm:mb-g4 relative">
-          {data.posterUrl && (
+          {data.posterUrl ? (
             <img
               src={data.posterUrl}
               alt={`${data.title} poster`}
               width={160}
               className="w-[120px] sm:w-[160px] rounded border border-dg-border-subtle shrink-0 self-start object-cover"
+              style={{ viewTransitionName: `cover-${wikidataId}` }}
               loading="eager"
             />
+          ) : (
+            <div className="w-[120px] sm:w-[160px] aspect-[2/3] shrink-0 self-start">
+              <CoverThumb title={data.title} size={160} vtName={`cover-${wikidataId}`} />
+            </div>
           )}
           <div className="min-w-0 flex-1">
             <div className="mb-2">

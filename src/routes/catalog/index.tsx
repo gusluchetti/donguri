@@ -556,7 +556,12 @@ const MediaRow = memo(function MediaRow({
       }}
     >
       {/* Cover thumb */}
-      <CoverThumb title={item.title} size={36} posterUrl={item.posterUrl ?? undefined} />
+      <CoverThumb
+        title={item.title}
+        size={36}
+        posterUrl={item.posterUrl ?? undefined}
+        vtName={`cover-${item.wikidataId}`}
+      />
 
       {/* Stamp badge + quick add + tracked indicator */}
       <div className="flex items-center gap-1">

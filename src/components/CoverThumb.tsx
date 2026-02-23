@@ -14,11 +14,13 @@ export function CoverThumb({
   title,
   size = 36,
   posterUrl,
+  vtName,
 }: {
   hue?: number;
   title: string;
   size?: number;
   posterUrl?: string;
+  vtName?: string;
 }) {
   const { theme } = useTheme();
   const isLight = theme === "light";
@@ -32,7 +34,10 @@ export function CoverThumb({
         width={size}
         height={isLarge ? undefined : Math.round(size * 1.5)}
         className={`border border-dg-border-subtle object-cover shrink-0 ${isLarge ? "w-full h-full rounded" : "rounded-sm"}`}
-        style={isLarge ? undefined : { width: size, height: Math.round(size * 1.5) }}
+        style={{
+          ...(isLarge ? {} : { width: size, height: Math.round(size * 1.5) }),
+          ...(vtName ? { viewTransitionName: vtName } : {}),
+        }}
         loading="lazy"
       />
     );
@@ -47,6 +52,7 @@ export function CoverThumb({
       <div
         className="w-full h-full rounded flex items-center justify-center relative overflow-hidden"
         style={{
+          ...(vtName ? { viewTransitionName: vtName } : {}),
           background: isLight
             ? `linear-gradient(160deg, hsl(${h},20%,82%) 0%, hsl(${h + 25},16%,74%) 100%)`
             : `linear-gradient(160deg, hsl(${h},22%,18%) 0%, hsl(${h + 25},18%,10%) 100%)`,
@@ -81,6 +87,7 @@ export function CoverThumb({
       style={{
         width: size,
         height: size,
+        ...(vtName ? { viewTransitionName: vtName } : {}),
         background: isLight
           ? `linear-gradient(135deg, hsl(${h},20%,80%) 0%, hsl(${h + 30},16%,72%) 100%)`
           : `linear-gradient(135deg, hsl(${h},22%,20%) 0%, hsl(${h + 30},18%,13%) 100%)`,
