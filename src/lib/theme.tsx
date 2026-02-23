@@ -33,7 +33,6 @@ export function ThemeProvider({
   const toggleTheme = useCallback(() => {
     const next = theme === "dark" ? "light" : "dark";
 
-    // Enable transition
     clearTimeout(transitionTimer.current);
     document.documentElement.classList.add("theme-transition");
     document.documentElement.setAttribute("data-theme", next);
@@ -42,7 +41,6 @@ export function ThemeProvider({
     document.cookie = `dg-theme=${next};path=/;max-age=${60 * 60 * 24 * 400};samesite=lax`;
     setTheme(next);
 
-    // Remove transition class after animation completes
     transitionTimer.current = setTimeout(() => {
       document.documentElement.classList.remove("theme-transition");
     }, 250);

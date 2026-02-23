@@ -7,7 +7,7 @@ export function OAuthProviderCallback({
   searchError,
   label,
 }: {
-  provider: string;
+  provider: "google" | "github";
   code?: string;
   searchError?: string;
   label: string;
@@ -23,7 +23,7 @@ export function OAuthProviderCallback({
       return;
     }
 
-    handleOAuthProviderCallback({ data: { provider: provider as "google" | "github", code } })
+    handleOAuthProviderCallback({ data: { provider, code } })
       .then(() => {
         window.location.href = "/";
       })

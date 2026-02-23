@@ -17,8 +17,6 @@ export type Season = {
   dataSource: string;
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
 function SeasonProgressBar({
   label,
   watched,
@@ -113,8 +111,6 @@ function EpisodeCounter({
     </div>
   );
 }
-
-// ─── EpisodeTracker ───────────────────────────────────────────────────────────
 
 export function EpisodeTracker({
   seasons,

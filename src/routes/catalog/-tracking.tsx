@@ -11,6 +11,7 @@ import {
   ratingColor,
   replayCountLabel,
   STATUS_BUTTON_COLORS,
+  type StatusValue,
   statusLabel,
   todayISO,
   type WatchedEpisodes,
@@ -18,8 +19,6 @@ import {
 import { catalogEntryOptions } from "../../lib/query-options";
 import { SoundEngine } from "../../lib/sound";
 import { useAction } from "../../lib/use-action";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 type StatePair<T> = { value: T; set: (v: T) => void };
 
@@ -36,12 +35,6 @@ export type TrackingPanelProps = {
   children?: React.ReactNode;
 };
 
-// ─── Hooks ────────────────────────────────────────────────────────────────────
-
-/**
- * Keyboard rating entry mode: press '=', then type 0–100, Enter/auto-commit, Esc to cancel.
- * Attaches/detaches a keydown listener on the document when ratingMode is active.
- */
 function useRatingKeyboard(
   ratingMode: boolean,
   setRatingMode: (v: boolean) => void,
@@ -145,10 +138,8 @@ function useTrackingShortcuts({
   });
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
 type StatusButtonsProps = {
-  statuses: string[];
+  statuses: StatusValue[];
   localStatus: string | null;
   statusAnimating: boolean;
   isPending: boolean;
@@ -423,8 +414,6 @@ function RatingInput({
   );
 }
 
-// ─── TrackingPanel ────────────────────────────────────────────────────────────
-
 export function TrackingPanel({
   wikidataId,
   mediaType,
@@ -442,8 +431,6 @@ export function TrackingPanel({
   const hasInitial = initialEntry !== undefined;
   const action = useAction();
 
-  // ── Local state ──────────────────────────────────────────────────────────
-  // Local UI state; serverEntry ref tracks what the server has for dirty checks
   const [entry, setEntry] = useState<CatalogEntry | null>(hasInitial ? initialEntry : null);
   const [loaded, setLoaded] = useState(hasInitial);
   const [localRating, setLocalRating] = useState<number | null>(
@@ -470,7 +457,6 @@ export function TrackingPanel({
   const localWatchedAt = watchedAtState?.value ?? null;
   const setLocalWatchedAt = watchedAtState?.set;
 
-  // ── Status stamp animation ───────────────────────────────────────────────
   const prevStatusRef = useRef(localStatus);
   const [statusAnimating, setStatusAnimating] = useState(false);
 
@@ -485,7 +471,6 @@ export function TrackingPanel({
     prevStatusRef.current = localStatus;
   }, [localStatus]);
 
-  // ── Entry query (when initialEntry was not provided by loader) ───────────
   const entryQuery = useQuery({
     ...catalogEntryOptions(wikidataId),
     enabled: !hasInitial,
@@ -513,7 +498,6 @@ export function TrackingPanel({
     setLocalWatchedAt,
   ]);
 
-  // ── Dirty checks ─────────────────────────────────────────────────────────
   const isDirty =
     localRating !== (serverEntry.current?.rating ?? null) ||
     localStatus !== (serverEntry.current?.status ?? null) ||
@@ -523,7 +507,6 @@ export function TrackingPanel({
       JSON.stringify((serverEntry.current?.watchedEpisodes as WatchedEpisodes) ?? {}) ||
     localWatchedAt !== (serverEntry.current?.watchedAt ?? null);
 
-  // ── Save / remove ────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     const status = localStatus as NonNullable<CatalogEntry["status"]>;
     if (!status) return;
@@ -622,7 +605,6 @@ export function TrackingPanel({
     });
   }, [wikidataId, action]);
 
-  // ── Keyboard shortcuts ───────────────────────────────────────────────────
   const [ratingMode, setRatingMode] = useState(false);
   const notBusy = action.state !== "pending";
 
@@ -641,7 +623,6 @@ export function TrackingPanel({
     handleRemove,
   });
 
-  // ── Render ───────────────────────────────────────────────────────────────
   const statuses = availableStatuses(mediaType);
   const isPending = action.state === "pending";
   const wrapperClass = bare

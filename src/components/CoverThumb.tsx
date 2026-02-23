@@ -48,7 +48,6 @@ export function CoverThumb({
 
   const h = hue ?? (mediaType ? (TYPE_HUES[mediaType] ?? 0) : 0);
 
-  // Build acronym from first letter of each word, capped at 5 chars
   const initials =
     title
       .split(/\s+/)
@@ -57,7 +56,6 @@ export function CoverThumb({
       .join("")
       .slice(0, 5) || "?";
 
-  // Scale font size down as more letters appear
   const smallFontSize =
     initials.length <= 1
       ? 14
@@ -80,7 +78,6 @@ export function CoverThumb({
             : 13;
 
   if (isLarge) {
-    // Cover grid card — 2/3 aspect ratio, deep gradient, large watermark
     return (
       <div
         className="w-full h-full rounded flex items-center justify-center relative overflow-hidden"
@@ -113,7 +110,6 @@ export function CoverThumb({
     );
   }
 
-  // Small thumbnail — 4:3 portrait, lighter gradient (fits row height)
   return (
     <div
       className="rounded-[3px] border border-dg-border shrink-0 flex items-center justify-center relative overflow-hidden"
