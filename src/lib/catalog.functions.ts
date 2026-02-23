@@ -217,7 +217,13 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
               ),
             );
         } else {
-          await db.insert(catalogEntries).values(values);
+          await db
+            .insert(catalogEntries)
+            .values(values)
+            .onConflictDoUpdate({
+              target: [catalogEntries.userId, catalogEntries.mediaWikidataId],
+              set: values,
+            });
         }
       }
 
