@@ -67,7 +67,7 @@ async function warmCache(): Promise<void> {
 
   byType = newByType;
   all = newAll;
-  warmedAt = Date.now();
+  if (newAll.length > 0) warmedAt = Date.now();
 }
 
 async function ensureWarmed(): Promise<void> {
