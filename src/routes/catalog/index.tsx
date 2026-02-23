@@ -1,5 +1,6 @@
+import { Check, CircleNotch, MagnifyingGlass, Plus, Shuffle, X } from "@phosphor-icons/react";
 import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
   getRouteApi,
@@ -9,20 +10,23 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { forwardRef, memo, useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { z } from "zod";
+import { CoverThumb } from "../../components/CoverThumb";
+import { StampBadge } from "../../components/StampBadge";
 import type { Media } from "../../db/schema";
 import { setCatalogEntry } from "../../lib/catalog.functions";
 import { isInputFocused } from "../../lib/hotkeys/shortcuts";
 import { useCatalogCursor } from "../../lib/hotkeys/use-catalog-cursor";
 import {
-  mediaTypeLabel,
-  STATUS_ACCENT,
+  STAMP_COLORS,
+  STATUS_BUTTON_COLORS,
+  STATUS_ICONS,
   type StatusValue,
-  typeBadgeClass,
 } from "../../lib/media-types";
 import { ogTags, pageTitle } from "../../lib/og";
 import { catalogInfiniteOptions, mediaStatsOptions } from "../../lib/query-options";
+import { SoundEngine } from "../../lib/sound";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -41,14 +45,12 @@ const MEDIA_TYPES = [
 
 export const Route = createFileRoute("/catalog/")({
   validateSearch: catalogSearchSchema,
-  loaderDeps: ({ search }) => ({ q: search.q, mediaType: search.type }),
+  loaderDeps: ({ search }) => ({ mediaType: search.type }),
   loader: async ({ deps, context }) => {
-    const { q, mediaType } = deps;
+    const { mediaType } = deps;
 
     const stats = await context.queryClient.ensureQueryData(mediaStatsOptions());
-    await context.queryClient.prefetchInfiniteQuery(
-      catalogInfiniteOptions(mediaType, q || undefined),
-    );
+    await context.queryClient.prefetchInfiniteQuery(catalogInfiniteOptions(mediaType, undefined));
     return { stats };
   },
   staleTime: 5 * 60 * 1000,
@@ -71,42 +73,98 @@ export const Route = createFileRoute("/catalog/")({
   component: CatalogPage,
 });
 
-const SearchInput = forwardRef<HTMLInputElement, { initialValue: string }>(function SearchInput(
-  { initialValue },
-  ref,
-) {
-  const navigate = useNavigate({ from: "/catalog/" });
-  const { q } = Route.useSearch();
-  const [value, setValue] = useState(initialValue);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+const SearchBar = forwardRef<HTMLInputElement, { initialValue: string; onRandom?: () => void }>(
+  function SearchBar({ initialValue, onRandom }, ref) {
+    const navigate = useNavigate({ from: "/catalog/" });
+    const { q } = Route.useSearch();
+    const [value, setValue] = useState(initialValue);
+    const [focused, setFocused] = useState(false);
+    const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Sync when URL changes externally (e.g. back/forward)
-  useEffect(() => {
-    setValue(q ?? "");
-  }, [q]);
+    // Sync when URL changes externally (e.g. back/forward) — but not while typing or debounce pending
+    useEffect(() => {
+      if (!focused && !timeoutRef.current) setValue(q ?? "");
+    }, [q, focused]);
 
-  const handleChange = (input: string) => {
-    setValue(input);
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => {
+    // Clear pending debounce on unmount so stale navigate() can't fire after page transition
+    useEffect(
+      () => () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      },
+      [],
+    );
+
+    const handleChange = (input: string) => {
+      setValue(input);
+      if (input.length > 0) SoundEngine.search();
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        timeoutRef.current = undefined;
+        navigate({
+          search: (prev) => ({ ...prev, q: input || undefined }),
+          replace: true,
+          viewTransition: false,
+        });
+      }, 300);
+    };
+
+    const handleClear = () => {
+      setValue("");
       navigate({
-        search: (prev) => ({ ...prev, q: input || undefined }),
+        search: (prev) => ({ ...prev, q: undefined }),
         replace: true,
+        viewTransition: false,
       });
-    }, 300);
-  };
+    };
 
-  return (
-    <input
-      ref={ref}
-      type="text"
-      placeholder="Search titles..."
-      value={value}
-      onChange={(e) => handleChange(e.target.value)}
-      className="w-full py-2.5 px-3 bg-dg-surface border border-dg-border rounded text-dg-text font-mono text-base sm:text-[0.85rem] outline-none box-border"
-    />
-  );
-});
+    return (
+      <div className="relative flex gap-1.5">
+        <div className="relative flex-1">
+          <div
+            className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors duration-[120ms]"
+            style={{ color: focused ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)" }}
+          >
+            <MagnifyingGlass size={14} weight="bold" />
+          </div>
+          <input
+            ref={ref}
+            type="text"
+            placeholder="Search catalog..."
+            value={value}
+            onChange={(e) => handleChange(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            className="w-full py-2.5 pl-9 pr-8 bg-dg-surface border rounded text-dg-text font-body text-base sm:text-[0.85rem] outline-none box-border transition-all duration-[120ms]"
+            style={{
+              borderColor: focused ? "var(--color-dg-accent)" : "var(--color-dg-border)",
+              boxShadow: focused ? "0 0 0 2px var(--color-dg-accent-glow)" : "none",
+            }}
+          />
+          {value && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-dg-elevated border-none rounded-sm w-4 h-4 flex items-center justify-center cursor-pointer text-dg-text-tertiary hover:text-dg-text-secondary transition-colors"
+            >
+              <X size={10} />
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          title="Random title"
+          onClick={() => {
+            SoundEngine.dice();
+            onRandom?.();
+          }}
+          className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+        >
+          <Shuffle size={17} weight="bold" />
+        </button>
+      </div>
+    );
+  },
+);
 
 function CatalogPage() {
   const { stats } = Route.useLoaderData();
@@ -116,10 +174,21 @@ function CatalogPage() {
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog/" });
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery(
-    catalogInfiniteOptions(mediaType, q || undefined),
-  );
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isPlaceholderData } =
+    useInfiniteQuery({
+      ...catalogInfiniteOptions(mediaType, q || undefined),
+      placeholderData: keepPreviousData,
+    });
   const allItems = data?.pages.flatMap((p) => p.items) ?? [];
+
+  // Only animate items when data is genuinely new — not when returning with cached results
+  const seenQueryKeys = useRef(new Set<string>());
+  const currentQueryKey = `${mediaType ?? ""}|${q ?? ""}`;
+  const isNewData =
+    !seenQueryKeys.current.has(currentQueryKey) && !isPlaceholderData && allItems.length > 0;
+  useEffect(() => {
+    if (!isPlaceholderData && allItems.length > 0) seenQueryKeys.current.add(currentQueryKey);
+  }, [currentQueryKey, isPlaceholderData, allItems.length]);
 
   const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
   const [quickAddState, setQuickAddState] = useState<Record<string, "pending" | "done">>({});
@@ -131,11 +200,13 @@ function CatalogPage() {
 
   const handleTypeChange = useCallback(
     (type: "movie" | "tv_series" | "anime" | "game" | undefined) => {
+      SoundEngine.click();
       navigate({
         search: (prev) => ({
           ...prev,
           type,
         }),
+        viewTransition: false,
       });
     },
     [navigate],
@@ -200,14 +271,12 @@ function CatalogPage() {
 
   // Restore scroll position after data is available and virtualizer has rendered
   const didRestore = useRef(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (didRestore.current || !scrollEntry || allItems.length === 0) return;
     didRestore.current = true;
     const el = parentRef.current;
     if (!el || scrollEntry.scrollY === 0) return;
-    requestAnimationFrame(() => {
-      el.scrollTop = scrollEntry.scrollY;
-    });
+    el.scrollTop = scrollEntry.scrollY;
   }, [allItems.length, scrollEntry]);
 
   const virtualizer = useVirtualizer({
@@ -247,7 +316,10 @@ function CatalogPage() {
         return;
       }
       const item = allItems[selectedIndex];
-      if (item) navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
+      if (item) {
+        SoundEngine.navForward();
+        navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
+      }
     },
     { ignoreInputs: false },
   );
@@ -255,7 +327,10 @@ function CatalogPage() {
   // l / ArrowRight — open selected item
   const openSelected = () => {
     const item = allItems[selectedIndex];
-    if (item) navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
+    if (item) {
+      SoundEngine.navForward();
+      navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
+    }
   };
   useHotkey("L", openSelected, { enabled: selectedIndex >= 0 });
   useHotkey("ArrowRight", openSelected, { enabled: selectedIndex >= 0 });
@@ -314,10 +389,10 @@ function CatalogPage() {
   }, [virtualItems, allItems.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono flex flex-col overflow-hidden">
+    <div className="dg-page-enter text-dg-text flex-1 font-body flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="px-4 sm:px-6 pt-3 pb-1">
-        <div className="max-w-[1000px] mx-auto">
+      <header className="pt-3 pb-1">
+        <div className="max-w-[1100px] mx-auto px-4 sm:px-6">
           <p className="text-dg-text-tertiary text-[0.8rem]">
             {stats.total > 0
               ? `${stats.total.toLocaleString()} titles across the catalog`
@@ -327,15 +402,24 @@ function CatalogPage() {
       </header>
 
       {/* Controls */}
-      <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 py-2 flex flex-col gap-2">
+      <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 py-2 flex flex-col gap-2">
         {/* Search */}
         <div className="w-full">
-          <SearchInput ref={searchRef} initialValue={q ?? ""} />
+          <SearchBar
+            ref={searchRef}
+            initialValue={q ?? ""}
+            onRandom={() => {
+              if (!allItems.length) return;
+              const item = allItems[Math.floor(Math.random() * allItems.length)];
+              SoundEngine.navForward();
+              navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
+            }}
+          />
         </div>
 
-        {/* Type filter tabs */}
-        <div className="flex gap-1 flex-nowrap overflow-x-auto sm:flex-wrap scrollbar-hide">
-          {MEDIA_TYPES.map((t) => {
+        {/* Type filter tabs — joined segment style */}
+        <div className="flex gap-0 border border-dg-border rounded-sm overflow-hidden bg-dg-surface">
+          {MEDIA_TYPES.map((t, i) => {
             const isActive = mediaType === t.value;
             const count = t.value
               ? ((stats.byType as Record<string, number>)[t.value] ?? 0)
@@ -345,15 +429,28 @@ function CatalogPage() {
                 type="button"
                 key={t.label}
                 onClick={() => handleTypeChange(t.value)}
-                className={`py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 border rounded-sm font-mono text-xs cursor-pointer flex items-center gap-1.5 shrink-0 transition-all duration-150 ${
-                  isActive
-                    ? "bg-dg-accent/[0.08] border-dg-accent/25 text-dg-accent"
-                    : "bg-transparent border-dg-border-subtle text-dg-text-secondary"
-                }`}
+                className="py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 font-body text-xs cursor-pointer flex items-center gap-1.5 flex-1 justify-center transition-all duration-150 relative"
+                style={{
+                  background: isActive ? "var(--color-dg-elevated)" : "transparent",
+                  color: isActive ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)",
+                  fontWeight: isActive ? 600 : 400,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  borderRight:
+                    i < MEDIA_TYPES.length - 1 ? "1px solid var(--color-dg-border-subtle)" : "none",
+                }}
               >
                 {t.label}
                 {count > 0 && (
-                  <span className="text-[0.65rem] opacity-60">{count.toLocaleString()}</span>
+                  <span
+                    className="text-[0.65rem] tabular-nums"
+                    style={{ opacity: isActive ? 0.8 : 0.4 }}
+                  >
+                    {count.toLocaleString()}
+                  </span>
+                )}
+                {isActive && (
+                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-dg-accent" />
                 )}
               </button>
             );
@@ -363,10 +460,10 @@ function CatalogPage() {
 
       {/* Login prompt */}
       {!auth && (
-        <div className="max-w-[1000px] mx-auto w-full px-4 sm:px-6 pb-2">
+        <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 pb-2">
           <Link
             to="/"
-            className="block border border-dg-accent/20 bg-dg-accent/[0.04] rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-150"
+            className="block border border-dg-accent/20 bg-dg-accent-soft rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-150"
           >
             <span className="text-dg-accent">Sign in</span> to add titles to your watchlist and
             track your progress.
@@ -374,70 +471,79 @@ function CatalogPage() {
         </div>
       )}
 
-      {/* Virtual list — relative+absolute ensures a definite height for the
-           scroll container regardless of the outer flex chain (min-h-dvh on
-           root doesn't give flex children a definite height, which would make
-           the virtualizer think ALL items are visible and fetchNextPage loops) */}
-      <div className="flex-1 relative min-h-0">
-        <div
-          ref={parentRef}
-          className="absolute inset-0 overflow-auto max-w-[1000px] mx-auto w-full px-4 sm:px-6"
-        >
+      {/* Virtual list */}
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+        <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 pb-4 flex-1 flex flex-col min-h-0">
           <div
-            style={{
-              height: virtualizer.getTotalSize(),
-              width: "100%",
-              position: "relative",
-            }}
+            className="flex-1 min-h-0 border border-dg-border rounded-md overflow-hidden flex flex-col transition-opacity duration-150 bg-dg-surface"
+            style={{ opacity: isPlaceholderData ? 0.5 : 1 }}
           >
-            {virtualItems.map((virtualRow) => {
-              if (virtualRow.index >= allItems.length) {
-                return (
-                  <div
-                    key="loader"
-                    className="w-full left-0 border-b border-dg-surface absolute flex items-center justify-center overflow-hidden"
-                    style={{
-                      top: virtualRow.start,
-                      height: virtualRow.size,
-                    }}
-                  >
-                    <span className="text-dg-text-tertiary">
-                      {isFetchingNextPage ? "Loading..." : ""}
-                    </span>
-                  </div>
-                );
-              }
+            <div ref={parentRef} className="flex-1 min-h-0 overflow-auto">
+              <div
+                style={{
+                  height: virtualizer.getTotalSize(),
+                  width: "100%",
+                  position: "relative",
+                }}
+              >
+                {virtualItems.map((virtualRow) => {
+                  if (virtualRow.index >= allItems.length) {
+                    return (
+                      <div
+                        key="loader"
+                        className="w-full left-0 border-b border-dg-border-subtle absolute flex items-center justify-center overflow-hidden"
+                        style={{
+                          top: virtualRow.start,
+                          height: virtualRow.size,
+                        }}
+                      >
+                        <span className="text-dg-text-tertiary">
+                          {isFetchingNextPage ? "Loading..." : ""}
+                        </span>
+                      </div>
+                    );
+                  }
 
-              const item = allItems[virtualRow.index];
-              const status = trackedIds[item.wikidataId] ?? null;
-              const isTracked = status !== null;
-              const showAdd = auth && !isTracked;
-              const addState = quickAddState[item.wikidataId] ?? null;
+                  const item = allItems[virtualRow.index];
+                  const status = trackedIds[item.wikidataId] ?? null;
+                  const isTracked = status !== null;
+                  const showAdd = auth && !isTracked;
+                  const addState = quickAddState[item.wikidataId] ?? null;
 
-              const isCursorActive = virtualRow.index === selectedIndex;
+                  const isCursorActive = virtualRow.index === selectedIndex;
 
-              return (
-                <Link
-                  key={item.id}
-                  to="/catalog/$wikidataId"
-                  params={{ wikidataId: item.wikidataId }}
-                  preload="intent"
-                  className={`w-full left-0 border-b border-dg-surface absolute no-underline text-inherit block group overflow-hidden${isCursorActive ? " dg-cursor-active" : ""}`}
-                  style={{
-                    top: virtualRow.start,
-                    height: virtualRow.size,
-                  }}
-                >
-                  <MediaRow
-                    item={item}
-                    trackedStatus={status}
-                    showAdd={!!showAdd}
-                    addState={addState}
-                    onQuickAdd={handleQuickAdd}
-                  />
-                </Link>
-              );
-            })}
+                  return (
+                    <Link
+                      key={item.id}
+                      to="/catalog/$wikidataId"
+                      params={{ wikidataId: item.wikidataId }}
+                      preload="intent"
+                      className={`w-full left-0 absolute no-underline text-inherit block group border-b border-dg-border-subtle${isCursorActive ? " dg-cursor-active" : ""}`}
+                      style={{
+                        top: virtualRow.start,
+                        height: virtualRow.size,
+                        ["--type-color" as string]:
+                          STAMP_COLORS[item.mediaType] ?? "var(--color-dg-accent)",
+                        animation: isNewData ? "fadeIn 280ms var(--ease-smooth) both" : "none",
+                        animationDelay:
+                          isNewData && virtualRow.index < 20 ? `${virtualRow.index * 25}ms` : "0ms",
+                      }}
+                      onClick={() => SoundEngine.navForward()}
+                      onMouseEnter={() => SoundEngine.tick()}
+                    >
+                      <MediaRow
+                        item={item}
+                        index={virtualRow.index}
+                        trackedStatus={status}
+                        showAdd={!!showAdd}
+                        addState={addState}
+                        onQuickAdd={handleQuickAdd}
+                      />
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -464,83 +570,145 @@ function formatMeta(item: Media): string {
 
 const MediaRow = memo(function MediaRow({
   item,
+  index,
   trackedStatus,
   showAdd,
   addState,
   onQuickAdd,
 }: {
   item: Media;
+  index: number;
   trackedStatus: string | null;
   showAdd: boolean;
   addState: "pending" | "done" | null;
   onQuickAdd: (wikidataId: string, mediaType: string, e: React.MouseEvent) => void;
 }) {
-  const badgeClass = typeBadgeClass(item.mediaType);
-
   const meta = formatMeta(item);
+  const [swiped, setSwiped] = useState(false);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const panelOpen = addState !== null || swiped;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!showAdd) return;
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStart.current) return;
+    const dx = e.changedTouches[0].clientX - touchStart.current.x;
+    const dy = e.changedTouches[0].clientY - touchStart.current.y;
+    touchStart.current = null;
+    if (Math.abs(dx) < Math.abs(dy) * 1.2) return; // mostly vertical — let scroll through
+    if (dx < -30) setSwiped(true);
+    else if (dx > 20) setSwiped(false);
+  };
 
   return (
-    <div className="flex items-center justify-between py-1.5 px-1 h-full gap-2 sm:gap-4">
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-        {item.posterUrl && (
-          <img
-            src={item.posterUrl}
-            alt=""
-            width={40}
-            height={60}
-            className="rounded-sm border border-dg-border-subtle object-cover shrink-0 hidden sm:block"
-            loading="lazy"
-          />
-        )}
-        {addState === "pending" ? (
-          <span className="text-[0.75rem] font-bold text-dg-accent font-mono shrink-0">
-            [<span className="dg-ellipsis" />]
-          </span>
-        ) : addState === "done" ? (
-          <span className="text-[0.75rem] font-bold text-dg-game font-mono shrink-0">[ok]</span>
-        ) : showAdd ? (
-          <button
-            type="button"
-            onClick={(e) => onQuickAdd(item.wikidataId, item.mediaType, e)}
-            className="text-[0.75rem] font-bold text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent"
-          >
-            [+]
-          </button>
-        ) : null}
-        <span
-          className={`text-[0.6rem] font-semibold py-0.5 px-1.5 rounded-sm border uppercase tracking-wide whitespace-nowrap shrink-0 min-w-[3rem] text-center ${badgeClass}`}
-        >
-          {mediaTypeLabel(item.mediaType, true)}
-        </span>
-        <div className="flex items-baseline gap-2 min-w-0 overflow-hidden">
-          <span className="text-[0.85rem] font-medium truncate text-dg-text">{item.title}</span>
-          {trackedStatus && (
-            <span
-              className={`text-sm shrink-0 ${STATUS_ACCENT[trackedStatus as StatusValue] ?? "text-dg-text-tertiary"}`}
-            >
-              *
+    <div
+      className="h-full flex items-center relative"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Left color bar — always on hover */}
+      <div
+        className="absolute left-0 top-0 bottom-0 w-[2.5px] opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+        style={{ backgroundColor: "var(--type-color)" }}
+      />
+
+      {/* Grid content */}
+      <div
+        className="grid items-center flex-1 min-w-0 gap-2 sm:gap-g2 py-1.5 px-3 sm:px-g3 group-hover:bg-dg-row-hover transition-colors duration-100"
+        style={{ gridTemplateColumns: "36px auto 1fr auto" }}
+      >
+        {/* Cover thumb */}
+        <CoverThumb
+          title={item.title}
+          mediaType={item.mediaType}
+          size={36}
+          posterUrl={item.posterUrl ?? undefined}
+        />
+
+        {/* Stamp badge */}
+        <div className="flex items-center gap-1">
+          <StampBadge type={item.mediaType} index={index} />
+        </div>
+
+        {/* Title + tracked pill + subtitle */}
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[0.85rem] font-medium text-dg-text truncate flex-1 min-w-0">
+              {item.title}
             </span>
-          )}
-          {item.originalTitle && (
-            <span className="text-xs text-dg-text-tertiary truncate hidden sm:inline">
-              {item.originalTitle}
+            {trackedStatus && (
+              <span
+                className={`text-[0.58rem] font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none ${STATUS_BUTTON_COLORS[trackedStatus as StatusValue] ?? ""}`}
+              >
+                {STATUS_ICONS[trackedStatus as StatusValue]}
+              </span>
+            )}
+          </div>
+          {(() => {
+            const year = item.startYear
+              ? `${item.startYear}${item.endYear && item.endYear !== item.startYear ? `\u2013${item.endYear}` : ""}`
+              : "";
+            const sub = [item.originalTitle, year].filter(Boolean).join(" \u00b7 ");
+            return sub ? (
+              <div className="text-[0.7rem] text-dg-text-tertiary truncate hidden sm:block">
+                {sub}
+              </div>
+            ) : null;
+          })()}
+        </div>
+
+        {/* Right: ep count or runtime — fixed width, right-aligned */}
+        <div className="w-[4.5rem] flex items-center justify-end shrink-0">
+          {item.episodeCount ? (
+            <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums text-right">
+              {item.episodeCount}&nbsp;ep
             </span>
-          )}
+          ) : meta ? (
+            <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums text-right">
+              {meta}
+            </span>
+          ) : null}
         </div>
       </div>
-      <div className="flex items-center gap-4 shrink-0">
-        {meta && (
-          <span className="text-[0.7rem] text-dg-text-tertiary min-w-12 text-right tabular-nums hidden sm:flex">
-            {meta}
-          </span>
-        )}
-        {item.startYear && (
-          <span className="text-xs text-dg-text-secondary tabular-nums">
-            {item.startYear}
-            {item.endYear && item.endYear !== item.startYear ? `–${item.endYear}` : ""}
-          </span>
-        )}
-      </div>
+
+      {/* Right pop-out quick-add panel */}
+      {showAdd && (
+        <div
+          className={`shrink-0 overflow-hidden transition-[width] duration-150 h-full flex items-center ${panelOpen ? "w-10" : "w-0 group-hover:w-10"}`}
+        >
+          <div
+            className="w-10 h-full flex items-center justify-center"
+            style={{
+              borderLeft: "2px solid var(--type-color)",
+              background: "var(--color-dg-elevated)",
+            }}
+          >
+            <button
+              type="button"
+              onClick={(e) => {
+                setSwiped(false);
+                onQuickAdd(item.wikidataId, item.mediaType, e);
+              }}
+              className="w-full h-full flex items-center justify-center bg-transparent border-none cursor-pointer transition-colors duration-100"
+              style={{
+                color:
+                  addState === "done" ? "var(--color-dg-stamped)" : "var(--color-dg-text-tertiary)",
+              }}
+            >
+              {addState === "pending" ? (
+                <CircleNotch size={14} className="animate-spin" />
+              ) : addState === "done" ? (
+                <Check size={14} weight="bold" />
+              ) : (
+                <Plus size={14} weight="bold" />
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

@@ -1,9 +1,11 @@
+import { Star, X } from "@phosphor-icons/react";
 import type { Hotkey } from "@tanstack/hotkeys";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
-import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CoverThumb } from "../../components/CoverThumb";
+import { StampBadge } from "../../components/StampBadge";
 import type { CatalogEntry } from "../../db/schema";
 import {
   getCatalogEntry,
@@ -25,11 +27,11 @@ import {
   STATUS_BUTTON_COLORS,
   statusLabel,
   todayISO,
-  typeBadgeClass,
   type WatchedEpisodes,
 } from "../../lib/media-types";
 import { ogTags, pageTitle } from "../../lib/og";
 import { catalogEntryOptions, mediaDetailOptions } from "../../lib/query-options";
+import { SoundEngine } from "../../lib/sound";
 import { useAction } from "../../lib/use-action";
 
 const rootRoute = getRouteApi("__root__");
@@ -104,7 +106,7 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
       else if (m.mediaType === "tv_series" || m.mediaType === "anime") ogType = "video.tv_show";
     } else if (loaderData?.kind === "stub") {
       wikidataId = loaderData.stub.wikidataId;
-      description = `Track on donguri`;
+      description = "Track on donguri";
     }
 
     return {
@@ -123,6 +125,12 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
   component: MediaDetailRouter,
 });
 
+function triggerNavBack() {
+  document.documentElement.dataset.navBack = "1";
+  window.history.back();
+  setTimeout(() => delete document.documentElement.dataset.navBack, 500);
+}
+
 function MediaDetailRouter() {
   const loaderData = Route.useLoaderData();
   if (loaderData.kind === "stub") return <MediaStubPage stub={loaderData.stub} />;
@@ -136,20 +144,23 @@ function MediaDetailRouter() {
 
 function MediaDetailSkeleton() {
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
-      <div className="max-w-[1000px] mx-auto p-4 sm:p-5">
+    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
+      <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <button
           type="button"
-          onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block"
+          onClick={() => {
+            SoundEngine.navBack();
+            triggerNavBack();
+          }}
+          className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm transition-all duration-150"
         >
           &larr; back
         </button>
-        <div className="mb-5">
+        <div className="mb-g3">
           <div className="w-16 h-5 bg-dg-surface rounded-sm mb-3 animate-pulse" />
           <div className="w-2/3 h-8 bg-dg-surface rounded animate-pulse" />
         </div>
-        <div className="flex flex-wrap gap-x-6 gap-y-3 mb-4 sm:mb-5 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
+        <div className="flex flex-wrap gap-x-6 gap-y-3 mb-g3 p-g2 sm:p-g3 bg-dg-surface rounded border border-dg-border-subtle">
           {[...Array(4)].map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton items
             <div key={i} className="flex flex-col gap-1">
@@ -158,7 +169,7 @@ function MediaDetailSkeleton() {
             </div>
           ))}
         </div>
-        <div className="space-y-2 mb-6">
+        <div className="space-y-2 mb-g4">
           <div className="w-full h-4 bg-dg-surface rounded animate-pulse" />
           <div className="w-4/5 h-4 bg-dg-surface rounded animate-pulse" />
         </div>
@@ -173,33 +184,33 @@ function MediaStubPage({
   stub: { wikidataId: string; title: string; mediaType: string | null };
 }) {
   const { auth } = rootRoute.useLoaderData();
-  const badgeClass = typeBadgeClass(stub.mediaType);
 
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
-      <div className="max-w-[1000px] mx-auto p-4 sm:p-5">
+    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
+      <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <button
           type="button"
-          onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block"
+          onClick={() => {
+            SoundEngine.navBack();
+            triggerNavBack();
+          }}
+          className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
         >
           &larr; back
         </button>
 
-        <div className="mb-4 sm:mb-5">
+        <div className="mb-g3">
           {stub.mediaType && (
-            <span
-              className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
-            >
-              {mediaTypeLabel(stub.mediaType)}
-            </span>
+            <div className="mb-2">
+              <StampBadge type={stub.mediaType} />
+            </div>
           )}
-          <h1 className="text-[1.35rem] sm:text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
+          <h1 className="font-display text-[1.6rem] sm:text-[2.25rem] font-normal m-0 leading-[1.15] tracking-[-0.03em]">
             {stub.title}
           </h1>
         </div>
 
-        <div className="border border-dg-border-subtle rounded p-3 sm:p-4 bg-dg-surface mb-4 sm:mb-5">
+        <div className="border border-dg-border-subtle rounded p-g2 sm:p-g3 bg-dg-surface mb-g3">
           <p className="text-[0.8rem] text-dg-text-tertiary">
             This title has not been imported into the catalog yet. Metadata will appear after the
             next data import.
@@ -210,16 +221,16 @@ function MediaStubPage({
           <TrackingPanel wikidataId={stub.wikidataId} mediaType={stub.mediaType ?? undefined} />
         )}
 
-        <div className="mb-4 sm:mb-5">
+        <div className="mb-g3">
           <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
             Links
           </h3>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             <a
               href={`https://www.wikidata.org/wiki/${stub.wikidataId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-dg-accent/70 no-underline py-2 px-3 sm:py-1.5 sm:px-2.5 border border-dg-accent/15 rounded-sm transition-all duration-150"
+              className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-150"
             >
               Wikidata {"\u2197"}
             </a>
@@ -241,7 +252,13 @@ function MediaDetailPage({
   if (!data) throw new Error("Media not found");
   const { auth } = rootRoute.useLoaderData();
   const router = useRouter();
-  const badgeClass = typeBadgeClass(data.mediaType);
+  const handleBack = useCallback(() => {
+    SoundEngine.navBack();
+    document.documentElement.dataset.navBack = "1";
+    router.history.back();
+    setTimeout(() => delete document.documentElement.dataset.navBack, 500);
+  }, [router]);
+
   const [localIsFavorite, setLocalIsFavorite] = useState(initialEntry?.isFavorite ?? false);
   const [localWatchedEpisodes, setLocalWatchedEpisodes] = useState<WatchedEpisodes>(
     (initialEntry?.watchedEpisodes as WatchedEpisodes) ?? {},
@@ -253,9 +270,9 @@ function MediaDetailPage({
 
   // ─── Detail page shortcuts ──────────────────────────────────────────────
   // h / ArrowLeft / Backspace — go back
-  useHotkey("H", () => router.history.back());
-  useHotkey("ArrowLeft", () => router.history.back());
-  useHotkey("Backspace", () => router.history.back());
+  useHotkey("H", handleBack);
+  useHotkey("ArrowLeft", handleBack);
+  useHotkey("Backspace", handleBack);
   // f — toggle favorite
   useHotkey("F", () => setLocalIsFavorite((v) => !v), {
     enabled: !!auth && !!initialEntry?.status,
@@ -355,43 +372,47 @@ function MediaDetailPage({
   });
 
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono">
-      <div className="max-w-[1000px] mx-auto p-4 sm:p-5">
+    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
+      <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         {/* Back link */}
         <button
           type="button"
-          onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-mono cursor-pointer py-2 -my-2 px-0 mb-3 sm:mb-4 inline-block"
+          onClick={handleBack}
+          className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
         >
           &larr; back
         </button>
 
         {/* Header + meta combined row */}
-        <div className="flex gap-4 sm:gap-5 mb-4 sm:mb-5 relative">
-          {data.posterUrl && (
-            <img
-              src={data.posterUrl}
-              alt={`${data.title} poster`}
-              width={160}
-              className="w-[160px] rounded border border-dg-border-subtle shrink-0 self-stretch object-cover hidden sm:block"
-              loading="eager"
-            />
-          )}
-          <div className="min-w-0 flex-1">
-            <span
-              className={`text-[0.65rem] font-semibold py-1 px-2 rounded-sm border uppercase tracking-wide inline-block mb-3 ${badgeClass}`}
-            >
-              {mediaTypeLabel(data.mediaType)}
-            </span>
-            <h1 className="text-[1.35rem] sm:text-[1.6rem] font-semibold m-0 leading-[1.2] -tracking-[0.01em]">
+        <div className="flex flex-col sm:flex-row gap-g3 sm:gap-g4 mb-g3 sm:mb-g4">
+          {/* Poster — portrait on mobile, stretches to match right column on desktop */}
+          <div className="hidden sm:block sm:w-[210px] shrink-0">
+            {data.posterUrl ? (
+              <img
+                src={data.posterUrl}
+                alt={`${data.title} poster`}
+                className="w-full rounded border border-dg-border-subtle object-cover aspect-[2/3] sm:aspect-auto sm:h-full"
+                loading="eager"
+              />
+            ) : (
+              <div className="aspect-[2/3] w-full sm:aspect-auto sm:h-full">
+                <CoverThumb title={data.title} mediaType={data.mediaType ?? undefined} size={210} />
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1" style={{ viewTransitionName: "detail-content" }}>
+            <div className="mb-2">
+              <StampBadge type={data.mediaType} />
+            </div>
+            <h1 className="font-display text-[1.6rem] sm:text-[2.25rem] font-normal m-0 leading-[1.15] tracking-[-0.03em]">
               {data.title}
             </h1>
             {data.originalTitle && (
-              <p className="text-base text-dg-text-secondary mt-1.5">{data.originalTitle}</p>
+              <p className="text-[0.85rem] text-dg-text-secondary mt-1">{data.originalTitle}</p>
             )}
 
             {/* Meta slab */}
-            <div className="mt-3 p-3 sm:p-4 bg-dg-surface rounded border border-dg-border-subtle">
+            <div className="mt-g2 p-g2 sm:p-g3 bg-dg-surface rounded border border-dg-border-subtle">
               <div className="flex flex-wrap gap-x-6 gap-y-3">
                 {data.startYear && (
                   <MetaItem
@@ -481,7 +502,7 @@ function MediaDetailPage({
 
         {/* Tracking + Episodes unified card */}
         {auth && (
-          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-4 sm:mb-5">
+          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-g3 sm:mb-g4">
             <TrackingPanel
               wikidataId={data.wikidataId}
               mediaType={data.mediaType}
@@ -509,14 +530,14 @@ function MediaDetailPage({
 
         {/* No auth: standalone episode tracker (read-only) */}
         {!auth && hasSeasons && data.seasons && (
-          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-4 sm:mb-5 p-3 sm:p-4">
+          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-g3 sm:mb-g4 p-g2 sm:p-g3">
             <EpisodeTracker seasons={data.seasons} />
           </div>
         )}
 
         {/* Platforms (games) */}
         {data.platforms.length > 0 && (
-          <div className="mb-4 sm:mb-5">
+          <div className="mb-g3 sm:mb-g4">
             <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
               Platforms
             </h3>
@@ -554,6 +575,12 @@ function EpisodeTracker({
 }) {
   const interactive = !!onWatchedChange && !!watchedEpisodes;
   const isMultiSeason = seasons.length > 1;
+
+  // Always-fresh ref so rapid clicks don't read stale prop values
+  const latestWatchedRef = useRef(watchedEpisodes ?? {});
+  useEffect(() => {
+    latestWatchedRef.current = watchedEpisodes ?? {};
+  }, [watchedEpisodes]);
 
   // Auto-select first incomplete season on mount
   const [selectedSeason, setSelectedSeason] = useState(() => {
@@ -593,33 +620,45 @@ function EpisodeTracker({
     : undefined;
 
   const handleIncrement = () => {
+    const current = latestWatchedRef.current;
     if (consecutiveEp < seasonEpCount) {
-      onWatchedChange?.(
-        markThroughEpisode(
-          watchedEpisodes,
-          currentSeason.seasonNumber,
-          consecutiveEp + 1,
-          episodeDate,
-        ),
+      const next = markThroughEpisode(
+        current,
+        currentSeason.seasonNumber,
+        consecutiveEp + 1,
+        episodeDate,
       );
+      latestWatchedRef.current = next;
+      onWatchedChange?.(next);
     } else if (nextSeason) {
-      onWatchedChange?.(
-        markThroughEpisode(watchedEpisodes, nextSeason.seasonNumber, 1, episodeDate),
-      );
+      const next = markThroughEpisode(current, nextSeason.seasonNumber, 1, episodeDate);
+      latestWatchedRef.current = next;
+      onWatchedChange?.(next);
       setSelectedSeason(nextSeason.seasonNumber);
     }
   };
 
   const handleDecrement = () => {
+    const current = latestWatchedRef.current;
     if (consecutiveEp > 0) {
-      onWatchedChange?.(
-        clearSeasonFrom(watchedEpisodes, currentSeason.seasonNumber, consecutiveEp, seasonEpCount),
+      const next = clearSeasonFrom(
+        current,
+        currentSeason.seasonNumber,
+        consecutiveEp,
+        seasonEpCount,
       );
+      latestWatchedRef.current = next;
+      onWatchedChange?.(next);
     } else if (prevSeason) {
-      const pc = highestConsecutiveEpisode(watchedEpisodes, prevSeason.seasonNumber);
-      onWatchedChange?.(
-        clearSeasonFrom(watchedEpisodes, prevSeason.seasonNumber, pc, prevSeason.episodeCount ?? 0),
+      const pc = highestConsecutiveEpisode(current, prevSeason.seasonNumber);
+      const next = clearSeasonFrom(
+        current,
+        prevSeason.seasonNumber,
+        pc,
+        prevSeason.episodeCount ?? 0,
       );
+      latestWatchedRef.current = next;
+      onWatchedChange?.(next);
       setSelectedSeason(prevSeason.seasonNumber);
     }
   };
@@ -640,7 +679,7 @@ function EpisodeTracker({
             {seasons.map((s) => (
               <option key={s.id} value={s.seasonNumber}>
                 S{String(s.seasonNumber).padStart(2, "0")}
-                {s.title ? ` — ${s.title}` : ""}
+                {s.title ? ` \u2014 ${s.title}` : ""}
               </option>
             ))}
           </select>
@@ -652,7 +691,7 @@ function EpisodeTracker({
         <div className="mb-2">
           <div className="flex items-center gap-2">
             {isMultiSeason && (
-              <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
+              <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0 font-mono">
                 S{String(currentSeason.seasonNumber).padStart(2, "0")}
               </span>
             )}
@@ -662,7 +701,7 @@ function EpisodeTracker({
                 style={{ width: `${seasonPct}%` }}
               />
             </div>
-            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums shrink-0">
+            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums shrink-0 font-mono">
               {seasonWatched}/{seasonEpCount}
             </span>
           </div>
@@ -673,7 +712,7 @@ function EpisodeTracker({
       {isMultiSeason && totalEps > 0 && (
         <div className="mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
+            <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0 font-mono">
               ALL
             </span>
             <div className="flex-1 h-[6px] bg-dg-elevated rounded-full overflow-hidden">
@@ -682,7 +721,7 @@ function EpisodeTracker({
                 style={{ width: `${totalPct}%` }}
               />
             </div>
-            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums shrink-0">
+            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums shrink-0 font-mono">
               {totalWatched}/{totalEps}
             </span>
           </div>
@@ -701,7 +740,7 @@ function EpisodeTracker({
             >
               -
             </button>
-            <span className="text-[0.9rem] tabular-nums text-dg-text min-w-[5rem] text-center">
+            <span className="text-[0.9rem] tabular-nums text-dg-text min-w-[5rem] text-center font-mono">
               {consecutiveEp} / {seasonEpCount}
             </span>
             <button
@@ -739,7 +778,7 @@ function EpisodeTracker({
             const pct = epCount > 0 ? Math.round((w / epCount) * 100) : 0;
             return (
               <div key={s.id} className="flex items-center gap-2">
-                <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0">
+                <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0 font-mono">
                   S{String(s.seasonNumber).padStart(2, "0")}
                 </span>
                 <div className="flex-1 h-[4px] bg-dg-elevated rounded-full overflow-hidden">
@@ -748,7 +787,7 @@ function EpisodeTracker({
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <span className="text-[0.6rem] text-dg-text-tertiary tabular-nums shrink-0">
+                <span className="text-[0.6rem] text-dg-text-tertiary tabular-nums shrink-0 font-mono">
                   {epCount > 0 ? `${epCount} ep` : "?"}
                 </span>
               </div>
@@ -812,6 +851,21 @@ function TrackingPanel({
   const setLocalWatchedEpisodes = watchedEpisodesState?.set;
   const localWatchedAt = watchedAtState?.value ?? null;
   const setLocalWatchedAt = watchedAtState?.set;
+
+  // Track status changes for stamp animation
+  const prevStatusRef = useRef(localStatus);
+  const [statusAnimating, setStatusAnimating] = useState(false);
+
+  useEffect(() => {
+    if (localStatus !== prevStatusRef.current && prevStatusRef.current !== null) {
+      SoundEngine.stamp();
+      setStatusAnimating(true);
+      const t = setTimeout(() => setStatusAnimating(false), 350);
+      prevStatusRef.current = localStatus;
+      return () => clearTimeout(t);
+    }
+    prevStatusRef.current = localStatus;
+  }, [localStatus]);
 
   // When loader didn't provide the entry, use TanStack Query to fetch it
   const entryQuery = useQuery({
@@ -1076,12 +1130,12 @@ function TrackingPanel({
           <button
             type="button"
             onClick={() => setLocalIsFavorite(!localIsFavorite)}
-            className={`text-[1.1rem] bg-transparent border-none cursor-pointer p-1 -m-1 transition-colors duration-150 ${
+            className={`flex items-center bg-transparent border-none cursor-pointer p-1 -m-1 transition-colors duration-150 ${
               localIsFavorite ? "text-dg-accent" : "text-dg-text-tertiary hover:text-dg-accent/60"
             }`}
             title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
           >
-            {localIsFavorite ? "\u2605" : "\u2606"}
+            <Star size={16} weight={localIsFavorite ? "fill" : "regular"} />
           </button>
         )}
       </div>
@@ -1098,11 +1152,15 @@ function TrackingPanel({
               type="button"
               onClick={() => setLocalStatus(s)}
               disabled={action.state === "pending"}
-              className={`text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-mono cursor-pointer shrink-0 transition-all duration-150 disabled:opacity-50 ${
+              className={`text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-body cursor-pointer shrink-0 transition-all duration-150 disabled:opacity-50 ${
                 isActive
                   ? colorClass
                   : "border-dg-border-subtle text-dg-text-secondary bg-transparent hover:border-dg-border"
               }`}
+              style={{
+                animation:
+                  isActive && statusAnimating ? "stampDown 300ms var(--ease-smooth) both" : "none",
+              }}
             >
               {label}
             </button>
@@ -1209,7 +1267,7 @@ function TrackingPanel({
             type="button"
             onClick={handleSave}
             disabled={action.state === "pending" || !isDirty}
-            className={`text-[0.75rem] font-mono rounded-sm border px-3 py-1 bg-transparent cursor-pointer transition-all duration-150 disabled:cursor-default ${
+            className={`text-[0.75rem] font-body rounded-sm border px-3 py-1 bg-transparent cursor-pointer transition-all duration-150 disabled:cursor-default ${
               action.state === "pending"
                 ? "border-dg-accent/50 text-dg-accent/70"
                 : action.state === "error"
@@ -1237,7 +1295,7 @@ function TrackingPanel({
               type="button"
               onClick={handleRemove}
               disabled={action.state === "pending"}
-              className="text-[0.75rem] font-mono rounded-sm border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 cursor-pointer transition-all duration-150 hover:text-dg-anime hover:border-dg-anime/40 disabled:opacity-50 disabled:cursor-default"
+              className="text-[0.75rem] font-body rounded-sm border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 cursor-pointer transition-all duration-150 hover:text-dg-anime hover:border-dg-anime/40 disabled:opacity-50 disabled:cursor-default"
               title="Remove from list"
             >
               delete

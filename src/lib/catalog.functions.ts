@@ -63,6 +63,7 @@ export const getUserCatalogEntries = createServerFn({ method: "GET" }).handler(a
       watchedEpisodes: catalogEntries.watchedEpisodes,
       episodeCount: media.episodeCount,
       seasonCount: media.seasonCount,
+      posterUrl: media.posterUrl,
     })
     .from(catalogEntries)
     .leftJoin(media, eq(catalogEntries.mediaWikidataId, media.wikidataId))
@@ -217,7 +218,13 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
               ),
             );
         } else {
-          await db.insert(catalogEntries).values(values);
+          await db
+            .insert(catalogEntries)
+            .values(values)
+            .onConflictDoUpdate({
+              target: [catalogEntries.userId, catalogEntries.mediaWikidataId],
+              set: values,
+            });
         }
       }
 
