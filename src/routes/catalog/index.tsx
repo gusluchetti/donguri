@@ -81,6 +81,14 @@ const SearchBar = forwardRef<HTMLInputElement, { initialValue: string; onRandom?
       if (!focused && !timeoutRef.current) setValue(q ?? "");
     }, [q, focused]);
 
+    // Clear pending debounce on unmount so stale navigate() can't fire after page transition
+    useEffect(
+      () => () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      },
+      [],
+    );
+
     const handleChange = (input: string) => {
       setValue(input);
       if (input.length > 0) SoundEngine.search();
@@ -90,13 +98,18 @@ const SearchBar = forwardRef<HTMLInputElement, { initialValue: string; onRandom?
         navigate({
           search: (prev) => ({ ...prev, q: input || undefined }),
           replace: true,
+          viewTransition: false,
         });
       }, 300);
     };
 
     const handleClear = () => {
       setValue("");
-      navigate({ search: (prev) => ({ ...prev, q: undefined }), replace: true });
+      navigate({
+        search: (prev) => ({ ...prev, q: undefined }),
+        replace: true,
+        viewTransition: false,
+      });
     };
 
     return (
@@ -179,6 +192,7 @@ function CatalogPage() {
           ...prev,
           type,
         }),
+        viewTransition: false,
       });
     },
     [navigate],
