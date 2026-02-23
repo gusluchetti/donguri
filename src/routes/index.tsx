@@ -314,7 +314,7 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
 /** Cover grid for completed/mastered sections */
 function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-g1">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-g1">
       {items.map((item, i) => (
         <Link
           key={item.id}
