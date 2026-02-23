@@ -1,6 +1,6 @@
 import { JoseKey } from "@atproto/jwk-jose";
 import { createStartHandler, defaultStreamHandler } from "@tanstack/react-start/server";
-import { cleanEnv } from "~/db";
+import { cleanEnv } from "./db";
 
 const startHandler = createStartHandler(defaultStreamHandler);
 
