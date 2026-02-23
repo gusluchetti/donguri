@@ -306,10 +306,7 @@ function MediaDetailPage({
   if (data.tmdbId && !isGame) {
     externalLinks.push({
       label: "TMDB",
-      url:
-        data.mediaType === "movie"
-          ? `https://www.themoviedb.org/movie/${data.tmdbId}`
-          : `https://www.themoviedb.org/tv/${data.tmdbId}`,
+      url: `https://www.themoviedb.org/${data.tmdbId}`,
     });
   }
   if (data.malId && isAnime)

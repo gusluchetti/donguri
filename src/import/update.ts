@@ -1035,25 +1035,14 @@ interface FetchResult {
   status?: number;
 }
 
-async function fetchTmdbPoster(
-  tmdbId: string,
-  mediaType: string,
-  apiKey: string,
-): Promise<FetchResult> {
-  const primary = mediaType === "movie" ? "movie" : "tv";
-  const res = await fetch(`https://api.themoviedb.org/3/${primary}/${tmdbId}?api_key=${apiKey}`);
+async function fetchTmdbPoster(tmdbId: string, apiKey: string): Promise<FetchResult> {
+  // tmdbId is already type-prefixed ("movie/129" or "tv/456")
+  const res = await fetch(`https://api.themoviedb.org/3/${tmdbId}?api_key=${apiKey}`);
   if (res.ok) {
     const data = await res.json();
     return { url: data.poster_path ? `https://image.tmdb.org/t/p/w342${data.poster_path}` : null };
   }
-  // Fallback: try the other endpoint (handles TV series with TMDB movie IDs)
-  const fallback = primary === "movie" ? "tv" : "movie";
-  const res2 = await fetch(`https://api.themoviedb.org/3/${fallback}/${tmdbId}?api_key=${apiKey}`);
-  if (res2.ok) {
-    const data = await res2.json();
-    return { url: data.poster_path ? `https://image.tmdb.org/t/p/w342${data.poster_path}` : null };
-  }
-  console.warn(`  [tmdb] ${res.status}/${res2.status} for ${tmdbId}`);
+  console.warn(`  [tmdb] ${res.status} for ${tmdbId}`);
   return { url: null, status: res.status };
 }
 
@@ -1187,7 +1176,7 @@ async function resolveBatch(
   // Run all three source queues in parallel
   const [tmdbResults, anilistResults, igdbResults] = await Promise.all([
     mapConcurrent(tmdbItems, COVER_CONCURRENCY_TMDB, 200, async (item) => {
-      const r = await fetchTmdbPoster(item.tmdbId, item.mediaType, tmdbApiKey);
+      const r = await fetchTmdbPoster(item.tmdbId, tmdbApiKey);
       if (r.url)
         return {
           id: item.id,

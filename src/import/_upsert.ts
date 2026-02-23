@@ -215,6 +215,10 @@ export async function processSuperBatch(
 							country_of_origin = COALESCE(EXCLUDED.country_of_origin, media.country_of_origin),
 							imdb_id = COALESCE(EXCLUDED.imdb_id, media.imdb_id),
 							tmdb_id = COALESCE(EXCLUDED.tmdb_id, media.tmdb_id),
+							poster_url = CASE
+								WHEN EXCLUDED.tmdb_id IS DISTINCT FROM media.tmdb_id THEN NULL
+								ELSE media.poster_url
+							END,
 							mal_id = COALESCE(EXCLUDED.mal_id, media.mal_id),
 							anilist_id = COALESCE(EXCLUDED.anilist_id, media.anilist_id),
 							anidb_id = COALESCE(EXCLUDED.anidb_id, media.anidb_id),

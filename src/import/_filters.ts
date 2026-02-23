@@ -456,11 +456,17 @@ export function parseMediaEntity(entity: WikidataEntity): ParsedMedia | null {
 
   const { title: originalTitle, language: originalLanguage } = getOriginalTitleAndLanguage(entity);
 
+  // Store type-prefixed TMDB path ("movie/{id}" or "tv/{id}") so consumers
+  // don't have to guess the TMDB namespace from mediaType.
   let tmdbId: string | null = null;
+  const tmdbMovieId = getStringClaim(entity, P.TMDB_MOVIE_ID);
+  const tmdbTvId = getStringClaim(entity, P.TMDB_TV_ID);
   if (mediaType === "movie") {
-    tmdbId = getStringClaim(entity, P.TMDB_MOVIE_ID);
-  } else if (mediaType === "tv_series" || mediaType === "anime") {
-    tmdbId = getStringClaim(entity, P.TMDB_TV_ID) ?? getStringClaim(entity, P.TMDB_MOVIE_ID);
+    if (tmdbMovieId) tmdbId = `movie/${tmdbMovieId}`;
+  } else {
+    // tv_series / anime: prefer TV endpoint, fall back to movie
+    if (tmdbTvId) tmdbId = `tv/${tmdbTvId}`;
+    else if (tmdbMovieId) tmdbId = `movie/${tmdbMovieId}`;
   }
 
   // Extract English aliases, filtering out duplicates of title/originalTitle and junk
