@@ -248,7 +248,7 @@ function OAuthButton({ provider, label }: { provider: "google" | "github"; label
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="w-full bg-transparent border border-dg-border-subtle text-dg-text-secondary px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-body cursor-pointer transition-all duration-150 hover:border-dg-border hover:text-dg-text disabled:opacity-40 disabled:cursor-not-allowed text-center"
+      className="w-full bg-dg-surface border border-dg-border text-dg-text-secondary px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-body cursor-pointer transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text disabled:opacity-40 disabled:cursor-not-allowed text-center"
     >
       {loading ? <span className="dg-ellipsis">Redirecting</span> : label}
     </button>
