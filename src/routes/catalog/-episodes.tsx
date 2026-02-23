@@ -7,7 +7,7 @@ import {
   markThroughEpisode,
   todayISO,
   type WatchedEpisodes,
-} from "../../lib/media-types";
+} from "~/lib/media-types";
 
 export type Season = {
   id: string;

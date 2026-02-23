@@ -1,4 +1,4 @@
-import { STATUS_ICONS, STATUS_LABELS_GENERIC, type StatusValue } from "../lib/media-types";
+import { STATUS_ICONS, STATUS_LABELS_GENERIC, type StatusValue } from "~/lib/media-types";
 
 const STATUS_COLOR_MAP: Record<StatusValue, string> = {
   planned: "var(--color-dg-charted)",

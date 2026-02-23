@@ -1,5 +1,5 @@
-import { TYPE_HUES } from "../lib/media-types";
-import { useTheme } from "../lib/theme";
+import { TYPE_HUES } from "~/lib/media-types";
+import { useTheme } from "~/lib/theme";
 
 /**
  * Hue-based gradient placeholder with first-letter watermark,

@@ -1,6 +1,6 @@
 import { JoseKey } from "@atproto/jwk-jose";
 import { NodeOAuthClient, requestLocalLock } from "@atproto/oauth-client-node";
-import { cleanEnv } from "../../db";
+import { cleanEnv } from "~/db";
 import { PgSessionStore, PgStateStore } from "./kv-stores";
 
 const isDev = process.env.NODE_ENV === "development";

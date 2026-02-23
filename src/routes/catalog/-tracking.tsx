@@ -4,8 +4,8 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CatalogEntry } from "../../db/schema";
-import { getCatalogEntry, removeCatalogEntry, setCatalogEntry } from "../../lib/catalog.functions";
+import type { CatalogEntry } from "~/db/schema";
+import { getCatalogEntry, removeCatalogEntry, setCatalogEntry } from "~/lib/catalog.functions";
 import {
   availableStatuses,
   ratingColor,
@@ -15,10 +15,10 @@ import {
   statusLabel,
   todayISO,
   type WatchedEpisodes,
-} from "../../lib/media-types";
-import { catalogEntryOptions } from "../../lib/query-options";
-import { SoundEngine } from "../../lib/sound";
-import { useAction } from "../../lib/use-action";
+} from "~/lib/media-types";
+import { catalogEntryOptions } from "~/lib/query-options";
+import { SoundEngine } from "~/lib/sound";
+import { useAction } from "~/lib/use-action";
 
 type StatePair<T> = { value: T; set: (v: T) => void };
 

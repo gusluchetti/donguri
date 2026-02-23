@@ -1,17 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { cleanEnv, getDb } from "../db";
-import { users } from "../db/schema";
-import { getAuthenticatedAgent } from "./auth/agent";
-import { getOAuthClient } from "./auth/client";
-import { clearSessionCookie, getSessionData, setSessionCookie } from "./auth/session";
-import { getAuthUrl, handleProviderCallback, type Provider } from "./oauth-providers";
-import { reconcileUser } from "./sync";
+import { cleanEnv, getDb } from "~/db";
+import { users } from "~/db/schema";
+import { getAuthenticatedAgent } from "~/lib/auth/agent";
+import { getOAuthClient } from "~/lib/auth/client";
+import { clearSessionCookie, getSessionData, setSessionCookie } from "~/lib/auth/session";
+import { getAuthUrl, handleProviderCallback, type Provider } from "~/lib/oauth-providers";
+import { reconcileUser } from "~/lib/sync";
 
 const isDev = process.env.NODE_ENV === "development";
 
-export type { SessionData } from "./auth/session";
+export type { SessionData } from "~/lib/auth/session";
 
 export const getAuthState = createServerFn({ method: "GET" }).handler(async () => {
   // Session cookie is HMAC-signed — no DB round trip needed to verify user existence.

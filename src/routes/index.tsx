@@ -2,10 +2,10 @@ import { Star } from "@phosphor-icons/react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { CoverThumb } from "../components/CoverThumb";
-import { SectionHeader } from "../components/SectionHeader";
-import { StampBadge } from "../components/StampBadge";
-import { initiateLogin, initiateOAuthLogin } from "../lib/auth.functions";
+import { CoverThumb } from "~/components/CoverThumb";
+import { SectionHeader } from "~/components/SectionHeader";
+import { StampBadge } from "~/components/StampBadge";
+import { initiateLogin, initiateOAuthLogin } from "~/lib/auth.functions";
 import {
   ratingColor,
   replayCountLabel,
@@ -13,10 +13,10 @@ import {
   STATUS_LABELS_GENERIC,
   STATUS_ORDER,
   type StatusValue,
-} from "../lib/media-types";
-import { ogTags, pageTitle } from "../lib/og";
-import { watchlistOptions } from "../lib/query-options";
-import { SoundEngine } from "../lib/sound";
+} from "~/lib/media-types";
+import { ogTags, pageTitle } from "~/lib/og";
+import { watchlistOptions } from "~/lib/query-options";
+import { SoundEngine } from "~/lib/sound";
 
 const rootRoute = getRouteApi("__root__");
 

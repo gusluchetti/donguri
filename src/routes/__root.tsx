@@ -20,17 +20,17 @@ import {
 import { clear } from "idb-keyval";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import "../app.css";
-import { AcornIcon } from "../components/AcornIcon";
-import { BackgroundLayers } from "../components/BackgroundLayers";
-import { getAuthState, logout } from "../lib/auth.functions";
-import { getCatalogFingerprint } from "../lib/catalog.functions";
-import { HelpOverlay } from "../lib/hotkeys/HelpOverlay";
-import { isInputFocused } from "../lib/hotkeys/shortcuts";
-import { ogTags, pageTitle } from "../lib/og";
-import { checkCatalogFreshness } from "../lib/query";
-import { trackedIdsOptions } from "../lib/query-options";
-import { SoundEngine } from "../lib/sound";
-import { getThemeCookie, ThemeProvider, useTheme } from "../lib/theme";
+import { AcornIcon } from "~/components/AcornIcon";
+import { BackgroundLayers } from "~/components/BackgroundLayers";
+import { getAuthState, logout } from "~/lib/auth.functions";
+import { getCatalogFingerprint } from "~/lib/catalog.functions";
+import { HelpOverlay } from "~/lib/hotkeys/HelpOverlay";
+import { isInputFocused } from "~/lib/hotkeys/shortcuts";
+import { ogTags, pageTitle } from "~/lib/og";
+import { checkCatalogFreshness } from "~/lib/query";
+import { trackedIdsOptions } from "~/lib/query-options";
+import { SoundEngine } from "~/lib/sound";
+import { getThemeCookie, ThemeProvider, useTheme } from "~/lib/theme";
 
 // Sets data-theme before first paint. Also syncs the cookie for SSR on next visit.
 const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('dg-theme');if(!t){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.setAttribute('data-theme',t);document.cookie='dg-theme='+t+';path=/;max-age=34560000;samesite=lax'}catch(e){document.documentElement.setAttribute('data-theme','dark')}})()`;

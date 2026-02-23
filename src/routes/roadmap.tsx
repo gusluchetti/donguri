@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useRef } from "react";
 import Markdown from "react-markdown";
+import { ogTags, pageTitle } from "~/lib/og";
 import rawRoadmap from "../../ROADMAP.md?raw";
-import { ogTags, pageTitle } from "../lib/og";
 
 const roadmapMd = rawRoadmap.replace(/<!--[\s\S]*?-->/g, "");
 
@@ -138,9 +138,7 @@ function RoadmapPage() {
           const num = String(++ctx.current.beliefIndex).padStart(2, "0");
           return <BeliefItem num={num}>{children}</BeliefItem>;
         }
-        return (
-          <RoadmapListItem color={ctx.current.sectionColor}>{children}</RoadmapListItem>
-        );
+        return <RoadmapListItem color={ctx.current.sectionColor}>{children}</RoadmapListItem>;
       },
 
       strong: ({ children }: { children?: React.ReactNode }) => (

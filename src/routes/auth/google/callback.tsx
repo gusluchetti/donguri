@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { OAuthProviderCallback } from "../../../lib/oauth-callback";
+import { OAuthProviderCallback } from "~/lib/oauth-callback";
 
 export const Route = createFileRoute("/auth/google/callback")({
   validateSearch: z.object({

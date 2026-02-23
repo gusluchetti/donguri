@@ -16,8 +16,8 @@ import readline from "node:readline";
 import zlib from "node:zlib";
 import * as clack from "@clack/prompts";
 import { eq, inArray, sql } from "drizzle-orm";
-import { cleanEnv, getDb } from "../db";
-import { TRGM_SETUP_SQL } from "../db/fts";
+import { cleanEnv, getDb } from "~/db";
+import { TRGM_SETUP_SQL } from "~/db/fts";
 import {
   genres,
   importProgress,
@@ -26,7 +26,7 @@ import {
   mediaPlatforms,
   platforms,
   seasons,
-} from "../db/schema";
+} from "~/db/schema";
 import { parseMediaEntity, shouldImportEntity } from "./_filters";
 import { formatDuration, withRetry } from "./_retry";
 import type { ParsedMedia, ParsedSeason, WikibaseEntityIdValue, WikidataEntity } from "./_types";

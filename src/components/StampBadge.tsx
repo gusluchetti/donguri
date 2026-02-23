@@ -1,4 +1,4 @@
-import { mediaTypeLabel, STAMP_COLORS } from "../lib/media-types";
+import { mediaTypeLabel, STAMP_COLORS } from "~/lib/media-types";
 
 export function StampBadge({ type, index = 0 }: { type: string; index?: number }) {
   const color = STAMP_COLORS[type] ?? "var(--color-dg-text-tertiary)";

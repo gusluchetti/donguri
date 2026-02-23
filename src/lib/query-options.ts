@@ -1,7 +1,7 @@
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
-import { getCatalogEntry, getUserCatalogEntries, getUserTrackedIds } from "./catalog.functions";
-import { getMedia, getMediaStats, listMedia } from "./media.functions";
-import { DATA_VERSION, idbPersister } from "./query";
+import { getCatalogEntry, getUserCatalogEntries, getUserTrackedIds } from "~/lib/catalog.functions";
+import { getMedia, getMediaStats, listMedia } from "~/lib/media.functions";
+import { DATA_VERSION, idbPersister } from "~/lib/query";
 
 const persister = idbPersister?.persisterFn;
 

@@ -7,8 +7,8 @@
 import { Writable } from "node:stream";
 import { inArray } from "drizzle-orm";
 import { ulid } from "ulid";
-import type { getDb } from "../db";
-import { genres, mediaGenres, mediaPlatforms, platforms } from "../db/schema";
+import type { getDb } from "~/db";
+import { genres, mediaGenres, mediaPlatforms, platforms } from "~/db/schema";
 import { withRetry } from "./_retry";
 import type { ParsedMedia } from "./_types";
 
