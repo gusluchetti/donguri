@@ -20,6 +20,8 @@ Track what you've watched, what you're playing, and what's next.
 - **Sign in with Bluesky, Google, or GitHub** — Bluesky syncs to your PDS
 - **Genre tags** — hierarchical display with sub-genres grouped under parent categories
 - **Dark and light themes** — toggle or follow system preference
+- **Per-episode tracking** — mark individual episodes watched, season by season, with bulk "mark through" toggle
+- **Keyboard shortcuts** — j/k navigation, quick-add (a), search (/), open (l/→), back (h/←), filter sequences, help overlay (?)
 - **Fast and cached** — local cache first, background sync
 
 <!-- All shipped. Season data: Wikidata (primary) + TVMaze CC BY-SA (TV gap-fill) + anime-offline-database ODbL (anime gap-fill). Cover art: TMDB → AniList → IGDB hotlinked CDN URLs. -->
@@ -28,7 +30,7 @@ Track what you've watched, what you're playing, and what's next.
 
 - **Import from MyAnimeList** — upload your MAL XML export to bring your anime list into donguri
 - **Anime catalog improvements** — better classification for anime titles and broader external ID coverage
-- **Per-episode tracking** — mark individual episodes watched, season by season
+- ~~**Per-episode tracking** — mark individual episodes watched, season by season~~
 - **Filter by genre** — browse the catalog by genre, not just media type
 
 <!-- P0: MAL XML import — parse <myanimelist><anime> entries, match via malId column, map statuses (Watching/Completed/On-Hold/Dropped/Plan to Watch → donguri equivalents), map scores 1-10 → 0-100 ratings, import watched episode counts. UI: file upload on settings or dedicated import page. First in a series of import sources. -->
@@ -68,7 +70,7 @@ Track what you've watched, what you're playing, and what's next.
 - **"Currently watching" shelf** — surface in-progress titles front and center on your homepage
 - **Franchise grouping** — link sequels, prequels, and spinoffs as a navigable tree
 - **Where to watch** — streaming availability by region
-- **Keyboard shortcuts** — j/k navigation, quick-rate, quick-add
+- ~~**Keyboard shortcuts** — j/k navigation, quick-rate, quick-add~~
 - **Richer detail pages** — directors, cast, studios, awards
 
 <!-- Data safety: account deletion must cascade (user → catalog_entries → revoke AT tokens). Export as JSON/CSV. Non-negotiable before paid tier. -->
