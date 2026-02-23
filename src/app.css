@@ -38,23 +38,24 @@ img {
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Dark theme (default) */
-  --color-dg-bg: #0d0f15;
-  --color-dg-surface: #131620;
-  --color-dg-elevated: #191d28;
-  --color-dg-row-hover: #1c2130;
-  --color-dg-border-subtle: #1d2130;
-  --color-dg-border: #252a38;
-  --color-dg-border-strong: #313747;
+  /* Dark theme (default) — OLED teal-black base, orange accent */
+  --color-dg-bg: #050e0c;
+  --color-dg-surface: #0c1614;
+  --color-dg-elevated: #111e1b;
+  --color-dg-row-hover: #162421;
+  --color-dg-border-subtle: #1a2d29;
+  --color-dg-border: #233835;
+  --color-dg-border-strong: #2e4845;
 
+  /* Warm text on cool bg — intentional tension, classic film look */
   --color-dg-text: #e0ddd6;
-  --color-dg-text-secondary: #b5b0a5;
-  --color-dg-text-tertiary: #79746c;
-  --color-dg-text-muted: #4a4640;
+  --color-dg-text-secondary: #a8b2b0;
+  --color-dg-text-tertiary: #687a78;
+  --color-dg-text-muted: #3c5250;
 
-  --color-dg-accent: #b8a472;
-  --color-dg-accent-soft: rgba(184, 164, 114, 0.05);
-  --color-dg-accent-glow: rgba(184, 164, 114, 0.1);
+  --color-dg-accent: #e8702e;
+  --color-dg-accent-soft: rgba(232, 112, 46, 0.07);
+  --color-dg-accent-glow: rgba(232, 112, 46, 0.13);
 
   /* Stamp colors (type badges) — dark theme: vivid enough to read on dark bg */
   --color-dg-movie: #d4662a;
@@ -73,24 +74,24 @@ img {
   --color-dg-enroute: #5db8a0;
   --color-dg-paused: #79746c;
   --color-dg-stamped: #62c48e;
-  --color-dg-sealed: #b8a472;
-  --color-dg-dropped: #4a4640;
+  --color-dg-sealed: #e8702e;
+  --color-dg-dropped: #3c5250;
 
   /* Seal tier colors */
-  --color-dg-seal-common: #79746c;
+  --color-dg-seal-common: #687a78;
   --color-dg-seal-rare: #5db8a0;
-  --color-dg-seal-legendary: #b8a472;
+  --color-dg-seal-legendary: #e8702e;
 }
 
 /* Light theme overrides — must be in @layer base to beat @layer theme */
 /* Atmosphere defaults are also here so light overrides can win (unlayered :root would beat @layer base) */
 @layer base {
   :root {
-    --topo-color: rgba(164, 174, 114, 0.035);
-    --grid-color: rgba(164, 174, 114, 0.03);
+    --topo-color: rgba(40, 180, 160, 0.03);
+    --grid-color: rgba(40, 180, 160, 0.025);
     --noise-opacity: 0.15;
     --grain-blend: soft-light;
-    --nav-bg: rgba(13, 15, 21, 0.94);
+    --nav-bg: rgba(5, 14, 12, 0.94);
     --stamp-bg: rgba(255, 255, 255, 0.02);
     --vignette: radial-gradient(
       ellipse 80% 70% at 50% 45%,
@@ -113,9 +114,9 @@ img {
     --color-dg-text-tertiary: #6b6359;
     --color-dg-text-muted: #958c80;
 
-    --color-dg-accent: #6b5b33;
-    --color-dg-accent-soft: rgba(107, 91, 51, 0.06);
-    --color-dg-accent-glow: rgba(107, 91, 51, 0.12);
+    --color-dg-accent: #b84e18;
+    --color-dg-accent-soft: rgba(184, 78, 24, 0.07);
+    --color-dg-accent-glow: rgba(184, 78, 24, 0.13);
 
     /* Stamp colors — light theme: dark enough to read on light bg */
     --color-dg-movie: #8b3010;
@@ -130,15 +131,15 @@ img {
     --color-dg-enroute: #1a7a6d;
     --color-dg-paused: #6b6359;
     --color-dg-stamped: #2a7a50;
-    --color-dg-sealed: #6b5b33;
+    --color-dg-sealed: #b84e18;
     --color-dg-dropped: #958c80;
 
     --color-dg-seal-common: #6b6359;
     --color-dg-seal-rare: #1a7a6d;
-    --color-dg-seal-legendary: #6b5b33;
+    --color-dg-seal-legendary: #b84e18;
 
-    --topo-color: rgba(107, 115, 85, 0.08);
-    --grid-color: rgba(107, 115, 85, 0.055);
+    --topo-color: rgba(184, 78, 24, 0.05);
+    --grid-color: rgba(184, 78, 24, 0.035);
     --noise-opacity: 0.4;
     --grain-blend: multiply;
     --nav-bg: rgba(236, 232, 222, 0.92);

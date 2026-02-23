@@ -375,7 +375,7 @@ function WatchlistListItem({ item, index }: { item: CatalogEntryRow; index: numb
         animation: `fadeIn 320ms var(--ease-smooth) both ${index * 25}ms`,
       }}
     >
-      <div className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm bg-transparent group-hover:bg-dg-accent transition-all duration-150 group-hover:shadow-[0_0_8px_rgba(184,164,114,0.3)]" />
+      <div className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm bg-transparent group-hover:bg-dg-accent transition-all duration-150 group-hover:shadow-[0_0_8px_rgba(232,112,46,0.3)]" />
       <StampBadge type={item.mediaType ?? ""} index={index} />
       <span className="text-[0.85rem] text-dg-text truncate flex-1 font-medium">
         {item.isFavorite && (
