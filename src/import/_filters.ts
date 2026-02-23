@@ -126,27 +126,18 @@ export function determineMediaType(
 
   if (!isFilm && !isTv) return null;
 
-  // Check for anime external IDs on non-anime P31 entities
-  const hasAnimeIds =
-    getStringClaim(entity, P.MAL_ID) !== null ||
-    getStringClaim(entity, P.ANILIST_ID) !== null ||
-    getStringClaim(entity, P.ANIDB_ID) !== null ||
-    getStringClaim(entity, P.ANN_ID) !== null;
-
-  const animationOrigin = hasAnimeIds ? "anime" : null;
-
   if (isFilm && isTv) {
     // Both film and TV — use episodes/seasons to disambiguate
     const episodeCount = getQuantityClaim(entity, P.EPISODE_COUNT);
     const seasonCount = getQuantityClaim(entity, P.SEASON_COUNT);
     if ((episodeCount != null && episodeCount > 1) || (seasonCount != null && seasonCount > 0)) {
-      return { mediaType: "tv_series", animationOrigin };
+      return { mediaType: "tv_series", animationOrigin: null };
     }
-    return { mediaType: "movie", animationOrigin };
+    return { mediaType: "movie", animationOrigin: null };
   }
 
-  if (isFilm) return { mediaType: "movie", animationOrigin };
-  return { mediaType: "tv_series", animationOrigin };
+  if (isFilm) return { mediaType: "movie", animationOrigin: null };
+  return { mediaType: "tv_series", animationOrigin: null };
 }
 
 /**

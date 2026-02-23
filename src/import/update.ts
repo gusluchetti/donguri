@@ -1464,6 +1464,11 @@ async function interactiveMenu(): Promise<RunConfig> {
   }
 
   const features = featuresResult as Feature[];
+
+  // Enforce dependency order: media → percentiles → seasons → covers
+  const FEATURE_ORDER: Feature[] = ["media", "percentiles", "seasons", "covers"];
+  features.sort((a, b) => FEATURE_ORDER.indexOf(a) - FEATURE_ORDER.indexOf(b));
+
   let subsetPath: string | null = null;
   let qrankPath: string | null = null;
   let animeOfflinePath: string | null = null;
