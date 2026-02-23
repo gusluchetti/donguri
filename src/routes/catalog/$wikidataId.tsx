@@ -125,6 +125,12 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
   component: MediaDetailRouter,
 });
 
+function triggerNavBack() {
+  document.documentElement.dataset.navBack = "1";
+  window.history.back();
+  setTimeout(() => delete document.documentElement.dataset.navBack, 500);
+}
+
 function MediaDetailRouter() {
   const loaderData = Route.useLoaderData();
   if (loaderData.kind === "stub") return <MediaStubPage stub={loaderData.stub} />;
@@ -142,7 +148,7 @@ function MediaDetailSkeleton() {
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <button
           type="button"
-          onClick={() => window.history.back()}
+          onClick={() => { SoundEngine.navBack(); triggerNavBack(); }}
           className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm transition-all duration-150"
         >
           &larr; back
@@ -181,10 +187,7 @@ function MediaStubPage({
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <button
           type="button"
-          onClick={() => {
-            SoundEngine.navBack();
-            window.history.back();
-          }}
+          onClick={() => { SoundEngine.navBack(); triggerNavBack(); }}
           className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
         >
           &larr; back
@@ -243,6 +246,18 @@ function MediaDetailPage({
   if (!data) throw new Error("Media not found");
   const { auth } = rootRoute.useLoaderData();
   const router = useRouter();
+  const coverRef = useRef<HTMLElement | null>(null);
+
+  const handleBack = useCallback(() => {
+    SoundEngine.navBack();
+    // Suppress shared cover element on back — virtual list may not have it rendered
+    if (coverRef.current) coverRef.current.style.viewTransitionName = "none";
+    // Signal CSS for reverse slide direction
+    document.documentElement.dataset.navBack = "1";
+    router.history.back();
+    setTimeout(() => delete document.documentElement.dataset.navBack, 500);
+  }, [router]);
+
   const [localIsFavorite, setLocalIsFavorite] = useState(initialEntry?.isFavorite ?? false);
   const [localWatchedEpisodes, setLocalWatchedEpisodes] = useState<WatchedEpisodes>(
     (initialEntry?.watchedEpisodes as WatchedEpisodes) ?? {},
@@ -254,18 +269,9 @@ function MediaDetailPage({
 
   // ─── Detail page shortcuts ──────────────────────────────────────────────
   // h / ArrowLeft / Backspace — go back
-  useHotkey("H", () => {
-    SoundEngine.navBack();
-    router.history.back();
-  });
-  useHotkey("ArrowLeft", () => {
-    SoundEngine.navBack();
-    router.history.back();
-  });
-  useHotkey("Backspace", () => {
-    SoundEngine.navBack();
-    router.history.back();
-  });
+  useHotkey("H", handleBack);
+  useHotkey("ArrowLeft", handleBack);
+  useHotkey("Backspace", handleBack);
   // f — toggle favorite
   useHotkey("F", () => setLocalIsFavorite((v) => !v), {
     enabled: !!auth && !!initialEntry?.status,
@@ -370,10 +376,7 @@ function MediaDetailPage({
         {/* Back link */}
         <button
           type="button"
-          onClick={() => {
-            SoundEngine.navBack();
-            window.history.back();
-          }}
+          onClick={handleBack}
           className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
         >
           &larr; back
@@ -381,20 +384,25 @@ function MediaDetailPage({
 
         {/* Header + meta combined row */}
         <div className="flex gap-g3 sm:gap-g4 mb-g3 sm:mb-g4 relative">
-          {data.posterUrl ? (
-            <img
-              src={data.posterUrl}
-              alt={`${data.title} poster`}
-              width={160}
-              className="w-[120px] sm:w-[160px] rounded border border-dg-border-subtle shrink-0 self-start object-cover"
-              style={{ viewTransitionName: `cover-${wikidataId}` }}
-              loading="eager"
-            />
-          ) : (
-            <div className="w-[120px] sm:w-[160px] aspect-[2/3] shrink-0 self-start">
-              <CoverThumb title={data.title} mediaType={data.mediaType ?? undefined} size={160} vtName={`cover-${wikidataId}`} />
-            </div>
-          )}
+          <div
+            ref={coverRef as React.RefObject<HTMLDivElement>}
+            className="w-[120px] sm:w-[160px] shrink-0 self-start"
+            style={{ viewTransitionName: `cover-${wikidataId}` }}
+          >
+            {data.posterUrl ? (
+              <img
+                src={data.posterUrl}
+                alt={`${data.title} poster`}
+                width={160}
+                className="w-full rounded border border-dg-border-subtle object-cover aspect-[2/3]"
+                loading="eager"
+              />
+            ) : (
+              <div className="aspect-[2/3]">
+                <CoverThumb title={data.title} mediaType={data.mediaType ?? undefined} size={160} />
+              </div>
+            )}
+          </div>
           <div className="min-w-0 flex-1" style={{ viewTransitionName: "detail-content" }}>
             <div className="mb-2">
               <StampBadge type={data.mediaType} />
