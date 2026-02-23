@@ -145,7 +145,7 @@ html.theme-transition *::after {
   transition:
     background-color 200ms ease,
     color 200ms ease,
-    border-color 200ms ease !important;
+    border-color 200ms ease;
 }
 
 /* ─── View Transitions ──────────────────────────────────────────── */

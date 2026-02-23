@@ -77,10 +77,3 @@ Track what you've watched, what you're playing, and what's next.
 <!-- Visual catalog remaining: directors/cast/studios from Wikidata, awards P166/P1411 (needs qualifier extraction + new awards table), inline external ratings. -->
 <!-- Franchise grouping: Wikidata P179 (part of series) + P155/P156 (follows/followed by). -->
 <!-- Where to watch: JustWatch API for streaming availability. -->
-
-## What we believe
-
-- **Your data belongs to you.** Bluesky users sync to their own personal server — portable, no lock-in.
-- **Open catalog, private collection.** The catalog is sourced from Wikidata. Your tracking is yours alone.
-- **Fast by default.** Local cache first. Changes sync quietly in the background.
-- **No dark patterns.** We earn engagement, we don't manufacture it.
