@@ -151,11 +151,16 @@ html.theme-transition *::after {
 /* ─── View Transitions ──────────────────────────────────────────── */
 
 ::view-transition-old(root) {
-  animation: 100ms var(--ease-smooth) both vt-fade-out;
+  animation: 60ms var(--ease-smooth) both vt-fade-out;
 }
 
 ::view-transition-new(root) {
-  animation: 150ms var(--ease-smooth) both vt-fade-in;
+  animation: 100ms var(--ease-smooth) both vt-fade-in;
+}
+
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 100ms;
 }
 
 @keyframes vt-fade-out {
