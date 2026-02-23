@@ -6,7 +6,7 @@ import { useTheme } from "../lib/theme";
  * or real poster when posterUrl is available.
  *
  * Two modes:
- * - **Small** (default, size <= 60): 2:3 portrait thumbnail for list rows (36×54).
+ * - **Small** (default, size <= 60): ~4:3 portrait thumbnail for list rows (36×47).
  * - **Large** (size > 60): 2/3 aspect card for cover grids, deeper gradient,
  *   bigger watermark letter, heavier inner shadow.
  */
@@ -35,10 +35,10 @@ export function CoverThumb({
         src={posterUrl}
         alt=""
         width={size}
-        height={isLarge ? undefined : Math.round(size * 1.5)}
+        height={isLarge ? undefined : Math.round(size * 1.3)}
         className={`border border-dg-border-subtle object-cover shrink-0 ${isLarge ? "w-full h-full rounded" : "rounded-sm"}`}
         style={{
-          ...(isLarge ? {} : { width: size, height: Math.round(size * 1.5) }),
+          ...(isLarge ? {} : { width: size, height: Math.round(size * 1.3) }),
           ...(vtName ? { viewTransitionName: vtName } : {}),
         }}
         loading="lazy"
@@ -94,13 +94,13 @@ export function CoverThumb({
     );
   }
 
-  // Small thumbnail — 2:3 portrait, lighter gradient (matches poster image dimensions)
+  // Small thumbnail — 4:3 portrait, lighter gradient (fits row height)
   return (
     <div
       className="rounded-[3px] border border-dg-border shrink-0 flex items-center justify-center relative overflow-hidden"
       style={{
         width: size,
-        height: Math.round(size * 1.5),
+        height: Math.round(size * 1.3),
         ...(vtName ? { viewTransitionName: vtName } : {}),
         background: isLight
           ? `linear-gradient(135deg, hsl(${h},20%,80%) 0%, hsl(${h + 30},16%,72%) 100%)`
