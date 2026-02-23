@@ -8,6 +8,7 @@
  *   bun run import:update --all --qrank=data/qrank.csv.gz
  *   bun run import:update --all --subset=data/subset.ndjson
  *   bun run import:update --all --anime-offline=data/anime-offline-database.jsonl
+ *   bun run import:update --all --recheck   # Re-fetch covers for all media
  *   bun run import:update --all --limit=1000
  */
 

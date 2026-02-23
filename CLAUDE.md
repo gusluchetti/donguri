@@ -46,6 +46,7 @@ bun run import:update --all              # Non-interactive: all features, auto-d
 bun run import:update --all --reset      # Wipe + full reimport
 bun run import:update --all --qrank=data/qrank.csv.gz --subset=data/subset.ndjson
 bun run import:update --all --anime-offline=data/anime-offline-database.jsonl
+bun run import:update --all --recheck    # Re-fetch covers for all media (not just missing)
 
 # Step 3 (optional): Incremental Wikidata updates via SPARQL
 bun run src/import/incremental.ts --days=7           # Last 7 days
