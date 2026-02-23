@@ -1,3 +1,4 @@
+import { Check, CircleNotch, MagnifyingGlass, Plus, Shuffle, X } from "@phosphor-icons/react";
 import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
 import { keepPreviousData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -9,7 +10,6 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Dice5, Search, X } from "lucide-react";
 import { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { CoverThumb } from "../../components/CoverThumb";
@@ -18,7 +18,7 @@ import type { Media } from "../../db/schema";
 import { setCatalogEntry } from "../../lib/catalog.functions";
 import { isInputFocused } from "../../lib/hotkeys/shortcuts";
 import { useCatalogCursor } from "../../lib/hotkeys/use-catalog-cursor";
-import { STAMP_COLORS, STATUS_ACCENT, type StatusValue } from "../../lib/media-types";
+import { STAMP_COLORS } from "../../lib/media-types";
 import { ogTags, pageTitle } from "../../lib/og";
 import { catalogInfiniteOptions, mediaStatsOptions } from "../../lib/query-options";
 import { SoundEngine } from "../../lib/sound";
@@ -119,7 +119,7 @@ const SearchBar = forwardRef<HTMLInputElement, { initialValue: string; onRandom?
             className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors duration-[120ms]"
             style={{ color: focused ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)" }}
           >
-            <Search size={14} />
+            <MagnifyingGlass size={14} weight="bold" />
           </div>
           <input
             ref={ref}
@@ -154,7 +154,7 @@ const SearchBar = forwardRef<HTMLInputElement, { initialValue: string; onRandom?
           }}
           className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
         >
-          <Dice5 size={18} />
+          <Shuffle size={17} weight="bold" />
         </button>
       </div>
     );
@@ -513,7 +513,7 @@ function CatalogPage() {
                       to="/catalog/$wikidataId"
                       params={{ wikidataId: item.wikidataId }}
                       preload="intent"
-                      className={`w-full left-0 absolute no-underline text-inherit block group transition-all duration-100 hover:translate-x-[3px] border-b border-dg-border-subtle${isCursorActive ? " dg-cursor-active" : ""}`}
+                      className={`w-full left-0 absolute no-underline text-inherit block group border-b border-dg-border-subtle${isCursorActive ? " dg-cursor-active" : ""}`}
                       style={{
                         top: virtualRow.start,
                         height: virtualRow.size,
@@ -526,11 +526,6 @@ function CatalogPage() {
                       onClick={() => SoundEngine.navForward()}
                       onMouseEnter={() => SoundEngine.tick()}
                     >
-                      {/* Left selection bar — color follows media type stamp */}
-                      <div
-                        className="absolute left-0 top-0 bottom-0 w-[2.5px] opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-                        style={{ backgroundColor: "var(--type-color)" }}
-                      />
                       <MediaRow
                         item={item}
                         index={virtualRow.index}
@@ -571,7 +566,6 @@ function formatMeta(item: Media): string {
 const MediaRow = memo(function MediaRow({
   item,
   index,
-  trackedStatus,
   showAdd,
   addState,
   onQuickAdd,
@@ -584,15 +578,55 @@ const MediaRow = memo(function MediaRow({
   onQuickAdd: (wikidataId: string, mediaType: string, e: React.MouseEvent) => void;
 }) {
   const meta = formatMeta(item);
+  const panelOpen = addState !== null;
 
   return (
-    <div className="h-full flex items-center relative">
+    <div className="h-full flex items-center relative overflow-hidden">
+      {/* Left pop-out quick-add panel */}
+      {showAdd && (
+        <div
+          className={`shrink-0 overflow-hidden transition-[width] duration-150 h-full flex items-center ${panelOpen ? "w-10" : "w-0 group-hover:w-10"}`}
+        >
+          <div
+            className="w-10 h-full flex items-center justify-center"
+            style={{
+              borderLeft: "2px solid var(--type-color)",
+              background: "var(--color-dg-elevated)",
+            }}
+          >
+            <button
+              type="button"
+              onClick={(e) => onQuickAdd(item.wikidataId, item.mediaType, e)}
+              className="w-full h-full flex items-center justify-center bg-transparent border-none cursor-pointer transition-colors duration-100"
+              style={{
+                color:
+                  addState === "done" ? "var(--color-dg-stamped)" : "var(--color-dg-text-tertiary)",
+              }}
+            >
+              {addState === "pending" ? (
+                <CircleNotch size={14} className="animate-spin" />
+              ) : addState === "done" ? (
+                <Check size={14} weight="bold" />
+              ) : (
+                <Plus size={14} weight="bold" />
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Left color bar — only when no pop-out panel */}
+      {!showAdd && (
+        <div
+          className="absolute left-0 top-0 bottom-0 w-[2.5px] opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+          style={{ backgroundColor: "var(--type-color)" }}
+        />
+      )}
+
+      {/* Grid content */}
       <div
-        className="grid items-center w-full gap-2 sm:gap-g2 py-1.5 px-3 sm:px-g3 group-hover:bg-dg-row-hover transition-colors duration-100"
-        style={{
-          gridTemplateColumns:
-            showAdd || addState ? "36px auto 1fr auto auto" : "36px auto 1fr auto",
-        }}
+        className="grid items-center flex-1 min-w-0 gap-2 sm:gap-g2 py-1.5 px-3 sm:px-g3 group-hover:bg-dg-row-hover transition-colors duration-100"
+        style={{ gridTemplateColumns: "36px auto 1fr auto" }}
       >
         {/* Cover thumb */}
         <CoverThumb
@@ -603,33 +637,9 @@ const MediaRow = memo(function MediaRow({
           vtName={`cover-${item.wikidataId}`}
         />
 
-        {/* Stamp badge + quick add + tracked indicator */}
+        {/* Stamp badge */}
         <div className="flex items-center gap-1">
-          {addState === "pending" ? (
-            <span className="text-[0.75rem] font-bold text-dg-accent font-mono shrink-0">
-              [<span className="dg-ellipsis" />]
-            </span>
-          ) : addState === "done" ? (
-            <span className="text-[0.75rem] font-bold text-dg-stamped font-mono shrink-0">
-              [ok]
-            </span>
-          ) : showAdd ? (
-            <button
-              type="button"
-              onClick={(e) => onQuickAdd(item.wikidataId, item.mediaType, e)}
-              className="text-[0.75rem] font-bold text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-100"
-            >
-              [+]
-            </button>
-          ) : null}
           <StampBadge type={item.mediaType} index={index} />
-          {trackedStatus && (
-            <span
-              className={`text-[8px] shrink-0 ${STATUS_ACCENT[trackedStatus as StatusValue] ?? "text-dg-text-tertiary"}`}
-            >
-              {"\u25CF"}
-            </span>
-          )}
         </div>
 
         {/* Title + subtitle */}
@@ -648,11 +658,11 @@ const MediaRow = memo(function MediaRow({
           })()}
         </div>
 
-        {/* Right side: ep count or runtime */}
-        <div className="flex items-center shrink-0 justify-end w-[4rem]">
+        {/* Right: ep count or runtime — fixed width, right-aligned */}
+        <div className="w-[4.5rem] flex items-center justify-end shrink-0">
           {item.episodeCount ? (
             <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums text-right">
-              {item.episodeCount} ep
+              {item.episodeCount}&nbsp;ep
             </span>
           ) : meta ? (
             <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums text-right">

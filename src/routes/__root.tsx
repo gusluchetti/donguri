@@ -1,3 +1,4 @@
+import { Moon, SpeakerHigh, SpeakerNone, Sun } from "@phosphor-icons/react";
 import { HotkeysProvider, useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
 import type { QueryClient } from "@tanstack/react-query";
 import {
@@ -196,7 +197,7 @@ function RootComponent() {
                   />
                   <SoundToggle />
                   <ThemeToggle />
-                  {auth ? (
+                  {auth && (
                     <button
                       type="button"
                       className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-tertiary font-body cursor-pointer transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text-secondary"
@@ -209,13 +210,6 @@ function RootComponent() {
                     >
                       logout
                     </button>
-                  ) : (
-                    <Link
-                      to="/"
-                      className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-tertiary no-underline font-body transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text-secondary"
-                    >
-                      login
-                    </Link>
                   )}
                 </div>
               </div>
@@ -411,11 +405,11 @@ function ThemeToggle() {
     <button
       type="button"
       onClick={toggleTheme}
-      className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-secondary cursor-pointer transition-all duration-150 hover:border-dg-border-strong"
+      className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-secondary cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center"
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
       title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
     >
-      {theme === "dark" ? "\u2600" : "\u25CF"}
+      {theme === "dark" ? <Sun size={13} weight="bold" /> : <Moon size={13} weight="bold" />}
     </button>
   );
 }
@@ -435,12 +429,12 @@ function SoundToggle() {
         setOn(next);
         if (next) SoundEngine.click();
       }}
-      className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs cursor-pointer transition-all duration-150 hover:border-dg-border-strong"
+      className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center"
       style={{ color: on ? "var(--color-dg-text-secondary)" : "var(--color-dg-text-tertiary)" }}
       aria-label={on ? "Mute sounds" : "Unmute sounds"}
       title={on ? "Mute sounds" : "Unmute sounds"}
     >
-      {on ? "\uD83D\uDD0A" : "\uD83D\uDD07"}
+      {on ? <SpeakerHigh size={13} weight="bold" /> : <SpeakerNone size={13} weight="bold" />}
     </button>
   );
 }
