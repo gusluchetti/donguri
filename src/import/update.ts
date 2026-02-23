@@ -1288,14 +1288,16 @@ async function batchUpdatePosters(
   }
 }
 
-async function runCovers(db: DbType): Promise<void> {
+async function runCovers(db: DbType, recheck: boolean): Promise<void> {
   const tmdbApiKey = cleanEnv(process.env.TMDB_API_KEY);
   if (!tmdbApiKey) {
     console.error("TMDB_API_KEY required for cover art — skipping");
     return;
   }
 
-  console.log("\nFetching media without cover art...");
+  console.log(
+    recheck ? "\nRe-checking all media covers..." : "\nFetching media without cover art...",
+  );
 
   let processed = 0;
   let resolved = 0;
@@ -1308,7 +1310,8 @@ async function runCovers(db: DbType): Promise<void> {
 
   while (true) {
     // Non-game items can always try TMDB Find (uses wikidataId, no tmdbId needed).
-    // Games still need igdbId.
+    // Games still need igdbId. With --recheck, re-fetch items that already have covers.
+    const posterFilter = recheck ? sql`true` : sql`${media.posterUrl} IS NULL`;
     const candidates = await db
       .select({
         id: media.id,
@@ -1320,7 +1323,7 @@ async function runCovers(db: DbType): Promise<void> {
       })
       .from(media)
       .where(
-        sql`${media.posterUrl} IS NULL AND ${media.id} > ${lastId} AND (${media.mediaType} != 'game' OR ${media.igdbId} IS NOT NULL)`,
+        sql`${posterFilter} AND ${media.id} > ${lastId} AND (${media.mediaType} != 'game' OR ${media.igdbId} IS NOT NULL)`,
       )
       .orderBy(sql`${media.id} ASC`)
       .limit(COVER_BATCH_SIZE);
@@ -1391,6 +1394,7 @@ interface RunConfig {
   qrankPath: string | null;
   animeOfflinePath: string | null;
   reset: boolean;
+  recheck: boolean;
   limit: number;
   batchSize: number;
 }
@@ -1401,6 +1405,7 @@ function parseCliArgs(): RunConfig | "interactive" {
   if (!args.includes("--all")) return "interactive";
 
   const reset = args.includes("--reset");
+  const recheck = args.includes("--recheck");
   const limitArg = args.find((a) => a.startsWith("--limit="));
   const limit = limitArg ? Number.parseInt(limitArg.split("=")[1], 10) : Infinity;
   const batchArg = args.find((a) => a.startsWith("--batch="));
@@ -1421,7 +1426,7 @@ function parseCliArgs(): RunConfig | "interactive" {
     if (idx !== -1) features.splice(idx, 1);
   }
 
-  return { features, subsetPath, qrankPath, animeOfflinePath, reset, limit, batchSize };
+  return { features, subsetPath, qrankPath, animeOfflinePath, reset, recheck, limit, batchSize };
 }
 
 async function interactiveMenu(): Promise<RunConfig> {
@@ -1502,12 +1507,26 @@ async function interactiveMenu(): Promise<RunConfig> {
     animeOfflinePath = (animeResult as string) || null;
   }
 
+  let recheck = false;
+  if (features.includes("covers")) {
+    const recheckResult = await clack.confirm({
+      message: "Re-check items that already have covers?",
+      initialValue: false,
+    });
+    if (clack.isCancel(recheckResult)) {
+      clack.cancel("Cancelled.");
+      process.exit(0);
+    }
+    recheck = recheckResult as boolean;
+  }
+
   return {
     features,
     subsetPath,
     qrankPath,
     animeOfflinePath,
     reset: false,
+    recheck,
     limit: Infinity,
     batchSize: DEFAULT_BATCH_SIZE,
   };
@@ -1570,7 +1589,7 @@ async function main() {
           await runSeasons(db, config.subsetPath, config.animeOfflinePath);
           break;
         case "covers":
-          await runCovers(db);
+          await runCovers(db, config.recheck);
           break;
       }
 
