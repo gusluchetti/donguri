@@ -1,7 +1,7 @@
 import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { useEffect, useRef, useState } from "react";
-import { isInputFocused } from "./shortcuts";
+import { isInputFocused } from "~/lib/hotkeys/shortcuts";
 
 export function useCatalogCursor({
   itemCount,

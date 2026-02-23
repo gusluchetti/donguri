@@ -2,10 +2,12 @@ import { Star } from "@phosphor-icons/react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { CoverThumb } from "../components/CoverThumb";
-import { SectionHeader } from "../components/SectionHeader";
-import { StampBadge } from "../components/StampBadge";
-import { initiateLogin, initiateOAuthLogin } from "../lib/auth.functions";
+import { initiateLogin, initiateOAuthLogin } from "~/features/auth/auth.functions";
+import { watchlistOptions } from "~/features/catalog/catalog.queries";
+import { SoundEngine } from "~/features/catalog/catalog.sound";
+import { CoverThumb } from "~/features/catalog/components/CoverThumb";
+import { StampBadge } from "~/features/catalog/components/StampBadge";
+import { SectionHeader } from "~/features/media/components/SectionHeader";
 import {
   ratingColor,
   replayCountLabel,
@@ -13,10 +15,8 @@ import {
   STATUS_LABELS_GENERIC,
   STATUS_ORDER,
   type StatusValue,
-} from "../lib/media-types";
-import { ogTags, pageTitle } from "../lib/og";
-import { watchlistOptions } from "../lib/query-options";
-import { SoundEngine } from "../lib/sound";
+} from "~/features/media/media-types";
+import { ogTags, pageTitle } from "~/lib/og";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -153,17 +153,14 @@ function SignInSection() {
     <div className="flex flex-col gap-3">
       <div className="text-[0.8rem] text-dg-text-secondary uppercase tracking-wider">Sign in</div>
 
-      {/* Bluesky — primary */}
       <BlueskyLoginForm />
 
-      {/* Divider */}
       <div className="flex items-center gap-3">
         <div className="flex-1 border-t border-dg-border-subtle" />
         <span className="text-[0.75rem] text-dg-text-tertiary">or</span>
         <div className="flex-1 border-t border-dg-border-subtle" />
       </div>
 
-      {/* Google + GitHub */}
       <div className="flex flex-col gap-2">
         <OAuthButton provider="google" label="Continue with Google" />
         <OAuthButton provider="github" label="Continue with GitHub" />
@@ -317,7 +314,7 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
 /** Cover grid for completed/mastered sections */
 function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-g1">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-g1">
       {items.map((item, i) => (
         <Link
           key={item.id}
@@ -329,27 +326,26 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
             animation: `fadeIn 320ms var(--ease-smooth) both ${i * 30}ms`,
           }}
         >
-          {/* Cover */}
-          <div className="w-full aspect-[2/3] rounded overflow-hidden relative transition-all duration-[120ms] ease-[var(--ease-spring)] group-hover:scale-[1.04] group-hover:shadow-[0_4px_20px_rgba(184,164,114,0.15)]">
-            <CoverThumb
-              title={item.mediaTitle ?? "?"}
-              mediaType={item.mediaType ?? undefined}
-              size={200}
-              posterUrl={item.posterUrl ?? undefined}
-            />
+          <div className="w-full aspect-[2/3] rounded overflow-hidden relative">
+            <div className="w-full h-full transition-transform duration-200 ease-out group-hover:scale-[1.03]">
+              <CoverThumb
+                title={item.mediaTitle ?? "?"}
+                mediaType={item.mediaType ?? undefined}
+                size={200}
+                posterUrl={item.posterUrl ?? undefined}
+                loading="eager"
+              />
+            </div>
           </div>
-          {/* Title — lifts up on group hover */}
-          <div className="mt-1 text-xs font-medium text-dg-text truncate transition-all duration-150 group-hover:text-dg-accent group-hover:-translate-y-1">
+          <div className="mt-1 text-xs font-medium text-dg-text truncate transition-colors duration-150 group-hover:text-dg-accent">
             {item.isFavorite && (
               <Star size={10} weight="fill" className="text-dg-accent mr-0.5 inline-block" />
             )}
             {item.mediaTitle ?? item.mediaWikidataId}
           </div>
-          {/* Badge */}
           <div className="mt-0.5 flex items-center gap-1">
             <StampBadge type={item.mediaType ?? ""} index={i} />
           </div>
-          {/* Rating */}
           {item.rating != null && (
             <div
               className="text-[0.65rem] tabular-nums font-mono mt-0.5"
@@ -364,55 +360,55 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
   );
 }
 
+function WatchlistListItem({ item, index }: { item: CatalogEntryRow; index: number }) {
+  const pos = episodePosition(item);
+  const replay = replayCountLabel(item.replayCount, item.mediaType ?? undefined);
+
+  return (
+    <Link
+      key={item.id}
+      to="/catalog/$wikidataId"
+      params={{ wikidataId: item.mediaWikidataId }}
+      className="flex items-center gap-3 px-3 sm:px-g3 py-3 sm:py-2.5 no-underline text-inherit transition-all duration-100 relative group hover:bg-dg-row-hover hover:translate-x-[3px]"
+      onClick={() => SoundEngine.navForward()}
+      onMouseEnter={() => SoundEngine.tick()}
+      style={{
+        animation: `fadeIn 320ms var(--ease-smooth) both ${index * 25}ms`,
+      }}
+    >
+      <div className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm bg-transparent group-hover:bg-dg-accent transition-all duration-150 group-hover:shadow-[0_0_8px_rgba(232,112,46,0.3)]" />
+      <StampBadge type={item.mediaType ?? ""} index={index} />
+      <span className="text-[0.85rem] text-dg-text truncate flex-1 font-medium">
+        {item.isFavorite && (
+          <Star size={11} weight="fill" className="text-dg-accent mr-1 inline-block" />
+        )}
+        {item.mediaTitle ?? item.mediaWikidataId}
+      </span>
+      {pos && (
+        <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums shrink-0 font-mono">
+          {pos}
+        </span>
+      )}
+      {replay && <span className="text-[0.65rem] text-dg-text-tertiary shrink-0">{replay}</span>}
+      {item.rating != null && (
+        <span
+          className="text-[0.75rem] tabular-nums shrink-0 font-mono"
+          style={{ color: ratingColor(item.rating) ?? "var(--color-dg-accent)" }}
+        >
+          {item.rating}/100
+        </span>
+      )}
+    </Link>
+  );
+}
+
 /** List rows for in-progress, planned, on-hold, dropped sections */
 function WatchlistList({ items }: { items: CatalogEntryRow[] }) {
   return (
     <div className="border border-dg-border-subtle rounded bg-dg-surface divide-y divide-dg-border-subtle overflow-hidden">
-      {items.map((item, i) => {
-        const replay = replayCountLabel(item.replayCount, item.mediaType ?? undefined);
-        return (
-          <Link
-            key={item.id}
-            to="/catalog/$wikidataId"
-            params={{ wikidataId: item.mediaWikidataId }}
-            className="flex items-center gap-3 px-3 sm:px-g3 py-3 sm:py-2.5 no-underline text-inherit transition-all duration-100 relative group hover:bg-dg-row-hover hover:translate-x-[3px]"
-            onClick={() => SoundEngine.navForward()}
-            onMouseEnter={() => SoundEngine.tick()}
-            style={{
-              animation: `fadeIn 320ms var(--ease-smooth) both ${i * 25}ms`,
-            }}
-          >
-            {/* Left selection bar */}
-            <div className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm bg-transparent group-hover:bg-dg-accent transition-all duration-150 group-hover:shadow-[0_0_8px_rgba(184,164,114,0.3)]" />
-            <StampBadge type={item.mediaType ?? ""} index={i} />
-            <span className="text-[0.85rem] text-dg-text truncate flex-1 font-medium">
-              {item.isFavorite && (
-                <Star size={11} weight="fill" className="text-dg-accent mr-1 inline-block" />
-              )}
-              {item.mediaTitle ?? item.mediaWikidataId}
-            </span>
-            {(() => {
-              const pos = episodePosition(item);
-              return pos ? (
-                <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums shrink-0 font-mono">
-                  {pos}
-                </span>
-              ) : null;
-            })()}
-            {replay && (
-              <span className="text-[0.65rem] text-dg-text-tertiary shrink-0">{replay}</span>
-            )}
-            {item.rating != null && (
-              <span
-                className="text-[0.75rem] tabular-nums shrink-0 font-mono"
-                style={{ color: ratingColor(item.rating) ?? "var(--color-dg-accent)" }}
-              >
-                {item.rating}/100
-              </span>
-            )}
-          </Link>
-        );
-      })}
+      {items.map((item, i) => (
+        <WatchlistListItem key={item.id} item={item} index={i} />
+      ))}
     </div>
   );
 }

@@ -1,9 +1,9 @@
 import type { Agent } from "@atproto/api";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { getDb } from "../db";
-import { catalogEntries } from "../db/schema";
-import { countWatchedEpisodes, normalizeStatus } from "./media-types";
+import { getDb } from "~/db";
+import { catalogEntries } from "~/db/schema";
+import { countWatchedEpisodes, normalizeStatus } from "~/features/media/media-types";
 
 const COLLECTION = "app.donguri.catalog.entry";
 

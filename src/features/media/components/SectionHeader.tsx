@@ -1,7 +1,3 @@
-/**
- * Colored vertical bar + label + count + gradient fade divider.
- * Used in watchlist sections and future profile page.
- */
 export function SectionHeader({
   label,
   color,

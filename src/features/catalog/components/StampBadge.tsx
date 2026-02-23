@@ -1,9 +1,5 @@
-import { mediaTypeLabel, STAMP_COLORS } from "../lib/media-types";
+import { mediaTypeLabel, STAMP_COLORS } from "~/features/media/media-types";
 
-/**
- * Type-colored uppercase badge with double-border and ink grain texture.
- * Replaces the old typeBadgeClass() approach with a richer visual treatment.
- */
 export function StampBadge({ type, index = 0 }: { type: string; index?: number }) {
   const color = STAMP_COLORS[type] ?? "var(--color-dg-text-tertiary)";
   // Slight opacity variance per stamp for handmade feel

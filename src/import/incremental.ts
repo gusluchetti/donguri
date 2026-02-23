@@ -8,7 +8,7 @@
  *   bun run src/import/incremental.ts --days=7 --dry-run # preview only
  */
 
-import { getDb } from "../db";
+import { getDb } from "~/db";
 import { parseMediaEntity, shouldImportEntity } from "./_filters";
 import { formatDuration } from "./_retry";
 import type { WikidataEntity } from "./_types";

@@ -1,13 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { getDb } from "../db";
-import type { CatalogEntry } from "../db/schema";
-import { catalogEntries, media } from "../db/schema";
-import { getAuthenticatedAgent, isSessionExpired } from "./auth/agent";
-import { clearSessionCookie, getSessionData, requireAuth } from "./auth/session";
-import { countWatchedEpisodes, STATUS_ORDER } from "./media-types";
-import { deleteCatalogEntry, putCatalogEntry } from "./sync";
+import { getDb } from "~/db";
+import type { CatalogEntry } from "~/db/schema";
+import { catalogEntries, media } from "~/db/schema";
+import { getAuthenticatedAgent, isSessionExpired } from "~/features/auth/auth.agent";
+import { clearSessionCookie, getSessionData, requireAuth } from "~/features/auth/auth.session";
+import { deleteCatalogEntry, putCatalogEntry } from "~/features/auth/auth.sync";
+import { countWatchedEpisodes, STATUS_ORDER } from "~/features/media/media-types";
 
 function throwIfSessionExpired(err: unknown): void {
   if (isSessionExpired(err)) {

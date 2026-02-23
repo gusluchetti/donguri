@@ -8,10 +8,10 @@
  */
 import type { Column } from "drizzle-orm";
 import { eq } from "drizzle-orm";
-import { cleanEnv, getDb } from "../db";
-import { users } from "../db/schema";
-import type { SessionData } from "./auth/session";
-import { setSessionCookie } from "./auth/session";
+import { cleanEnv, getDb } from "~/db";
+import { users } from "~/db/schema";
+import type { SessionData } from "~/features/auth/auth.session";
+import { setSessionCookie } from "~/features/auth/auth.session";
 
 export type Provider = "google" | "github";
 

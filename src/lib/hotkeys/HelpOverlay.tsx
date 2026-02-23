@@ -6,14 +6,16 @@ export function HelpOverlay({ open, onClose }: { open: boolean; onClose: () => v
 
   if (!open) return null;
 
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: Esc handled via useHotkey
     <div
       role="dialog"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      onClick={handleBackdropClick}
     >
       <div className="bg-dg-surface border border-dg-border rounded max-w-[720px] w-[92vw] max-h-[80vh] overflow-y-auto p-4 sm:p-5 font-body">
         <div className="flex items-center justify-between mb-3">

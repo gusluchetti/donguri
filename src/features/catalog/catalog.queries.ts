@@ -1,7 +1,11 @@
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
-import { getCatalogEntry, getUserCatalogEntries, getUserTrackedIds } from "./catalog.functions";
-import { getMedia, getMediaStats, listMedia } from "./media.functions";
-import { DATA_VERSION, idbPersister } from "./query";
+import {
+  getCatalogEntry,
+  getUserCatalogEntries,
+  getUserTrackedIds,
+} from "~/features/catalog/catalog.functions";
+import { getMediaStats, listMedia } from "~/features/media/media.functions";
+import { DATA_VERSION, idbPersister } from "~/lib/query";
 
 const persister = idbPersister?.persisterFn;
 
@@ -45,15 +49,6 @@ export function catalogInfiniteOptions(
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: 5 * 60 * 1000,
-  });
-}
-
-export function mediaDetailOptions(wikidataId: string) {
-  return queryOptions({
-    queryKey: ["media", DATA_VERSION, wikidataId],
-    queryFn: () => getMedia({ data: { wikidataId } }),
-    staleTime: 5 * 60 * 1000,
-    persister,
   });
 }
 
