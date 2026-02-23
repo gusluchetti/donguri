@@ -55,7 +55,7 @@ body {
   /* Stamp colors (type badges) — dark theme: vivid enough to read on dark bg */
   --color-dg-movie: #d4662a;
   --color-dg-tv: #2aaba0;
-  --color-dg-anime: #c05050;
+  --color-dg-anime: #e06868;
   --color-dg-game: #2ea862;
 
   /* Rating color lightness offset — positive = brighter (dark bg needs this) */
