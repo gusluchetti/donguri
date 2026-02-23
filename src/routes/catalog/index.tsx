@@ -236,15 +236,6 @@ function CatalogPage() {
     [],
   );
 
-  // Lock body scroll while catalog is mounted — virtual list handles its own scrolling
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
-
   // Scroll restoration for the custom scroll container via TanStack Router
   const scrollEntry = useElementScrollRestoration({
     getElement: () => parentRef.current,

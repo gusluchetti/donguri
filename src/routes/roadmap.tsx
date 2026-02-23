@@ -43,7 +43,7 @@ function RoadmapPage() {
   _beliefIndex = 0;
 
   return (
-    <div className="dg-page-enter text-dg-text min-h-screen font-body">
+    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
         <Markdown
           components={{

@@ -132,7 +132,7 @@ function RootComponent() {
       <ThemeProvider initialTheme={theme}>
         <HotkeysProvider>
           <GlobalShortcuts showHelp={showHelp} setShowHelp={setShowHelp} />
-          <div className="min-h-dvh flex flex-col relative z-[2]">
+          <div className="h-dvh overflow-hidden flex flex-col relative z-[2]">
             <nav
               className="font-body shrink-0 sticky top-0 z-30"
               style={{

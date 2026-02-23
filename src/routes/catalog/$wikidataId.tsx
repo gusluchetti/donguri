@@ -144,7 +144,7 @@ function MediaDetailRouter() {
 
 function MediaDetailSkeleton() {
   return (
-    <div className="dg-page-enter text-dg-text flex-1 font-body">
+    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <button
           type="button"
@@ -186,7 +186,7 @@ function MediaStubPage({
   const { auth } = rootRoute.useLoaderData();
 
   return (
-    <div className="dg-page-enter text-dg-text flex-1 font-body">
+    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <button
           type="button"
@@ -377,7 +377,7 @@ function MediaDetailPage({
   });
 
   return (
-    <div className="dg-page-enter text-dg-text flex-1 font-body">
+    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         {/* Back link */}
         <button
