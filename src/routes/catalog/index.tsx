@@ -555,7 +555,7 @@ const MediaRow = memo(function MediaRow({
   return (
     <div className="h-full px-1 py-0.5">
       <div
-        className="grid items-center h-full gap-2 sm:gap-g2 py-2 px-3 sm:px-g3 rounded-md bg-dg-surface/50 group-hover:bg-dg-row-hover border border-dg-border-subtle/50 transition-colors duration-100"
+        className="grid items-center h-full gap-2 sm:gap-g2 py-2 px-3 sm:px-g3 rounded-md bg-dg-surface group-hover:bg-dg-row-hover border border-dg-border-subtle transition-colors duration-100"
         style={{
           gridTemplateColumns:
             showAdd || addState ? "36px auto 1fr auto auto" : "36px auto 1fr auto",
