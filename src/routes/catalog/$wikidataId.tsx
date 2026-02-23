@@ -14,6 +14,7 @@ import { getRandomMediaId } from "~/features/media/media.functions";
 import { mediaDetailOptions } from "~/features/media/media.queries";
 import {
   countWatchedEpisodes,
+  displayMediaType,
   mediaTypeLabel,
   type WatchedEpisodes,
 } from "~/features/media/media-types";
@@ -31,7 +32,12 @@ type FullLoaderData = {
 
 type StubLoaderData = {
   kind: "stub";
-  stub: { wikidataId: string; title: string; mediaType: string | null };
+  stub: {
+    wikidataId: string;
+    title: string;
+    mediaType: string | null;
+    animationOrigin?: string | null;
+  };
 };
 
 type LoaderData = FullLoaderData | StubLoaderData;
@@ -88,7 +94,7 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
       }
 
       if (m.mediaType === "movie") ogType = "video.movie";
-      else if (m.mediaType === "tv_series" || m.mediaType === "anime") ogType = "video.tv_show";
+      else if (m.mediaType === "tv_series") ogType = "video.tv_show";
     } else if (loaderData?.kind === "stub") {
       wikidataId = loaderData.stub.wikidataId;
       description = "Track on donguri";
@@ -189,7 +195,12 @@ function MediaDetailSkeleton() {
 function MediaStubPage({
   stub,
 }: {
-  stub: { wikidataId: string; title: string; mediaType: string | null };
+  stub: {
+    wikidataId: string;
+    title: string;
+    mediaType: string | null;
+    animationOrigin?: string | null;
+  };
 }) {
   const { auth } = rootRoute.useLoaderData();
   const handleShuffle = useShuffleNav();
@@ -221,7 +232,7 @@ function MediaStubPage({
         <div className="mb-g3">
           {stub.mediaType && (
             <div className="mb-2">
-              <StampBadge type={stub.mediaType} />
+              <StampBadge type={displayMediaType(stub.mediaType, stub.animationOrigin ?? null)} />
             </div>
           )}
           <h1 className="font-display text-[1.6rem] sm:text-[2.25rem] font-normal m-0 leading-[1.15] tracking-[-0.03em]">
@@ -295,18 +306,17 @@ function MediaDetailPage({
     enabled: !!auth && !!initialEntry?.status,
   });
 
-  const isAnime = data.mediaType === "anime";
+  const isAnime = data.animationOrigin === "anime";
   const isGame = data.mediaType === "game";
-  const isTvOrAnime = data.mediaType === "tv_series" || isAnime;
-  const hasSeasons = isTvOrAnime && data.seasons && data.seasons.length > 0;
-
+  const isTv = data.mediaType === "tv_series";
   const totalEps =
-    hasSeasons && data.seasons
+    isTv && data.seasons && data.seasons.length > 0
       ? data.seasons.reduce(
           (sum: number, s: { episodeCount: number | null }) => sum + (s.episodeCount ?? 0),
           0,
         )
       : 0;
+  const hasSeasons = totalEps > 1;
 
   const handleWatchedEpisodesChange = useCallback(
     (newWatched: WatchedEpisodes) => {
@@ -371,7 +381,7 @@ function MediaDetailPage({
       label: "IGDB",
       url: `https://www.igdb.com/games/${data.igdbId}`,
     });
-  if (data.tvdbId && isTvOrAnime) {
+  if (data.tvdbId && isTv) {
     const isNumeric = /^\d+$/.test(data.tvdbId);
     externalLinks.push({
       label: "TheTVDB",
@@ -412,7 +422,7 @@ function MediaDetailPage({
             <div className="aspect-[2/3] w-full sm:aspect-auto sm:h-full">
               <CoverThumb
                 title={data.title}
-                mediaType={data.mediaType ?? undefined}
+                mediaType={displayMediaType(data.mediaType, data.animationOrigin)}
                 posterUrl={data.posterUrl ?? undefined}
                 size={210}
                 loading="eager"
@@ -421,7 +431,7 @@ function MediaDetailPage({
           </div>
           <div className="min-w-0 flex-1" style={{ viewTransitionName: "detail-content" }}>
             <div className="mb-2">
-              <StampBadge type={data.mediaType} />
+              <StampBadge type={displayMediaType(data.mediaType, data.animationOrigin)} />
             </div>
             <h1 className="font-display text-[1.6rem] sm:text-[2.25rem] font-normal m-0 leading-[1.15] tracking-[-0.03em]">
               {data.title}
@@ -447,7 +457,7 @@ function MediaDetailPage({
                   <MetaItem label="Runtime" value={`${data.runtimeMinutes} min`} />
                 )}
                 {data.seasonCount && <MetaItem label="Seasons" value={String(data.seasonCount)} />}
-                {data.episodeCount && (
+                {data.episodeCount && data.episodeCount > 1 && (
                   <MetaItem label="Episodes" value={String(data.episodeCount)} />
                 )}
                 {data.qrankPct != null && (

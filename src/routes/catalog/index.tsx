@@ -21,6 +21,7 @@ import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
 import { getRandomMediaId } from "~/features/media/media.functions";
 import {
+  displayMediaType,
   STAMP_COLORS,
   STATUS_BUTTON_COLORS,
   STATUS_ICONS,
@@ -476,7 +477,8 @@ function CatalogPage() {
                         top: virtualRow.start,
                         height: virtualRow.size,
                         ["--type-color" as string]:
-                          STAMP_COLORS[item.mediaType] ?? "var(--color-dg-accent)",
+                          STAMP_COLORS[displayMediaType(item.mediaType, item.animationOrigin)] ??
+                          "var(--color-dg-accent)",
                         animationName: isNewData ? "fadeIn" : "none",
                         animationDuration: "280ms",
                         animationTimingFunction: "var(--ease-smooth)",
@@ -509,12 +511,13 @@ function CatalogPage() {
 
 function formatMeta(item: Media): string {
   const { mediaType, seasonCount, episodeCount, runtimeMinutes } = item;
-  if (mediaType === "tv_series" || mediaType === "anime") {
+  if (mediaType === "tv_series") {
     const parts: string[] = [];
-    if (seasonCount || episodeCount) {
-      const maxDigits = Math.max(String(seasonCount ?? 0).length, String(episodeCount ?? 0).length);
+    if (seasonCount || (episodeCount && episodeCount > 1)) {
+      const epToShow = episodeCount && episodeCount > 1 ? episodeCount : null;
+      const maxDigits = Math.max(String(seasonCount ?? 0).length, String(epToShow ?? 0).length);
       if (seasonCount) parts.push(`S${String(seasonCount).padStart(maxDigits, "0")}`);
-      if (episodeCount) parts.push(`E${String(episodeCount).padStart(maxDigits, "0")}`);
+      if (epToShow) parts.push(`E${String(epToShow).padStart(maxDigits, "0")}`);
     }
     return parts.join("");
   }
@@ -540,6 +543,7 @@ const MediaRow = memo(function MediaRow({
   onQuickAdd: (wikidataId: string, mediaType: string, e: React.MouseEvent) => void;
 }) {
   const meta = formatMeta(item);
+  const displayType = displayMediaType(item.mediaType, item.animationOrigin);
   const year = item.startYear
     ? `${item.startYear}${item.endYear && item.endYear !== item.startYear ? `\u2013${item.endYear}` : ""}`
     : "";
@@ -587,13 +591,13 @@ const MediaRow = memo(function MediaRow({
       >
         <CoverThumb
           title={item.title}
-          mediaType={item.mediaType}
+          mediaType={displayType}
           size={36}
           posterUrl={item.posterUrl ?? undefined}
         />
 
         <div className="flex items-center gap-1">
-          <StampBadge type={item.mediaType} index={index} />
+          <StampBadge type={displayType} index={index} />
         </div>
 
         <div className="min-w-0">
@@ -617,7 +621,7 @@ const MediaRow = memo(function MediaRow({
         </div>
 
         <div className="w-[4.5rem] flex items-center justify-end shrink-0">
-          {item.episodeCount ? (
+          {item.episodeCount && item.mediaType === "tv_series" ? (
             <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums text-right">
               {item.episodeCount}&nbsp;ep
             </span>

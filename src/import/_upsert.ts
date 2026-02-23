@@ -34,6 +34,7 @@ export const STAGING_COLUMNS = [
   "id",
   "wikidata_id",
   "media_type",
+  "animation_origin",
   "title",
   "original_title",
   "original_language",
@@ -75,6 +76,7 @@ export function toTsvRow(item: ParsedMedia, rowId: string): string {
     rowId,
     item.wikidataId,
     item.mediaType,
+    item.animationOrigin ?? "\\N",
     escapeTsv(item.title),
     item.originalTitle != null ? escapeTsv(item.originalTitle) : "\\N",
     item.originalLanguage ?? "\\N",
@@ -130,6 +132,7 @@ export async function processSuperBatch(
 							id TEXT NOT NULL,
 							wikidata_id TEXT NOT NULL,
 							media_type TEXT NOT NULL,
+							animation_origin TEXT,
 							title TEXT NOT NULL,
 							original_title TEXT,
 							original_language TEXT,
@@ -187,14 +190,14 @@ export async function processSuperBatch(
           // Merge staging → media with upsert
           const result = await tx.unsafe(`
 						INSERT INTO media (
-							id, wikidata_id, media_type, title, original_title, original_language,
+							id, wikidata_id, media_type, animation_origin, title, original_title, original_language,
 							description, start_year, end_year, runtime_minutes, season_count,
 							episode_count, sitelinks_count, country_of_origin,
 							imdb_id, tmdb_id, mal_id, anilist_id, anidb_id, igdb_id,
 							ann_id, tvdb_id, tvmaze_id, search_title, aliases, created_at, updated_at
 						)
 						SELECT
-							s.id, s.wikidata_id, s.media_type, s.title, s.original_title,
+							s.id, s.wikidata_id, s.media_type, s.animation_origin, s.title, s.original_title,
 							s.original_language, s.description, s.start_year, s.end_year,
 							s.runtime_minutes, s.season_count, s.episode_count, s.sitelinks_count,
 							s.country_of_origin, s.imdb_id, s.tmdb_id, s.mal_id, s.anilist_id,
@@ -202,6 +205,8 @@ export async function processSuperBatch(
 							s.search_title, s.aliases, now(), now()
 						FROM _media_staging s
 						ON CONFLICT (wikidata_id) DO UPDATE SET
+							media_type = EXCLUDED.media_type,
+							animation_origin = EXCLUDED.animation_origin,
 							title = COALESCE(EXCLUDED.title, media.title),
 							original_title = COALESCE(EXCLUDED.original_title, media.original_title),
 							original_language = COALESCE(EXCLUDED.original_language, media.original_language),

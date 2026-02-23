@@ -5,14 +5,14 @@
  * CacheSource: logged-out users → in-memory popular cache (top 1k/type, client-side search)
  */
 
-import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, isNull, sql } from "drizzle-orm";
 import { getDb } from "~/db";
 import { type Media, media } from "~/db/schema";
 import type { SessionData } from "~/features/auth/auth.session";
 import { normalizeForSearch } from "~/lib/search";
 import { getCacheArrays } from "./popular-cache";
 
-type MediaType = "movie" | "tv_series" | "anime" | "game";
+type FilterType = "movie" | "tv_series" | "anime" | "game";
 
 type ListResult = {
   items: Media[];
@@ -20,12 +20,24 @@ type ListResult = {
 };
 
 export interface MediaSource {
-  list(params: { cursor?: string; limit: number; mediaType?: MediaType }): Promise<ListResult>;
+  list(params: { cursor?: string; limit: number; mediaType?: FilterType }): Promise<ListResult>;
   search(
     query: string,
-    params: { cursor?: string; limit: number; mediaType?: MediaType },
+    params: { cursor?: string; limit: number; mediaType?: FilterType },
   ): Promise<ListResult>;
-  randomId(mediaType?: MediaType): Promise<string | null>;
+  randomId(mediaType?: FilterType): Promise<string | null>;
+}
+
+// ─── Filter helpers ──────────────────────────────────────────────────────────
+
+/** Build compound WHERE conditions for virtual "anime" filter vs base types. */
+function typeConditions(filterType: FilterType) {
+  if (filterType === "anime") {
+    // Anime = any animation origin, regardless of base type
+    return [eq(media.animationOrigin, "anime")];
+  }
+  // Non-anime filters exclude anime items so they don't appear in both buckets
+  return [eq(media.mediaType, filterType), isNull(media.animationOrigin)];
 }
 
 // ─── DbSource ───────────────────────────────────────────────────────────────
@@ -38,12 +50,12 @@ class DbSource implements MediaSource {
   }: {
     cursor?: string;
     limit: number;
-    mediaType?: MediaType;
+    mediaType?: FilterType;
   }): Promise<ListResult> {
     const db = getDb();
     const conditions = [];
 
-    if (mediaType) conditions.push(eq(media.mediaType, mediaType));
+    if (mediaType) conditions.push(...typeConditions(mediaType));
 
     // Keyset cursor pagination (popularity_score ASC NULLS LAST, sitelinks_count DESC, id ASC)
     if (cursor) {
@@ -106,7 +118,7 @@ class DbSource implements MediaSource {
 
   async search(
     searchTerm: string,
-    { cursor, limit, mediaType }: { cursor?: string; limit: number; mediaType?: MediaType },
+    { cursor, limit, mediaType }: { cursor?: string; limit: number; mediaType?: FilterType },
   ): Promise<ListResult> {
     const db = getDb();
     const offset = cursor ? Number.parseInt(cursor, 10) : 0;
@@ -136,7 +148,7 @@ class DbSource implements MediaSource {
     )`;
 
     const conditions = [fuzzyCondition];
-    if (mediaType) conditions.push(eq(media.mediaType, mediaType));
+    if (mediaType) conditions.push(...typeConditions(mediaType));
 
     const results = await db.transaction(async (tx) => {
       await tx.execute(sql`SET LOCAL pg_trgm.word_similarity_threshold = 0.2`);
@@ -162,9 +174,9 @@ class DbSource implements MediaSource {
     };
   }
 
-  async randomId(mediaType?: MediaType): Promise<string | null> {
+  async randomId(mediaType?: FilterType): Promise<string | null> {
     const db = getDb();
-    const condition = mediaType ? eq(media.mediaType, mediaType) : undefined;
+    const condition = mediaType ? and(...typeConditions(mediaType)) : undefined;
 
     const [countRow] = await db
       .select({ count: sql<number>`count(*)` })
@@ -196,10 +208,10 @@ class CacheSource implements MediaSource {
   }: {
     cursor?: string;
     limit: number;
-    mediaType?: MediaType;
+    mediaType?: FilterType;
   }): Promise<ListResult> {
     const { byType, all } = await getCacheArrays();
-    const source = mediaType ? byType[mediaType] : all;
+    const source = mediaType ? (byType[mediaType] ?? []) : all;
     const offset = cursor ? Number.parseInt(cursor, 10) : 0;
     const page = source.slice(offset, offset + limit);
     const hasMore = offset + limit < source.length;
@@ -212,10 +224,10 @@ class CacheSource implements MediaSource {
 
   async search(
     searchTerm: string,
-    { cursor, limit, mediaType }: { cursor?: string; limit: number; mediaType?: MediaType },
+    { cursor, limit, mediaType }: { cursor?: string; limit: number; mediaType?: FilterType },
   ): Promise<ListResult> {
     const { byType, all } = await getCacheArrays();
-    const source = mediaType ? byType[mediaType] : all;
+    const source = mediaType ? (byType[mediaType] ?? []) : all;
     const lower = searchTerm.toLowerCase();
     const normalized = normalizeForSearch(searchTerm);
 
@@ -259,9 +271,9 @@ class CacheSource implements MediaSource {
     };
   }
 
-  async randomId(mediaType?: MediaType): Promise<string | null> {
+  async randomId(mediaType?: FilterType): Promise<string | null> {
     const { byType, all } = await getCacheArrays();
-    const source = mediaType ? byType[mediaType] : all;
+    const source = mediaType ? (byType[mediaType] ?? []) : all;
     if (source.length === 0) return null;
     return source[Math.floor(Math.random() * source.length)].wikidataId;
   }

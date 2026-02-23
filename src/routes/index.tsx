@@ -9,6 +9,7 @@ import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
 import { SectionHeader } from "~/features/media/components/SectionHeader";
 import {
+  displayMediaType,
   ratingColor,
   replayCountLabel,
   STATUS_ICONS,
@@ -32,6 +33,7 @@ type CatalogEntryRow = {
   updatedAt: Date | null;
   mediaTitle: string | null;
   mediaType: string | null;
+  animationOrigin: string | null;
   watchedEpisodes: Record<string, Record<string, string>> | null;
   episodeCount: number | null;
   seasonCount: number | null;
@@ -41,7 +43,7 @@ type CatalogEntryRow = {
 /** Compute "on s01e05" or "on ep 05" from watchedEpisodes map. */
 function episodePosition(item: CatalogEntryRow): string | null {
   if (!item.watchedEpisodes) return null;
-  if (item.mediaType !== "tv_series" && item.mediaType !== "anime") return null;
+  if (item.mediaType !== "tv_series") return null;
   // Don't show position for completed entries
   if (item.status === "completed") return null;
 
@@ -330,7 +332,11 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
             <div className="w-full h-full transition-transform duration-200 ease-out group-hover:scale-[1.03]">
               <CoverThumb
                 title={item.mediaTitle ?? "?"}
-                mediaType={item.mediaType ?? undefined}
+                mediaType={
+                  item.mediaType
+                    ? displayMediaType(item.mediaType, item.animationOrigin)
+                    : undefined
+                }
                 size={200}
                 posterUrl={item.posterUrl ?? undefined}
                 loading="eager"
@@ -344,7 +350,10 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
             {item.mediaTitle ?? item.mediaWikidataId}
           </div>
           <div className="mt-0.5 flex items-center gap-1">
-            <StampBadge type={item.mediaType ?? ""} index={i} />
+            <StampBadge
+              type={displayMediaType(item.mediaType ?? "", item.animationOrigin)}
+              index={i}
+            />
           </div>
           {item.rating != null && (
             <div
@@ -377,7 +386,10 @@ function WatchlistListItem({ item, index }: { item: CatalogEntryRow; index: numb
       }}
     >
       <div className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm bg-transparent group-hover:bg-dg-accent transition-all duration-150 group-hover:shadow-[0_0_8px_rgba(232,112,46,0.3)]" />
-      <StampBadge type={item.mediaType ?? ""} index={index} />
+      <StampBadge
+        type={displayMediaType(item.mediaType ?? "", item.animationOrigin)}
+        index={index}
+      />
       <span className="text-[0.85rem] text-dg-text truncate flex-1 font-medium">
         {item.isFavorite && (
           <Star size={11} weight="fill" className="text-dg-accent mr-1 inline-block" />

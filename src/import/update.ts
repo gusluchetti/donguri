@@ -96,6 +96,7 @@ function escapePostgresLiteral(str: string): string {
 /** Indexes to drop before --reset imports and recreate after. */
 const DROPPABLE_INDEXES = [
   "idx_media_type",
+  "idx_media_animation_origin",
   "idx_media_sitelinks",
   "idx_media_start_year",
   "idx_media_imdb",
@@ -111,6 +112,7 @@ const DROPPABLE_INDEXES = [
 
 const RECREATE_INDEX_SQL = [
   `CREATE INDEX IF NOT EXISTS idx_media_type ON media (media_type)`,
+  `CREATE INDEX IF NOT EXISTS idx_media_animation_origin ON media (animation_origin)`,
   `CREATE INDEX IF NOT EXISTS idx_media_sitelinks ON media (sitelinks_count)`,
   `CREATE INDEX IF NOT EXISTS idx_media_start_year ON media (start_year)`,
   `CREATE INDEX IF NOT EXISTS idx_media_imdb ON media (imdb_id)`,
@@ -265,7 +267,7 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
     errors: 0,
     genresFound: 0,
     platformsFound: 0,
-    byType: { movie: 0, tv_series: 0, anime: 0, game: 0 },
+    byType: { movie: 0, tv_series: 0, game: 0 },
   };
 
   const [progressRecord] = await db
@@ -1134,6 +1136,7 @@ interface CoverCandidate {
   id: string;
   wikidataId: string;
   mediaType: string;
+  animationOrigin: string | null;
   tmdbId: string | null;
   anilistId: string | null;
   igdbId: string | null;
@@ -1207,7 +1210,8 @@ async function resolveBatch(
           resolvedTmdbId: r.resolvedTmdbId,
         };
       stats.failures.tmdb++;
-      if (item.anilistId && item.mediaType === "anime") tmdbFailedAnime.push(item as WithAnilist);
+      if (item.anilistId && item.animationOrigin === "anime")
+        tmdbFailedAnime.push(item as WithAnilist);
       return null;
     }),
     mapConcurrent(igdbItems, COVER_CONCURRENCY_IGDB, 300, async (item) => {
@@ -1318,6 +1322,7 @@ async function runCovers(db: DbType, recheck: boolean): Promise<void> {
         id: media.id,
         wikidataId: media.wikidataId,
         mediaType: media.mediaType,
+        animationOrigin: media.animationOrigin,
         tmdbId: media.tmdbId,
         anilistId: media.anilistId,
         igdbId: media.igdbId,

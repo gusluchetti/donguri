@@ -23,8 +23,9 @@ export const media = pgTable(
       .$defaultFn(() => ulid()),
     wikidataId: text("wikidata_id").notNull().unique(),
     mediaType: text("media_type", {
-      enum: ["movie", "tv_series", "anime", "game"],
+      enum: ["movie", "tv_series", "game"],
     }).notNull(),
+    animationOrigin: text("animation_origin"), // nullable: null | "anime" | "donghua" | ...
 
     // Titles & Description
     title: text("title").notNull(),
@@ -78,6 +79,7 @@ export const media = pgTable(
   },
   (table) => [
     index("idx_media_type").on(table.mediaType),
+    index("idx_media_animation_origin").on(table.animationOrigin),
     index("idx_media_sitelinks").on(table.sitelinksCount),
     index("idx_media_start_year").on(table.startYear),
     index("idx_media_imdb").on(table.imdbId),
@@ -205,8 +207,9 @@ export const catalogEntries = pgTable(
     mediaWikidataId: text("media_wikidata_id").notNull(),
     mediaTitle: text("media_title"),
     mediaType: text("media_type", {
-      enum: ["movie", "tv_series", "anime", "game"],
+      enum: ["movie", "tv_series", "game"],
     }),
+    animationOrigin: text("animation_origin"),
     status: text("status", {
       enum: ["planned", "in_progress", "on_hold", "completed", "dropped", "mastered"],
     }),
