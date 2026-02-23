@@ -87,8 +87,8 @@ img {
 /* Atmosphere defaults are also here so light overrides can win (unlayered :root would beat @layer base) */
 @layer base {
   :root {
-    --topo-color: rgba(40, 180, 160, 0.03);
-    --grid-color: rgba(40, 180, 160, 0.025);
+    --topo-color: rgba(40, 180, 160, 0.08);
+    --grid-color: rgba(40, 180, 160, 0.075);
     --noise-opacity: 0.15;
     --grain-blend: soft-light;
     --nav-bg: rgba(5, 14, 12, 0.94);
