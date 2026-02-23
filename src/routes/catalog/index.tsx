@@ -10,7 +10,7 @@ import {
 } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Dice5, Search, X } from "lucide-react";
-import { forwardRef, memo, useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { CoverThumb } from "../../components/CoverThumb";
 import { StampBadge } from "../../components/StampBadge";
@@ -245,14 +245,12 @@ function CatalogPage() {
 
   // Restore scroll position after data is available and virtualizer has rendered
   const didRestore = useRef(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (didRestore.current || !scrollEntry || allItems.length === 0) return;
     didRestore.current = true;
     const el = parentRef.current;
     if (!el || scrollEntry.scrollY === 0) return;
-    requestAnimationFrame(() => {
-      el.scrollTop = scrollEntry.scrollY;
-    });
+    el.scrollTop = scrollEntry.scrollY;
   }, [allItems.length, scrollEntry]);
 
   const virtualizer = useVirtualizer({

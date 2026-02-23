@@ -143,7 +143,7 @@ function MediaDetailSkeleton() {
         <button
           type="button"
           onClick={() => window.history.back()}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-body cursor-pointer py-2 -my-2 px-0 mb-g2 inline-block"
+          className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm transition-all duration-150"
         >
           &larr; back
         </button>
@@ -185,7 +185,7 @@ function MediaStubPage({
             SoundEngine.navBack();
             window.history.back();
           }}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-body cursor-pointer py-2 -my-2 px-0 mb-g2 inline-block hover:text-dg-text-secondary transition-colors"
+          className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
         >
           &larr; back
         </button>
@@ -374,7 +374,7 @@ function MediaDetailPage({
             SoundEngine.navBack();
             window.history.back();
           }}
-          className="text-dg-text-tertiary text-[0.8rem] bg-transparent border-none font-body cursor-pointer py-2 -my-2 px-0 mb-g2 inline-block hover:text-dg-text-secondary transition-colors"
+          className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
         >
           &larr; back
         </button>
