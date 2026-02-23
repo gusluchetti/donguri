@@ -1,3 +1,11 @@
+import {
+  Bookmark,
+  MagnifyingGlass,
+  Moon,
+  SpeakerHigh,
+  SpeakerNone,
+  Sun,
+} from "@phosphor-icons/react";
 import { HotkeysProvider, useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
 import type { QueryClient } from "@tanstack/react-query";
 import {
@@ -10,9 +18,9 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import { clear } from "idb-keyval";
-import { Moon, Sun } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import "../app.css";
+import { BackgroundLayers } from "../components/BackgroundLayers";
 import { getAuthState, logout } from "../lib/auth.functions";
 import { getCatalogFingerprint } from "../lib/catalog.functions";
 import { HelpOverlay } from "../lib/hotkeys/HelpOverlay";
@@ -20,6 +28,7 @@ import { isInputFocused } from "../lib/hotkeys/shortcuts";
 import { ogTags, pageTitle } from "../lib/og";
 import { checkCatalogFreshness } from "../lib/query";
 import { trackedIdsOptions } from "../lib/query-options";
+import { SoundEngine } from "../lib/sound";
 import { getThemeCookie, ThemeProvider, useTheme } from "../lib/theme";
 
 // Sets data-theme before first paint. Also syncs the cookie for SSR on next visit.
@@ -30,7 +39,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1" },
-      { name: "theme-color", content: "#d4a44a" },
+      { name: "theme-color", content: "#b8a472" },
       { title: pageTitle("donguri") },
       {
         name: "description",
@@ -43,13 +52,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       }),
     ],
     links: [
+      { rel: "icon", type: "image/svg+xml", href: "/acorn.svg" },
+      { rel: "icon", href: "/favicon.ico" },
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
-        rel: "icon",
-        href: "/favicon.ico",
-      },
-      {
-        rel: "manifest",
-        href: "/manifest.json",
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap",
       },
     ],
   }),
@@ -78,13 +88,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootDocument({ children, theme }: { children: ReactNode; theme: string }) {
   return (
-    <html lang="en" data-theme={theme} {...(import.meta.env.DEV ? { "data-env": "dev" } : {})}>
+    <html lang="en" data-theme={theme}>
       <head>
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static inline script for theme init before paint */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
       <body className="bg-dg-bg m-0 p-0">
+        <BackgroundLayers />
         {children}
         <Scripts />
       </body>
@@ -92,8 +103,7 @@ function RootDocument({ children, theme }: { children: ReactNode; theme: string 
   );
 }
 
-const NAV_LINKS: readonly { to: string; label: string; accent?: boolean; exact?: boolean }[] = [
-  { to: "/", label: "donguri", accent: true, exact: true },
+const NAV_ITEMS: readonly { to: string; label: string; exact?: boolean }[] = [
   { to: "/catalog", label: "catalog", exact: false },
   { to: "/roadmap", label: "roadmap", exact: true },
 ];
@@ -107,7 +117,7 @@ function RootComponent() {
     const onError = (e: PromiseRejectionEvent) => {
       const msg = e.reason?.message ?? String(e.reason ?? "");
       if (/SESSION_EXPIRED/.test(msg)) {
-        console.warn("[auth] session expired, forcing logout…");
+        console.warn("[auth] session expired, forcing logout\u2026");
         e.preventDefault();
         queryClient.clear();
         clear();
@@ -115,7 +125,7 @@ function RootComponent() {
         return;
       }
       if (/server function/i.test(msg) || /Invalid server function ID/i.test(msg)) {
-        console.warn("[version] stale client detected, reloading…");
+        console.warn("[version] stale client detected, reloading\u2026");
         window.location.reload();
       }
     };
@@ -130,63 +140,98 @@ function RootComponent() {
       <ThemeProvider initialTheme={theme}>
         <HotkeysProvider>
           <GlobalShortcuts showHelp={showHelp} setShowHelp={setShowHelp} />
-          <div className="min-h-dvh flex flex-col">
-            <nav className="border-b border-dg-border-subtle px-4 sm:px-6 py-2 font-mono shrink-0">
-              <div className="max-w-[1000px] mx-auto flex items-center min-h-[44px] gap-4 sm:gap-6">
-                {NAV_LINKS.map((link) => (
+          <div className="h-dvh overflow-hidden flex flex-col relative z-[2]">
+            <nav
+              className="font-body shrink-0 sticky top-0 z-30"
+              style={{
+                background: "var(--nav-bg)",
+                backdropFilter: "blur(16px) saturate(1.3)",
+                WebkitBackdropFilter: "blur(16px) saturate(1.3)",
+                borderBottom: "1px solid var(--color-dg-border-subtle)",
+                viewTransitionName: "nav",
+              }}
+            >
+              <div className="max-w-[1100px] mx-auto px-3 sm:px-g3 flex items-center justify-between h-12">
+                {/* Left: logo + nav items */}
+                <div className="flex items-center gap-1 sm:gap-g1">
                   <Link
-                    key={link.to}
-                    to={link.to}
-                    activeOptions={{ exact: link.exact !== false }}
-                    className="text-[0.85rem] no-underline transition-colors duration-150 min-h-[44px] flex items-center"
-                    activeProps={{ className: "text-dg-accent" }}
-                    inactiveProps={{
-                      className: link.accent ? "text-dg-accent" : "text-dg-text-secondary",
-                    }}
+                    to="/"
+                    className="flex items-center gap-g1 no-underline cursor-pointer"
+                    onClick={() => SoundEngine.click()}
                   >
-                    {link.accent ? <span className="font-semibold">{link.label}</span> : link.label}
-                  </Link>
-                ))}
-                <div className="ml-auto flex items-center gap-3">
-                  <ThemeToggle />
-                  {auth ? (
-                    <div className="flex items-center gap-4">
-                      <span className="text-[0.8rem] text-dg-accent hidden sm:inline">
-                        {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
-                      </span>
-                      <button
-                        type="button"
-                        className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none font-mono min-h-[44px] flex items-center"
-                        onClick={async () => {
-                          await logout();
-                          queryClient.clear();
-                          clear();
-                          window.location.href = "/";
-                        }}
-                      >
-                        logout
-                      </button>
-                    </div>
-                  ) : (
-                    <Link
-                      to="/"
-                      className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-text-secondary no-underline transition-colors duration-150 min-h-[44px] flex items-center"
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 256 256"
+                      width={24}
+                      height={24}
+                      fill="currentColor"
+                      style={{ color: "var(--color-dg-accent)" }}
+                      aria-hidden="true"
                     >
-                      login
-                    </Link>
+                      <path d="M232,104a56.06,56.06,0,0,0-56-56H136a24,24,0,0,1,24-24,8,8,0,0,0,0-16,40,40,0,0,0-40,40H80a56.06,56.06,0,0,0-56,56,16,16,0,0,0,8,13.83V128c0,35.53,33.12,62.12,59.74,83.49C103.66,221.07,120,234.18,120,240a8,8,0,0,0,16,0c0-5.82,16.34-18.93,28.26-28.51C190.88,190.12,224,163.53,224,128V117.83A16,16,0,0,0,232,104ZM80,64h96a40.06,40.06,0,0,1,40,40H40A40,40,0,0,1,80,64Zm74.25,135c-10.62,8.52-20,16-26.25,23.37-6.25-7.32-15.63-14.85-26.25-23.37C77.8,179.79,48,155.86,48,128v-8H208v8C208,155.86,178.2,179.79,154.25,199Z" />
+                    </svg>
+                    <span className="hidden sm:inline font-display text-lg font-medium text-dg-text">
+                      donguri
+                    </span>
+                  </Link>
+                  {import.meta.env.DEV && (
+                    <span className="text-[0.65rem] font-bold font-mono text-dg-movie tracking-wider bg-dg-movie/10 border border-dg-movie/30 rounded-sm px-1.5 py-0.5">
+                      DEV
+                    </span>
+                  )}
+
+                  <div className="hidden sm:flex items-center gap-1">
+                    {NAV_ITEMS.map((item) => (
+                      <NavButton key={item.to} to={item.to} exact={item.exact !== false}>
+                        {item.label}
+                      </NavButton>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Right: controls */}
+                <div className="flex items-center gap-1">
+                  {auth && (
+                    <span className="text-xs text-dg-accent hidden sm:inline mr-2">
+                      {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
+                    </span>
+                  )}
+                  <div
+                    className="mx-1 hidden sm:block"
+                    style={{
+                      width: 1,
+                      height: 16,
+                      background: "var(--color-dg-border)",
+                    }}
+                  />
+                  <SoundToggle />
+                  <ThemeToggle />
+                  {auth && (
+                    <button
+                      type="button"
+                      className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-tertiary font-body cursor-pointer transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text-secondary"
+                      onClick={async () => {
+                        await logout();
+                        queryClient.clear();
+                        clear();
+                        window.location.href = "/";
+                      }}
+                    >
+                      logout
+                    </button>
                   )}
                 </div>
               </div>
             </nav>
             <Outlet />
-            <footer className="border-t border-dg-border-subtle px-4 sm:px-6 py-3 font-mono shrink-0">
-              <div className="max-w-[1000px] mx-auto flex items-center justify-between text-[0.7rem] text-dg-text-tertiary">
+            <footer className="hidden sm:block border-t border-dg-border-subtle px-g3 py-3 font-body shrink-0">
+              <div className="max-w-[1100px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[0.7rem] text-dg-text-tertiary">
                 <span className="flex items-center gap-2">
-                  <span>v0.3.0</span>
+                  <span>v2026.02.23</span>
                   <button
                     type="button"
                     onClick={() => setShowHelp(true)}
-                    className="text-dg-text-tertiary hover:text-dg-text-secondary bg-transparent border-none font-mono cursor-pointer p-0 text-[0.7rem] transition-colors"
+                    className="text-dg-text-tertiary hover:text-dg-text-secondary bg-transparent border-none font-body cursor-pointer p-0 text-[0.7rem] transition-colors"
                   >
                     shortcuts (?)
                   </button>
@@ -231,6 +276,7 @@ function RootComponent() {
                 </span>
               </div>
             </footer>
+            <BottomNav />
           </div>
         </HotkeysProvider>
       </ThemeProvider>
@@ -291,15 +337,15 @@ function RootError({ error, reset }: ErrorComponentProps) {
         <HeadContent />
       </head>
       <body className="bg-dg-bg m-0 p-0">
-        <div className="min-h-dvh flex items-center justify-center font-mono text-dg-text">
+        <div className="min-h-dvh flex items-center justify-center font-body text-dg-text">
           <div className="text-center px-4 py-16">
-            <p className="text-[2rem] font-semibold text-dg-anime mb-2">error</p>
+            <p className="font-display text-[2rem] font-normal text-dg-anime mb-2">error</p>
             <p className="text-[0.9rem] text-dg-text-secondary mb-6">Something went wrong.</p>
             <div className="flex items-center justify-center gap-3">
               <button
                 type="button"
                 onClick={reset}
-                className="text-[0.85rem] text-dg-accent font-mono bg-transparent py-2 px-4 border border-dg-accent/20 rounded-sm cursor-pointer transition-all duration-150"
+                className="text-[0.85rem] text-dg-accent font-body bg-transparent py-2 px-4 border border-dg-accent/20 rounded-sm cursor-pointer transition-all duration-150"
               >
                 Try again
               </button>
@@ -320,9 +366,9 @@ function RootError({ error, reset }: ErrorComponentProps) {
 
 function NotFound() {
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 font-mono flex items-center justify-center">
+    <div className="text-dg-text flex-1 font-body flex items-center justify-center">
       <div className="text-center px-4 py-16">
-        <p className="text-[2rem] font-semibold text-dg-accent mb-2">404</p>
+        <p className="font-display text-[2rem] font-normal text-dg-accent mb-2">404</p>
         <p className="text-[0.9rem] text-dg-text-secondary mb-6">Page not found.</p>
         <Link
           to="/"
@@ -335,19 +381,130 @@ function NotFound() {
   );
 }
 
+function NavButton({
+  to,
+  exact,
+  children,
+}: {
+  to: string;
+  exact: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      to={to}
+      activeOptions={{ exact }}
+      className="no-underline font-body text-xs tracking-[0.06em] uppercase rounded-[3px] py-[5px] px-2 sm:px-3 transition-all duration-150 border relative"
+      activeProps={{
+        className: "bg-dg-accent-soft border-dg-accent text-dg-accent font-semibold",
+      }}
+      inactiveProps={{
+        className: "bg-transparent border-transparent text-dg-text-secondary",
+      }}
+      onClick={() => SoundEngine.click()}
+    >
+      {children}
+    </Link>
+  );
+}
+
 function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
-  const Icon = theme === "dark" ? Sun : Moon;
 
   return (
     <button
       type="button"
       onClick={toggleTheme}
-      className="text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 cursor-pointer bg-transparent border-none p-2 -m-1 min-w-[44px] min-h-[44px] flex items-center justify-center"
+      className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-secondary cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center"
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
       title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
     >
-      <Icon size={16} />
+      {theme === "dark" ? <Sun size={13} weight="bold" /> : <Moon size={13} weight="bold" />}
+    </button>
+  );
+}
+
+function BottomNav() {
+  const base =
+    "flex-1 flex flex-col items-center justify-center gap-0.5 no-underline py-2 transition-colors duration-150";
+  const active = { className: `${base} text-dg-accent` };
+  const inactive = { className: `${base} text-dg-text-tertiary` };
+
+  return (
+    <nav
+      className="sm:hidden shrink-0 border-t border-dg-border-subtle font-body z-30"
+      style={{
+        background: "var(--nav-bg)",
+        backdropFilter: "blur(16px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(16px) saturate(1.3)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
+      <div className="flex items-stretch h-14">
+        {/* Watchlist */}
+        <Link to="/" activeOptions={{ exact: true }} activeProps={active} inactiveProps={inactive}>
+          <Bookmark size={22} weight="bold" />
+          <span className="text-[0.6rem] uppercase tracking-wider">watchlist</span>
+        </Link>
+
+        {/* Home / Acorn */}
+        <Link
+          to="/"
+          activeOptions={{ exact: true }}
+          activeProps={active}
+          inactiveProps={inactive}
+          onClick={() => SoundEngine.click()}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 256 256"
+            width={26}
+            height={26}
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path d="M232,104a56.06,56.06,0,0,0-56-56H136a24,24,0,0,1,24-24,8,8,0,0,0,0-16,40,40,0,0,0-40,40H80a56.06,56.06,0,0,0-56,56,16,16,0,0,0,8,13.83V128c0,35.53,33.12,62.12,59.74,83.49C103.66,221.07,120,234.18,120,240a8,8,0,0,0,16,0c0-5.82,16.34-18.93,28.26-28.51C190.88,190.12,224,163.53,224,128V117.83A16,16,0,0,0,232,104ZM80,64h96a40.06,40.06,0,0,1,40,40H40A40,40,0,0,1,80,64Zm74.25,135c-10.62,8.52-20,16-26.25,23.37-6.25-7.32-15.63-14.85-26.25-23.37C77.8,179.79,48,155.86,48,128v-8H208v8C208,155.86,178.2,179.79,154.25,199Z" />
+          </svg>
+          <span className="text-[0.6rem] uppercase tracking-wider">home</span>
+        </Link>
+
+        {/* Catalog */}
+        <Link
+          to="/catalog"
+          activeOptions={{ exact: false }}
+          activeProps={active}
+          inactiveProps={inactive}
+          onClick={() => SoundEngine.click()}
+        >
+          <MagnifyingGlass size={22} weight="bold" />
+          <span className="text-[0.6rem] uppercase tracking-wider">catalog</span>
+        </Link>
+      </div>
+    </nav>
+  );
+}
+
+function SoundToggle() {
+  const [on, setOn] = useState(true);
+
+  useEffect(() => {
+    setOn(SoundEngine.isEnabled());
+  }, []);
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const next = SoundEngine.toggle();
+        setOn(next);
+        if (next) SoundEngine.click();
+      }}
+      className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center"
+      style={{ color: on ? "var(--color-dg-text-secondary)" : "var(--color-dg-text-tertiary)" }}
+      aria-label={on ? "Mute sounds" : "Unmute sounds"}
+      title={on ? "Mute sounds" : "Unmute sounds"}
+    >
+      {on ? <SpeakerHigh size={13} weight="bold" /> : <SpeakerNone size={13} weight="bold" />}
     </button>
   );
 }

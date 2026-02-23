@@ -7,14 +7,12 @@
 import { Writable } from "node:stream";
 import { inArray } from "drizzle-orm";
 import { ulid } from "ulid";
-import type { createImportDb } from "../db";
+import type { getDb } from "../db";
 import { genres, mediaGenres, mediaPlatforms, platforms } from "../db/schema";
 import { withRetry } from "./_retry";
 import type { ParsedMedia } from "./_types";
 
-export type ImportDb = ReturnType<typeof createImportDb>;
-export type DbType = ImportDb["db"];
-export type RawClient = ImportDb["client"];
+export type DbType = ReturnType<typeof getDb>;
 
 export interface ImportStats {
   entitiesProcessed: number;
@@ -153,7 +151,6 @@ export async function ensurePlatforms(
  * Returns the wikidata_id → db id mapping for the batch.
  */
 export async function processSuperBatch(
-  rawClient: RawClient,
   db: DbType,
   batch: ParsedMedia[],
   genreCache: Record<string, string>,
@@ -188,7 +185,7 @@ export async function processSuperBatch(
     // 3. COPY → temp table → upsert merge, all in one transaction
     const upserted = await withRetry(
       () =>
-        rawClient.begin(async (tx) => {
+        db.$client.begin(async (tx) => {
           // Create temp staging table (dropped on commit)
           await tx.unsafe(`
 						CREATE TEMP TABLE _media_staging (

@@ -15,7 +15,7 @@ export function HelpOverlay({ open, onClose }: { open: boolean; onClose: () => v
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-dg-surface border border-dg-border rounded max-w-[720px] w-[92vw] max-h-[80vh] overflow-y-auto p-4 sm:p-5 font-mono">
+      <div className="bg-dg-surface border border-dg-border rounded max-w-[720px] w-[92vw] max-h-[80vh] overflow-y-auto p-4 sm:p-5 font-body">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-[0.9rem] font-semibold text-dg-text m-0">Keyboard Shortcuts</h2>
           <button
@@ -52,7 +52,7 @@ function ShortcutGroup({ section }: { section: ShortcutSection }) {
               {shortcut.keys.map((key) => (
                 <kbd
                   key={key}
-                  className="text-[0.65rem] px-1 py-px bg-dg-elevated border border-dg-border rounded text-dg-text min-w-[1.25rem] text-center inline-block leading-relaxed"
+                  className="text-[0.65rem] px-1 py-px bg-dg-elevated border border-dg-border rounded text-dg-text min-w-[1.25rem] text-center inline-block leading-relaxed font-mono"
                 >
                   {key}
                 </kbd>

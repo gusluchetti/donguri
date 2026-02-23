@@ -15,28 +15,6 @@ import {
   seasons,
 } from "../db/schema";
 
-// ─── In-memory TTL cache ──────────────────────────────────────────────────────
-
-type CacheEntry<T> = { data: T; expires: number };
-const mediaCache = new Map<string, CacheEntry<unknown>>();
-const MEDIA_TTL = 10 * 60 * 1000; // 10 minutes
-const STATS_TTL = 30 * 60 * 1000; // 30 minutes
-const STATS_KEY = "__stats__";
-
-function getCached<T>(key: string): T | undefined {
-  const entry = mediaCache.get(key);
-  if (!entry) return undefined;
-  if (Date.now() > entry.expires) {
-    mediaCache.delete(key);
-    return undefined;
-  }
-  return entry.data as T;
-}
-
-function setCache<T>(key: string, data: T, ttl: number): void {
-  mediaCache.set(key, { data, expires: Date.now() + ttl });
-}
-
 const parentGenres = alias(canonicalGenres, "parent_genres");
 
 /** Return type of getMedia (defined explicitly to break circular inference). */
@@ -70,11 +48,6 @@ const ListMediaInput = z.object({
 
 const GetMediaInput = z.object({
   wikidataId: z.string(),
-});
-
-const GetMediaByExternalIdInput = z.object({
-  field: z.enum(["imdb", "tmdb", "mal", "igdb"]),
-  value: z.string(),
 });
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -218,9 +191,6 @@ export const listMedia = createServerFn({ method: "GET" })
 export const getMedia = createServerFn({ method: "GET" })
   .inputValidator(GetMediaInput)
   .handler(async ({ data }): Promise<MediaDetail | null> => {
-    const cached = getCached<MediaDetail>(data.wikidataId);
-    if (cached) return cached;
-
     const db = getDb();
 
     const item = await db
@@ -285,38 +255,13 @@ export const getMedia = createServerFn({ method: "GET" })
       seasons: isConsecutive ? itemSeasons : [],
     };
 
-    setCache(data.wikidataId, result, MEDIA_TTL);
     return result;
-  });
-
-/**
- * Get media by external ID (IMDb, TMDB, MAL, IGDB).
- */
-export const getMediaByExternalId = createServerFn({ method: "GET" })
-  .inputValidator(GetMediaByExternalIdInput)
-  .handler(async ({ data }) => {
-    const db = getDb();
-
-    const fieldMap = {
-      imdb: media.imdbId,
-      tmdb: media.tmdbId,
-      mal: media.malId,
-      igdb: media.igdbId,
-    } as const;
-
-    const column = fieldMap[data.field];
-    const item = await db.select().from(media).where(eq(column, data.value)).limit(1);
-
-    return item[0] ?? null;
   });
 
 /**
  * Get collection stats.
  */
 export const getMediaStats = createServerFn({ method: "GET" }).handler(async () => {
-  const cached = getCached<{ total: number; byType: Record<string, number> }>(STATS_KEY);
-  if (cached) return cached;
-
   const db = getDb();
 
   const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(media);
@@ -334,6 +279,5 @@ export const getMediaStats = createServerFn({ method: "GET" }).handler(async () 
     byType: Object.fromEntries(typeCounts.map((r) => [r.mediaType, r.count])),
   };
 
-  setCache(STATS_KEY, result, STATS_TTL);
   return result;
 });

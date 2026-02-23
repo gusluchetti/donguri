@@ -16,7 +16,7 @@ import readline from "node:readline";
 import zlib from "node:zlib";
 import * as clack from "@clack/prompts";
 import { eq, inArray, sql } from "drizzle-orm";
-import { cleanEnv, createImportDb } from "../db";
+import { cleanEnv, getDb } from "../db";
 import { TRGM_SETUP_SQL } from "../db/fts";
 import {
   genres,
@@ -31,7 +31,7 @@ import { parseMediaEntity, shouldImportEntity } from "./_filters";
 import { formatDuration, withRetry } from "./_retry";
 import type { ParsedMedia, ParsedSeason, WikibaseEntityIdValue, WikidataEntity } from "./_types";
 import { WikidataProperties } from "./_types";
-import { type DbType, type ImportStats, processSuperBatch, type RawClient } from "./_upsert";
+import { type DbType, type ImportStats, processSuperBatch } from "./_upsert";
 
 // ═══ Constants ══════════════════════════════════════════════════════════════
 
@@ -39,7 +39,10 @@ const DEFAULT_BATCH_SIZE = 5_000;
 const PROGRESS_LOG_INTERVAL = 1_000;
 const SEASON_BATCH_SIZE = 200;
 const SEASON_LOOKUP_BATCH = 500;
-const COVER_BATCH_SIZE = 50;
+const COVER_BATCH_SIZE = 200;
+const COVER_CONCURRENCY_TMDB = 6;
+const COVER_CONCURRENCY_ANILIST = 1;
+const COVER_CONCURRENCY_IGDB = 2;
 
 type Feature = "media" | "percentiles" | "seasons" | "covers";
 
@@ -112,20 +115,23 @@ const RECREATE_INDEX_SQL = [
   `CREATE INDEX IF NOT EXISTS idx_media_popularity ON media (popularity_score)`,
 ];
 
-async function dropIndexes(rawClient: RawClient): Promise<void> {
+async function dropIndexes(db: DbType): Promise<void> {
   console.log("Dropping non-essential indexes for faster import...");
   for (const idx of DROPPABLE_INDEXES) {
-    await rawClient.unsafe(`DROP INDEX IF EXISTS ${idx}`);
+    // SAFETY: all values are hardcoded constants — never interpolate external input here
+    await db.execute(sql.raw(`DROP INDEX IF EXISTS ${idx}`));
   }
 }
 
-async function recreateIndexes(rawClient: RawClient): Promise<void> {
+async function recreateIndexes(db: DbType): Promise<void> {
   console.log("Recreating indexes...");
   for (const stmt of RECREATE_INDEX_SQL) {
-    await rawClient.unsafe(stmt);
+    // SAFETY: all values are hardcoded constants — never interpolate external input here
+    await db.execute(sql.raw(stmt));
   }
   for (const stmt of TRGM_SETUP_SQL) {
-    await rawClient.unsafe(stmt);
+    // SAFETY: all values are hardcoded constants — never interpolate external input here
+    await db.execute(sql.raw(stmt));
   }
   console.log("Indexes recreated.");
 }
@@ -140,11 +146,7 @@ interface MediaImportOpts {
   qrankPath: string | null;
 }
 
-async function runMediaImport(
-  db: DbType,
-  rawClient: RawClient,
-  opts: MediaImportOpts,
-): Promise<void> {
+async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> {
   const { subsetPath, reset, limit, batchSize, qrankPath } = opts;
   const startTime = Date.now();
 
@@ -156,10 +158,11 @@ async function runMediaImport(
     await db.delete(genres);
     await db.delete(platforms);
     await db.delete(importProgress);
-    await dropIndexes(rawClient);
+    await dropIndexes(db);
   } else {
     console.log("Setting up trigram indexes...");
     for (const stmt of TRGM_SETUP_SQL) {
+      // SAFETY: all values are hardcoded constants — never interpolate external input here
       await db.execute(sql.raw(stmt));
     }
   }
@@ -236,21 +239,21 @@ async function runMediaImport(
       batch.push(parsed);
 
       if (batch.length >= batchSize) {
-        await processSuperBatch(rawClient, db, batch, genreCache, platformCache, stats);
+        await processSuperBatch(db, batch, genreCache, platformCache, stats);
         batch = [];
       }
     }
 
     if (batch.length > 0) {
-      await processSuperBatch(rawClient, db, batch, genreCache, platformCache, stats);
+      await processSuperBatch(db, batch, genreCache, platformCache, stats);
     }
 
     if (reset) {
-      await recreateIndexes(rawClient);
+      await recreateIndexes(db);
     }
 
     if (qrankPath) {
-      await applyQRank(rawClient, qrankPath);
+      await applyQRank(db, qrankPath);
     }
 
     await db
@@ -297,14 +300,14 @@ async function runMediaImport(
 
 // ═══ Feature: Percentiles ═══════════════════════════════════════════════════
 
-async function applyQRank(rawClient: RawClient, filePath: string): Promise<void> {
-  console.log(`\nApplying QRank from: ${filePath} (filter-first batch INSERT)`);
+async function applyQRank(db: DbType, filePath: string): Promise<void> {
+  console.log(`\nApplying QRank from: ${filePath} (in-memory percentiles)`);
   const startTime = Date.now();
 
   // Load all media wikidata IDs into a Set for fast lookups
   const mediaIds = new Set<string>();
-  const rows = await rawClient.unsafe(`SELECT wikidata_id FROM media`);
-  for (const row of rows) mediaIds.add(row.wikidata_id);
+  const rows = await db.execute(sql.raw(`SELECT wikidata_id FROM media`));
+  for (const row of rows) mediaIds.add((row as { wikidata_id: string }).wikidata_id);
   console.log(`  Loaded ${mediaIds.size.toLocaleString()} media IDs`);
 
   // Stream CSV, filter to matching IDs only
@@ -347,58 +350,51 @@ async function applyQRank(rawClient: RawClient, filePath: string): Promise<void>
     `  Scan complete in ${scanElapsed}: ${scanned.toLocaleString()} rows → ${matched.length.toLocaleString()} matched`,
   );
 
-  const conn = await rawClient.reserve();
-  try {
-    await conn.unsafe(`CREATE TEMP TABLE _qrank (wikidata_id TEXT, score INT)`);
-
-    // Batch INSERT matched rows
-    const QRANK_BATCH = 5_000;
-    for (let i = 0; i < matched.length; i += QRANK_BATCH) {
-      const chunk = matched.slice(i, i + QRANK_BATCH);
-      const values = chunk
-        .map((r) => `(${escapePostgresLiteral(r.wikidataId)}, ${r.score})`)
-        .join(", ");
-      await conn.unsafe(`INSERT INTO _qrank (wikidata_id, score) VALUES ${values}`);
-    }
-    console.log(`  Inserted ${matched.length.toLocaleString()} rows into _qrank`);
-
-    await conn.unsafe(`CREATE INDEX ON _qrank (wikidata_id)`);
-
-    const [{ count: prevScored }] = await conn.unsafe(
-      `SELECT COUNT(*)::int AS count FROM media WHERE qrank_pct IS NOT NULL`,
-    );
-
-    const result = await conn.unsafe(`
-      WITH matched AS (
-        SELECT q.wikidata_id, q.score
-        FROM _qrank q
-        INNER JOIN media m ON m.wikidata_id = q.wikidata_id
-      ),
-      ranked AS (
-        SELECT wikidata_id,
-          (PERCENT_RANK() OVER (ORDER BY score DESC)) * 100 AS pct
-        FROM matched
-      )
-      UPDATE media SET qrank_pct = r.pct::numeric(5,2)
-      FROM ranked r
-      WHERE media.wikidata_id = r.wikidata_id
-    `);
-
-    const totalScored = Number(result.count);
-    const newlyScored = totalScored - Number(prevScored);
-    const reScored = Number(prevScored);
-    const elapsed = formatDuration(Date.now() - startTime);
-    console.log(
-      `  QRank: ${totalScored} scored in ${elapsed} (${newlyScored} new, ${reScored} re-scored)`,
-    );
-
-    await conn.unsafe(`DROP TABLE IF EXISTS _qrank`);
-  } finally {
-    conn.release();
+  // Compute PERCENT_RANK in JS — no temp table needed
+  matched.sort((a, b) => b.score - a.score); // DESC
+  const n = matched.length;
+  const ranked: { wikidataId: string; pct: string }[] = [];
+  for (let i = 0; i < n; i++) {
+    // PERCENT_RANK: (rank - 1) / (n - 1), where ties share the same rank
+    const rank =
+      i > 0 && matched[i].score === matched[i - 1].score
+        ? ranked[i - 1].pct
+        : n > 1
+          ? ((i / (n - 1)) * 100).toFixed(2)
+          : "0.00";
+    ranked.push({ wikidataId: matched[i].wikidataId, pct: typeof rank === "string" ? rank : rank });
   }
+
+  const [{ count: prevScored }] = (await db.execute(
+    sql.raw(`SELECT COUNT(*)::int AS count FROM media WHERE qrank_pct IS NOT NULL`),
+  )) as unknown as [{ count: number }];
+
+  // Batch UPDATE directly — no temp table, no extra storage
+  const UPDATE_BATCH = 5_000;
+  let totalUpdated = 0;
+  for (let i = 0; i < ranked.length; i += UPDATE_BATCH) {
+    const chunk = ranked.slice(i, i + UPDATE_BATCH);
+    const values = chunk
+      .map((r) => `(${escapePostgresLiteral(r.wikidataId)}, ${r.pct})`)
+      .join(", ");
+    const result = await db.execute(
+      sql.raw(`
+      UPDATE media SET qrank_pct = v.pct::numeric(5,2)
+      FROM (VALUES ${values}) AS v(wikidata_id, pct)
+      WHERE media.wikidata_id = v.wikidata_id
+    `),
+    );
+    totalUpdated += Number(result.count);
+  }
+
+  const newlyScored = totalUpdated - Number(prevScored);
+  const elapsed = formatDuration(Date.now() - startTime);
+  console.log(
+    `  QRank: ${totalUpdated} scored in ${elapsed} (${newlyScored} new, ${Number(prevScored)} re-scored)`,
+  );
 }
 
-async function runPercentiles(rawClient: RawClient, qrankPath: string | null): Promise<void> {
+async function runPercentiles(db: DbType, qrankPath: string | null): Promise<void> {
   const startTime = Date.now();
 
   if (qrankPath) {
@@ -406,17 +402,19 @@ async function runPercentiles(rawClient: RawClient, qrankPath: string | null): P
       console.error(`QRank file not found: ${qrankPath}`);
       return;
     }
-    await applyQRank(rawClient, qrankPath);
+    await applyQRank(db, qrankPath);
   }
 
   console.log("\nComputing sitelinks percentiles...");
-  const slResult = await rawClient.unsafe(`
+  const slResult = await db.execute(
+    sql.raw(`
     WITH ranked AS (
       SELECT id, PERCENT_RANK() OVER (ORDER BY sitelinks_count DESC) * 100 AS pct
       FROM media
     )
     UPDATE media SET sitelinks_pct = ranked.pct FROM ranked WHERE media.id = ranked.id
-  `);
+  `),
+  );
   console.log(
     `  Sitelinks: ${slResult.count} rows updated (popularity_score auto-updated via generated column)`,
   );
@@ -928,28 +926,46 @@ async function runSeasons(
 
 // ═══ Feature: Cover Art ═════════════════════════════════════════════════════
 
+interface FetchResult {
+  url: string | null;
+  status?: number;
+}
+
 async function fetchTmdbPoster(
   tmdbId: string,
   mediaType: string,
   apiKey: string,
-): Promise<string | null> {
-  const type = mediaType === "movie" ? "movie" : "tv";
-  const res = await fetch(`https://api.themoviedb.org/3/${type}/${tmdbId}?api_key=${apiKey}`);
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data.poster_path ? `https://image.tmdb.org/t/p/w342${data.poster_path}` : null;
+): Promise<FetchResult> {
+  const primary = mediaType === "movie" ? "movie" : "tv";
+  const res = await fetch(`https://api.themoviedb.org/3/${primary}/${tmdbId}?api_key=${apiKey}`);
+  if (res.ok) {
+    const data = await res.json();
+    return { url: data.poster_path ? `https://image.tmdb.org/t/p/w342${data.poster_path}` : null };
+  }
+  // Fallback: try the other endpoint (handles TV series with TMDB movie IDs)
+  const fallback = primary === "movie" ? "tv" : "movie";
+  const res2 = await fetch(`https://api.themoviedb.org/3/${fallback}/${tmdbId}?api_key=${apiKey}`);
+  if (res2.ok) {
+    const data = await res2.json();
+    return { url: data.poster_path ? `https://image.tmdb.org/t/p/w342${data.poster_path}` : null };
+  }
+  console.warn(`  [tmdb] ${res.status}/${res2.status} for ${tmdbId}`);
+  return { url: null, status: res.status };
 }
 
-async function fetchAniListCover(anilistId: string): Promise<string | null> {
+async function fetchAniListCover(anilistId: string): Promise<FetchResult> {
   const query = `query ($id: Int) { Media(id: $id, type: ANIME) { coverImage { large } } }`;
   const res = await fetch("https://graphql.anilist.co", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, variables: { id: Number.parseInt(anilistId, 10) } }),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    console.warn(`  [anilist] ${res.status} for ${anilistId}`);
+    return { url: null, status: res.status };
+  }
   const data = await res.json();
-  return data.data?.Media?.coverImage?.large ?? null;
+  return { url: data.data?.Media?.coverImage?.large ?? null };
 }
 
 let twitchAccessToken: string | null = null;
@@ -973,85 +989,188 @@ async function getTwitchToken(): Promise<string> {
   return twitchAccessToken;
 }
 
-async function fetchIgdbCover(igdbId: string): Promise<string | null> {
+async function fetchIgdbCover(igdbSlug: string): Promise<FetchResult> {
   const token = await getTwitchToken();
   const clientId = cleanEnv(process.env.TWITCH_CLIENT_ID);
 
-  const res = await fetch("https://api.igdb.com/v4/covers", {
+  const res = await fetch("https://api.igdb.com/v4/games", {
     method: "POST",
     headers: {
       "Client-ID": clientId,
       Authorization: `Bearer ${token}`,
     },
-    body: `fields url; where game = ${igdbId}; limit 1;`,
+    body: `fields cover.url; where slug = "${igdbSlug}"; limit 1;`,
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    console.warn(`  [igdb] ${res.status} for ${igdbSlug}`);
+    return { url: null, status: res.status };
+  }
   const data = await res.json();
-  if (!data[0]?.url) return null;
-  return data[0].url.replace("t_thumb", "t_cover_big").replace(/^\/\//, "https://");
+  const coverUrl = data[0]?.cover?.url;
+  if (!coverUrl) return { url: null };
+  return {
+    url: coverUrl.replace("t_thumb", "t_cover_big").replace(/^\/\//, "https://"),
+  };
 }
 
 type CoverSource = "tmdb" | "anilist" | "igdb";
 
-interface ResolveResult {
-  url: string;
+interface CoverCandidate {
+  id: string;
+  wikidataId: string;
+  mediaType: string;
+  tmdbId: string | null;
+  anilistId: string | null;
+  igdbId: string | null;
+}
+
+interface CoverResult {
+  id: string;
+  wikidataId: string;
+  posterUrl: string;
   source: CoverSource;
 }
 
-async function resolveUrl(
-  item: {
-    wikidataId: string;
-    mediaType: string;
-    tmdbId: string | null;
-    anilistId: string | null;
-    igdbId: string | null;
-  },
+/** Process items with bounded concurrency + per-item delay for rate limiting. */
+async function mapConcurrent<T, R>(
+  items: T[],
+  concurrency: number,
+  delayMs: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+      if (next < items.length) await sleep(delayMs);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
+  return results;
+}
+
+/** Resolve covers for a batch by splitting into per-source queues and running them in parallel. */
+async function resolveBatch(
+  items: CoverCandidate[],
   tmdbApiKey: string,
-  failures: Record<CoverSource, number>,
-): Promise<ResolveResult | null> {
-  if (item.tmdbId && item.mediaType !== "game") {
-    const url = await fetchTmdbPoster(item.tmdbId, item.mediaType, tmdbApiKey);
-    await sleep(250);
-    if (url) return { url, source: "tmdb" };
-    failures.tmdb++;
-    console.warn(`  [tmdb] No poster for ${item.wikidataId} (tmdb:${item.tmdbId})`);
+  stats: { bySource: Record<CoverSource, number>; failures: Record<CoverSource, number> },
+): Promise<CoverResult[]> {
+  // Partition items by primary source
+  type WithTmdb = CoverCandidate & { tmdbId: string };
+  type WithAnilist = CoverCandidate & { anilistId: string };
+  type WithIgdb = CoverCandidate & { igdbId: string };
+
+  const tmdbItems: WithTmdb[] = [];
+  const anilistItems: WithAnilist[] = [];
+  const igdbItems: WithIgdb[] = [];
+
+  for (const item of items) {
+    if (item.tmdbId && item.mediaType !== "game") tmdbItems.push(item as WithTmdb);
+    else if (item.anilistId && item.mediaType === "anime") anilistItems.push(item as WithAnilist);
+    else if (item.igdbId && item.mediaType === "game") igdbItems.push(item as WithIgdb);
   }
 
-  if (item.anilistId && item.mediaType === "anime") {
-    const url = await fetchAniListCover(item.anilistId);
-    await sleep(670);
-    if (url) return { url, source: "anilist" };
-    failures.anilist++;
-    console.warn(`  [anilist] No cover for ${item.wikidataId} (anilist:${item.anilistId})`);
+  const unmatched = items.length - tmdbItems.length - anilistItems.length - igdbItems.length;
+  console.log(
+    `  Queued: TMDB ${tmdbItems.length}, AniList ${anilistItems.length}, IGDB ${igdbItems.length}, unmatched ${unmatched}`,
+  );
+
+  const results: CoverResult[] = [];
+  const tmdbFailedAnime: WithAnilist[] = [];
+
+  // Run all three source queues in parallel
+  const [tmdbResults, anilistResults, igdbResults] = await Promise.all([
+    mapConcurrent(tmdbItems, COVER_CONCURRENCY_TMDB, 200, async (item) => {
+      const r = await fetchTmdbPoster(item.tmdbId, item.mediaType, tmdbApiKey);
+      if (r.url)
+        return {
+          id: item.id,
+          wikidataId: item.wikidataId,
+          posterUrl: r.url,
+          source: "tmdb" as const,
+        };
+      stats.failures.tmdb++;
+      if (item.anilistId && item.mediaType === "anime") tmdbFailedAnime.push(item as WithAnilist);
+      return null;
+    }),
+    mapConcurrent(anilistItems, COVER_CONCURRENCY_ANILIST, 670, async (item) => {
+      const r = await fetchAniListCover(item.anilistId);
+      if (r.url)
+        return {
+          id: item.id,
+          wikidataId: item.wikidataId,
+          posterUrl: r.url,
+          source: "anilist" as const,
+        };
+      stats.failures.anilist++;
+      return null;
+    }),
+    mapConcurrent(igdbItems, COVER_CONCURRENCY_IGDB, 300, async (item) => {
+      const r = await fetchIgdbCover(item.igdbId);
+      if (r.url)
+        return {
+          id: item.id,
+          wikidataId: item.wikidataId,
+          posterUrl: r.url,
+          source: "igdb" as const,
+        };
+      stats.failures.igdb++;
+      return null;
+    }),
+  ]);
+
+  for (const r of tmdbResults) if (r) results.push(r);
+  for (const r of anilistResults) if (r) results.push(r);
+  for (const r of igdbResults) if (r) results.push(r);
+
+  // AniList fallback for anime that failed TMDB
+  if (tmdbFailedAnime.length > 0) {
+    const fallbackResults = await mapConcurrent(
+      tmdbFailedAnime,
+      COVER_CONCURRENCY_ANILIST,
+      670,
+      async (item) => {
+        const r = await fetchAniListCover(item.anilistId);
+        if (r.url)
+          return {
+            id: item.id,
+            wikidataId: item.wikidataId,
+            posterUrl: r.url,
+            source: "anilist" as const,
+          };
+        stats.failures.anilist++;
+        return null;
+      },
+    );
+    for (const r of fallbackResults) if (r) results.push(r);
   }
 
-  if (item.igdbId && item.mediaType === "game") {
-    const url = await fetchIgdbCover(item.igdbId);
-    await sleep(250);
-    if (url) return { url, source: "igdb" };
-    failures.igdb++;
-    console.warn(`  [igdb] No cover for ${item.wikidataId} (igdb:${item.igdbId})`);
-  }
+  // Track source counts
+  for (const r of results) stats.bySource[r.source]++;
 
-  return null;
+  return results;
 }
 
 async function batchUpdatePosters(
-  rawClient: RawClient,
+  db: DbType,
   updates: { id: string; posterUrl: string }[],
 ): Promise<void> {
   if (updates.length === 0) return;
   const values = updates
     .map((u) => `(${escapePostgresLiteral(u.id)}, ${escapePostgresLiteral(u.posterUrl)})`)
     .join(", ");
-  await rawClient.unsafe(
-    `UPDATE media SET poster_url = v.url, updated_at = now()
+  await db.execute(
+    sql.raw(
+      `UPDATE media SET poster_url = v.url, updated_at = now()
      FROM (VALUES ${values}) AS v(id, url)
      WHERE media.id = v.id`,
+    ),
   );
 }
 
-async function runCovers(db: DbType, rawClient: RawClient): Promise<void> {
+async function runCovers(db: DbType): Promise<void> {
   const tmdbApiKey = cleanEnv(process.env.TMDB_API_KEY);
   if (!tmdbApiKey) {
     console.error("TMDB_API_KEY required for cover art — skipping");
@@ -1062,11 +1181,12 @@ async function runCovers(db: DbType, rawClient: RawClient): Promise<void> {
 
   let processed = 0;
   let resolved = 0;
-  let skipped = 0;
   let lastId = "";
   const startTime = Date.now();
-  const bySource: Record<CoverSource, number> = { tmdb: 0, anilist: 0, igdb: 0 };
-  const failures: Record<CoverSource, number> = { tmdb: 0, anilist: 0, igdb: 0 };
+  const stats = {
+    bySource: { tmdb: 0, anilist: 0, igdb: 0 } as Record<CoverSource, number>,
+    failures: { tmdb: 0, anilist: 0, igdb: 0 } as Record<CoverSource, number>,
+  };
 
   while (true) {
     const candidates = await db
@@ -1087,40 +1207,32 @@ async function runCovers(db: DbType, rawClient: RawClient): Promise<void> {
 
     if (candidates.length === 0) break;
     lastId = candidates[candidates.length - 1].id;
+    processed += candidates.length;
 
-    const updates: { id: string; posterUrl: string }[] = [];
+    const results = await resolveBatch(candidates, tmdbApiKey, stats);
+    resolved += results.length;
 
-    for (const item of candidates) {
-      processed++;
-
-      const result = await resolveUrl(item, tmdbApiKey, failures);
-      if (result) {
-        updates.push({ id: item.id, posterUrl: result.url });
-        bySource[result.source]++;
-        resolved++;
-      } else {
-        skipped++;
-      }
-
-      if (processed % 50 === 0) {
-        console.log(
-          `[${formatDuration(Date.now() - startTime)}] Processed: ${processed}, Resolved: ${resolved}, Skipped: ${skipped}`,
-        );
-      }
+    if (results.length > 0) {
+      await batchUpdatePosters(
+        db,
+        results.map((r) => ({ id: r.id, posterUrl: r.posterUrl })),
+      );
     }
 
-    if (updates.length > 0) {
-      await batchUpdatePosters(rawClient, updates);
-    }
+    console.log(
+      `[${formatDuration(Date.now() - startTime)}] Processed: ${processed}, Resolved: ${resolved}, No cover: ${processed - resolved} | Failures: TMDB ${stats.failures.tmdb}, AniList ${stats.failures.anilist}, IGDB ${stats.failures.igdb}`,
+    );
   }
 
   console.log(`\nCover art done in ${formatDuration(Date.now() - startTime)}`);
-  console.log(`  Processed: ${processed}, Resolved: ${resolved}, Skipped: ${skipped}`);
   console.log(
-    `  By source: TMDB ${bySource.tmdb}, AniList ${bySource.anilist}, IGDB ${bySource.igdb}`,
+    `  Processed: ${processed}, Resolved: ${resolved}, No cover: ${processed - resolved}`,
   );
   console.log(
-    `  Failures:  TMDB ${failures.tmdb}, AniList ${failures.anilist}, IGDB ${failures.igdb}`,
+    `  By source: TMDB ${stats.bySource.tmdb}, AniList ${stats.bySource.anilist}, IGDB ${stats.bySource.igdb}`,
+  );
+  console.log(
+    `  Failures:  TMDB ${stats.failures.tmdb}, AniList ${stats.failures.anilist}, IGDB ${stats.failures.igdb}`,
   );
 }
 
@@ -1283,12 +1395,7 @@ async function main() {
   const cliResult = parseCliArgs();
   const config = cliResult === "interactive" ? await interactiveMenu() : cliResult;
 
-  if (!process.env.DATABASE_URL) {
-    console.error("DATABASE_URL required");
-    process.exit(1);
-  }
-
-  const { db, client: rawClient } = createImportDb(process.env.DATABASE_URL);
+  const db = getDb();
   const results: StepResult[] = [];
   const startTime = Date.now();
 
@@ -1324,7 +1431,7 @@ async function main() {
             results.push({ label, status: "skipped", elapsed: "-" });
             continue;
           }
-          await runMediaImport(db, rawClient, {
+          await runMediaImport(db, {
             subsetPath: config.subsetPath,
             reset: config.reset,
             limit: config.limit,
@@ -1333,13 +1440,13 @@ async function main() {
           });
           break;
         case "percentiles":
-          await runPercentiles(rawClient, config.qrankPath);
+          await runPercentiles(db, config.qrankPath);
           break;
         case "seasons":
           await runSeasons(db, config.subsetPath, config.animeOfflinePath);
           break;
         case "covers":
-          await runCovers(db, rawClient);
+          await runCovers(db);
           break;
       }
 
@@ -1351,13 +1458,13 @@ async function main() {
       results.push({ label, status: "failed", elapsed });
       console.error(`\n  "${label}" failed:`, err);
       printSummary(results, startTime);
-      await rawClient.end();
+      await db.$client.end();
       process.exit(1);
     }
   }
 
   printSummary(results, startTime);
-  await rawClient.end();
+  await db.$client.end();
 }
 
 main().catch((err) => {

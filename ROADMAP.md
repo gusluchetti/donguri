@@ -3,6 +3,13 @@
 Your personal catalog for movies, TV shows, anime, and games.
 Track what you've watched, what you're playing, and what's next.
 
+## what we believe
+
+1. Your media history is yours. Not ours, not a company's. AT Protocol means you can leave anytime and take everything with you.
+2. Tracking should feel like maintaining a personal library, not filling out spreadsheets. Every interaction should have weight.
+3. Social features exist to help you discover, not to manufacture engagement. No algorithmic feeds. No infinite scroll.
+4. Open protocols over closed platforms. Always. Even when it's harder.
+
 ## Available now
 
 - **100,000+ titles** — movies, TV shows, anime, and games, all searchable
@@ -13,6 +20,8 @@ Track what you've watched, what you're playing, and what's next.
 - **Sign in with Bluesky, Google, or GitHub** — Bluesky syncs to your PDS
 - **Genre tags** — hierarchical display with sub-genres grouped under parent categories
 - **Dark and light themes** — toggle or follow system preference
+- **Per-episode tracking** — mark individual episodes watched, season by season, with bulk "mark through" toggle
+- **Keyboard shortcuts** — j/k navigation, quick-add (a), search (/), open (l/→), back (h/←), filter sequences, help overlay (?)
 - **Fast and cached** — local cache first, background sync
 
 <!-- All shipped. Season data: Wikidata (primary) + TVMaze CC BY-SA (TV gap-fill) + anime-offline-database ODbL (anime gap-fill). Cover art: TMDB → AniList → IGDB hotlinked CDN URLs. -->
@@ -21,7 +30,7 @@ Track what you've watched, what you're playing, and what's next.
 
 - **Import from MyAnimeList** — upload your MAL XML export to bring your anime list into donguri
 - **Anime catalog improvements** — better classification for anime titles and broader external ID coverage
-- **Per-episode tracking** — mark individual episodes watched, season by season
+- ~~**Per-episode tracking** — mark individual episodes watched, season by season~~
 - **Filter by genre** — browse the catalog by genre, not just media type
 
 <!-- P0: MAL XML import — parse <myanimelist><anime> entries, match via malId column, map statuses (Watching/Completed/On-Hold/Dropped/Plan to Watch → donguri equivalents), map scores 1-10 → 0-100 ratings, import watched episode counts. UI: file upload on settings or dedicated import page. First in a series of import sources. -->
@@ -61,7 +70,7 @@ Track what you've watched, what you're playing, and what's next.
 - **"Currently watching" shelf** — surface in-progress titles front and center on your homepage
 - **Franchise grouping** — link sequels, prequels, and spinoffs as a navigable tree
 - **Where to watch** — streaming availability by region
-- **Keyboard shortcuts** — j/k navigation, quick-rate, quick-add
+- ~~**Keyboard shortcuts** — j/k navigation, quick-rate, quick-add~~
 - **Richer detail pages** — directors, cast, studios, awards
 
 <!-- Data safety: account deletion must cascade (user → catalog_entries → revoke AT tokens). Export as JSON/CSV. Non-negotiable before paid tier. -->
@@ -70,10 +79,3 @@ Track what you've watched, what you're playing, and what's next.
 <!-- Visual catalog remaining: directors/cast/studios from Wikidata, awards P166/P1411 (needs qualifier extraction + new awards table), inline external ratings. -->
 <!-- Franchise grouping: Wikidata P179 (part of series) + P155/P156 (follows/followed by). -->
 <!-- Where to watch: JustWatch API for streaming availability. -->
-
-## What we believe
-
-- **Your data belongs to you.** Bluesky users sync to their own personal server — portable, no lock-in.
-- **Open catalog, private collection.** The catalog is sourced from Wikidata. Your tracking is yours alone.
-- **Fast by default.** Local cache first. Changes sync quietly in the background.
-- **No dark patterns.** We earn engagement, we don't manufacture it.

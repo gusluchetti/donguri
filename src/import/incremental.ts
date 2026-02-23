@@ -8,7 +8,7 @@
  *   bun run src/import/incremental.ts --days=7 --dry-run # preview only
  */
 
-import { createImportDb } from "../db";
+import { getDb } from "../db";
 import { parseMediaEntity, shouldImportEntity } from "./_filters";
 import { formatDuration } from "./_retry";
 import type { WikidataEntity } from "./_types";
@@ -148,13 +148,7 @@ async function main() {
   }
 
   // Step 2: Fetch full entity data in batches of 50
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    console.error("DATABASE_URL required");
-    process.exit(1);
-  }
-
-  const { db, client: rawClient } = createImportDb(url);
+  const db = getDb();
   const stats: ImportStats = {
     entitiesProcessed: 0,
     entitiesImported: 0,
@@ -193,7 +187,6 @@ async function main() {
       // Upsert when batch is full
       if (upsertBatch.length >= UPSERT_BATCH_SIZE) {
         await processSuperBatch(
-          rawClient,
           db,
           upsertBatch as NonNullable<ReturnType<typeof parseMediaEntity>>[],
           genreCache,
@@ -220,7 +213,6 @@ async function main() {
   // Flush remaining batch
   if (upsertBatch.length > 0) {
     await processSuperBatch(
-      rawClient,
       db,
       upsertBatch as NonNullable<ReturnType<typeof parseMediaEntity>>[],
       genreCache,
@@ -229,7 +221,7 @@ async function main() {
     );
   }
 
-  await rawClient.end();
+  await db.$client.end();
 
   const elapsed = formatDuration(Date.now() - startTime);
   console.log(`\n${"=".repeat(60)}`);
