@@ -1,3 +1,4 @@
+import { normalizeForSearch } from "~/lib/search";
 import {
   type MediaType,
   MediaTypeQValues,
@@ -431,16 +432,6 @@ function getCountryOfOrigin(entity: WikidataEntity): string | null {
   return COUNTRY_MAP[countryQId] ?? null;
 }
 
-function normalizeForSearch(title: string): string {
-  return title
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^\w\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function getBestTitle(entity: WikidataEntity): string | null {
   return (
     getLanguageString(entity.labels, "en") ??
@@ -472,8 +463,26 @@ export function parseMediaEntity(entity: WikidataEntity): ParsedMedia | null {
     tmdbId = getStringClaim(entity, P.TMDB_TV_ID) ?? getStringClaim(entity, P.TMDB_MOVIE_ID);
   }
 
+  // Extract English aliases, filtering out duplicates of title/originalTitle and junk
+  const titleLower = titleEn.toLowerCase();
+  const origLower = originalTitle?.toLowerCase();
+  const aliases: string[] = [];
+  const seenLower = new Set<string>([titleLower]);
+  if (origLower) seenLower.add(origLower);
+
+  for (const aliasObj of entity.aliases?.en ?? []) {
+    const v = aliasObj.value.trim();
+    if (!v || v.length > 100) continue;
+    const lo = v.toLowerCase();
+    if (seenLower.has(lo)) continue;
+    seenLower.add(lo);
+    aliases.push(v);
+    if (aliases.length >= 10) break;
+  }
+
   const searchParts = [titleEn];
   if (originalTitle) searchParts.push(originalTitle);
+  for (const a of aliases) searchParts.push(a);
   const searchTitle = normalizeForSearch(searchParts.join(" "));
 
   return {
@@ -502,5 +511,6 @@ export function parseMediaEntity(entity: WikidataEntity): ParsedMedia | null {
     genreIds: getEntityIdClaims(entity, P.GENRE),
     platformIds: getEntityIdClaims(entity, P.PLATFORM),
     searchTitle,
+    aliases,
   };
 }

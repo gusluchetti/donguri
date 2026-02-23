@@ -8,6 +8,7 @@
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "~/db";
 import { type Media, media } from "~/db/schema";
+import { normalizeForSearch } from "~/lib/search";
 
 type MediaType = "movie" | "tv_series" | "anime" | "game";
 const MEDIA_TYPES: MediaType[] = ["movie", "tv_series", "anime", "game"];
@@ -123,18 +124,36 @@ export async function searchPopular(
 
   const source = mediaType ? byType[mediaType] : all;
   const lower = search.toLowerCase();
+  const normalized = normalizeForSearch(search);
 
   // Score and filter
   const scored: { item: Media; score: number }[] = [];
   for (const item of source) {
     const titleLower = item.title.toLowerCase();
     const origLower = item.originalTitle?.toLowerCase() ?? "";
+    const itemAliases = item.aliases ? item.aliases.split("|") : [];
+    const searchTitleVal = item.searchTitle ?? "";
 
+    // Score 5: exact case-sensitive alias match
+    if (itemAliases.includes(search)) {
+      scored.push({ item, score: 5 });
+      continue;
+    }
+    // Score 4: case-insensitive alias match
+    if (itemAliases.some((a) => a.toLowerCase() === lower)) {
+      scored.push({ item, score: 4 });
+      continue;
+    }
+    // Score 3: exact title match
     if (titleLower === lower || origLower === lower) {
       scored.push({ item, score: 3 });
     } else if (titleLower.startsWith(lower) || origLower.startsWith(lower)) {
       scored.push({ item, score: 2 });
-    } else if (titleLower.includes(lower) || origLower.includes(lower)) {
+    } else if (
+      titleLower.includes(lower) ||
+      origLower.includes(lower) ||
+      searchTitleVal.includes(normalized)
+    ) {
       scored.push({ item, score: 1 });
     }
   }

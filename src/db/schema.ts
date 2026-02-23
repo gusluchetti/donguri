@@ -69,6 +69,9 @@ export const media = pgTable(
     // Normalized search column
     searchTitle: text("search_title"),
 
+    // Raw aliases (pipe-delimited, e.g. "CS2|Counter Strike 2")
+    aliases: text("aliases"),
+
     // Timestamps
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),

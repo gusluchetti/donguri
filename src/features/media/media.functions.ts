@@ -13,6 +13,7 @@ import {
   seasons,
 } from "~/db/schema";
 import { getSessionData } from "~/features/auth/auth.session";
+import { normalizeForSearch } from "~/lib/search";
 import { getPopularPage, searchPopular } from "./popular-cache";
 
 const parentGenres = alias(canonicalGenres, "parent_genres");
@@ -68,18 +69,31 @@ async function searchMedia(
   mediaType?: string,
 ) {
   const offset = cursor ? Number.parseInt(cursor, 10) : 0;
+  const normalizedTerm = normalizeForSearch(searchTerm);
   const ilikeTerm = `%${searchTerm.replace(/[%_\\]/g, "\\$&")}%`;
+  const normalizedIlike = `%${normalizedTerm.replace(/[%_\\]/g, "\\$&")}%`;
+  // Pipe-delimited alias patterns for exact matching
+  const aliasExact = `%|${searchTerm}|%`;
+  const aliasIlike = `%|${searchTerm}|%`;
+  // Pad aliases with pipes for exact boundary matching
+  const aliasLikeTerm = `%${searchTerm.replace(/[%_\\]/g, "\\$&")}%`;
 
   const relevance = sql<number>`GREATEST(
+    CASE WHEN ${media.aliases} IS NOT NULL AND '|' || ${media.aliases} || '|' LIKE ${aliasExact} THEN 2.0 ELSE 0 END,
+    CASE WHEN ${media.aliases} IS NOT NULL AND '|' || ${media.aliases} || '|' ILIKE ${aliasIlike} THEN 1.9 ELSE 0 END,
     word_similarity(${searchTerm}, ${media.title}),
-    word_similarity(${searchTerm}, COALESCE(${media.originalTitle}, ''))
+    word_similarity(${searchTerm}, COALESCE(${media.originalTitle}, '')),
+    word_similarity(${normalizedTerm}, COALESCE(${media.searchTitle}, ''))
   )`;
 
   const fuzzyCondition = sql`(
     ${searchTerm} <% ${media.title}
     OR ${searchTerm} <% COALESCE(${media.originalTitle}, '')
+    OR ${normalizedTerm} <% COALESCE(${media.searchTitle}, '')
     OR ${media.title} ILIKE ${ilikeTerm}
     OR ${media.originalTitle} ILIKE ${ilikeTerm}
+    OR ${media.searchTitle} ILIKE ${normalizedIlike}
+    OR ${media.aliases} ILIKE ${aliasLikeTerm}
   )`;
 
   const conditions = [fuzzyCondition];

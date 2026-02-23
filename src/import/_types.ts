@@ -193,6 +193,7 @@ export interface ParsedMedia {
   genreIds: string[];
   platformIds: string[];
   searchTitle: string;
+  aliases: string[];
 }
 
 export interface ParsedSeason {

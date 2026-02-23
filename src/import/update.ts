@@ -105,6 +105,7 @@ const DROPPABLE_INDEXES = [
   "idx_media_popularity",
   "idx_media_title_trgm",
   "idx_media_original_title_trgm",
+  "idx_media_search_title_trgm",
 ];
 
 const RECREATE_INDEX_SQL = [

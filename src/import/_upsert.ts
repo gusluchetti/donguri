@@ -55,6 +55,7 @@ export const STAGING_COLUMNS = [
   "tvdb_id",
   "tvmaze_id",
   "search_title",
+  "aliases",
 ] as const;
 
 // ─── TSV escaping for COPY ──────────────────────────────────────────────────
@@ -95,6 +96,7 @@ export function toTsvRow(item: ParsedMedia, rowId: string): string {
     item.tvdbId ?? "\\N",
     item.tvmazeId ?? "\\N",
     escapeTsv(item.searchTitle),
+    item.aliases.length > 0 ? escapeTsv(item.aliases.join("|")) : "\\N",
   ];
   return fields.join("\t");
 }
@@ -148,7 +150,8 @@ export async function processSuperBatch(
 							ann_id TEXT,
 							tvdb_id TEXT,
 							tvmaze_id TEXT,
-							search_title TEXT
+							search_title TEXT,
+							aliases TEXT
 						) ON COMMIT DROP
 					`);
 
@@ -188,7 +191,7 @@ export async function processSuperBatch(
 							description, start_year, end_year, runtime_minutes, season_count,
 							episode_count, sitelinks_count, country_of_origin,
 							imdb_id, tmdb_id, mal_id, anilist_id, anidb_id, igdb_id,
-							ann_id, tvdb_id, tvmaze_id, search_title, created_at, updated_at
+							ann_id, tvdb_id, tvmaze_id, search_title, aliases, created_at, updated_at
 						)
 						SELECT
 							s.id, s.wikidata_id, s.media_type, s.title, s.original_title,
@@ -196,7 +199,7 @@ export async function processSuperBatch(
 							s.runtime_minutes, s.season_count, s.episode_count, s.sitelinks_count,
 							s.country_of_origin, s.imdb_id, s.tmdb_id, s.mal_id, s.anilist_id,
 							s.anidb_id, s.igdb_id, s.ann_id, s.tvdb_id, s.tvmaze_id,
-							s.search_title, now(), now()
+							s.search_title, s.aliases, now(), now()
 						FROM _media_staging s
 						ON CONFLICT (wikidata_id) DO UPDATE SET
 							title = COALESCE(EXCLUDED.title, media.title),
@@ -220,6 +223,7 @@ export async function processSuperBatch(
 							tvdb_id = COALESCE(EXCLUDED.tvdb_id, media.tvdb_id),
 							tvmaze_id = COALESCE(EXCLUDED.tvmaze_id, media.tvmaze_id),
 							search_title = COALESCE(EXCLUDED.search_title, media.search_title),
+							aliases = COALESCE(EXCLUDED.aliases, media.aliases),
 							updated_at = now()
 						RETURNING id, wikidata_id, (xmax = 0) AS is_new
 					`);
