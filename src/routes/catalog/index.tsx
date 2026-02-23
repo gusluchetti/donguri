@@ -70,8 +70,8 @@ export const Route = createFileRoute("/catalog/")({
   component: CatalogPage,
 });
 
-const SearchBar = forwardRef<HTMLInputElement, { initialValue: string }>(function SearchBar(
-  { initialValue },
+const SearchBar = forwardRef<HTMLInputElement, { initialValue: string; onRandom?: () => void }>(function SearchBar(
+  { initialValue, onRandom },
   ref,
 ) {
   const navigate = useNavigate({ from: "/catalog/" });
@@ -141,14 +141,9 @@ const SearchBar = forwardRef<HTMLInputElement, { initialValue: string }>(functio
         title="Random title"
         onClick={() => {
           SoundEngine.dice();
-          // Pick a random item from the catalog by navigating to a random page
-          // For now, just scroll to a random position
-          navigate({
-            search: (prev) => ({ ...prev, q: undefined }),
-            replace: true,
-          });
+          onRandom?.();
         }}
-        className="w-[42px] h-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+        className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
       >
         <Dice5 size={18} />
       </button>
@@ -386,7 +381,16 @@ function CatalogPage() {
       <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 py-2 flex flex-col gap-2">
         {/* Search */}
         <div className="w-full">
-          <SearchBar ref={searchRef} initialValue={q ?? ""} />
+          <SearchBar
+            ref={searchRef}
+            initialValue={q ?? ""}
+            onRandom={() => {
+              if (!allItems.length) return;
+              const item = allItems[Math.floor(Math.random() * allItems.length)];
+              SoundEngine.navForward();
+              navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
+            }}
+          />
         </div>
 
         {/* Type filter tabs — joined segment style */}
@@ -444,7 +448,7 @@ function CatalogPage() {
       )}
 
       {/* Virtual list */}
-      <div className="flex-1 relative min-h-0">
+      <div className="flex-1 relative min-h-0 overflow-hidden">
         <div
           ref={parentRef}
           className="absolute inset-0 overflow-auto max-w-[1100px] mx-auto w-full px-4 sm:px-6 transition-opacity duration-150"
