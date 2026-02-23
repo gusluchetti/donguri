@@ -1,4 +1,11 @@
-import { Moon, SpeakerHigh, SpeakerNone, Sun } from "@phosphor-icons/react";
+import {
+  Bookmark,
+  MagnifyingGlass,
+  Moon,
+  SpeakerHigh,
+  SpeakerNone,
+  Sun,
+} from "@phosphor-icons/react";
 import { HotkeysProvider, useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
 import type { QueryClient } from "@tanstack/react-query";
 import {
@@ -173,11 +180,13 @@ function RootComponent() {
                     </span>
                   )}
 
-                  {NAV_ITEMS.map((item) => (
-                    <NavButton key={item.to} to={item.to} exact={item.exact !== false}>
-                      {item.label}
-                    </NavButton>
-                  ))}
+                  <div className="hidden sm:flex items-center gap-1">
+                    {NAV_ITEMS.map((item) => (
+                      <NavButton key={item.to} to={item.to} exact={item.exact !== false}>
+                        {item.label}
+                      </NavButton>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Right: controls */}
@@ -215,7 +224,7 @@ function RootComponent() {
               </div>
             </nav>
             <Outlet />
-            <footer className="border-t border-dg-border-subtle px-g3 py-3 font-body shrink-0">
+            <footer className="hidden sm:block border-t border-dg-border-subtle px-g3 py-3 font-body shrink-0">
               <div className="max-w-[1100px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[0.7rem] text-dg-text-tertiary">
                 <span className="flex items-center gap-2">
                   <span>v2026.02.23</span>
@@ -267,6 +276,7 @@ function RootComponent() {
                 </span>
               </div>
             </footer>
+            <BottomNav />
           </div>
         </HotkeysProvider>
       </ThemeProvider>
@@ -411,6 +421,66 @@ function ThemeToggle() {
     >
       {theme === "dark" ? <Sun size={13} weight="bold" /> : <Moon size={13} weight="bold" />}
     </button>
+  );
+}
+
+function BottomNav() {
+  const base =
+    "flex-1 flex flex-col items-center justify-center gap-0.5 no-underline py-2 transition-colors duration-150";
+  const active = { className: `${base} text-dg-accent` };
+  const inactive = { className: `${base} text-dg-text-tertiary` };
+
+  return (
+    <nav
+      className="sm:hidden shrink-0 border-t border-dg-border-subtle font-body z-30"
+      style={{
+        background: "var(--nav-bg)",
+        backdropFilter: "blur(16px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(16px) saturate(1.3)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
+      <div className="flex items-stretch h-14">
+        {/* Watchlist */}
+        <Link to="/" activeOptions={{ exact: true }} activeProps={active} inactiveProps={inactive}>
+          <Bookmark size={22} weight="bold" />
+          <span className="text-[0.6rem] uppercase tracking-wider">watchlist</span>
+        </Link>
+
+        {/* Home / Acorn */}
+        <Link
+          to="/"
+          activeOptions={{ exact: true }}
+          activeProps={active}
+          inactiveProps={inactive}
+          onClick={() => SoundEngine.click()}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 256 256"
+            width={26}
+            height={26}
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path d="M232,104a56.06,56.06,0,0,0-56-56H136a24,24,0,0,1,24-24,8,8,0,0,0,0-16,40,40,0,0,0-40,40H80a56.06,56.06,0,0,0-56,56,16,16,0,0,0,8,13.83V128c0,35.53,33.12,62.12,59.74,83.49C103.66,221.07,120,234.18,120,240a8,8,0,0,0,16,0c0-5.82,16.34-18.93,28.26-28.51C190.88,190.12,224,163.53,224,128V117.83A16,16,0,0,0,232,104ZM80,64h96a40.06,40.06,0,0,1,40,40H40A40,40,0,0,1,80,64Zm74.25,135c-10.62,8.52-20,16-26.25,23.37-6.25-7.32-15.63-14.85-26.25-23.37C77.8,179.79,48,155.86,48,128v-8H208v8C208,155.86,178.2,179.79,154.25,199Z" />
+          </svg>
+          <span className="text-[0.6rem] uppercase tracking-wider">home</span>
+        </Link>
+
+        {/* Catalog */}
+        <Link
+          to="/catalog"
+          activeOptions={{ exact: false }}
+          activeProps={active}
+          inactiveProps={inactive}
+          onClick={() => SoundEngine.click()}
+        >
+          <MagnifyingGlass size={22} weight="bold" />
+          <span className="text-[0.6rem] uppercase tracking-wider">catalog</span>
+        </Link>
+      </div>
+    </nav>
   );
 }
 
