@@ -287,7 +287,7 @@ function LoggedInView() {
     <div>
       {/* Tiny stats header */}
       {entries.length > 0 && (
-        <div className="flex items-baseline gap-4 sm:gap-6 mb-5 pb-4 border-b border-dg-border-subtle flex-wrap">
+        <div className="grid grid-cols-2 sm:flex sm:items-baseline sm:gap-6 gap-y-3 gap-x-4 mb-5 pb-4 border-b border-dg-border-subtle">
           {[
             { value: statCounts.total, label: "titles" },
             { value: statCounts.inProgress, label: "in progress" },
