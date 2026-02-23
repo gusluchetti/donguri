@@ -72,19 +72,23 @@ body {
   --color-dg-seal-legendary: #b8a472;
 }
 
-/* Atmosphere variables (outside @theme — need rgba) */
-:root {
-  --topo-color: rgba(164, 174, 114, 0.035);
-  --grid-color: rgba(164, 174, 114, 0.03);
-  --noise-opacity: 0.15;
-  --grain-blend: soft-light;
-  --nav-bg: rgba(13, 15, 21, 0.94);
-  --stamp-bg: rgba(255, 255, 255, 0.02);
-  --vignette: radial-gradient(ellipse 80% 70% at 50% 45%, transparent 30%, var(--color-dg-bg) 100%);
-}
-
 /* Light theme overrides — must be in @layer base to beat @layer theme */
+/* Atmosphere defaults are also here so light overrides can win (unlayered :root would beat @layer base) */
 @layer base {
+  :root {
+    --topo-color: rgba(164, 174, 114, 0.035);
+    --grid-color: rgba(164, 174, 114, 0.03);
+    --noise-opacity: 0.15;
+    --grain-blend: soft-light;
+    --nav-bg: rgba(13, 15, 21, 0.94);
+    --stamp-bg: rgba(255, 255, 255, 0.02);
+    --vignette: radial-gradient(
+      ellipse 80% 70% at 50% 45%,
+      transparent 30%,
+      var(--color-dg-bg) 100%
+    );
+  }
+
   [data-theme="light"] {
     --color-dg-bg: #ece8de;
     --color-dg-surface: #e3ded3;
