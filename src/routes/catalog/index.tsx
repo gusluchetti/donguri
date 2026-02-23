@@ -581,7 +581,7 @@ const MediaRow = memo(function MediaRow({
   const panelOpen = addState !== null;
 
   return (
-    <div className="h-full flex items-center relative overflow-hidden">
+    <div className="h-full flex items-center relative">
       {/* Left pop-out quick-add panel */}
       {showAdd && (
         <div
