@@ -15,18 +15,18 @@ import { z } from "zod";
 import { CoverThumb } from "~/components/CoverThumb";
 import { StampBadge } from "~/components/StampBadge";
 import type { Media } from "~/db/schema";
-import { setCatalogEntry } from "~/lib/catalog.functions";
-import { isInputFocused } from "~/lib/hotkeys/shortcuts";
-import { useCatalogCursor } from "~/lib/hotkeys/use-catalog-cursor";
+import { setCatalogEntry } from "~/features/catalog/catalog.functions";
+import { SoundEngine } from "~/features/catalog/catalog.sound";
 import {
   STAMP_COLORS,
   STATUS_BUTTON_COLORS,
   STATUS_ICONS,
   type StatusValue,
-} from "~/lib/media-types";
+} from "~/features/media/media-types";
+import { isInputFocused } from "~/lib/hotkeys/shortcuts";
+import { useCatalogCursor } from "~/lib/hotkeys/use-catalog-cursor";
 import { ogTags, pageTitle } from "~/lib/og";
 import { catalogInfiniteOptions, mediaStatsOptions } from "~/lib/query-options";
-import { SoundEngine } from "~/lib/sound";
 
 const rootRoute = getRouteApi("__root__");
 

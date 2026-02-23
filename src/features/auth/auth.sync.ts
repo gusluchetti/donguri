@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "~/db";
 import { catalogEntries } from "~/db/schema";
-import { countWatchedEpisodes, normalizeStatus } from "~/lib/media-types";
+import { countWatchedEpisodes, normalizeStatus } from "~/features/media/media-types";
 
 const COLLECTION = "app.donguri.catalog.entry";
 

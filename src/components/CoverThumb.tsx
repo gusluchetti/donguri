@@ -1,4 +1,4 @@
-import { TYPE_HUES } from "~/lib/media-types";
+import { TYPE_HUES } from "~/features/media/media-types";
 import { useTheme } from "~/lib/theme";
 
 /**

@@ -6,6 +6,7 @@ import { CoverThumb } from "~/components/CoverThumb";
 import { SectionHeader } from "~/components/SectionHeader";
 import { StampBadge } from "~/components/StampBadge";
 import { initiateLogin, initiateOAuthLogin } from "~/features/auth/auth.functions";
+import { SoundEngine } from "~/features/catalog/catalog.sound";
 import {
   ratingColor,
   replayCountLabel,
@@ -13,10 +14,9 @@ import {
   STATUS_LABELS_GENERIC,
   STATUS_ORDER,
   type StatusValue,
-} from "~/lib/media-types";
+} from "~/features/media/media-types";
 import { ogTags, pageTitle } from "~/lib/og";
 import { watchlistOptions } from "~/lib/query-options";
-import { SoundEngine } from "~/lib/sound";
 
 const rootRoute = getRouteApi("__root__");
 

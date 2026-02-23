@@ -5,7 +5,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CatalogEntry } from "~/db/schema";
-import { getCatalogEntry, removeCatalogEntry, setCatalogEntry } from "~/lib/catalog.functions";
+import {
+  getCatalogEntry,
+  removeCatalogEntry,
+  setCatalogEntry,
+} from "~/features/catalog/catalog.functions";
+import { SoundEngine } from "~/features/catalog/catalog.sound";
 import {
   availableStatuses,
   ratingColor,
@@ -15,10 +20,9 @@ import {
   statusLabel,
   todayISO,
   type WatchedEpisodes,
-} from "~/lib/media-types";
+} from "~/features/media/media-types";
+import { useAction } from "~/hooks/use-action";
 import { catalogEntryOptions } from "~/lib/query-options";
-import { SoundEngine } from "~/lib/sound";
-import { useAction } from "~/lib/use-action";
 
 type StatePair<T> = { value: T; set: (v: T) => void };
 

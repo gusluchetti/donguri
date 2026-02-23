@@ -5,12 +5,16 @@ import { useCallback, useEffect, useState } from "react";
 import { CoverThumb } from "~/components/CoverThumb";
 import { StampBadge } from "~/components/StampBadge";
 import type { CatalogEntry } from "~/db/schema";
-import { getMediaStub } from "~/lib/catalog.functions";
-import type { getMedia } from "~/lib/media.functions";
-import { countWatchedEpisodes, mediaTypeLabel, type WatchedEpisodes } from "~/lib/media-types";
+import { getMediaStub } from "~/features/catalog/catalog.functions";
+import { SoundEngine } from "~/features/catalog/catalog.sound";
+import type { getMedia } from "~/features/media/media.functions";
+import {
+  countWatchedEpisodes,
+  mediaTypeLabel,
+  type WatchedEpisodes,
+} from "~/features/media/media-types";
 import { ogTags, pageTitle } from "~/lib/og";
 import { catalogEntryOptions, mediaDetailOptions } from "~/lib/query-options";
-import { SoundEngine } from "~/lib/sound";
 import { EpisodeTracker } from "./-episodes";
 import { TrackingPanel } from "./-tracking";
 
