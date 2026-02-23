@@ -507,23 +507,47 @@ function MediaDetailPage({
           </div>
         )}
 
-        {data.platforms.length > 0 && (
-          <div className="mb-g3 sm:mb-g4">
-            <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-              Platforms
-            </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {data.platforms.map((p: { id: string; name: string }) => (
-                <span
-                  key={p.id}
-                  className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                >
-                  {p.name}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+        {data.platforms.length > 0 &&
+          (() => {
+            // Dedup platforms: hide parent family when specific children are present
+            const subPlatformParentIds = new Set(
+              data.platforms.flatMap((p: { parentId: string | null }) =>
+                p.parentId ? [p.parentId] : [],
+              ),
+            );
+            const visiblePlatforms = data.platforms.filter(
+              (p: { id: string; parentId: string | null }) => {
+                if (p.parentId) return true;
+                return !subPlatformParentIds.has(p.id);
+              },
+            );
+            return (
+              <div className="mb-g3 sm:mb-g4">
+                <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+                  Platforms
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {visiblePlatforms.map(
+                    (p: { id: string; name: string; parentName?: string | null }) => (
+                      <span
+                        key={p.id}
+                        className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                      >
+                        {p.parentName ? (
+                          <>
+                            <span className="text-dg-text-tertiary">{p.parentName} &rsaquo; </span>
+                            {p.name}
+                          </>
+                        ) : (
+                          p.name
+                        )}
+                      </span>
+                    ),
+                  )}
+                </div>
+              </div>
+            );
+          })()}
       </div>
     </div>
   );

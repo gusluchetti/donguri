@@ -19,19 +19,19 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { cleanEnv, getDb } from "~/db";
 import { TRGM_SETUP_SQL } from "~/db/fts";
 import {
-  genres,
+  genreMappings,
   importProgress,
   media,
   mediaGenres,
   mediaPlatforms,
-  platforms,
+  platformMappings,
   seasons,
 } from "~/db/schema";
 import { parseMediaEntity, shouldImportEntity } from "./_filters";
 import { formatDuration, withRetry } from "./_retry";
 import type { ParsedMedia, ParsedSeason, WikibaseEntityIdValue, WikidataEntity } from "./_types";
 import { WikidataProperties } from "./_types";
-import { type DbType, type ImportStats, processSuperBatch } from "./_upsert";
+import { type CanonicalLookup, type DbType, type ImportStats, processSuperBatch } from "./_upsert";
 
 // ═══ Constants ══════════════════════════════════════════════════════════════
 
@@ -155,8 +155,6 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
     await db.delete(mediaGenres);
     await db.delete(mediaPlatforms);
     await db.delete(media);
-    await db.delete(genres);
-    await db.delete(platforms);
     await db.delete(importProgress);
     await dropIndexes(db);
   } else {
@@ -193,8 +191,34 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
     .values({ sourceFile: subsetPath, status: "running", startedAt: new Date() })
     .returning({ id: importProgress.id });
 
-  const genreCache: Record<string, string> = {};
-  const platformCache: Record<string, string> = {};
+  // Pre-load canonical lookups: Q-ID → canonical_id[]
+  console.log("Loading canonical genre/platform mappings...");
+  const genreLookup: CanonicalLookup = {};
+  const platformLookup: CanonicalLookup = {};
+
+  const [gmRows, pmRows] = await Promise.all([
+    db
+      .select({ wikidataId: genreMappings.wikidataId, canonicalId: genreMappings.canonicalGenreId })
+      .from(genreMappings),
+    db
+      .select({
+        wikidataId: platformMappings.wikidataId,
+        canonicalId: platformMappings.canonicalPlatformId,
+      })
+      .from(platformMappings),
+  ]);
+  for (const row of gmRows) {
+    if (!genreLookup[row.wikidataId]) genreLookup[row.wikidataId] = [];
+    genreLookup[row.wikidataId].push(row.canonicalId);
+  }
+  for (const row of pmRows) {
+    if (!platformLookup[row.wikidataId]) platformLookup[row.wikidataId] = [];
+    platformLookup[row.wikidataId].push(row.canonicalId);
+  }
+  console.log(
+    `  Genre mappings: ${gmRows.length} entries, Platform mappings: ${pmRows.length} entries`,
+  );
+
   let batch: ParsedMedia[] = [];
 
   try {
@@ -239,13 +263,13 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
       batch.push(parsed);
 
       if (batch.length >= batchSize) {
-        await processSuperBatch(db, batch, genreCache, platformCache, stats);
+        await processSuperBatch(db, batch, genreLookup, platformLookup, stats);
         batch = [];
       }
     }
 
     if (batch.length > 0) {
-      await processSuperBatch(db, batch, genreCache, platformCache, stats);
+      await processSuperBatch(db, batch, genreLookup, platformLookup, stats);
     }
 
     if (reset) {

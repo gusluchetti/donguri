@@ -20,7 +20,8 @@
     "lint": "biome check .",
     "lint:fix": "biome check --fix .",
     "format": "biome format --fix .",
-    "import:update": "bun run src/import/update.ts"
+    "import:update": "bun run src/import/update.ts",
+    "db:seed-platforms": "bun run src/db/seed-platforms.ts"
   },
   "dependencies": {
     "@atproto/api": "^0.18.20",

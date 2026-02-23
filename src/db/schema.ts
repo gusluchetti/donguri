@@ -86,30 +86,7 @@ export const media = pgTable(
   ],
 );
 
-// ─── Genres ─────────────────────────────────────────────────────────────────
-
-export const genres = pgTable("genres", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => ulid()),
-  wikidataId: text("wikidata_id").notNull().unique(),
-  name: text("name").notNull(),
-});
-
-export const mediaGenres = pgTable(
-  "media_genres",
-  {
-    mediaId: text("media_id")
-      .notNull()
-      .references(() => media.id, { onDelete: "cascade" }),
-    genreId: text("genre_id")
-      .notNull()
-      .references(() => genres.id, { onDelete: "cascade" }),
-  },
-  (table) => [primaryKey({ columns: [table.mediaId, table.genreId] })],
-);
-
-// ─── Canonical Genres (two-tier: main + sub-genres) ─────────────────────────
+// ─── Genres (canonical, import-time resolved) ───────────────────────────────
 
 export const canonicalGenres = pgTable("canonical_genres", {
   id: text("id")
@@ -138,15 +115,47 @@ export const genreMappings = pgTable(
   ],
 );
 
-// ─── Platforms (games) ──────────────────────────────────────────────────────
+export const mediaGenres = pgTable(
+  "media_genres",
+  {
+    mediaId: text("media_id")
+      .notNull()
+      .references(() => media.id, { onDelete: "cascade" }),
+    canonicalGenreId: text("canonical_genre_id")
+      .notNull()
+      .references(() => canonicalGenres.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.mediaId, table.canonicalGenreId] })],
+);
 
-export const platforms = pgTable("platforms", {
+// ─── Platforms (canonical, import-time resolved) ────────────────────────────
+
+export const canonicalPlatforms = pgTable("canonical_platforms", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => ulid()),
-  wikidataId: text("wikidata_id").notNull().unique(),
+  slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
+  parentId: text("parent_id"),
+  sortOrder: integer("sort_order").default(0),
 });
+
+export const platformMappings = pgTable(
+  "platform_mappings",
+  {
+    wikidataId: text("wikidata_id").notNull(),
+    canonicalPlatformId: text("canonical_platform_id")
+      .notNull()
+      .references(() => canonicalPlatforms.id, { onDelete: "cascade" }),
+    source: text("source", { enum: ["manual"] })
+      .notNull()
+      .default("manual"),
+  },
+  (table) => [
+    primaryKey({ columns: [table.wikidataId, table.canonicalPlatformId] }),
+    index("idx_platform_mappings_wikidata").on(table.wikidataId),
+  ],
+);
 
 export const mediaPlatforms = pgTable(
   "media_platforms",
@@ -154,11 +163,11 @@ export const mediaPlatforms = pgTable(
     mediaId: text("media_id")
       .notNull()
       .references(() => media.id, { onDelete: "cascade" }),
-    platformId: text("platform_id")
+    canonicalPlatformId: text("canonical_platform_id")
       .notNull()
-      .references(() => platforms.id, { onDelete: "cascade" }),
+      .references(() => canonicalPlatforms.id, { onDelete: "cascade" }),
   },
-  (table) => [primaryKey({ columns: [table.mediaId, table.platformId] })],
+  (table) => [primaryKey({ columns: [table.mediaId, table.canonicalPlatformId] })],
 );
 
 // ─── Users ──────────────────────────────────────────────────────────────────
@@ -283,15 +292,11 @@ export const mediaRelations = relations(media, ({ many }) => ({
   seasons: many(seasons),
 }));
 
-export const genresRelations = relations(genres, ({ many }) => ({
-  mediaGenres: many(mediaGenres),
-}));
-
 export const mediaGenresRelations = relations(mediaGenres, ({ one }) => ({
   media: one(media, { fields: [mediaGenres.mediaId], references: [media.id] }),
-  genre: one(genres, {
-    fields: [mediaGenres.genreId],
-    references: [genres.id],
+  canonicalGenre: one(canonicalGenres, {
+    fields: [mediaGenres.canonicalGenreId],
+    references: [canonicalGenres.id],
   }),
 }));
 
@@ -312,18 +317,31 @@ export const genreMappingsRelations = relations(genreMappings, ({ one }) => ({
   }),
 }));
 
-export const platformsRelations = relations(platforms, ({ many }) => ({
-  mediaPlatforms: many(mediaPlatforms),
-}));
-
 export const mediaPlatformsRelations = relations(mediaPlatforms, ({ one }) => ({
   media: one(media, {
     fields: [mediaPlatforms.mediaId],
     references: [media.id],
   }),
-  platform: one(platforms, {
-    fields: [mediaPlatforms.platformId],
-    references: [platforms.id],
+  canonicalPlatform: one(canonicalPlatforms, {
+    fields: [mediaPlatforms.canonicalPlatformId],
+    references: [canonicalPlatforms.id],
+  }),
+}));
+
+export const canonicalPlatformsRelations = relations(canonicalPlatforms, ({ one, many }) => ({
+  parent: one(canonicalPlatforms, {
+    fields: [canonicalPlatforms.parentId],
+    references: [canonicalPlatforms.id],
+    relationName: "parentChild",
+  }),
+  children: many(canonicalPlatforms, { relationName: "parentChild" }),
+  mappings: many(platformMappings),
+}));
+
+export const platformMappingsRelations = relations(platformMappings, ({ one }) => ({
+  canonicalPlatform: one(canonicalPlatforms, {
+    fields: [platformMappings.canonicalPlatformId],
+    references: [canonicalPlatforms.id],
   }),
 }));
 
@@ -349,8 +367,6 @@ export const seasonsRelations = relations(seasons, ({ one }) => ({
 
 export type Media = typeof media.$inferSelect;
 export type NewMedia = typeof media.$inferInsert;
-export type Genre = typeof genres.$inferSelect;
-export type Platform = typeof platforms.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type CatalogEntry = typeof catalogEntries.$inferSelect;
@@ -360,3 +376,5 @@ export type Season = typeof seasons.$inferSelect;
 export type NewSeason = typeof seasons.$inferInsert;
 export type CanonicalGenre = typeof canonicalGenres.$inferSelect;
 export type GenreMapping = typeof genreMappings.$inferSelect;
+export type CanonicalPlatform = typeof canonicalPlatforms.$inferSelect;
+export type PlatformMapping = typeof platformMappings.$inferSelect;

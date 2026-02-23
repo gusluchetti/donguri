@@ -5,19 +5,18 @@ import { z } from "zod";
 import { getDb } from "~/db";
 import {
   canonicalGenres,
-  genreMappings,
-  genres,
+  canonicalPlatforms,
   type Media,
   media,
   mediaGenres,
   mediaPlatforms,
-  platforms,
   seasons,
 } from "~/db/schema";
 import { getSessionData } from "~/features/auth/auth.session";
 import { getPopularPage, searchPopular } from "./popular-cache";
 
 const parentGenres = alias(canonicalGenres, "parent_genres");
+const parentPlatforms = alias(canonicalPlatforms, "parent_platforms");
 
 /** Return type of getMedia (defined explicitly to break circular inference). */
 type MediaDetail = Media & {
@@ -29,7 +28,14 @@ type MediaDetail = Media & {
     sortOrder: number | null;
     parentName: string | null;
   }[];
-  platforms: { id: string; name: string; wikidataId: string }[];
+  platforms: {
+    id: string;
+    slug: string;
+    name: string;
+    parentId: string | null;
+    sortOrder: number | null;
+    parentName: string | null;
+  }[];
   seasons: {
     id: string;
     seasonNumber: number;
@@ -211,10 +217,10 @@ export const getMedia = createServerFn({ method: "GET" })
 
     if (item.length === 0) return null;
 
-    // Fetch genres (with parent names via self-join), platforms, and seasons in parallel
+    // Fetch genres, platforms (both canonical with parent join), and seasons in parallel
     const [itemGenres, itemPlatforms, itemSeasons] = await Promise.all([
       db
-        .selectDistinct({
+        .select({
           id: canonicalGenres.id,
           slug: canonicalGenres.slug,
           name: canonicalGenres.name,
@@ -223,17 +229,27 @@ export const getMedia = createServerFn({ method: "GET" })
           parentName: parentGenres.name,
         })
         .from(mediaGenres)
-        .innerJoin(genres, eq(mediaGenres.genreId, genres.id))
-        .innerJoin(genreMappings, eq(genres.wikidataId, genreMappings.wikidataId))
-        .innerJoin(canonicalGenres, eq(genreMappings.canonicalGenreId, canonicalGenres.id))
+        .innerJoin(canonicalGenres, eq(mediaGenres.canonicalGenreId, canonicalGenres.id))
         .leftJoin(parentGenres, eq(canonicalGenres.parentId, parentGenres.id))
         .where(eq(mediaGenres.mediaId, item[0].id))
         .orderBy(canonicalGenres.sortOrder),
       db
-        .select({ id: platforms.id, name: platforms.name, wikidataId: platforms.wikidataId })
+        .select({
+          id: canonicalPlatforms.id,
+          slug: canonicalPlatforms.slug,
+          name: canonicalPlatforms.name,
+          parentId: canonicalPlatforms.parentId,
+          sortOrder: canonicalPlatforms.sortOrder,
+          parentName: parentPlatforms.name,
+        })
         .from(mediaPlatforms)
-        .innerJoin(platforms, eq(mediaPlatforms.platformId, platforms.id))
-        .where(eq(mediaPlatforms.mediaId, item[0].id)),
+        .innerJoin(
+          canonicalPlatforms,
+          eq(mediaPlatforms.canonicalPlatformId, canonicalPlatforms.id),
+        )
+        .leftJoin(parentPlatforms, eq(canonicalPlatforms.parentId, parentPlatforms.id))
+        .where(eq(mediaPlatforms.mediaId, item[0].id))
+        .orderBy(canonicalPlatforms.sortOrder),
       db
         .select({
           id: seasons.id,
@@ -261,7 +277,14 @@ export const getMedia = createServerFn({ method: "GET" })
         sortOrder: g.sortOrder,
         parentName: g.parentName ?? null,
       })),
-      platforms: itemPlatforms,
+      platforms: itemPlatforms.map((p) => ({
+        id: p.id,
+        slug: p.slug,
+        name: p.name,
+        parentId: p.parentId,
+        sortOrder: p.sortOrder,
+        parentName: p.parentName ?? null,
+      })),
       seasons: isConsecutive ? itemSeasons : [],
     };
 

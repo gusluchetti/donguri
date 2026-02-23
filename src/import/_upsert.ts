@@ -8,7 +8,7 @@ import { Writable } from "node:stream";
 import { inArray } from "drizzle-orm";
 import { ulid } from "ulid";
 import type { getDb } from "~/db";
-import { genres, mediaGenres, mediaPlatforms, platforms } from "~/db/schema";
+import { mediaGenres, mediaPlatforms } from "~/db/schema";
 import { withRetry } from "./_retry";
 import type { ParsedMedia } from "./_types";
 
@@ -24,6 +24,9 @@ export interface ImportStats {
   platformsFound: number;
   byType: Record<string, number>;
 }
+
+/** Pre-loaded lookup: Wikidata Q-ID → canonical DB id(s). */
+export type CanonicalLookup = Record<string, string[]>;
 
 // ─── Staging table columns (matches media table layout) ─────────────────────
 
@@ -99,90 +102,23 @@ export function toTsvRow(item: ParsedMedia, rowId: string): string {
 // ─── DB helpers ─────────────────────────────────────────────────────────────
 
 /**
- * Batch-ensure genres exist, returning a map of wikidataId → dbId.
- */
-export async function ensureGenres(
-  db: DbType,
-  wikidataIds: string[],
-  cache: Record<string, string>,
-): Promise<void> {
-  const uncached = wikidataIds.filter((id) => !cache[id]);
-  if (uncached.length === 0) return;
-
-  const values = uncached.map((wikidataId) => ({ wikidataId, name: wikidataId }));
-  await db.insert(genres).values(values).onConflictDoNothing();
-
-  const rows = await db
-    .select({ id: genres.id, wikidataId: genres.wikidataId })
-    .from(genres)
-    .where(inArray(genres.wikidataId, uncached));
-
-  for (const row of rows) {
-    cache[row.wikidataId] = row.id;
-  }
-}
-
-/**
- * Batch-ensure platforms exist, same pattern as genres.
- */
-export async function ensurePlatforms(
-  db: DbType,
-  wikidataIds: string[],
-  cache: Record<string, string>,
-): Promise<void> {
-  const uncached = wikidataIds.filter((id) => !cache[id]);
-  if (uncached.length === 0) return;
-
-  const values = uncached.map((wikidataId) => ({ wikidataId, name: wikidataId }));
-  await db.insert(platforms).values(values).onConflictDoNothing();
-
-  const rows = await db
-    .select({ id: platforms.id, wikidataId: platforms.wikidataId })
-    .from(platforms)
-    .where(inArray(platforms.wikidataId, uncached));
-
-  for (const row of rows) {
-    cache[row.wikidataId] = row.id;
-  }
-}
-
-/**
  * COPY batch into a temp staging table, then merge into media via upsert.
- * Returns the wikidata_id → db id mapping for the batch.
+ * Genre/platform relations are resolved at import time using pre-loaded canonical lookups.
  */
 export async function processSuperBatch(
   db: DbType,
   batch: ParsedMedia[],
-  genreCache: Record<string, string>,
-  platformCache: Record<string, string>,
+  genreLookup: CanonicalLookup,
+  platformLookup: CanonicalLookup,
   stats: ImportStats,
 ): Promise<void> {
   if (batch.length === 0) return;
 
   try {
-    // 1. Ensure genres and platforms exist (via Drizzle, cached)
-    const allGenreIds = new Set<string>();
-    const allPlatformIds = new Set<string>();
-    for (const item of batch) {
-      for (const id of item.genreIds) allGenreIds.add(id);
-      for (const id of item.platformIds) allPlatformIds.add(id);
-    }
-
-    await withRetry(
-      () =>
-        Promise.all([
-          allGenreIds.size > 0 ? ensureGenres(db, [...allGenreIds], genreCache) : undefined,
-          allPlatformIds.size > 0
-            ? ensurePlatforms(db, [...allPlatformIds], platformCache)
-            : undefined,
-        ]),
-      "ensure genres/platforms",
-    );
-
-    // 2. Pre-generate ULIDs for each row
+    // 1. Pre-generate ULIDs for each row
     const rowIds = batch.map(() => ulid());
 
-    // 3. COPY → temp table → upsert merge, all in one transaction
+    // 2. COPY → temp table → upsert merge, all in one transaction
     const upserted = await withRetry(
       () =>
         db.$client.begin(async (tx) => {
@@ -299,34 +235,56 @@ export async function processSuperBatch(
     stats.entitiesNew += batchNew;
     stats.entitiesUpdated += batchUpdated;
 
-    // 4. Build genre/platform relations from returned id mapping
+    // 3. Build genre/platform relations resolved through canonical lookups
     const wikidataToDbId = new Map(upserted.map((r) => [r.wikidata_id, r.id]));
 
-    const genreRelations: { mediaId: string; genreId: string }[] = [];
-    const platformRelations: { mediaId: string; platformId: string }[] = [];
+    const genreRelations: { mediaId: string; canonicalGenreId: string }[] = [];
+    const platformRelations: { mediaId: string; canonicalPlatformId: string }[] = [];
 
     for (const item of batch) {
       const mediaId = wikidataToDbId.get(item.wikidataId);
       if (!mediaId) continue;
 
-      for (const wikidataId of item.genreIds) {
-        const genreId = genreCache[wikidataId];
-        if (genreId) {
-          genreRelations.push({ mediaId, genreId });
+      // Resolve genre Q-IDs → canonical genre IDs (dedup per media item)
+      const seenGenres = new Set<string>();
+      for (const qid of item.genreIds) {
+        const canonicalIds = genreLookup[qid];
+        if (!canonicalIds) continue;
+        for (const cid of canonicalIds) {
+          if (seenGenres.has(cid)) continue;
+          seenGenres.add(cid);
+          genreRelations.push({ mediaId, canonicalGenreId: cid });
           stats.genresFound++;
         }
       }
 
-      for (const wikidataId of item.platformIds) {
-        const platformId = platformCache[wikidataId];
-        if (platformId) {
-          platformRelations.push({ mediaId, platformId });
+      // Resolve platform Q-IDs → canonical platform IDs (dedup per media item)
+      const seenPlatforms = new Set<string>();
+      for (const qid of item.platformIds) {
+        const canonicalIds = platformLookup[qid];
+        if (!canonicalIds) continue;
+        for (const cid of canonicalIds) {
+          if (seenPlatforms.has(cid)) continue;
+          seenPlatforms.add(cid);
+          platformRelations.push({ mediaId, canonicalPlatformId: cid });
           stats.platformsFound++;
         }
       }
     }
 
-    // 5. Bulk insert relations via Drizzle (small, COPY overkill)
+    // 4. Delete stale junction rows for this batch, then insert fresh ones.
+    //    This ensures genres/platforms stay accurate on re-imports and incremental updates
+    //    without accumulating stale data from old Wikidata values.
+    const batchMediaIds = [...wikidataToDbId.values()];
+    await withRetry(
+      () =>
+        Promise.all([
+          db.delete(mediaGenres).where(inArray(mediaGenres.mediaId, batchMediaIds)),
+          db.delete(mediaPlatforms).where(inArray(mediaPlatforms.mediaId, batchMediaIds)),
+        ]),
+      "clear stale relations",
+    );
+
     await withRetry(
       () =>
         Promise.all([
