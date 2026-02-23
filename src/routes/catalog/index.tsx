@@ -176,6 +176,15 @@ function CatalogPage() {
     });
   const allItems = data?.pages.flatMap((p) => p.items) ?? [];
 
+  // Only animate items when data is genuinely new — not when returning with cached results
+  const seenQueryKeys = useRef(new Set<string>());
+  const currentQueryKey = `${mediaType ?? ""}|${q ?? ""}`;
+  const isNewData =
+    !seenQueryKeys.current.has(currentQueryKey) && !isPlaceholderData && allItems.length > 0;
+  useEffect(() => {
+    if (!isPlaceholderData && allItems.length > 0) seenQueryKeys.current.add(currentQueryKey);
+  }, [currentQueryKey, isPlaceholderData, allItems.length]);
+
   const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
   const [quickAddState, setQuickAddState] = useState<Record<string, "pending" | "done">>({});
   const quickAddTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -464,7 +473,14 @@ function CatalogPage() {
             className="flex-1 min-h-0 border border-dg-border rounded-md overflow-hidden flex flex-col transition-opacity duration-150 bg-dg-surface"
             style={{ opacity: isPlaceholderData ? 0.5 : 1 }}
           >
-            <div ref={parentRef} className="flex-1 min-h-0 overflow-auto">
+            <div
+              ref={parentRef}
+              className="flex-1 min-h-0 overflow-auto"
+              style={{
+                maskImage: "linear-gradient(in oklch to bottom, black 50%, transparent)",
+                WebkitMaskImage: "linear-gradient(in oklch to bottom, black 50%, transparent)",
+              }}
+            >
               <div
                 style={{
                   height: virtualizer.getTotalSize(),
@@ -510,9 +526,9 @@ function CatalogPage() {
                         height: virtualRow.size,
                         ["--type-color" as string]:
                           STAMP_COLORS[item.mediaType] ?? "var(--color-dg-accent)",
-                        animation: "fadeIn 280ms var(--ease-smooth) both",
+                        animation: isNewData ? "fadeIn 280ms var(--ease-smooth) both" : "none",
                         animationDelay:
-                          virtualRow.index < 20 ? `${virtualRow.index * 25}ms` : "0ms",
+                          isNewData && virtualRow.index < 20 ? `${virtualRow.index * 25}ms` : "0ms",
                       }}
                       onClick={() => SoundEngine.navForward()}
                       onMouseEnter={() => SoundEngine.tick()}
