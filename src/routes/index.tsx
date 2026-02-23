@@ -333,6 +333,7 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
                 mediaType={item.mediaType ?? undefined}
                 size={200}
                 posterUrl={item.posterUrl ?? undefined}
+                loading="eager"
               />
             </div>
           </div>
