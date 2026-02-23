@@ -395,7 +395,7 @@ function MediaDetailPage({
               <CoverThumb title={data.title} size={160} vtName={`cover-${wikidataId}`} />
             </div>
           )}
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1" style={{ viewTransitionName: "detail-content" }}>
             <div className="mb-2">
               <StampBadge type={data.mediaType} />
             </div>
