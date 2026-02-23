@@ -14,6 +14,8 @@ import {
   platforms,
   seasons,
 } from "~/db/schema";
+import { getSessionData } from "~/features/auth/auth.session";
+import { getPopularPage, getPopularStats, searchPopular } from "./popular-cache";
 
 const parentGenres = alias(canonicalGenres, "parent_genres");
 
@@ -112,10 +114,18 @@ async function searchMedia(
 export const listMedia = createServerFn({ method: "GET" })
   .inputValidator(ListMediaInput)
   .handler(async ({ data }) => {
-    const db = getDb();
     const { cursor, limit, mediaType, search } = data;
-
     const trimmedSearch = search?.trim();
+
+    // Non-logged users get served from the in-memory popular cache
+    const session = await getSessionData();
+    if (!session?.userId) {
+      if (trimmedSearch) return searchPopular(trimmedSearch, mediaType, cursor, limit);
+      return getPopularPage(mediaType, cursor, limit);
+    }
+
+    const db = getDb();
+
     if (trimmedSearch) {
       return searchMedia(db, trimmedSearch, cursor, limit, mediaType);
     }
@@ -262,6 +272,10 @@ export const getMedia = createServerFn({ method: "GET" })
  * Get collection stats.
  */
 export const getMediaStats = createServerFn({ method: "GET" }).handler(async () => {
+  // Non-logged users get cached stats from the popular subset
+  const session = await getSessionData();
+  if (!session?.userId) return getPopularStats();
+
   const db = getDb();
 
   const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(media);
