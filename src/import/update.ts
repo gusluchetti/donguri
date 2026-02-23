@@ -157,8 +157,10 @@ async function seedCanonicalMappings(db: DbType): Promise<void> {
   const allGenres = await db.select().from(canonicalGenres);
   const genreSlugToId = new Map(allGenres.map((g) => [g.slug, g.id]));
 
-  for (const g of CANONICAL_GENRES.filter((g) => g.parentSlug !== null)) {
-    const parentId = genreSlugToId.get(g.parentSlug!);
+  for (const g of CANONICAL_GENRES.filter(
+    (g): g is typeof g & { parentSlug: string } => g.parentSlug !== null,
+  )) {
+    const parentId = genreSlugToId.get(g.parentSlug);
     if (!parentId) continue;
     await db
       .insert(canonicalGenres)
@@ -188,8 +190,10 @@ async function seedCanonicalMappings(db: DbType): Promise<void> {
   const allPlatforms = await db.select().from(canonicalPlatforms);
   const platSlugToId = new Map(allPlatforms.map((p) => [p.slug, p.id]));
 
-  for (const p of CANONICAL_PLATFORMS.filter((p) => p.parentSlug !== null)) {
-    const parentId = platSlugToId.get(p.parentSlug!);
+  for (const p of CANONICAL_PLATFORMS.filter(
+    (p): p is typeof p & { parentSlug: string } => p.parentSlug !== null,
+  )) {
+    const parentId = platSlugToId.get(p.parentSlug);
     if (!parentId) continue;
     await db
       .insert(canonicalPlatforms)
@@ -1267,10 +1271,12 @@ async function batchUpdatePosters(
   );
 
   // Batch-update tmdb_id for items where Find API resolved a value
-  const tmdbUpdates = updates.filter((u) => u.resolvedTmdbId);
+  const tmdbUpdates = updates.filter(
+    (u): u is typeof u & { resolvedTmdbId: string } => !!u.resolvedTmdbId,
+  );
   if (tmdbUpdates.length > 0) {
     const tmdbValues = tmdbUpdates
-      .map((u) => `(${escapePostgresLiteral(u.id)}, ${escapePostgresLiteral(u.resolvedTmdbId!)})`)
+      .map((u) => `(${escapePostgresLiteral(u.id)}, ${escapePostgresLiteral(u.resolvedTmdbId)})`)
       .join(", ");
     await db.execute(
       sql.raw(
