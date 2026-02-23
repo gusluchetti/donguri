@@ -139,6 +139,7 @@ function RootComponent() {
                 backdropFilter: "blur(16px) saturate(1.3)",
                 WebkitBackdropFilter: "blur(16px) saturate(1.3)",
                 borderBottom: "1px solid var(--color-dg-border-subtle)",
+                viewTransitionName: "nav",
               }}
             >
               <div className="max-w-[1100px] mx-auto px-3 sm:px-g3 flex items-center justify-between h-12">

@@ -185,6 +185,19 @@ html.theme-transition *::after {
   }
 }
 
+/* Nav stays locked in place — no animation, no flicker */
+::view-transition-old(nav),
+::view-transition-new(nav) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Kill backdrop-filter during transitions — it causes blur artifacts */
+::view-transition-old(nav) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 ::view-transition-old(detail-content) {
   animation: 60ms var(--ease-smooth) both vt-fade-out;
 }
