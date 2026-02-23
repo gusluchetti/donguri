@@ -38,20 +38,20 @@ img {
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Dark theme (default) — OLED teal-black base, orange accent */
-  --color-dg-bg: #050e0c;
-  --color-dg-surface: #0c1614;
-  --color-dg-elevated: #111e1b;
-  --color-dg-row-hover: #162421;
-  --color-dg-border-subtle: #1a2d29;
-  --color-dg-border: #233835;
-  --color-dg-border-strong: #2e4845;
+  /* Dark theme (default) — OLED dark base, blue-teal tint */
+  --color-dg-bg: #070f13;
+  --color-dg-surface: #0d1820;
+  --color-dg-elevated: #121f28;
+  --color-dg-row-hover: #162430;
+  --color-dg-border-subtle: #1c2e3a;
+  --color-dg-border: #243848;
+  --color-dg-border-strong: #2e4858;
 
   /* Warm text on cool bg — intentional tension, classic film look */
   --color-dg-text: #e0ddd6;
   --color-dg-text-secondary: #a8b2b0;
-  --color-dg-text-tertiary: #687a78;
-  --color-dg-text-muted: #3c5250;
+  --color-dg-text-tertiary: #667a88;
+  --color-dg-text-muted: #3a5060;
 
   --color-dg-accent: #e8702e;
   --color-dg-accent-soft: rgba(232, 112, 46, 0.07);
@@ -87,11 +87,11 @@ img {
 /* Atmosphere defaults are also here so light overrides can win (unlayered :root would beat @layer base) */
 @layer base {
   :root {
-    --topo-color: rgba(40, 180, 160, 0.08);
-    --grid-color: rgba(40, 180, 160, 0.075);
+    --topo-color: rgba(60, 150, 210, 0.07);
+    --grid-color: rgba(60, 150, 210, 0.055);
     --noise-opacity: 0.15;
     --grain-blend: soft-light;
-    --nav-bg: rgba(5, 14, 12, 0.94);
+    --nav-bg: rgba(7, 15, 19, 0.94);
     --stamp-bg: rgba(255, 255, 255, 0.02);
     --vignette: radial-gradient(
       ellipse 80% 70% at 50% 45%,
