@@ -486,7 +486,7 @@ function CatalogPage() {
                   to="/catalog/$wikidataId"
                   params={{ wikidataId: item.wikidataId }}
                   preload="intent"
-                  className={`w-full left-0 border-b border-dg-border-subtle absolute no-underline text-inherit block group overflow-hidden transition-all duration-100 bg-dg-surface/50 hover:bg-dg-row-hover hover:translate-x-[3px]${isCursorActive ? " dg-cursor-active" : ""}`}
+                  className={`w-full left-0 absolute no-underline text-inherit block group transition-all duration-100 hover:translate-x-[3px]${isCursorActive ? " dg-cursor-active" : ""}`}
                   style={{
                     top: virtualRow.start,
                     height: virtualRow.size,
@@ -549,67 +549,72 @@ const MediaRow = memo(function MediaRow({
   const meta = formatMeta(item);
 
   return (
-    <div
-      className="grid items-center h-full gap-2 sm:gap-g2 py-2 px-3 sm:px-g3"
-      style={{
-        gridTemplateColumns: showAdd || addState ? "36px auto 1fr auto auto" : "36px auto 1fr auto",
-      }}
-    >
-      {/* Cover thumb */}
-      <CoverThumb
-        title={item.title}
-        size={36}
-        posterUrl={item.posterUrl ?? undefined}
-        vtName={`cover-${item.wikidataId}`}
-      />
+    <div className="h-full px-1 py-0.5">
+      <div
+        className="grid items-center h-full gap-2 sm:gap-g2 py-2 px-3 sm:px-g3 rounded-md bg-dg-surface/50 group-hover:bg-dg-row-hover border border-dg-border-subtle/50 transition-colors duration-100"
+        style={{
+          gridTemplateColumns:
+            showAdd || addState ? "36px auto 1fr auto auto" : "36px auto 1fr auto",
+        }}
+      >
+        {/* Cover thumb */}
+        <CoverThumb
+          title={item.title}
+          size={36}
+          posterUrl={item.posterUrl ?? undefined}
+          vtName={`cover-${item.wikidataId}`}
+        />
 
-      {/* Stamp badge + quick add + tracked indicator */}
-      <div className="flex items-center gap-1">
-        {addState === "pending" ? (
-          <span className="text-[0.75rem] font-bold text-dg-accent font-mono shrink-0">
-            [<span className="dg-ellipsis" />]
+        {/* Stamp badge + quick add + tracked indicator */}
+        <div className="flex items-center gap-1">
+          {addState === "pending" ? (
+            <span className="text-[0.75rem] font-bold text-dg-accent font-mono shrink-0">
+              [<span className="dg-ellipsis" />]
+            </span>
+          ) : addState === "done" ? (
+            <span className="text-[0.75rem] font-bold text-dg-stamped font-mono shrink-0">
+              [ok]
+            </span>
+          ) : showAdd ? (
+            <button
+              type="button"
+              onClick={(e) => onQuickAdd(item.wikidataId, item.mediaType, e)}
+              className="text-[0.75rem] font-bold text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-100"
+            >
+              [+]
+            </button>
+          ) : null}
+          <StampBadge type={item.mediaType} index={index} />
+          {trackedStatus && (
+            <span
+              className={`text-[8px] shrink-0 ${STATUS_ACCENT[trackedStatus as StatusValue] ?? "text-dg-text-tertiary"}`}
+            >
+              {"\u25CF"}
+            </span>
+          )}
+        </div>
+
+        {/* Title + subtitle */}
+        <div className="min-w-0">
+          <div className="text-[0.85rem] font-medium text-dg-text truncate">{item.title}</div>
+          {item.originalTitle && (
+            <div className="text-xs text-dg-text-tertiary truncate hidden sm:block mt-0">
+              {item.originalTitle}
+            </div>
+          )}
+        </div>
+
+        {/* Right side: meta + year — fixed widths keep columns aligned across all rows */}
+        <div className="flex items-center shrink-0">
+          <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums hidden sm:inline font-mono w-[5rem] text-right">
+            {meta}
           </span>
-        ) : addState === "done" ? (
-          <span className="text-[0.75rem] font-bold text-dg-stamped font-mono shrink-0">[ok]</span>
-        ) : showAdd ? (
-          <button
-            type="button"
-            onClick={(e) => onQuickAdd(item.wikidataId, item.mediaType, e)}
-            className="text-[0.75rem] font-bold text-dg-text-tertiary bg-transparent border-none font-mono cursor-pointer p-0 shrink-0 inline-block hover:text-dg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-100"
-          >
-            [+]
-          </button>
-        ) : null}
-        <StampBadge type={item.mediaType} index={index} />
-        {trackedStatus && (
-          <span
-            className={`text-[8px] shrink-0 ${STATUS_ACCENT[trackedStatus as StatusValue] ?? "text-dg-text-tertiary"}`}
-          >
-            {"\u25CF"}
+          <span className="text-xs text-dg-text-secondary tabular-nums font-mono w-[4.5rem] text-right">
+            {item.startYear
+              ? `${item.startYear}${item.endYear && item.endYear !== item.startYear ? `\u2013${item.endYear}` : ""}`
+              : ""}
           </span>
-        )}
-      </div>
-
-      {/* Title + subtitle */}
-      <div className="min-w-0">
-        <div className="text-[0.85rem] font-medium text-dg-text truncate">{item.title}</div>
-        {item.originalTitle && (
-          <div className="text-xs text-dg-text-tertiary truncate hidden sm:block mt-0">
-            {item.originalTitle}
-          </div>
-        )}
-      </div>
-
-      {/* Right side: meta + year — fixed widths keep columns aligned across all rows */}
-      <div className="flex items-center shrink-0">
-        <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums hidden sm:inline font-mono w-[5rem] text-right">
-          {meta}
-        </span>
-        <span className="text-xs text-dg-text-secondary tabular-nums font-mono w-[4.5rem] text-right">
-          {item.startYear
-            ? `${item.startYear}${item.endYear && item.endYear !== item.startYear ? `\u2013${item.endYear}` : ""}`
-            : ""}
-        </span>
+        </div>
       </div>
     </div>
   );
