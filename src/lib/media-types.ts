@@ -25,12 +25,12 @@ export function ratingColor(value: number | null): string | undefined {
 // ─── Status Vocabulary ──────────────────────────────────────────────────────
 
 export const STATUS_ORDER = [
-  "dropped",
-  "on_hold",
-  "planned",
   "in_progress",
+  "planned",
   "completed",
   "mastered",
+  "on_hold",
+  "dropped",
 ] as const;
 export type StatusValue = (typeof STATUS_ORDER)[number];
 
