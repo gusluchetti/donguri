@@ -485,3 +485,30 @@ input[type="range"].dg-range:disabled {
     content: "...";
   }
 }
+
+/* ─── Reduced motion ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  /* Kill all CSS animations and transitions — catches inline animation: styles too */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  /* Disable view transitions entirely */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+
+  /* Keep the ellipsis loader functional — instant content instead */
+  .dg-ellipsis::after {
+    content: "..." !important;
+    animation: none !important;
+  }
+}
