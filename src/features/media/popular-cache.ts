@@ -23,7 +23,6 @@ let byType: Record<MediaType, Media[]> = {
   game: [],
 };
 let all: Media[] = [];
-let stats = { total: 0, byType: {} as Record<string, number> };
 let warmedAt = 0;
 let warmingPromise: Promise<void> | null = null;
 
@@ -48,13 +47,10 @@ async function warmCache(): Promise<void> {
   );
 
   const newByType = {} as Record<MediaType, Media[]>;
-  const newStats = { total: 0, byType: {} as Record<string, number> };
 
   for (let i = 0; i < MEDIA_TYPES.length; i++) {
     const type = MEDIA_TYPES[i];
     newByType[type] = results[i];
-    newStats.byType[type] = results[i].length;
-    newStats.total += results[i].length;
   }
 
   // Merge all types, re-sort by same order
@@ -71,7 +67,6 @@ async function warmCache(): Promise<void> {
 
   byType = newByType;
   all = newAll;
-  stats = newStats;
   warmedAt = Date.now();
 }
 
@@ -155,12 +150,4 @@ export async function searchPopular(
     items: page,
     nextCursor: hasMore ? String(offset + limit) : null,
   };
-}
-
-export async function getPopularStats(): Promise<{
-  total: number;
-  byType: Record<string, number>;
-}> {
-  await ensureWarmed();
-  return stats;
 }

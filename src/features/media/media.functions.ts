@@ -15,7 +15,7 @@ import {
   seasons,
 } from "~/db/schema";
 import { getSessionData } from "~/features/auth/auth.session";
-import { getPopularPage, getPopularStats, searchPopular } from "./popular-cache";
+import { getPopularPage, searchPopular } from "./popular-cache";
 
 const parentGenres = alias(canonicalGenres, "parent_genres");
 
@@ -267,31 +267,3 @@ export const getMedia = createServerFn({ method: "GET" })
 
     return result;
   });
-
-/**
- * Get collection stats.
- */
-export const getMediaStats = createServerFn({ method: "GET" }).handler(async () => {
-  // Non-logged users get cached stats from the popular subset
-  const session = await getSessionData();
-  if (!session?.userId) return getPopularStats();
-
-  const db = getDb();
-
-  const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(media);
-
-  const typeCounts = await db
-    .select({
-      mediaType: media.mediaType,
-      count: sql<number>`count(*)`,
-    })
-    .from(media)
-    .groupBy(media.mediaType);
-
-  const result = {
-    total: totalResult.count,
-    byType: Object.fromEntries(typeCounts.map((r) => [r.mediaType, r.count])),
-  };
-
-  return result;
-});
