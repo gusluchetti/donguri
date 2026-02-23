@@ -111,7 +111,7 @@ export function CoverThumb({
             loading="lazy"
             onLoad={() => setLoaded(true)}
             className="absolute inset-0 w-full h-full object-cover rounded"
-            style={{ opacity: loaded ? 1 : 0, transition: "opacity 300ms ease-in" }}
+            style={{ opacity: loaded ? 1 : 0, transition: "opacity 150ms ease-in" }}
           />
         )}
       </div>
@@ -154,7 +154,7 @@ export function CoverThumb({
           loading="lazy"
           onLoad={() => setLoaded(true)}
           className="absolute inset-0 w-full h-full object-cover rounded-[3px]"
-          style={{ opacity: loaded ? 1 : 0, transition: "opacity 300ms ease-in" }}
+          style={{ opacity: loaded ? 1 : 0, transition: "opacity 150ms ease-in" }}
         />
       )}
     </div>
