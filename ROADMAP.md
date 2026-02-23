@@ -26,6 +26,7 @@ Track what you've watched, what you're playing, and what's next.
 
 ## Next up
 
+- **Orphaned PDS record handling** — detect PDS records referencing media no longer in the database during sync, and surface them in-app for user-confirmed removal instead of auto-deleting
 - **Watchlist view modes** — per-category display density: fully collapsed (category + count only), normal collapsed (list items), fully expanded (thumbnail grid). Each category independently toggleable.
 - **Better Episode Tracking** - More data, and better usability
 - **Onboarding** — pick your media types and favorite genres on first login
@@ -35,6 +36,7 @@ Track what you've watched, what you're playing, and what's next.
 - **Account linking** — connect Google/GitHub accounts to Bluesky for data portability
 - **Achievements and badges** — unlock milestones like completing a franchise or exploring new genres
 
+<!-- P0: Orphan PDS handling — during reconcileUser(), detect PDS records whose mediaRef doesn't match any media.wikidataId. Surface in-app: "X tracked items reference media no longer in the database. Review and confirm removal?" User must explicitly approve before records are deleted from PDS. Never auto-delete user's PDS data. -->
 <!-- P0: Per-episode UI — checkboxes on detail page, "mark through episode X" bulk toggle. seasons table + watched_episodes JSONB already exist. -->
 <!-- Onboarding: first-login flow to pick media types + genres. Empty state design with smart suggestions. -->
 <!-- P0: MAL XML import — parse <myanimelist><anime> entries, match via malId column, map statuses (Watching/Completed/On-Hold/Dropped/Plan to Watch → donguri equivalents), map scores 1-10 → 0-100 ratings, import watched episode counts. UI: file upload on settings or dedicated import page. First in a series of import sources. -->
