@@ -148,6 +148,38 @@ html.theme-transition *::after {
     border-color 200ms ease !important;
 }
 
+/* ─── View Transitions ──────────────────────────────────────────── */
+
+::view-transition-old(root) {
+  animation: 100ms var(--ease-smooth) both vt-fade-out;
+}
+
+::view-transition-new(root) {
+  animation: 150ms var(--ease-smooth) both vt-fade-in;
+}
+
+@keyframes vt-fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ─── Keyframes ─────────────────────────────────────────────────── */
 
 @keyframes fadeIn {
