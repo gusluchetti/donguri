@@ -3,15 +3,15 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { cleanEnv, getDb } from "~/db";
 import { users } from "~/db/schema";
-import { getAuthenticatedAgent } from "~/lib/auth/agent";
-import { getOAuthClient } from "~/lib/auth/client";
-import { clearSessionCookie, getSessionData, setSessionCookie } from "~/lib/auth/session";
-import { getAuthUrl, handleProviderCallback, type Provider } from "~/lib/oauth-providers";
-import { reconcileUser } from "~/lib/sync";
+import { getAuthenticatedAgent } from "~/features/auth/auth.agent";
+import { getOAuthClient } from "~/features/auth/auth.client";
+import { getAuthUrl, handleProviderCallback, type Provider } from "~/features/auth/auth.providers";
+import { clearSessionCookie, getSessionData, setSessionCookie } from "~/features/auth/auth.session";
+import { reconcileUser } from "~/features/auth/auth.sync";
 
 const isDev = process.env.NODE_ENV === "development";
 
-export type { SessionData } from "~/lib/auth/session";
+export type { SessionData } from "~/features/auth/auth.session";
 
 export const getAuthState = createServerFn({ method: "GET" }).handler(async () => {
   // Session cookie is HMAC-signed — no DB round trip needed to verify user existence.

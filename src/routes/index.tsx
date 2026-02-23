@@ -5,7 +5,7 @@ import { useState } from "react";
 import { CoverThumb } from "~/components/CoverThumb";
 import { SectionHeader } from "~/components/SectionHeader";
 import { StampBadge } from "~/components/StampBadge";
-import { initiateLogin, initiateOAuthLogin } from "~/lib/auth.functions";
+import { initiateLogin, initiateOAuthLogin } from "~/features/auth/auth.functions";
 import {
   ratingColor,
   replayCountLabel,

@@ -1,6 +1,6 @@
 import { Agent } from "@atproto/api";
-import { getOAuthClient } from "./client";
-import { clearSessionCookie } from "./session";
+import { getOAuthClient } from "./auth.client";
+import { clearSessionCookie } from "./auth.session";
 
 /** Detect AT Protocol TokenRefreshError (session deleted/revoked on PDS). */
 export function isSessionExpired(err: unknown): boolean {

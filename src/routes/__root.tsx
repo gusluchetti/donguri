@@ -22,7 +22,7 @@ import { type ReactNode, useCallback, useEffect, useState } from "react";
 import "../app.css";
 import { AcornIcon } from "~/components/AcornIcon";
 import { BackgroundLayers } from "~/components/BackgroundLayers";
-import { getAuthState, logout } from "~/lib/auth.functions";
+import { getAuthState, logout } from "~/features/auth/auth.functions";
 import { getCatalogFingerprint } from "~/lib/catalog.functions";
 import { HelpOverlay } from "~/lib/hotkeys/HelpOverlay";
 import { isInputFocused } from "~/lib/hotkeys/shortcuts";

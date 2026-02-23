@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { handleOAuthProviderCallback } from "~/lib/auth.functions";
+import { handleOAuthProviderCallback } from "~/features/auth/auth.functions";
 
 export function OAuthProviderCallback({
   provider,
