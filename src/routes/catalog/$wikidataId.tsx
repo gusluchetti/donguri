@@ -674,7 +674,7 @@ function EpisodeTracker({
           <select
             value={selectedSeason}
             onChange={(e) => setSelectedSeason(Number(e.target.value))}
-            className="text-[0.75rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none focus:border-dg-accent transition-colors cursor-pointer"
+            className="text-[0.75rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none focus:border-dg-accent transition-colors cursor-pointer max-w-[50%]"
           >
             {seasons.map((s) => (
               <option key={s.id} value={s.seasonNumber}>
