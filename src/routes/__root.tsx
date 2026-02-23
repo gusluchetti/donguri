@@ -218,7 +218,7 @@ function RootComponent() {
             <footer className="border-t border-dg-border-subtle px-g3 py-3 font-body shrink-0">
               <div className="max-w-[1100px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[0.7rem] text-dg-text-tertiary">
                 <span className="flex items-center gap-2">
-                  <span>2026.02.23</span>
+                  <span>v2026.02.23</span>
                   <button
                     type="button"
                     onClick={() => setShowHelp(true)}
