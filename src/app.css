@@ -488,27 +488,26 @@ input[type="range"].dg-range:disabled {
 
 /* ─── Reduced motion ───────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  /* Kill all CSS animations and transitions — catches inline animation: styles too */
+  /* Remove animations entirely so fill-mode: both doesn't hold opacity: 0 */
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-delay: 0ms !important;
-    animation-iteration-count: 1 !important;
+    animation: none !important;
     transition-duration: 0.01ms !important;
     transition-delay: 0ms !important;
   }
 
-  /* Disable view transitions entirely */
+  /* View transitions: kill animations + fix blend mode (UA default is plus-lighter
+     which causes washed-out artifacts when old/new frames overlap without fading) */
   ::view-transition-group(*),
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
+    mix-blend-mode: normal !important;
   }
 
-  /* Keep the ellipsis loader functional — instant content instead */
+  /* Restore ellipsis loader content (animation: none loses the ::after content) */
   .dg-ellipsis::after {
-    content: "..." !important;
-    animation: none !important;
+    content: "...";
   }
 }
