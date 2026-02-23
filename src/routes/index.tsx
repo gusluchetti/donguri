@@ -276,36 +276,8 @@ function LoggedInView() {
     if (items.length > 0) grouped.set(status, items);
   }
 
-  const statCounts = {
-    total: entries.length,
-    inProgress: entries.filter((e) => e.status === "in_progress").length,
-    planned: entries.filter((e) => e.status === "planned").length,
-    completed: entries.filter((e) => e.status === "completed" || e.status === "mastered").length,
-  };
-
   return (
     <div>
-      {/* Tiny stats header */}
-      {entries.length > 0 && (
-        <div className="grid grid-cols-2 sm:flex sm:items-baseline sm:gap-6 gap-y-3 gap-x-4 mb-5 pb-4 border-b border-dg-border-subtle">
-          {[
-            { value: statCounts.total, label: "titles" },
-            { value: statCounts.inProgress, label: "in progress" },
-            { value: statCounts.completed, label: "completed" },
-            { value: statCounts.planned, label: "planned" },
-          ].map(({ value, label }) => (
-            <div key={label} className="flex items-baseline gap-1.5">
-              <span className="font-body text-[1.05rem] font-bold text-dg-text tabular-nums">
-                {value}
-              </span>
-              <span className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider">
-                {label}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {grouped.size === 0 ? (
         <div className="border border-dg-border-subtle rounded p-4 sm:p-5 bg-dg-surface">
           <p className="text-dg-text-secondary text-[0.85rem] leading-relaxed">
