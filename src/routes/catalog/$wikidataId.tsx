@@ -1,8 +1,8 @@
+import { Star, X } from "@phosphor-icons/react";
 import type { Hotkey } from "@tanstack/hotkeys";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
-import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CoverThumb } from "../../components/CoverThumb";
 import { StampBadge } from "../../components/StampBadge";
@@ -389,23 +389,29 @@ function MediaDetailPage({
         </button>
 
         {/* Header + meta combined row */}
-        <div className="flex gap-g3 sm:gap-g4 mb-g3 sm:mb-g4 relative">
-          <div
-            ref={coverRef as React.RefObject<HTMLDivElement>}
-            className="w-[120px] sm:w-[160px] shrink-0 self-start"
-            style={{ viewTransitionName: `cover-${wikidataId}` }}
-          >
+        <div className="flex flex-col sm:flex-row gap-g3 sm:gap-g4 mb-g3 sm:mb-g4">
+          {/* Poster — full portrait on mobile (left-aligned), taller fixed on desktop */}
+          <div className="w-[150px] sm:w-[210px] shrink-0 sm:self-start">
             {data.posterUrl ? (
               <img
+                ref={(el) => {
+                  coverRef.current = el;
+                }}
                 src={data.posterUrl}
                 alt={`${data.title} poster`}
-                width={160}
                 className="w-full rounded border border-dg-border-subtle object-cover aspect-[2/3]"
                 loading="eager"
+                style={{ viewTransitionName: `cover-${wikidataId}` }}
               />
             ) : (
-              <div className="aspect-[2/3]">
-                <CoverThumb title={data.title} mediaType={data.mediaType ?? undefined} size={160} />
+              <div
+                ref={(el) => {
+                  coverRef.current = el;
+                }}
+                className="aspect-[2/3] w-full"
+                style={{ viewTransitionName: `cover-${wikidataId}` }}
+              >
+                <CoverThumb title={data.title} mediaType={data.mediaType ?? undefined} size={210} />
               </div>
             )}
           </div>
@@ -1139,12 +1145,12 @@ function TrackingPanel({
           <button
             type="button"
             onClick={() => setLocalIsFavorite(!localIsFavorite)}
-            className={`text-[1.1rem] bg-transparent border-none cursor-pointer p-1 -m-1 transition-colors duration-150 ${
+            className={`flex items-center bg-transparent border-none cursor-pointer p-1 -m-1 transition-colors duration-150 ${
               localIsFavorite ? "text-dg-accent" : "text-dg-text-tertiary hover:text-dg-accent/60"
             }`}
             title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
           >
-            {localIsFavorite ? "\u2605" : "\u2606"}
+            <Star size={16} weight={localIsFavorite ? "fill" : "regular"} />
           </button>
         )}
       </div>

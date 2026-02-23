@@ -151,16 +151,16 @@ html.theme-transition *::after {
 /* ─── View Transitions ──────────────────────────────────────────── */
 
 ::view-transition-old(root) {
-  animation: 60ms var(--ease-smooth) both vt-fade-out;
+  animation: 45ms var(--ease-smooth) both vt-fade-out;
 }
 
 ::view-transition-new(root) {
-  animation: 100ms var(--ease-smooth) both vt-fade-in;
+  animation: 70ms var(--ease-smooth) both vt-fade-in;
 }
 
 ::view-transition-old(*),
 ::view-transition-new(*) {
-  animation-duration: 100ms;
+  animation-duration: 70ms;
 }
 
 @keyframes vt-fade-out {
@@ -187,15 +187,15 @@ html.theme-transition *::after {
 
 /* Back navigation — reversed slide direction */
 html[data-nav-back] ::view-transition-old(root) {
-  animation: 60ms var(--ease-smooth) both vt-fade-out-back;
+  animation: 45ms var(--ease-smooth) both vt-fade-out-back;
 }
 
 html[data-nav-back] ::view-transition-new(root) {
-  animation: 100ms var(--ease-smooth) both vt-fade-in-back;
+  animation: 70ms var(--ease-smooth) both vt-fade-in-back;
 }
 
 html[data-nav-back] ::view-transition-old(detail-content) {
-  animation: 60ms var(--ease-smooth) both vt-fade-out-back;
+  animation: 45ms var(--ease-smooth) both vt-fade-out-back;
 }
 
 html[data-nav-back] ::view-transition-new(detail-content) {
@@ -238,11 +238,11 @@ html[data-nav-back] ::view-transition-new(detail-content) {
 }
 
 ::view-transition-old(detail-content) {
-  animation: 60ms var(--ease-smooth) both vt-fade-out;
+  animation: 45ms var(--ease-smooth) both vt-fade-out;
 }
 
 ::view-transition-new(detail-content) {
-  animation: 200ms var(--ease-smooth) 40ms both vt-content-in;
+  animation: 150ms var(--ease-smooth) 25ms both vt-content-in;
 }
 
 @keyframes vt-content-in {

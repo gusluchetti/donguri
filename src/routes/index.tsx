@@ -1,3 +1,4 @@
+import { Star } from "@phosphor-icons/react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useState } from "react";
@@ -34,6 +35,7 @@ type CatalogEntryRow = {
   watchedEpisodes: Record<string, Record<string, string>> | null;
   episodeCount: number | null;
   seasonCount: number | null;
+  posterUrl: string | null;
 };
 
 /** Compute "on s01e05" or "on ep 05" from watchedEpisodes map. */
@@ -357,20 +359,18 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
         >
           {/* Cover */}
           <div className="w-full aspect-[2/3] rounded overflow-hidden relative transition-all duration-[120ms] ease-[var(--ease-spring)] group-hover:scale-[1.04] group-hover:shadow-[0_4px_20px_rgba(184,164,114,0.15)]">
-            {item.mediaTitle ? (
-              <CoverThumb
-                title={item.mediaTitle}
-                mediaType={item.mediaType ?? undefined}
-                size={200}
-                posterUrl={undefined}
-              />
-            ) : (
-              <CoverThumb title="?" mediaType={item.mediaType ?? undefined} size={200} />
-            )}
+            <CoverThumb
+              title={item.mediaTitle ?? "?"}
+              mediaType={item.mediaType ?? undefined}
+              size={200}
+              posterUrl={item.posterUrl ?? undefined}
+            />
           </div>
           {/* Title — lifts up on group hover */}
           <div className="mt-1 text-xs font-medium text-dg-text truncate transition-all duration-150 group-hover:text-dg-accent group-hover:-translate-y-1">
-            {item.isFavorite && <span className="text-dg-accent mr-0.5">&#9733;</span>}
+            {item.isFavorite && (
+              <Star size={10} weight="fill" className="text-dg-accent mr-0.5 inline-block" />
+            )}
             {item.mediaTitle ?? item.mediaWikidataId}
           </div>
           {/* Badge */}
@@ -415,9 +415,7 @@ function WatchlistList({ items }: { items: CatalogEntryRow[] }) {
             <StampBadge type={item.mediaType ?? ""} index={i} />
             <span className="text-[0.85rem] text-dg-text truncate flex-1 font-medium">
               {item.isFavorite && (
-                <span className="text-dg-accent mr-1" title="Favorite">
-                  &#9733;
-                </span>
+                <Star size={11} weight="fill" className="text-dg-accent mr-1 inline-block" />
               )}
               {item.mediaTitle ?? item.mediaWikidataId}
             </span>
