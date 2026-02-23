@@ -5,7 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "dev": "docker compose up -d --wait && trap 'docker compose down' EXIT && concurrently -k -n tunnel,vite -c magenta,green \"cloudflared tunnel run donguri-dev\" \"vite dev --port 3000 --host\"",
+    "dev": "docker compose up -d --wait && trap 'docker compose down' EXIT && concurrently -k -n tunnel,vite,db -c magenta,green,yellow \"cloudflared tunnel run donguri-dev\" \"vite dev --port 3000 --host\" \"docker compose logs -f db\"",
     "dev:prod": "concurrently -k -n tunnel,app -c magenta,yellow \"cloudflared tunnel run donguri-dev\" \"docker rm -f donguri-dev 2>/dev/null; docker build -t donguri-dev . && docker run --rm --init --name donguri-dev --network host --env-file .env -e NODE_ENV=production donguri-dev\"",
     "build": "vite build",
     "db:up": "docker compose up -d --wait",
