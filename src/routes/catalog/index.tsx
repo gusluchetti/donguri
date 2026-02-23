@@ -1,5 +1,5 @@
 import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createFileRoute,
   getRouteApi,
@@ -164,9 +164,10 @@ function CatalogPage() {
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog/" });
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery(
-    catalogInfiniteOptions(mediaType, q || undefined),
-  );
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isPlaceholderData } = useInfiniteQuery({
+    ...catalogInfiniteOptions(mediaType, q || undefined),
+    placeholderData: keepPreviousData,
+  });
   const allItems = data?.pages.flatMap((p) => p.items) ?? [];
 
   const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
@@ -446,7 +447,8 @@ function CatalogPage() {
       <div className="flex-1 relative min-h-0">
         <div
           ref={parentRef}
-          className="absolute inset-0 overflow-auto max-w-[1100px] mx-auto w-full px-4 sm:px-6"
+          className="absolute inset-0 overflow-auto max-w-[1100px] mx-auto w-full px-4 sm:px-6 transition-opacity duration-150"
+          style={{ opacity: isPlaceholderData ? 0.5 : 1 }}
         >
           <div
             style={{
