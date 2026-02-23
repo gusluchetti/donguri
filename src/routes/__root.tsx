@@ -6,7 +6,8 @@ import {
   SpeakerNone,
   Sun,
 } from "@phosphor-icons/react";
-import { HotkeysProvider, useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
+import { getSequenceManager } from "@tanstack/hotkeys";
+import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   createRootRouteWithContext,
@@ -18,7 +19,7 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import { clear } from "idb-keyval";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import "../app.css";
 import { getAuthState, logout } from "~/features/auth/auth.functions";
 import { getCatalogFingerprint } from "~/features/catalog/catalog.functions";
@@ -290,20 +291,38 @@ function GlobalShortcuts({
   useHotkey({ key: "?", shift: true }, () => setShowHelp((v) => !v));
   useHotkey(".", toggleTheme);
 
-  useHotkeySequence(["G", "H"], () => {
-    if (isInputFocused()) return;
-    navigate({ to: "/" });
-  });
-
-  useHotkeySequence(["G", "C"], () => {
-    if (isInputFocused()) return;
-    navigate({ to: "/catalog" });
-  });
-
-  useHotkeySequence(["G", "R"], () => {
-    if (isInputFocused()) return;
-    navigate({ to: "/roadmap" });
-  });
+  // Use raw sequence manager so we can pass preventDefault: false.
+  // The useHotkeySequence hook doesn't forward these options to the manager.
+  const navRef = useRef(navigate);
+  navRef.current = navigate;
+  useEffect(() => {
+    const opts = { preventDefault: false, stopPropagation: false } as const;
+    const guard = (fn: () => void) => () => {
+      if (isInputFocused()) return;
+      fn();
+    };
+    const mgr = getSequenceManager();
+    const unsubs = [
+      mgr.register(
+        ["G", "H"],
+        guard(() => navRef.current({ to: "/" })),
+        opts,
+      ),
+      mgr.register(
+        ["G", "C"],
+        guard(() => navRef.current({ to: "/catalog" })),
+        opts,
+      ),
+      mgr.register(
+        ["G", "R"],
+        guard(() => navRef.current({ to: "/roadmap" })),
+        opts,
+      ),
+    ];
+    return () => {
+      for (const u of unsubs) u();
+    };
+  }, []);
 
   return <HelpOverlay open={showHelp} onClose={() => setShowHelp(false)} />;
 }

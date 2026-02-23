@@ -1,7 +1,6 @@
 import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { useEffect, useRef, useState } from "react";
-import { isInputFocused } from "~/lib/hotkeys/shortcuts";
 
 export function useCatalogCursor({
   itemCount,
@@ -62,11 +61,10 @@ export function useCatalogCursor({
     { enabled },
   );
 
-  // gg — jump to first item (sequence, needs manual input guard)
+  // gg — jump to first item
   useHotkeySequence(
     ["G", "G"],
     () => {
-      if (isInputFocused()) return;
       if (itemCount > 0) setSelectedIndex(0);
     },
     { enabled },
