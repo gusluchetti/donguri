@@ -505,7 +505,10 @@ function CatalogPage() {
                         height: virtualRow.size,
                         ["--type-color" as string]:
                           STAMP_COLORS[item.mediaType] ?? "var(--color-dg-accent)",
-                        animation: isNewData ? "fadeIn 280ms var(--ease-smooth) both" : "none",
+                        animationName: isNewData ? "fadeIn" : "none",
+                        animationDuration: "280ms",
+                        animationTimingFunction: "var(--ease-smooth)",
+                        animationFillMode: "both",
                         animationDelay:
                           isNewData && virtualRow.index < 20 ? `${virtualRow.index * 25}ms` : "0ms",
                       }}
