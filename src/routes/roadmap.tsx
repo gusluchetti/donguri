@@ -25,8 +25,10 @@ export const Route = createFileRoute("/roadmap")({
   component: RoadmapPage,
 });
 
-// Tracks current roadmap section color as markdown renders top-to-bottom
+// Tracks current roadmap section as markdown renders top-to-bottom
 let _sectionColor = "var(--color-dg-text-tertiary)";
+let _sectionKey = "";
+let _beliefIndex = 0;
 
 const SECTION_COLORS: Record<string, string> = {
   "available now": "var(--color-dg-tv)",
@@ -37,6 +39,8 @@ const SECTION_COLORS: Record<string, string> = {
 
 function RoadmapPage() {
   _sectionColor = "var(--color-dg-text-tertiary)";
+  _sectionKey = "";
+  _beliefIndex = 0;
 
   return (
     <div className="dg-page-enter text-dg-text min-h-screen font-body">
@@ -50,7 +54,17 @@ function RoadmapPage() {
             ),
             h2: ({ children }) => {
               const key = String(children).toLowerCase().trim();
+              _sectionKey = key;
               _sectionColor = SECTION_COLORS[key] ?? "var(--color-dg-text-tertiary)";
+
+              if (key === "what we believe") {
+                return (
+                  <h2 className="font-display text-[1.5rem] sm:text-[1.75rem] font-light italic tracking-[-0.02em] text-dg-text mt-8 mb-5">
+                    {children}
+                  </h2>
+                );
+              }
+
               return (
                 <h2
                   className="text-[0.8rem] uppercase tracking-wider mb-2 mt-6 first:mt-0 flex items-center gap-2"
@@ -74,14 +88,40 @@ function RoadmapPage() {
                 {children}
               </div>
             ),
-            li: ({ children }) => (
-              <div
-                className="px-3 sm:px-4 py-3 sm:py-2.5 text-[0.85rem] text-dg-text-secondary"
-                style={{ borderLeft: `2px solid ${_sectionColor}` }}
-              >
-                {children}
-              </div>
-            ),
+            ol: ({ children }) => {
+              if (_sectionKey === "what we believe") {
+                _beliefIndex = 0;
+                return (
+                  <div className="flex flex-col gap-5 mb-10 pb-8 border-b border-dg-border-subtle">
+                    {children}
+                  </div>
+                );
+              }
+              return <ol className="mb-4 list-decimal pl-5">{children}</ol>;
+            },
+            li: ({ children }) => {
+              if (_sectionKey === "what we believe") {
+                const num = String(++_beliefIndex).padStart(2, "0");
+                return (
+                  <div className="flex gap-4 items-start">
+                    <span className="text-[9px] text-dg-text-tertiary tabular-nums w-5 text-right shrink-0 mt-[6px]">
+                      {num}
+                    </span>
+                    <p className="font-display text-[1.05rem] sm:text-[1.15rem] font-light text-dg-text leading-relaxed max-w-[560px]">
+                      {children}
+                    </p>
+                  </div>
+                );
+              }
+              return (
+                <div
+                  className="px-3 sm:px-4 py-3 sm:py-2.5 text-[0.85rem] text-dg-text-secondary"
+                  style={{ borderLeft: `2px solid ${_sectionColor}` }}
+                >
+                  {children}
+                </div>
+              );
+            },
             strong: ({ children }) => (
               <span className="text-dg-text font-semibold">{children}</span>
             ),

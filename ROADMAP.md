@@ -3,6 +3,13 @@
 Your personal catalog for movies, TV shows, anime, and games.
 Track what you've watched, what you're playing, and what's next.
 
+## what we believe
+
+1. Your media history is yours. Not ours, not a company's. AT Protocol means you can leave anytime and take everything with you.
+2. Tracking should feel like maintaining a personal library, not filling out spreadsheets. Every interaction should have weight.
+3. Social features exist to help you discover, not to manufacture engagement. No algorithmic feeds. No infinite scroll.
+4. Open protocols over closed platforms. Always. Even when it's harder.
+
 ## Available now
 
 - **100,000+ titles** — movies, TV shows, anime, and games, all searchable
