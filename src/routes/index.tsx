@@ -364,55 +364,57 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
   );
 }
 
+function WatchlistListItem({ item, index }: { item: CatalogEntryRow; index: number }) {
+  const pos = episodePosition(item);
+  const replay = replayCountLabel(item.replayCount, item.mediaType ?? undefined);
+
+  return (
+    <Link
+      key={item.id}
+      to="/catalog/$wikidataId"
+      params={{ wikidataId: item.mediaWikidataId }}
+      className="flex items-center gap-3 px-3 sm:px-g3 py-3 sm:py-2.5 no-underline text-inherit transition-all duration-100 relative group hover:bg-dg-row-hover hover:translate-x-[3px]"
+      onClick={() => SoundEngine.navForward()}
+      onMouseEnter={() => SoundEngine.tick()}
+      style={{
+        animation: `fadeIn 320ms var(--ease-smooth) both ${index * 25}ms`,
+      }}
+    >
+      <div className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm bg-transparent group-hover:bg-dg-accent transition-all duration-150 group-hover:shadow-[0_0_8px_rgba(184,164,114,0.3)]" />
+      <StampBadge type={item.mediaType ?? ""} index={index} />
+      <span className="text-[0.85rem] text-dg-text truncate flex-1 font-medium">
+        {item.isFavorite && (
+          <Star size={11} weight="fill" className="text-dg-accent mr-1 inline-block" />
+        )}
+        {item.mediaTitle ?? item.mediaWikidataId}
+      </span>
+      {pos && (
+        <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums shrink-0 font-mono">
+          {pos}
+        </span>
+      )}
+      {replay && (
+        <span className="text-[0.65rem] text-dg-text-tertiary shrink-0">{replay}</span>
+      )}
+      {item.rating != null && (
+        <span
+          className="text-[0.75rem] tabular-nums shrink-0 font-mono"
+          style={{ color: ratingColor(item.rating) ?? "var(--color-dg-accent)" }}
+        >
+          {item.rating}/100
+        </span>
+      )}
+    </Link>
+  );
+}
+
 /** List rows for in-progress, planned, on-hold, dropped sections */
 function WatchlistList({ items }: { items: CatalogEntryRow[] }) {
   return (
     <div className="border border-dg-border-subtle rounded bg-dg-surface divide-y divide-dg-border-subtle overflow-hidden">
-      {items.map((item, i) => {
-        const replay = replayCountLabel(item.replayCount, item.mediaType ?? undefined);
-        return (
-          <Link
-            key={item.id}
-            to="/catalog/$wikidataId"
-            params={{ wikidataId: item.mediaWikidataId }}
-            className="flex items-center gap-3 px-3 sm:px-g3 py-3 sm:py-2.5 no-underline text-inherit transition-all duration-100 relative group hover:bg-dg-row-hover hover:translate-x-[3px]"
-            onClick={() => SoundEngine.navForward()}
-            onMouseEnter={() => SoundEngine.tick()}
-            style={{
-              animation: `fadeIn 320ms var(--ease-smooth) both ${i * 25}ms`,
-            }}
-          >
-            {/* Left selection bar */}
-            <div className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm bg-transparent group-hover:bg-dg-accent transition-all duration-150 group-hover:shadow-[0_0_8px_rgba(184,164,114,0.3)]" />
-            <StampBadge type={item.mediaType ?? ""} index={i} />
-            <span className="text-[0.85rem] text-dg-text truncate flex-1 font-medium">
-              {item.isFavorite && (
-                <Star size={11} weight="fill" className="text-dg-accent mr-1 inline-block" />
-              )}
-              {item.mediaTitle ?? item.mediaWikidataId}
-            </span>
-            {(() => {
-              const pos = episodePosition(item);
-              return pos ? (
-                <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums shrink-0 font-mono">
-                  {pos}
-                </span>
-              ) : null;
-            })()}
-            {replay && (
-              <span className="text-[0.65rem] text-dg-text-tertiary shrink-0">{replay}</span>
-            )}
-            {item.rating != null && (
-              <span
-                className="text-[0.75rem] tabular-nums shrink-0 font-mono"
-                style={{ color: ratingColor(item.rating) ?? "var(--color-dg-accent)" }}
-              >
-                {item.rating}/100
-              </span>
-            )}
-          </Link>
-        );
-      })}
+      {items.map((item, i) => (
+        <WatchlistListItem key={item.id} item={item} index={i} />
+      ))}
     </div>
   );
 }

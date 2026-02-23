@@ -18,8 +18,9 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import { clear } from "idb-keyval";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import "../app.css";
+import { AcornIcon } from "../components/AcornIcon";
 import { BackgroundLayers } from "../components/BackgroundLayers";
 import { getAuthState, logout } from "../lib/auth.functions";
 import { getCatalogFingerprint } from "../lib/catalog.functions";
@@ -112,6 +113,13 @@ function RootComponent() {
   const { auth, theme } = Route.useLoaderData();
   const queryClient = Route.useRouteContext().queryClient;
 
+  const handleLogout = useCallback(async () => {
+    await logout();
+    queryClient.clear();
+    clear();
+    window.location.href = "/";
+  }, [queryClient]);
+
   // Global error handler: stale deploys + expired AT Protocol sessions
   useEffect(() => {
     const onError = (e: PromiseRejectionEvent) => {
@@ -159,17 +167,9 @@ function RootComponent() {
                     className="flex items-center gap-g1 no-underline cursor-pointer"
                     onClick={() => SoundEngine.click()}
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 256 256"
-                      width={24}
-                      height={24}
-                      fill="currentColor"
-                      style={{ color: "var(--color-dg-accent)" }}
-                      aria-hidden="true"
-                    >
-                      <path d="M232,104a56.06,56.06,0,0,0-56-56H136a24,24,0,0,1,24-24,8,8,0,0,0,0-16,40,40,0,0,0-40,40H80a56.06,56.06,0,0,0-56,56,16,16,0,0,0,8,13.83V128c0,35.53,33.12,62.12,59.74,83.49C103.66,221.07,120,234.18,120,240a8,8,0,0,0,16,0c0-5.82,16.34-18.93,28.26-28.51C190.88,190.12,224,163.53,224,128V117.83A16,16,0,0,0,232,104ZM80,64h96a40.06,40.06,0,0,1,40,40H40A40,40,0,0,1,80,64Zm74.25,135c-10.62,8.52-20,16-26.25,23.37-6.25-7.32-15.63-14.85-26.25-23.37C77.8,179.79,48,155.86,48,128v-8H208v8C208,155.86,178.2,179.79,154.25,199Z" />
-                    </svg>
+                    <span style={{ color: "var(--color-dg-accent)" }}>
+                      <AcornIcon size={24} />
+                    </span>
                     <span className="hidden sm:inline font-display text-lg font-medium text-dg-text">
                       donguri
                     </span>
@@ -210,12 +210,7 @@ function RootComponent() {
                     <button
                       type="button"
                       className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-tertiary font-body cursor-pointer transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text-secondary"
-                      onClick={async () => {
-                        await logout();
-                        queryClient.clear();
-                        clear();
-                        window.location.href = "/";
-                      }}
+                      onClick={handleLogout}
                     >
                       logout
                     </button>
@@ -455,16 +450,7 @@ function BottomNav() {
           inactiveProps={inactive}
           onClick={() => SoundEngine.click()}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 256 256"
-            width={26}
-            height={26}
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path d="M232,104a56.06,56.06,0,0,0-56-56H136a24,24,0,0,1,24-24,8,8,0,0,0,0-16,40,40,0,0,0-40,40H80a56.06,56.06,0,0,0-56,56,16,16,0,0,0,8,13.83V128c0,35.53,33.12,62.12,59.74,83.49C103.66,221.07,120,234.18,120,240a8,8,0,0,0,16,0c0-5.82,16.34-18.93,28.26-28.51C190.88,190.12,224,163.53,224,128V117.83A16,16,0,0,0,232,104ZM80,64h96a40.06,40.06,0,0,1,40,40H40A40,40,0,0,1,80,64Zm74.25,135c-10.62,8.52-20,16-26.25,23.37-6.25-7.32-15.63-14.85-26.25-23.37C77.8,179.79,48,155.86,48,128v-8H208v8C208,155.86,178.2,179.79,154.25,199Z" />
-          </svg>
+          <AcornIcon size={26} />
           <span className="text-[0.6rem] uppercase tracking-wider">home</span>
         </Link>
 
