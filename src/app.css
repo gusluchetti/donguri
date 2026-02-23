@@ -8,6 +8,10 @@ body {
   overflow-x: hidden;
 }
 
+img {
+  filter: var(--img-filter);
+}
+
 .scrollbar-hide {
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -60,6 +64,9 @@ body {
 
   /* Rating color lightness offset — positive = brighter (dark bg needs this) */
   --rating-l-offset: 12%;
+
+  /* Image filter — soften brightness in dark mode, neutral in light */
+  --img-filter: brightness(0.85) contrast(1.05);
 
   /* Status colors */
   --color-dg-charted: #c4b86a;
@@ -117,6 +124,7 @@ body {
     --color-dg-game: #1a5e38;
 
     --rating-l-offset: -3%;
+    --img-filter: none;
 
     --color-dg-charted: #7a7028;
     --color-dg-enroute: #1a7a6d;
