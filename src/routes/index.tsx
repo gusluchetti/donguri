@@ -326,15 +326,17 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
             animation: `fadeIn 320ms var(--ease-smooth) both ${i * 30}ms`,
           }}
         >
-          <div className="w-full aspect-[2/3] rounded overflow-hidden relative transition-all duration-[120ms] ease-[var(--ease-spring)] group-hover:scale-[1.04] group-hover:shadow-[0_4px_20px_rgba(184,164,114,0.15)]">
-            <CoverThumb
-              title={item.mediaTitle ?? "?"}
-              mediaType={item.mediaType ?? undefined}
-              size={200}
-              posterUrl={item.posterUrl ?? undefined}
-            />
+          <div className="w-full aspect-[2/3] rounded overflow-hidden relative">
+            <div className="w-full h-full transition-transform duration-200 ease-out group-hover:scale-[1.03]">
+              <CoverThumb
+                title={item.mediaTitle ?? "?"}
+                mediaType={item.mediaType ?? undefined}
+                size={200}
+                posterUrl={item.posterUrl ?? undefined}
+              />
+            </div>
           </div>
-          <div className="mt-1 text-xs font-medium text-dg-text truncate transition-all duration-150 group-hover:text-dg-accent group-hover:-translate-y-1">
+          <div className="mt-1 text-xs font-medium text-dg-text truncate transition-colors duration-150 group-hover:text-dg-accent">
             {item.isFavorite && (
               <Star size={10} weight="fill" className="text-dg-accent mr-0.5 inline-block" />
             )}
