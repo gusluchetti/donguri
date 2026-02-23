@@ -361,7 +361,7 @@ function CatalogPage() {
   }, [virtualItems, allItems.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <div className="text-dg-text flex-1 font-body flex flex-col overflow-hidden">
+    <div className="dg-page-enter text-dg-text flex-1 font-body flex flex-col overflow-hidden">
       {/* Header */}
       <header className="pt-3 pb-1">
         <div className="max-w-[1100px] mx-auto px-4 sm:px-6">
@@ -495,6 +495,8 @@ function CatalogPage() {
                     height: virtualRow.size,
                     ["--type-color" as string]:
                       STAMP_COLORS[item.mediaType] ?? "var(--color-dg-accent)",
+                    animation: "fadeIn 280ms var(--ease-smooth) both",
+                    animationDelay: virtualRow.index < 20 ? `${virtualRow.index * 25}ms` : "0ms",
                   }}
                   onClick={() => SoundEngine.navForward()}
                   onMouseEnter={() => SoundEngine.tick()}
@@ -606,23 +608,30 @@ const MediaRow = memo(function MediaRow({
         {/* Title + subtitle */}
         <div className="min-w-0">
           <div className="text-[0.85rem] font-medium text-dg-text truncate">{item.title}</div>
-          {item.originalTitle && (
-            <div className="text-xs text-dg-text-tertiary truncate hidden sm:block mt-0">
-              {item.originalTitle}
-            </div>
-          )}
+          {(() => {
+            const year = item.startYear
+              ? `${item.startYear}${item.endYear && item.endYear !== item.startYear ? `\u2013${item.endYear}` : ""}`
+              : "";
+            const sub = [item.originalTitle, year].filter(Boolean).join(" \u00b7 ");
+            return sub ? (
+              <div className="text-[0.7rem] text-dg-text-tertiary truncate hidden sm:block">
+                {sub}
+              </div>
+            ) : null;
+          })()}
         </div>
 
-        {/* Right side: meta + year — fixed widths keep columns aligned across all rows */}
-        <div className="flex items-center shrink-0">
-          <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums hidden sm:inline font-mono w-[5rem] text-right">
-            {meta}
-          </span>
-          <span className="text-xs text-dg-text-secondary tabular-nums font-mono w-[4.5rem] text-right">
-            {item.startYear
-              ? `${item.startYear}${item.endYear && item.endYear !== item.startYear ? `\u2013${item.endYear}` : ""}`
-              : ""}
-          </span>
+        {/* Right side: ep count or runtime */}
+        <div className="flex items-center shrink-0 justify-end w-[4rem]">
+          {item.episodeCount ? (
+            <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums text-right">
+              {item.episodeCount} ep
+            </span>
+          ) : meta ? (
+            <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums text-right">
+              {meta}
+            </span>
+          ) : null}
         </div>
       </div>
     </div>

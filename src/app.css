@@ -295,6 +295,11 @@ html[data-nav-back] ::view-transition-new(detail-content) {
   }
 }
 
+/* Page entrance animation — applied to route root divs */
+.dg-page-enter {
+  animation: scaleIn 280ms var(--ease-smooth) both;
+}
+
 @keyframes pulse {
   0%,
   100% {

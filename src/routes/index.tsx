@@ -107,7 +107,7 @@ function HomePage() {
 
   if (auth) {
     return (
-      <div className="text-dg-text flex-1 font-body">
+      <div className="dg-page-enter text-dg-text flex-1 font-body">
         <div className="max-w-[1100px] mx-auto px-g3 py-6 sm:py-8">
           <LoggedInView />
         </div>
@@ -116,7 +116,7 @@ function HomePage() {
   }
 
   return (
-    <div className="text-dg-text flex-1 font-body">
+    <div className="dg-page-enter text-dg-text flex-1 font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-6 sm:py-8">
         <h1 className="font-display text-[1.8rem] sm:text-[2.25rem] font-normal tracking-[-0.03em] mb-2">
           <span className="text-dg-accent">donguri</span>
@@ -274,8 +274,36 @@ function LoggedInView() {
     if (items.length > 0) grouped.set(status, items);
   }
 
+  const statCounts = {
+    total: entries.length,
+    inProgress: entries.filter((e) => e.status === "in_progress").length,
+    planned: entries.filter((e) => e.status === "planned").length,
+    completed: entries.filter((e) => e.status === "completed" || e.status === "mastered").length,
+  };
+
   return (
     <div>
+      {/* Tiny stats header */}
+      {entries.length > 0 && (
+        <div className="flex items-baseline gap-4 sm:gap-6 mb-5 pb-4 border-b border-dg-border-subtle flex-wrap">
+          {[
+            { value: statCounts.total, label: "titles" },
+            { value: statCounts.inProgress, label: "in progress" },
+            { value: statCounts.completed, label: "completed" },
+            { value: statCounts.planned, label: "planned" },
+          ].map(({ value, label }) => (
+            <div key={label} className="flex items-baseline gap-1.5">
+              <span className="font-body text-[1.05rem] font-bold text-dg-text tabular-nums">
+                {value}
+              </span>
+              <span className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider">
+                {label}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {grouped.size === 0 ? (
         <div className="border border-dg-border-subtle rounded p-4 sm:p-5 bg-dg-surface">
           <p className="text-dg-text-secondary text-[0.85rem] leading-relaxed">
