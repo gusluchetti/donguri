@@ -385,17 +385,17 @@ function MediaDetailPage({
 
         {/* Header + meta combined row */}
         <div className="flex flex-col sm:flex-row gap-g3 sm:gap-g4 mb-g3 sm:mb-g4">
-          {/* Poster — full portrait on mobile (left-aligned), taller fixed on desktop */}
-          <div className="w-[150px] sm:w-[210px] shrink-0 sm:self-start">
+          {/* Poster — portrait on mobile, stretches to match right column on desktop */}
+          <div className="w-[150px] sm:w-[210px] shrink-0">
             {data.posterUrl ? (
               <img
                 src={data.posterUrl}
                 alt={`${data.title} poster`}
-                className="w-full rounded border border-dg-border-subtle object-cover aspect-[2/3]"
+                className="w-full rounded border border-dg-border-subtle object-cover aspect-[2/3] sm:aspect-auto sm:h-full"
                 loading="eager"
               />
             ) : (
-              <div className="aspect-[2/3] w-full">
+              <div className="aspect-[2/3] w-full sm:aspect-auto sm:h-full">
                 <CoverThumb title={data.title} mediaType={data.mediaType ?? undefined} size={210} />
               </div>
             )}
