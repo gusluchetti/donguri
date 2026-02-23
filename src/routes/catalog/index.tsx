@@ -486,7 +486,7 @@ function CatalogPage() {
                   to="/catalog/$wikidataId"
                   params={{ wikidataId: item.wikidataId }}
                   preload="intent"
-                  className={`w-full left-0 border-b border-dg-border-subtle absolute no-underline text-inherit block group overflow-hidden transition-all duration-100 hover:bg-dg-row-hover hover:translate-x-[3px]${isCursorActive ? " dg-cursor-active" : ""}`}
+                  className={`w-full left-0 border-b border-dg-border-subtle absolute no-underline text-inherit block group overflow-hidden transition-all duration-100 bg-dg-surface/50 hover:bg-dg-row-hover hover:translate-x-[3px]${isCursorActive ? " dg-cursor-active" : ""}`}
                   style={{
                     top: virtualRow.start,
                     height: virtualRow.size,
@@ -600,19 +600,16 @@ const MediaRow = memo(function MediaRow({
         )}
       </div>
 
-      {/* Right side: meta + year */}
-      <div className="flex items-center gap-4 shrink-0">
-        {meta && (
-          <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums hidden sm:inline font-mono">
-            {meta}
-          </span>
-        )}
-        {item.startYear && (
-          <span className="text-xs text-dg-text-secondary tabular-nums font-mono">
-            {item.startYear}
-            {item.endYear && item.endYear !== item.startYear ? `\u2013${item.endYear}` : ""}
-          </span>
-        )}
+      {/* Right side: meta + year — fixed widths keep columns aligned across all rows */}
+      <div className="flex items-center shrink-0">
+        <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums hidden sm:inline font-mono w-[5rem] text-right">
+          {meta}
+        </span>
+        <span className="text-xs text-dg-text-secondary tabular-nums font-mono w-[4.5rem] text-right">
+          {item.startYear
+            ? `${item.startYear}${item.endYear && item.endYear !== item.startYear ? `\u2013${item.endYear}` : ""}`
+            : ""}
+        </span>
       </div>
     </div>
   );
