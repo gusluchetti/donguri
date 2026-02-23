@@ -6,7 +6,7 @@ import { useTheme } from "../lib/theme";
  * or real poster when posterUrl is available.
  *
  * Two modes:
- * - **Small** (default, size <= 60): square thumbnail for list rows (36×36).
+ * - **Small** (default, size <= 60): 2:3 portrait thumbnail for list rows (36×54).
  * - **Large** (size > 60): 2/3 aspect card for cover grids, deeper gradient,
  *   bigger watermark letter, heavier inner shadow.
  */
@@ -94,13 +94,13 @@ export function CoverThumb({
     );
   }
 
-  // Small thumbnail — square, lighter gradient
+  // Small thumbnail — 2:3 portrait, lighter gradient (matches poster image dimensions)
   return (
     <div
       className="rounded-[3px] border border-dg-border shrink-0 flex items-center justify-center relative overflow-hidden"
       style={{
         width: size,
-        height: size,
+        height: Math.round(size * 1.5),
         ...(vtName ? { viewTransitionName: vtName } : {}),
         background: isLight
           ? `linear-gradient(135deg, hsl(${h},20%,80%) 0%, hsl(${h + 30},16%,72%) 100%)`
