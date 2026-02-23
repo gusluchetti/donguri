@@ -249,7 +249,10 @@ export const getMedia = createServerFn({ method: "GET" })
         )
         .leftJoin(parentPlatforms, eq(canonicalPlatforms.parentId, parentPlatforms.id))
         .where(eq(mediaPlatforms.mediaId, item[0].id))
-        .orderBy(canonicalPlatforms.sortOrder),
+        .orderBy(
+          sql`COALESCE(${parentPlatforms.sortOrder}, ${canonicalPlatforms.sortOrder})`,
+          canonicalPlatforms.sortOrder,
+        ),
       db
         .select({
           id: seasons.id,
