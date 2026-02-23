@@ -52,11 +52,14 @@ body {
   --color-dg-accent-soft: rgba(184, 164, 114, 0.05);
   --color-dg-accent-glow: rgba(184, 164, 114, 0.1);
 
-  /* Stamp colors (type badges) */
-  --color-dg-movie: #c05621;
-  --color-dg-tv: #1a7a6d;
-  --color-dg-anime: #8b3a3a;
-  --color-dg-game: #2a7a50;
+  /* Stamp colors (type badges) — dark theme: vivid enough to read on dark bg */
+  --color-dg-movie: #d4662a;
+  --color-dg-tv: #2aaba0;
+  --color-dg-anime: #c05050;
+  --color-dg-game: #2ea862;
+
+  /* Rating color lightness offset — positive = brighter (dark bg needs this) */
+  --rating-l-offset: 12%;
 
   /* Status colors */
   --color-dg-charted: #c4b86a;
@@ -107,10 +110,13 @@ body {
     --color-dg-accent-soft: rgba(107, 91, 51, 0.06);
     --color-dg-accent-glow: rgba(107, 91, 51, 0.12);
 
-    --color-dg-movie: #c05621;
-    --color-dg-tv: #1a7a6d;
-    --color-dg-anime: #8b3a3a;
-    --color-dg-game: #2a7a50;
+    /* Stamp colors — light theme: dark enough to read on light bg */
+    --color-dg-movie: #8b3010;
+    --color-dg-tv: #0f5e55;
+    --color-dg-anime: #6b2222;
+    --color-dg-game: #1a5e38;
+
+    --rating-l-offset: -3%;
 
     --color-dg-charted: #7a7028;
     --color-dg-enroute: #1a7a6d;

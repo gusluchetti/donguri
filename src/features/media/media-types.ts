@@ -3,7 +3,11 @@ export function mediaTypeLabel(type: string, short = false): string {
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
-/** Maps 0–100 rating to a color: dark red → amber → green */
+/**
+ * Maps 0–100 rating to a color: dark red → amber → green.
+ * Lightness is offset by --rating-l-offset so dark/light themes
+ * both get readable contrast without any JS theme awareness.
+ */
 export function ratingColor(value: number | null): string | undefined {
   if (value == null || value === 0) return undefined;
   const t = value / 100;
@@ -19,7 +23,7 @@ export function ratingColor(value: number | null): string | undefined {
     s = 80 - p * 20;
     l = 55 - p * 10;
   }
-  return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`;
+  return `hsl(${Math.round(h)}, ${Math.round(s)}%, calc(${Math.round(l)}% + var(--rating-l-offset, 0%)))`;
 }
 
 // ─── Status Vocabulary ──────────────────────────────────────────────────────
