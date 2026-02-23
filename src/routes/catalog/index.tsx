@@ -12,11 +12,13 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { z } from "zod";
-import { CoverThumb } from "~/components/CoverThumb";
-import { StampBadge } from "~/components/StampBadge";
 import type { Media } from "~/db/schema";
+import { useCatalogCursor } from "~/features/catalog/catalog.cursor";
 import { setCatalogEntry } from "~/features/catalog/catalog.functions";
+import { catalogInfiniteOptions, mediaStatsOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
+import { CoverThumb } from "~/features/catalog/components/CoverThumb";
+import { StampBadge } from "~/features/catalog/components/StampBadge";
 import {
   STAMP_COLORS,
   STATUS_BUTTON_COLORS,
@@ -24,9 +26,7 @@ import {
   type StatusValue,
 } from "~/features/media/media-types";
 import { isInputFocused } from "~/lib/hotkeys/shortcuts";
-import { useCatalogCursor } from "~/lib/hotkeys/use-catalog-cursor";
 import { ogTags, pageTitle } from "~/lib/og";
-import { catalogInfiniteOptions, mediaStatsOptions } from "~/lib/query-options";
 
 const rootRoute = getRouteApi("__root__");
 

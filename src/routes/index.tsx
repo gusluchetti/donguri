@@ -2,11 +2,12 @@ import { Star } from "@phosphor-icons/react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { CoverThumb } from "~/components/CoverThumb";
-import { SectionHeader } from "~/components/SectionHeader";
-import { StampBadge } from "~/components/StampBadge";
 import { initiateLogin, initiateOAuthLogin } from "~/features/auth/auth.functions";
+import { watchlistOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
+import { CoverThumb } from "~/features/catalog/components/CoverThumb";
+import { StampBadge } from "~/features/catalog/components/StampBadge";
+import { SectionHeader } from "~/features/media/components/SectionHeader";
 import {
   ratingColor,
   replayCountLabel,
@@ -16,7 +17,6 @@ import {
   type StatusValue,
 } from "~/features/media/media-types";
 import { ogTags, pageTitle } from "~/lib/og";
-import { watchlistOptions } from "~/lib/query-options";
 
 const rootRoute = getRouteApi("__root__");
 

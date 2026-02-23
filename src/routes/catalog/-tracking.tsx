@@ -10,6 +10,7 @@ import {
   removeCatalogEntry,
   setCatalogEntry,
 } from "~/features/catalog/catalog.functions";
+import { catalogEntryOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import {
   availableStatuses,
@@ -22,7 +23,6 @@ import {
   type WatchedEpisodes,
 } from "~/features/media/media-types";
 import { useAction } from "~/hooks/use-action";
-import { catalogEntryOptions } from "~/lib/query-options";
 
 type StatePair<T> = { value: T; set: (v: T) => void };
 

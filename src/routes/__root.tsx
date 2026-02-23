@@ -20,16 +20,16 @@ import {
 import { clear } from "idb-keyval";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import "../app.css";
-import { AcornIcon } from "~/components/AcornIcon";
-import { BackgroundLayers } from "~/components/BackgroundLayers";
 import { getAuthState, logout } from "~/features/auth/auth.functions";
 import { getCatalogFingerprint } from "~/features/catalog/catalog.functions";
+import { trackedIdsOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
+import { AcornIcon } from "~/features/media/components/AcornIcon";
+import { BackgroundLayers } from "~/features/media/components/BackgroundLayers";
 import { HelpOverlay } from "~/lib/hotkeys/HelpOverlay";
 import { isInputFocused } from "~/lib/hotkeys/shortcuts";
 import { ogTags, pageTitle } from "~/lib/og";
 import { checkCatalogFreshness } from "~/lib/query";
-import { trackedIdsOptions } from "~/lib/query-options";
 import { getThemeCookie, ThemeProvider, useTheme } from "~/lib/theme";
 
 // Sets data-theme before first paint. Also syncs the cookie for SSR on next visit.

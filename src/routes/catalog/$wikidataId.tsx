@@ -2,19 +2,20 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { CoverThumb } from "~/components/CoverThumb";
-import { StampBadge } from "~/components/StampBadge";
 import type { CatalogEntry } from "~/db/schema";
 import { getMediaStub } from "~/features/catalog/catalog.functions";
+import { catalogEntryOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
+import { CoverThumb } from "~/features/catalog/components/CoverThumb";
+import { StampBadge } from "~/features/catalog/components/StampBadge";
 import type { getMedia } from "~/features/media/media.functions";
+import { mediaDetailOptions } from "~/features/media/media.queries";
 import {
   countWatchedEpisodes,
   mediaTypeLabel,
   type WatchedEpisodes,
 } from "~/features/media/media-types";
 import { ogTags, pageTitle } from "~/lib/og";
-import { catalogEntryOptions, mediaDetailOptions } from "~/lib/query-options";
 import { EpisodeTracker } from "./-episodes";
 import { TrackingPanel } from "./-tracking";
 
