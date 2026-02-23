@@ -1,3 +1,4 @@
+import { TYPE_HUES } from "../lib/media-types";
 import { useTheme } from "../lib/theme";
 
 /**
@@ -11,12 +12,14 @@ import { useTheme } from "../lib/theme";
  */
 export function CoverThumb({
   hue,
+  mediaType,
   title,
   size = 36,
   posterUrl,
   vtName,
 }: {
   hue?: number;
+  mediaType?: string;
   title: string;
   size?: number;
   posterUrl?: string;
@@ -43,7 +46,7 @@ export function CoverThumb({
     );
   }
 
-  const h = hue ?? 0;
+  const h = hue ?? (mediaType ? (TYPE_HUES[mediaType] ?? 0) : 0);
   const ch = title[0]?.toUpperCase() ?? "?";
 
   if (isLarge) {

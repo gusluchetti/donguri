@@ -18,7 +18,7 @@ import type { Media } from "../../db/schema";
 import { setCatalogEntry } from "../../lib/catalog.functions";
 import { isInputFocused } from "../../lib/hotkeys/shortcuts";
 import { useCatalogCursor } from "../../lib/hotkeys/use-catalog-cursor";
-import { STATUS_ACCENT, type StatusValue } from "../../lib/media-types";
+import { STAMP_COLORS, STATUS_ACCENT, type StatusValue } from "../../lib/media-types";
 import { ogTags, pageTitle } from "../../lib/og";
 import { catalogInfiniteOptions, mediaStatsOptions } from "../../lib/query-options";
 import { SoundEngine } from "../../lib/sound";
@@ -490,12 +490,16 @@ function CatalogPage() {
                   style={{
                     top: virtualRow.start,
                     height: virtualRow.size,
+                    ["--type-color" as string]: STAMP_COLORS[item.mediaType] ?? "var(--color-dg-accent)",
                   }}
                   onClick={() => SoundEngine.navForward()}
                   onMouseEnter={() => SoundEngine.tick()}
                 >
-                  {/* Left selection bar */}
-                  <div className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm bg-transparent group-hover:bg-dg-accent transition-all duration-150 group-hover:shadow-[0_0_8px_rgba(184,164,114,0.3)]" />
+                  {/* Left selection bar — color follows media type stamp */}
+                  <div
+                    className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+                    style={{ backgroundColor: "var(--type-color)" }}
+                  />
                   <MediaRow
                     item={item}
                     index={virtualRow.index}
@@ -560,6 +564,7 @@ const MediaRow = memo(function MediaRow({
         {/* Cover thumb */}
         <CoverThumb
           title={item.title}
+          mediaType={item.mediaType}
           size={36}
           posterUrl={item.posterUrl ?? undefined}
           vtName={`cover-${item.wikidataId}`}

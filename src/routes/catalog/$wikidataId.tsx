@@ -392,7 +392,7 @@ function MediaDetailPage({
             />
           ) : (
             <div className="w-[120px] sm:w-[160px] aspect-[2/3] shrink-0 self-start">
-              <CoverThumb title={data.title} size={160} vtName={`cover-${wikidataId}`} />
+              <CoverThumb title={data.title} mediaType={data.mediaType ?? undefined} size={160} vtName={`cover-${wikidataId}`} />
             </div>
           )}
           <div className="min-w-0 flex-1" style={{ viewTransitionName: "detail-content" }}>
