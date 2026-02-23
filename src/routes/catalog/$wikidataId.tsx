@@ -571,6 +571,12 @@ function EpisodeTracker({
   const interactive = !!onWatchedChange && !!watchedEpisodes;
   const isMultiSeason = seasons.length > 1;
 
+  // Always-fresh ref so rapid clicks don't read stale prop values
+  const latestWatchedRef = useRef(watchedEpisodes ?? {});
+  useEffect(() => {
+    latestWatchedRef.current = watchedEpisodes ?? {};
+  }, [watchedEpisodes]);
+
   // Auto-select first incomplete season on mount
   const [selectedSeason, setSelectedSeason] = useState(() => {
     for (const s of seasons) {
@@ -609,33 +615,45 @@ function EpisodeTracker({
     : undefined;
 
   const handleIncrement = () => {
+    const current = latestWatchedRef.current;
     if (consecutiveEp < seasonEpCount) {
-      onWatchedChange?.(
-        markThroughEpisode(
-          watchedEpisodes,
-          currentSeason.seasonNumber,
-          consecutiveEp + 1,
-          episodeDate,
-        ),
+      const next = markThroughEpisode(
+        current,
+        currentSeason.seasonNumber,
+        consecutiveEp + 1,
+        episodeDate,
       );
+      latestWatchedRef.current = next;
+      onWatchedChange?.(next);
     } else if (nextSeason) {
-      onWatchedChange?.(
-        markThroughEpisode(watchedEpisodes, nextSeason.seasonNumber, 1, episodeDate),
-      );
+      const next = markThroughEpisode(current, nextSeason.seasonNumber, 1, episodeDate);
+      latestWatchedRef.current = next;
+      onWatchedChange?.(next);
       setSelectedSeason(nextSeason.seasonNumber);
     }
   };
 
   const handleDecrement = () => {
+    const current = latestWatchedRef.current;
     if (consecutiveEp > 0) {
-      onWatchedChange?.(
-        clearSeasonFrom(watchedEpisodes, currentSeason.seasonNumber, consecutiveEp, seasonEpCount),
+      const next = clearSeasonFrom(
+        current,
+        currentSeason.seasonNumber,
+        consecutiveEp,
+        seasonEpCount,
       );
+      latestWatchedRef.current = next;
+      onWatchedChange?.(next);
     } else if (prevSeason) {
-      const pc = highestConsecutiveEpisode(watchedEpisodes, prevSeason.seasonNumber);
-      onWatchedChange?.(
-        clearSeasonFrom(watchedEpisodes, prevSeason.seasonNumber, pc, prevSeason.episodeCount ?? 0),
+      const pc = highestConsecutiveEpisode(current, prevSeason.seasonNumber);
+      const next = clearSeasonFrom(
+        current,
+        prevSeason.seasonNumber,
+        pc,
+        prevSeason.episodeCount ?? 0,
       );
+      latestWatchedRef.current = next;
+      onWatchedChange?.(next);
       setSelectedSeason(prevSeason.seasonNumber);
     }
   };
