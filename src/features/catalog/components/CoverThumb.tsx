@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { TYPE_HUES } from "~/features/media/media-types";
 import { useTheme } from "~/lib/theme";
 
@@ -9,7 +10,51 @@ import { useTheme } from "~/lib/theme";
  * - **Small** (default, size <= 60): ~4:3 portrait thumbnail for list rows (36×47).
  * - **Large** (size > 60): 2/3 aspect card for cover grids, deeper gradient,
  *   bigger watermark letter, heavier inner shadow.
+ *
+ * The gradient placeholder is always rendered — the poster image fades in on top
+ * once loaded, so there's never a blank flash.
  */
+
+type CoverThumbProps = {
+  hue?: number;
+  mediaType?: string;
+  title: string;
+  size?: number;
+  posterUrl?: string;
+  vtName?: string;
+};
+
+/** Swap TMDB image size variant in a URL. No-op for non-TMDB URLs. */
+function tmdbResize(url: string, size: string): string {
+  return url.replace(/\/t\/p\/\w+\//, `/t/p/${size}/`);
+}
+
+function buildInitials(title: string): string {
+  return (
+    title
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w[0].toUpperCase())
+      .join("")
+      .slice(0, 5) || "?"
+  );
+}
+
+function initialsSize(count: number, large: boolean): number {
+  if (large) {
+    if (count <= 1) return 32;
+    if (count <= 2) return 26;
+    if (count <= 3) return 20;
+    if (count <= 4) return 16;
+    return 13;
+  }
+  if (count <= 1) return 14;
+  if (count <= 2) return 12;
+  if (count <= 3) return 10;
+  if (count <= 4) return 8;
+  return 7;
+}
+
 export function CoverThumb({
   hue,
   mediaType,
@@ -17,65 +62,18 @@ export function CoverThumb({
   size = 36,
   posterUrl,
   vtName,
-}: {
-  hue?: number;
-  mediaType?: string;
-  title: string;
-  size?: number;
-  posterUrl?: string;
-  vtName?: string;
-}) {
+}: CoverThumbProps) {
   const { theme } = useTheme();
+  const [loaded, setLoaded] = useState(false);
+
   const isLight = theme === "light";
   const isLarge = size > 60;
-
-  if (posterUrl) {
-    return (
-      <img
-        src={posterUrl}
-        alt=""
-        width={size}
-        height={isLarge ? undefined : Math.round(size * 1.3)}
-        className={`border border-dg-border-subtle object-cover shrink-0 ${isLarge ? "w-full h-full rounded" : "rounded-sm"}`}
-        style={{
-          ...(isLarge ? {} : { width: size, height: Math.round(size * 1.3) }),
-          ...(vtName ? { viewTransitionName: vtName } : {}),
-        }}
-        loading="lazy"
-      />
-    );
-  }
-
   const h = hue ?? (mediaType ? (TYPE_HUES[mediaType] ?? 0) : 0);
+  const initials = buildInitials(title);
+  const fontSize = initialsSize(initials.length, isLarge);
 
-  const initials =
-    title
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((w) => w[0].toUpperCase())
-      .join("")
-      .slice(0, 5) || "?";
-
-  const smallFontSize =
-    initials.length <= 1
-      ? 14
-      : initials.length <= 2
-        ? 12
-        : initials.length <= 3
-          ? 10
-          : initials.length <= 4
-            ? 8
-            : 7;
-  const largeFontSize =
-    initials.length <= 1
-      ? 32
-      : initials.length <= 2
-        ? 26
-        : initials.length <= 3
-          ? 20
-          : initials.length <= 4
-            ? 16
-            : 13;
+  // Smaller TMDB variant for list thumbnails; keeps full size for detail view.
+  const imgSrc = posterUrl ? (isLarge ? posterUrl : tmdbResize(posterUrl, "w185")) : undefined;
 
   if (isLarge) {
     return (
@@ -92,7 +90,7 @@ export function CoverThumb({
         <span
           className="relative font-display font-semibold select-none tracking-tight"
           style={{
-            fontSize: largeFontSize,
+            fontSize,
             color: isLight ? `hsla(${h},30%,30%,0.15)` : `hsla(${h},25%,70%,0.15)`,
           }}
         >
@@ -106,6 +104,16 @@ export function CoverThumb({
               : "inset 0 0 0 1px rgba(255,255,255,0.025), inset 0 2px 10px rgba(0,0,0,0.25)",
           }}
         />
+        {imgSrc && (
+          <img
+            src={imgSrc}
+            alt=""
+            loading="lazy"
+            onLoad={() => setLoaded(true)}
+            className="absolute inset-0 w-full h-full object-cover rounded"
+            style={{ opacity: loaded ? 1 : 0, transition: "opacity 300ms ease-in" }}
+          />
+        )}
       </div>
     );
   }
@@ -125,7 +133,7 @@ export function CoverThumb({
       <span
         className="relative font-display font-semibold select-none tracking-tight"
         style={{
-          fontSize: smallFontSize,
+          fontSize,
           color: isLight ? `hsla(${h},30%,30%,0.3)` : `hsla(${h},25%,70%,0.3)`,
         }}
       >
@@ -139,6 +147,16 @@ export function CoverThumb({
             : "inset 0 0 0 1px rgba(255,255,255,0.03), inset 0 1px 3px rgba(0,0,0,0.2)",
         }}
       />
+      {imgSrc && (
+        <img
+          src={imgSrc}
+          alt=""
+          loading="lazy"
+          onLoad={() => setLoaded(true)}
+          className="absolute inset-0 w-full h-full object-cover rounded-[3px]"
+          style={{ opacity: loaded ? 1 : 0, transition: "opacity 300ms ease-in" }}
+        />
+      )}
     </div>
   );
 }
