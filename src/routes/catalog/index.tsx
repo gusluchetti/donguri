@@ -444,79 +444,80 @@ function CatalogPage() {
       )}
 
       {/* Virtual list */}
-      <div className="flex-1 relative min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 max-w-[1100px] mx-auto w-full px-4 sm:px-6 pb-4 relative">
         <div
-          ref={parentRef}
-          className="absolute inset-0 overflow-auto max-w-[1100px] mx-auto w-full px-4 sm:px-6 transition-opacity duration-150"
+          className="h-full border border-dg-border rounded-md overflow-hidden relative transition-opacity duration-150"
           style={{ opacity: isPlaceholderData ? 0.5 : 1 }}
         >
-          <div
-            style={{
-              height: virtualizer.getTotalSize(),
-              width: "100%",
-              position: "relative",
-            }}
-          >
-            {virtualItems.map((virtualRow) => {
-              if (virtualRow.index >= allItems.length) {
+          <div ref={parentRef} className="absolute inset-0 overflow-auto">
+            <div
+              style={{
+                height: virtualizer.getTotalSize(),
+                width: "100%",
+                position: "relative",
+              }}
+            >
+              {virtualItems.map((virtualRow) => {
+                if (virtualRow.index >= allItems.length) {
+                  return (
+                    <div
+                      key="loader"
+                      className="w-full left-0 border-b border-dg-border-subtle absolute flex items-center justify-center overflow-hidden"
+                      style={{
+                        top: virtualRow.start,
+                        height: virtualRow.size,
+                      }}
+                    >
+                      <span className="text-dg-text-tertiary">
+                        {isFetchingNextPage ? "Loading..." : ""}
+                      </span>
+                    </div>
+                  );
+                }
+
+                const item = allItems[virtualRow.index];
+                const status = trackedIds[item.wikidataId] ?? null;
+                const isTracked = status !== null;
+                const showAdd = auth && !isTracked;
+                const addState = quickAddState[item.wikidataId] ?? null;
+
+                const isCursorActive = virtualRow.index === selectedIndex;
+
                 return (
-                  <div
-                    key="loader"
-                    className="w-full left-0 border-b border-dg-surface absolute flex items-center justify-center overflow-hidden"
+                  <Link
+                    key={item.id}
+                    to="/catalog/$wikidataId"
+                    params={{ wikidataId: item.wikidataId }}
+                    preload="intent"
+                    className={`w-full left-0 absolute no-underline text-inherit block group transition-all duration-100 hover:translate-x-[3px] border-b border-dg-border-subtle${isCursorActive ? " dg-cursor-active" : ""}`}
                     style={{
                       top: virtualRow.start,
                       height: virtualRow.size,
+                      ["--type-color" as string]:
+                        STAMP_COLORS[item.mediaType] ?? "var(--color-dg-accent)",
+                      animation: "fadeIn 280ms var(--ease-smooth) both",
+                      animationDelay: virtualRow.index < 20 ? `${virtualRow.index * 25}ms` : "0ms",
                     }}
+                    onClick={() => SoundEngine.navForward()}
+                    onMouseEnter={() => SoundEngine.tick()}
                   >
-                    <span className="text-dg-text-tertiary">
-                      {isFetchingNextPage ? "Loading..." : ""}
-                    </span>
-                  </div>
+                    {/* Left selection bar — color follows media type stamp */}
+                    <div
+                      className="absolute left-0 top-0 bottom-0 w-[2.5px] opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+                      style={{ backgroundColor: "var(--type-color)" }}
+                    />
+                    <MediaRow
+                      item={item}
+                      index={virtualRow.index}
+                      trackedStatus={status}
+                      showAdd={!!showAdd}
+                      addState={addState}
+                      onQuickAdd={handleQuickAdd}
+                    />
+                  </Link>
                 );
-              }
-
-              const item = allItems[virtualRow.index];
-              const status = trackedIds[item.wikidataId] ?? null;
-              const isTracked = status !== null;
-              const showAdd = auth && !isTracked;
-              const addState = quickAddState[item.wikidataId] ?? null;
-
-              const isCursorActive = virtualRow.index === selectedIndex;
-
-              return (
-                <Link
-                  key={item.id}
-                  to="/catalog/$wikidataId"
-                  params={{ wikidataId: item.wikidataId }}
-                  preload="intent"
-                  className={`w-full left-0 absolute no-underline text-inherit block group transition-all duration-100 hover:translate-x-[3px]${isCursorActive ? " dg-cursor-active" : ""}`}
-                  style={{
-                    top: virtualRow.start,
-                    height: virtualRow.size,
-                    ["--type-color" as string]:
-                      STAMP_COLORS[item.mediaType] ?? "var(--color-dg-accent)",
-                    animation: "fadeIn 280ms var(--ease-smooth) both",
-                    animationDelay: virtualRow.index < 20 ? `${virtualRow.index * 25}ms` : "0ms",
-                  }}
-                  onClick={() => SoundEngine.navForward()}
-                  onMouseEnter={() => SoundEngine.tick()}
-                >
-                  {/* Left selection bar — color follows media type stamp */}
-                  <div
-                    className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-                    style={{ backgroundColor: "var(--type-color)" }}
-                  />
-                  <MediaRow
-                    item={item}
-                    index={virtualRow.index}
-                    trackedStatus={status}
-                    showAdd={!!showAdd}
-                    addState={addState}
-                    onQuickAdd={handleQuickAdd}
-                  />
-                </Link>
-              );
-            })}
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -559,9 +560,9 @@ const MediaRow = memo(function MediaRow({
   const meta = formatMeta(item);
 
   return (
-    <div className="h-full px-1 py-0.5 flex items-center">
+    <div className="h-full flex items-center relative">
       <div
-        className="grid items-center w-full gap-2 sm:gap-g2 py-1.5 px-3 sm:px-g3 rounded-md bg-dg-surface group-hover:bg-dg-row-hover border border-dg-border-subtle transition-colors duration-100"
+        className="grid items-center w-full gap-2 sm:gap-g2 py-1.5 px-3 sm:px-g3 group-hover:bg-dg-row-hover transition-colors duration-100"
         style={{
           gridTemplateColumns:
             showAdd || addState ? "36px auto 1fr auto auto" : "36px auto 1fr auto",
