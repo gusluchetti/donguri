@@ -345,6 +345,8 @@ html[data-nav-back] ::view-transition-new(detail-content) {
     linear-gradient(90deg, var(--grid-color) 1px, transparent 1px),
     linear-gradient(0deg, var(--grid-color) 1px, transparent 1px);
   background-size: 64px 64px;
+  mask-image: linear-gradient(in oklch to bottom, black 50%, transparent);
+  -webkit-mask-image: linear-gradient(in oklch to bottom, black 50%, transparent);
 }
 
 .bg-topo {

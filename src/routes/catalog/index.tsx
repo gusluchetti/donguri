@@ -473,14 +473,7 @@ function CatalogPage() {
             className="flex-1 min-h-0 border border-dg-border rounded-md overflow-hidden flex flex-col transition-opacity duration-150 bg-dg-surface"
             style={{ opacity: isPlaceholderData ? 0.5 : 1 }}
           >
-            <div
-              ref={parentRef}
-              className="flex-1 min-h-0 overflow-auto"
-              style={{
-                maskImage: "linear-gradient(in oklch to bottom, black 50%, transparent)",
-                WebkitMaskImage: "linear-gradient(in oklch to bottom, black 50%, transparent)",
-              }}
-            >
+            <div ref={parentRef} className="flex-1 min-h-0 overflow-auto">
               <div
                 style={{
                   height: virtualizer.getTotalSize(),
