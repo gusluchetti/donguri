@@ -1,4 +1,4 @@
-import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions, keepPreviousData, queryOptions } from "@tanstack/react-query";
 import {
   getCatalogEntry,
   getUserCatalogEntries,
@@ -13,7 +13,8 @@ export function trackedIdsOptions() {
   return queryOptions({
     queryKey: ["user", "trackedIds", DATA_VERSION],
     queryFn: () => getUserTrackedIds({}),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 2 * 60 * 60 * 1000,
     refetchOnWindowFocus: true,
     persister,
   });
@@ -23,8 +24,10 @@ export function watchlistOptions() {
   return queryOptions({
     queryKey: ["user", "watchlist", DATA_VERSION],
     queryFn: () => getUserCatalogEntries({}),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 2 * 60 * 60 * 1000,
     refetchOnWindowFocus: true,
+    placeholderData: keepPreviousData,
     persister,
   });
 }
@@ -39,7 +42,7 @@ export function catalogInfiniteOptions(
       listMedia({ data: { cursor: pageParam, limit: 50, mediaType, search } }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   });
 }
 
