@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TYPE_HUES } from "~/features/media/media-types";
 import { useTheme } from "~/lib/theme";
 
@@ -97,6 +97,20 @@ export function CoverThumb({
     if (loaded !== nowCached) setLoaded(nowCached);
   }
 
+  // Ref for detecting images that loaded before React hydration.
+  // During SSR, images render with opacity:0 and the browser may load them
+  // before React attaches the onLoad handler — so onLoad never fires.
+  const imgRef = useRef<HTMLImageElement>(null);
+  const loadedRef = useRef(loaded);
+  loadedRef.current = loaded;
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0 && !loadedRef.current) {
+      if (imgSrc) loadedUrls.add(imgSrc);
+      setLoaded(true);
+    }
+  }, [imgSrc]);
+
   const onImageLoad = () => {
     if (imgSrc) loadedUrls.add(imgSrc);
     setLoaded(true);
@@ -133,6 +147,7 @@ export function CoverThumb({
         />
         {imgSrc && (
           <img
+            ref={imgRef}
             src={imgSrc}
             alt=""
             loading={loading}
@@ -176,6 +191,7 @@ export function CoverThumb({
       />
       {imgSrc && (
         <img
+          ref={imgRef}
           src={imgSrc}
           alt=""
           loading={loading}
