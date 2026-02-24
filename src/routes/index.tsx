@@ -92,7 +92,7 @@ export const Route = createFileRoute("/")({
       .map((s) => ({
         rel: "preload",
         as: "image",
-        href: (s.posterUrl as string).replace(/\/t\/p\/\w+\//, "/t/p/w185/"),
+        href: s.posterUrl as string,
       })),
   }),
   component: HomePage,

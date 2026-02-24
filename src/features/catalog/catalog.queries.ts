@@ -50,7 +50,7 @@ export function catalogEntryOptions(wikidataId: string) {
   return queryOptions({
     queryKey: ["user", "entry", DATA_VERSION, wikidataId],
     queryFn: () => getCatalogEntry({ data: { wikidataId } }),
-    staleTime: 0,
+    staleTime: 30 * 60 * 1000, // 30 min — mutations invalidate immediately
     refetchOnWindowFocus: true,
     persister,
   });

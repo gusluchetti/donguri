@@ -129,24 +129,29 @@ export const getSamplesForHomepage = createServerFn({ method: "GET" }).handler(a
   return samples;
 });
 
+// ─── Server-side media detail cache ──────────────────────────────────────────
+
+const mediaDetailCache = new Map<string, { data: MediaDetail; ts: number }>();
+const DETAIL_CACHE_TTL = 10 * 60 * 1000; // 10 min
+const DETAIL_CACHE_MAX = 5000;
+
 /**
  * Get a single media item by Wikidata ID, including genres and platforms.
  */
 export const getMedia = createServerFn({ method: "GET" })
   .inputValidator(GetMediaInput)
   .handler(async ({ data }): Promise<MediaDetail | null> => {
+    // Check server-side cache first
+    const cached = mediaDetailCache.get(data.wikidataId);
+    if (cached && Date.now() - cached.ts < DETAIL_CACHE_TTL) {
+      return cached.data;
+    }
+
     const db = getDb();
 
-    const item = await db
-      .select()
-      .from(media)
-      .where(eq(media.wikidataId, data.wikidataId))
-      .limit(1);
-
-    if (item.length === 0) return null;
-
-    // Fetch genres, platforms (both canonical with parent join), and seasons in parallel
-    const [itemGenres, itemPlatforms, itemSeasons] = await Promise.all([
+    // All 4 queries in parallel — JOIN through media by wikidataId (unique/indexed)
+    const [items, itemGenres, itemPlatforms, itemSeasons] = await Promise.all([
+      db.select().from(media).where(eq(media.wikidataId, data.wikidataId)).limit(1),
       db
         .select({
           id: canonicalGenres.id,
@@ -157,9 +162,10 @@ export const getMedia = createServerFn({ method: "GET" })
           parentName: parentGenres.name,
         })
         .from(mediaGenres)
+        .innerJoin(media, eq(mediaGenres.mediaId, media.id))
         .innerJoin(canonicalGenres, eq(mediaGenres.canonicalGenreId, canonicalGenres.id))
         .leftJoin(parentGenres, eq(canonicalGenres.parentId, parentGenres.id))
-        .where(eq(mediaGenres.mediaId, item[0].id))
+        .where(eq(media.wikidataId, data.wikidataId))
         .orderBy(canonicalGenres.sortOrder),
       db
         .select({
@@ -171,12 +177,13 @@ export const getMedia = createServerFn({ method: "GET" })
           parentName: parentPlatforms.name,
         })
         .from(mediaPlatforms)
+        .innerJoin(media, eq(mediaPlatforms.mediaId, media.id))
         .innerJoin(
           canonicalPlatforms,
           eq(mediaPlatforms.canonicalPlatformId, canonicalPlatforms.id),
         )
         .leftJoin(parentPlatforms, eq(canonicalPlatforms.parentId, parentPlatforms.id))
-        .where(eq(mediaPlatforms.mediaId, item[0].id))
+        .where(eq(media.wikidataId, data.wikidataId))
         .orderBy(
           sql`COALESCE(${parentPlatforms.sortOrder}, ${canonicalPlatforms.sortOrder})`,
           canonicalPlatforms.sortOrder,
@@ -190,16 +197,19 @@ export const getMedia = createServerFn({ method: "GET" })
           dataSource: seasons.dataSource,
         })
         .from(seasons)
-        .where(eq(seasons.mediaId, item[0].id))
+        .innerJoin(media, eq(seasons.mediaId, media.id))
+        .where(eq(media.wikidataId, data.wikidataId))
         .orderBy(seasons.seasonNumber),
     ]);
+
+    if (items.length === 0) return null;
 
     // TEMP: hide episode tracking for non-consecutive seasons
     const isConsecutive =
       itemSeasons.length === 0 || itemSeasons.every((s, i) => s.seasonNumber === i + 1);
 
-    const result = {
-      ...item[0],
+    const result: MediaDetail = {
+      ...items[0],
       genres: itemGenres.map((g) => ({
         id: g.id,
         slug: g.slug,
@@ -218,6 +228,13 @@ export const getMedia = createServerFn({ method: "GET" })
       })),
       seasons: isConsecutive ? itemSeasons : [],
     };
+
+    // Populate cache (FIFO eviction at max size)
+    if (mediaDetailCache.size >= DETAIL_CACHE_MAX) {
+      const firstKey = mediaDetailCache.keys().next().value;
+      if (firstKey) mediaDetailCache.delete(firstKey);
+    }
+    mediaDetailCache.set(data.wikidataId, { data: result, ts: Date.now() });
 
     return result;
   });
