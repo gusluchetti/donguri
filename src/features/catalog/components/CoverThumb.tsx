@@ -87,7 +87,7 @@ export function CoverThumb({
   // Start with loaded=true if this URL was already seen in this session,
   // so we skip the fade-in flash on return visits / re-renders.
   const alreadyCached = imgSrc ? loadedUrls.has(imgSrc) : false;
-  const [loaded, setLoaded] = useState(alreadyCached);
+  const [loaded, setLoaded] = useState(alreadyCached || loading === "eager");
 
   // If the posterUrl changes, reset loaded state (unless the new URL is also cached).
   const prevSrc = useRef(imgSrc);

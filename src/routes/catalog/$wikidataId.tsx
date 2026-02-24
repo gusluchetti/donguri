@@ -3,9 +3,8 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useNavigate, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import type { CatalogEntry } from "~/db/schema";
 import { getMediaStub } from "~/features/catalog/catalog.functions";
-import { catalogEntryOptions } from "~/features/catalog/catalog.queries";
+import { catalogEntryOptions, trackedIdsOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
@@ -27,7 +26,6 @@ const rootRoute = getRouteApi("__root__");
 type FullLoaderData = {
   kind: "full";
   media: NonNullable<Awaited<ReturnType<typeof getMedia>>>;
-  initialEntry?: CatalogEntry | null;
 };
 
 type StubLoaderData = {
@@ -44,19 +42,17 @@ type LoaderData = FullLoaderData | StubLoaderData;
 
 export const Route = createFileRoute("/catalog/$wikidataId")({
   loader: async ({ params, context }): Promise<LoaderData> => {
-    const mediaPromise = context.queryClient.ensureQueryData(mediaDetailOptions(params.wikidataId));
-    const entryPromise = context.queryClient
-      .fetchQuery(catalogEntryOptions(params.wikidataId))
-      .catch(() => null);
+    // Non-blocking: warm tracking cache for logged-in users only
+    const isLoggedIn = !!context.queryClient.getQueryData(trackedIdsOptions().queryKey);
+    if (isLoggedIn) {
+      context.queryClient.prefetchQuery(catalogEntryOptions(params.wikidataId));
+    }
 
-    const [media, initialEntry] = await Promise.all([mediaPromise, entryPromise]);
+    // Blocking: media data is the page content
+    const media = await context.queryClient.ensureQueryData(mediaDetailOptions(params.wikidataId));
 
     if (media) {
-      return {
-        kind: "full",
-        media,
-        initialEntry,
-      };
+      return { kind: "full", media };
     }
 
     const stub = await getMediaStub({ data: { wikidataId: params.wikidataId } });
@@ -137,12 +133,7 @@ function useShuffleNav() {
 function MediaDetailRouter() {
   const loaderData = Route.useLoaderData();
   if (loaderData.kind === "stub") return <MediaStubPage stub={loaderData.stub} />;
-  return (
-    <MediaDetailPage
-      wikidataId={loaderData.media.wikidataId}
-      initialEntry={loaderData.initialEntry}
-    />
-  );
+  return <MediaDetailPage wikidataId={loaderData.media.wikidataId} />;
 }
 
 function MediaDetailSkeleton() {
@@ -271,13 +262,7 @@ function MediaStubPage({
   );
 }
 
-function MediaDetailPage({
-  wikidataId,
-  initialEntry,
-}: {
-  wikidataId: string;
-  initialEntry?: CatalogEntry | null;
-}) {
+function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
   const { data } = useSuspenseQuery(mediaDetailOptions(wikidataId));
   if (!data) throw new Error("Media not found");
   const { auth } = rootRoute.useLoaderData();
@@ -290,20 +275,16 @@ function MediaDetailPage({
   }, [router]);
   const handleShuffle = useShuffleNav();
 
-  const [localIsFavorite, setLocalIsFavorite] = useState(initialEntry?.isFavorite ?? false);
-  const [localWatchedEpisodes, setLocalWatchedEpisodes] = useState<WatchedEpisodes>(
-    (initialEntry?.watchedEpisodes as WatchedEpisodes) ?? {},
-  );
-  const [localWatchedAt, setLocalWatchedAt] = useState<string | null>(
-    initialEntry?.watchedAt ?? null,
-  );
-  const [localStatus, setLocalStatus] = useState<string | null>(initialEntry?.status ?? null);
+  const [localIsFavorite, setLocalIsFavorite] = useState(false);
+  const [localWatchedEpisodes, setLocalWatchedEpisodes] = useState<WatchedEpisodes>({});
+  const [localWatchedAt, setLocalWatchedAt] = useState<string | null>(null);
+  const [localStatus, setLocalStatus] = useState<string | null>(null);
 
   useHotkey("H", handleBack);
   useHotkey("ArrowLeft", handleBack);
   useHotkey("Backspace", handleBack);
   useHotkey("F", () => setLocalIsFavorite((v) => !v), {
-    enabled: !!auth && !!initialEntry?.status,
+    enabled: !!auth && !!localStatus,
   });
 
   const isAnime = data.animationOrigin === "anime";
@@ -532,7 +513,6 @@ function MediaDetailPage({
             <TrackingPanel
               wikidataId={data.wikidataId}
               mediaType={data.mediaType}
-              initialEntry={initialEntry}
               statusState={{ value: localStatus, set: setLocalStatus }}
               favoriteState={{ value: localIsFavorite, set: setLocalIsFavorite }}
               watchedEpisodesState={{

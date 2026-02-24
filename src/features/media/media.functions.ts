@@ -14,6 +14,7 @@ import {
 } from "~/db/schema";
 import { getSessionData } from "~/features/auth/auth.session";
 import { getMediaSource } from "./media-source";
+import { getCacheArrays } from "./popular-cache";
 
 const parentGenres = alias(canonicalGenres, "parent_genres");
 const parentPlatforms = alias(canonicalPlatforms, "parent_platforms");
@@ -90,23 +91,67 @@ export const getRandomMediaId = createServerFn({ method: "GET" }).handler(async 
 });
 
 /**
+ * Homepage sample: 2 per type = 8 items with posters.
+ * Seeded PRNG (rotates every 30 min) keeps selection stable across refreshes.
+ * Display order is shuffled client-side.
+ */
+export const getSamplesForHomepage = createServerFn({ method: "GET" }).handler(async () => {
+  const { byType } = await getCacheArrays();
+  const PER_TYPE = 2;
+  const types = ["movie", "tv_series", "anime", "game"] as const;
+
+  // Seeded PRNG (mulberry32) — deterministic per 30-min window
+  const seed = Math.floor(Date.now() / 1_800_000);
+  let t = (seed | 0) + 0x6d2b79f5;
+  function rand() {
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+
+  const samples: Media[] = [];
+  for (const type of types) {
+    const withPosters = byType[type].filter((m) => m.posterUrl);
+    // Fisher-Yates with seeded rand
+    for (let i = withPosters.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [withPosters[i], withPosters[j]] = [withPosters[j], withPosters[i]];
+    }
+    samples.push(...withPosters.slice(0, PER_TYPE));
+  }
+
+  // Final shuffle for mixed display order
+  for (let i = samples.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [samples[i], samples[j]] = [samples[j], samples[i]];
+  }
+
+  return samples;
+});
+
+// ─── Server-side media detail cache ──────────────────────────────────────────
+
+const mediaDetailCache = new Map<string, { data: MediaDetail; ts: number }>();
+const DETAIL_CACHE_TTL = 10 * 60 * 1000; // 10 min
+const DETAIL_CACHE_MAX = 5000;
+
+/**
  * Get a single media item by Wikidata ID, including genres and platforms.
  */
 export const getMedia = createServerFn({ method: "GET" })
   .inputValidator(GetMediaInput)
   .handler(async ({ data }): Promise<MediaDetail | null> => {
+    // Check server-side cache first
+    const cached = mediaDetailCache.get(data.wikidataId);
+    if (cached && Date.now() - cached.ts < DETAIL_CACHE_TTL) {
+      return cached.data;
+    }
+
     const db = getDb();
 
-    const item = await db
-      .select()
-      .from(media)
-      .where(eq(media.wikidataId, data.wikidataId))
-      .limit(1);
-
-    if (item.length === 0) return null;
-
-    // Fetch genres, platforms (both canonical with parent join), and seasons in parallel
-    const [itemGenres, itemPlatforms, itemSeasons] = await Promise.all([
+    // All 4 queries in parallel — JOIN through media by wikidataId (unique/indexed)
+    const [items, itemGenres, itemPlatforms, itemSeasons] = await Promise.all([
+      db.select().from(media).where(eq(media.wikidataId, data.wikidataId)).limit(1),
       db
         .select({
           id: canonicalGenres.id,
@@ -117,9 +162,10 @@ export const getMedia = createServerFn({ method: "GET" })
           parentName: parentGenres.name,
         })
         .from(mediaGenres)
+        .innerJoin(media, eq(mediaGenres.mediaId, media.id))
         .innerJoin(canonicalGenres, eq(mediaGenres.canonicalGenreId, canonicalGenres.id))
         .leftJoin(parentGenres, eq(canonicalGenres.parentId, parentGenres.id))
-        .where(eq(mediaGenres.mediaId, item[0].id))
+        .where(eq(media.wikidataId, data.wikidataId))
         .orderBy(canonicalGenres.sortOrder),
       db
         .select({
@@ -131,12 +177,13 @@ export const getMedia = createServerFn({ method: "GET" })
           parentName: parentPlatforms.name,
         })
         .from(mediaPlatforms)
+        .innerJoin(media, eq(mediaPlatforms.mediaId, media.id))
         .innerJoin(
           canonicalPlatforms,
           eq(mediaPlatforms.canonicalPlatformId, canonicalPlatforms.id),
         )
         .leftJoin(parentPlatforms, eq(canonicalPlatforms.parentId, parentPlatforms.id))
-        .where(eq(mediaPlatforms.mediaId, item[0].id))
+        .where(eq(media.wikidataId, data.wikidataId))
         .orderBy(
           sql`COALESCE(${parentPlatforms.sortOrder}, ${canonicalPlatforms.sortOrder})`,
           canonicalPlatforms.sortOrder,
@@ -150,16 +197,19 @@ export const getMedia = createServerFn({ method: "GET" })
           dataSource: seasons.dataSource,
         })
         .from(seasons)
-        .where(eq(seasons.mediaId, item[0].id))
+        .innerJoin(media, eq(seasons.mediaId, media.id))
+        .where(eq(media.wikidataId, data.wikidataId))
         .orderBy(seasons.seasonNumber),
     ]);
+
+    if (items.length === 0) return null;
 
     // TEMP: hide episode tracking for non-consecutive seasons
     const isConsecutive =
       itemSeasons.length === 0 || itemSeasons.every((s, i) => s.seasonNumber === i + 1);
 
-    const result = {
-      ...item[0],
+    const result: MediaDetail = {
+      ...items[0],
       genres: itemGenres.map((g) => ({
         id: g.id,
         slug: g.slug,
@@ -178,6 +228,13 @@ export const getMedia = createServerFn({ method: "GET" })
       })),
       seasons: isConsecutive ? itemSeasons : [],
     };
+
+    // Populate cache (FIFO eviction at max size)
+    if (mediaDetailCache.size >= DETAIL_CACHE_MAX) {
+      const firstKey = mediaDetailCache.keys().next().value;
+      if (firstKey) mediaDetailCache.delete(firstKey);
+    }
+    mediaDetailCache.set(data.wikidataId, { data: result, ts: Date.now() });
 
     return result;
   });
