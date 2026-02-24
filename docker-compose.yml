@@ -2,6 +2,7 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    command: [postgres, -c, log_statement=all]
     ports:
       - "5433:5432"
     environment:

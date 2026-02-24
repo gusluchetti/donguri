@@ -19,6 +19,7 @@ const CatalogEntryRecordSchema = z.object({
   watchedAt: z.string().optional(),
   title: z.string().optional(),
   mediaType: z.string().optional(),
+  animationOrigin: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string().optional(),
 });
@@ -167,8 +168,8 @@ export async function upsertLocalMirror(
         watchedAt: normalized.watchedAt ?? null,
         mediaTitle: normalized.title ?? undefined,
         mediaType:
-          (normalized.mediaType as "movie" | "tv_series" | "anime" | "game" | undefined) ??
-          undefined,
+          (normalized.mediaType as "movie" | "tv_series" | "game" | undefined) ?? undefined,
+        animationOrigin: normalized.animationOrigin ?? undefined,
         rkey,
         syncedAt: now,
         updatedAt: recordUpdatedAt,
@@ -180,7 +181,8 @@ export async function upsertLocalMirror(
       userId,
       mediaWikidataId: normalized.mediaRef,
       mediaTitle: normalized.title ?? null,
-      mediaType: (normalized.mediaType ?? null) as "movie" | "tv_series" | "anime" | "game" | null,
+      mediaType: (normalized.mediaType ?? null) as "movie" | "tv_series" | "game" | null,
+      animationOrigin: normalized.animationOrigin ?? null,
       status: normalized.status,
       rating: normalized.rating ?? null,
       note: normalized.note ?? null,

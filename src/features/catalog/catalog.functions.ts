@@ -60,6 +60,7 @@ export const getUserCatalogEntries = createServerFn({ method: "GET" }).handler(a
       updatedAt: catalogEntries.updatedAt,
       mediaTitle: sql<string | null>`COALESCE(${catalogEntries.mediaTitle}, ${media.title})`,
       mediaType: sql<string | null>`COALESCE(${catalogEntries.mediaType}, ${media.mediaType})`,
+      animationOrigin: media.animationOrigin,
       watchedEpisodes: catalogEntries.watchedEpisodes,
       episodeCount: media.episodeCount,
       seasonCount: media.seasonCount,
@@ -130,6 +131,7 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
           createdAt: catalogEntries.createdAt,
           mediaTitle: catalogEntries.mediaTitle,
           mediaType: catalogEntries.mediaType,
+          animationOrigin: catalogEntries.animationOrigin,
           status: catalogEntries.status,
           completedAt: catalogEntries.completedAt,
         })
@@ -142,18 +144,24 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
         )
         .limit(1);
 
-      // Resolve title/mediaType: prefer catalog_entry, fall back to media table
+      // Resolve title/mediaType/animationOrigin: prefer catalog_entry, fall back to media table
       let title = existing?.mediaTitle ?? undefined;
       let entryMediaType = existing?.mediaType ?? undefined;
+      let entryAnimationOrigin = existing?.animationOrigin ?? undefined;
       if (!title || !entryMediaType) {
         const [mediaRow] = await db
-          .select({ title: media.title, mediaType: media.mediaType })
+          .select({
+            title: media.title,
+            mediaType: media.mediaType,
+            animationOrigin: media.animationOrigin,
+          })
           .from(media)
           .where(eq(media.wikidataId, data.wikidataId))
           .limit(1);
         if (mediaRow) {
           title = title ?? mediaRow.title;
           entryMediaType = entryMediaType ?? mediaRow.mediaType;
+          entryAnimationOrigin = entryAnimationOrigin ?? mediaRow.animationOrigin ?? undefined;
         }
       }
 
@@ -195,6 +203,7 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
           mediaWikidataId: data.wikidataId,
           mediaTitle: title ?? null,
           mediaType: (entryMediaType ?? null) as typeof catalogEntries.$inferInsert.mediaType,
+          animationOrigin: entryAnimationOrigin ?? null,
           status: data.status,
           rating: data.rating ?? null,
           note: data.note ?? null,
@@ -302,6 +311,7 @@ export const getMediaStub = createServerFn({ method: "GET" })
       .select({
         mediaTitle: catalogEntries.mediaTitle,
         mediaType: catalogEntries.mediaType,
+        animationOrigin: catalogEntries.animationOrigin,
       })
       .from(catalogEntries)
       .where(eq(catalogEntries.mediaWikidataId, data.wikidataId))
@@ -312,5 +322,6 @@ export const getMediaStub = createServerFn({ method: "GET" })
       wikidataId: data.wikidataId,
       title: entry.mediaTitle,
       mediaType: entry.mediaType,
+      animationOrigin: entry.animationOrigin,
     };
   });

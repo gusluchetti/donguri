@@ -59,20 +59,20 @@ export function normalizeStatus(s: string): StatusValue {
 }
 
 // Per-type label map: null = status hidden for that type
-type MediaTypeKey = "movie" | "tv_series" | "anime" | "game";
+// Behavior is driven by base mediaType (movie/tv_series/game), not animationOrigin.
+type MediaTypeKey = "movie" | "tv_series" | "game";
 
 const STATUS_LABELS_BY_TYPE: Record<StatusValue, Partial<Record<MediaTypeKey, string | null>>> = {
   planned: {
     movie: "Plan to Watch",
     tv_series: "Plan to Watch",
-    anime: "Plan to Watch",
     game: "Plan to Play",
   },
-  in_progress: { movie: null, tv_series: "Watching", anime: "Watching", game: "Playing" },
-  on_hold: { movie: null, tv_series: "Paused", anime: "Paused", game: "Paused" },
-  completed: { movie: "Watched", tv_series: "Completed", anime: "Completed", game: "Completed" },
-  dropped: { movie: "Dropped", tv_series: "Dropped", anime: "Dropped", game: "Dropped" },
-  mastered: { movie: null, tv_series: null, anime: null, game: "100%" },
+  in_progress: { movie: null, tv_series: "Watching", game: "Playing" },
+  on_hold: { movie: null, tv_series: "Paused", game: "Paused" },
+  completed: { movie: "Watched", tv_series: "Completed", game: "Completed" },
+  dropped: { movie: "Dropped", tv_series: "Dropped", game: "Dropped" },
+  mastered: { movie: null, tv_series: null, game: "100%" },
 };
 
 /** Type-specific label or generic fallback. Returns null if hidden for that type. */
@@ -128,6 +128,11 @@ export const STATUS_BUTTON_COLORS: Record<StatusValue, string> = {
   mastered: "border-dg-sealed text-dg-sealed bg-dg-sealed/10",
   dropped: "border-dg-dropped text-dg-dropped bg-dg-dropped/10",
 };
+
+/** Display type: animation origin when present, otherwise base type. Used for badges/colors/filters. */
+export function displayMediaType(mediaType: string, animationOrigin: string | null): string {
+  return animationOrigin ?? mediaType;
+}
 
 /** Stamp (type badge) color token name per media type */
 export const STAMP_COLORS: Record<string, string> = {

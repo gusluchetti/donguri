@@ -19,13 +19,14 @@ import { catalogInfiniteOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
+import { getRandomMediaId } from "~/features/media/media.functions";
 import {
+  displayMediaType,
   STAMP_COLORS,
   STATUS_BUTTON_COLORS,
   STATUS_ICONS,
   type StatusValue,
 } from "~/features/media/media-types";
-import { isInputFocused } from "~/lib/hotkeys/shortcuts";
 import { ogTags, pageTitle } from "~/lib/og";
 
 const rootRoute = getRouteApi("__root__");
@@ -170,97 +171,101 @@ function TypeFilterBar({
   );
 }
 
-const SearchBar = forwardRef<HTMLInputElement, { initialValue: string; onRandom?: () => void }>(
-  function SearchBar({ initialValue, onRandom }, ref) {
-    const navigate = useNavigate({ from: "/catalog/" });
-    const { q } = Route.useSearch();
-    const [value, setValue] = useState(initialValue);
-    const [focused, setFocused] = useState(false);
-    const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+const SearchBar = forwardRef<
+  HTMLInputElement,
+  { initialValue: string; onRandom?: () => void; onFocusChange?: (focused: boolean) => void }
+>(function SearchBar({ initialValue, onRandom, onFocusChange }, ref) {
+  const navigate = useNavigate({ from: "/catalog/" });
+  const { q } = Route.useSearch();
+  const [value, setValue] = useState(initialValue);
+  const [focused, setFocused] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-    // Sync when URL changes externally (back/forward) but not while typing
-    useEffect(() => {
-      if (!focused && !timeoutRef.current) setValue(q ?? "");
-    }, [q, focused]);
+  // Sync when URL changes externally (back/forward) but not while typing
+  useEffect(() => {
+    if (!focused && !timeoutRef.current) setValue(q ?? "");
+  }, [q, focused]);
 
-    useEffect(
-      () => () => {
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      },
-      [],
-    );
-
-    const handleChange = (input: string) => {
-      setValue(input);
-      if (input.length > 0) SoundEngine.search();
+  useEffect(
+    () => () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => {
-        timeoutRef.current = undefined;
-        navigate({
-          search: (prev) => ({ ...prev, q: input || undefined }),
-          replace: true,
-          viewTransition: false,
-        });
-      }, 300);
-    };
+    },
+    [],
+  );
 
-    const handleClear = () => {
-      setValue("");
+  const handleChange = (input: string) => {
+    setValue(input);
+    if (input.length > 0) SoundEngine.search();
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      timeoutRef.current = undefined;
       navigate({
-        search: (prev) => ({ ...prev, q: undefined }),
+        search: (prev) => ({ ...prev, q: input || undefined }),
         replace: true,
         viewTransition: false,
       });
-    };
+    }, 300);
+  };
 
-    return (
-      <div className="relative flex gap-1.5">
-        <div className="relative flex-1">
-          <div
-            className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors duration-[120ms]"
-            style={{ color: focused ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)" }}
-          >
-            <MagnifyingGlass size={14} weight="bold" />
-          </div>
-          <input
-            ref={ref}
-            type="text"
-            placeholder="Search catalog..."
-            value={value}
-            onChange={(e) => handleChange(e.target.value)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            className="w-full py-2.5 pl-9 pr-8 bg-dg-surface border rounded text-dg-text font-body text-base sm:text-[0.85rem] outline-none box-border transition-all duration-[120ms]"
-            style={{
-              borderColor: focused ? "var(--color-dg-accent)" : "var(--color-dg-border)",
-              boxShadow: focused ? "0 0 0 2px var(--color-dg-accent-glow)" : "none",
-            }}
-          />
-          {value && (
-            <button
-              type="button"
-              onClick={handleClear}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-dg-elevated border-none rounded-sm w-4 h-4 flex items-center justify-center cursor-pointer text-dg-text-tertiary hover:text-dg-text-secondary transition-colors"
-            >
-              <X size={10} />
-            </button>
-          )}
-        </div>
-        <button
-          type="button"
-          title="Random title"
-          onClick={() => {
-            SoundEngine.dice();
-            onRandom?.();
-          }}
-          className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+  const handleClear = () => {
+    setValue("");
+    navigate({
+      search: (prev) => ({ ...prev, q: undefined }),
+      replace: true,
+      viewTransition: false,
+    });
+  };
+
+  return (
+    <div className="relative flex gap-1.5">
+      <div className="relative flex-1">
+        <div
+          className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors duration-[120ms]"
+          style={{ color: focused ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)" }}
         >
-          <Shuffle size={17} weight="bold" />
-        </button>
+          <MagnifyingGlass size={14} weight="bold" />
+        </div>
+        <input
+          ref={ref}
+          type="text"
+          placeholder="Search catalog..."
+          value={value}
+          onChange={(e) => handleChange(e.target.value)}
+          onFocus={() => {
+            setFocused(true);
+            onFocusChange?.(true);
+          }}
+          onBlur={() => {
+            setFocused(false);
+            onFocusChange?.(false);
+          }}
+          className="w-full py-2.5 pl-9 pr-8 bg-dg-surface border rounded text-dg-text font-body text-base sm:text-[0.85rem] outline-none box-border transition-all duration-[120ms]"
+          style={{
+            borderColor: focused ? "var(--color-dg-accent)" : "var(--color-dg-border)",
+            boxShadow: focused ? "0 0 0 2px var(--color-dg-accent-glow)" : "none",
+          }}
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 bg-dg-elevated border-none rounded-sm w-4 h-4 flex items-center justify-center cursor-pointer text-dg-text-tertiary hover:text-dg-text-secondary transition-colors"
+          >
+            <X size={10} />
+          </button>
+        )}
       </div>
-    );
-  },
-);
+      <button
+        type="button"
+        title="Random title"
+        onClick={() => onRandom?.()}
+        className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+      >
+        <Shuffle size={17} weight="bold" />
+      </button>
+    </div>
+  );
+});
 
 function CatalogPage() {
   const { auth, trackedIds: rootTrackedIds } = rootRoute.useLoaderData();
@@ -286,6 +291,7 @@ function CatalogPage() {
   const { localOverrides, quickAddState, handleQuickAdd } = useQuickAdd();
   const parentRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const trackedIds: Record<string, string | null> = { ...rootTrackedIds, ...localOverrides };
 
@@ -325,6 +331,7 @@ function CatalogPage() {
     virtualizer,
     fetchNextPage,
     hasNextPage,
+    enabled: !searchFocused,
   });
 
   const prevQ = useRef(q);
@@ -357,8 +364,8 @@ function CatalogPage() {
     { ignoreInputs: false },
   );
 
-  useHotkey("L", openSelected, { enabled: selectedIndex >= 0 });
-  useHotkey("ArrowRight", openSelected, { enabled: selectedIndex >= 0 });
+  useHotkey("L", openSelected, { enabled: !searchFocused && selectedIndex >= 0 });
+  useHotkey("ArrowRight", openSelected, { enabled: !searchFocused && selectedIndex >= 0 });
 
   useHotkey("/", () => searchRef.current?.focus());
 
@@ -375,15 +382,12 @@ function CatalogPage() {
   );
 
   // f + key — type filter sequences
-  const applyTypeFilter = (type: FilterType) => () => {
-    if (isInputFocused()) return;
-    handleTypeChange(type);
-  };
-  useHotkeySequence(["F", "F"], applyTypeFilter(undefined));
-  useHotkeySequence(["F", "M"], applyTypeFilter("movie"));
-  useHotkeySequence(["F", "T"], applyTypeFilter("tv_series"));
-  useHotkeySequence(["F", "A"], applyTypeFilter("anime"));
-  useHotkeySequence(["F", "G"], applyTypeFilter("game"));
+  const applyTypeFilter = (type: FilterType) => () => handleTypeChange(type);
+  useHotkeySequence(["F", "F"], applyTypeFilter(undefined), { enabled: !searchFocused });
+  useHotkeySequence(["F", "M"], applyTypeFilter("movie"), { enabled: !searchFocused });
+  useHotkeySequence(["F", "T"], applyTypeFilter("tv_series"), { enabled: !searchFocused });
+  useHotkeySequence(["F", "A"], applyTypeFilter("anime"), { enabled: !searchFocused });
+  useHotkeySequence(["F", "G"], applyTypeFilter("game"), { enabled: !searchFocused });
 
   // a — quick-add selected item
   useHotkey(
@@ -396,15 +400,17 @@ function CatalogPage() {
       const fakeEvent = { preventDefault: () => {}, stopPropagation: () => {} } as React.MouseEvent;
       handleQuickAdd(item.wikidataId, item.mediaType, fakeEvent);
     },
-    { enabled: selectedIndex >= 0 && !!auth },
+    { enabled: !searchFocused && selectedIndex >= 0 && !!auth },
   );
 
-  const handleRandom = useCallback(() => {
-    if (!allItems.length) return;
-    const item = allItems[Math.floor(Math.random() * allItems.length)];
-    SoundEngine.navForward();
-    navigate({ to: "/catalog/$wikidataId", params: { wikidataId: item.wikidataId } });
-  }, [allItems, navigate]);
+  const handleRandom = useCallback(async () => {
+    SoundEngine.dice();
+    const id = await getRandomMediaId();
+    if (id) {
+      SoundEngine.navForward();
+      navigate({ to: "/catalog/$wikidataId", params: { wikidataId: id } });
+    }
+  }, [navigate]);
 
   useEffect(() => {
     const lastItem = virtualItems[virtualItems.length - 1];
@@ -417,7 +423,12 @@ function CatalogPage() {
   return (
     <div className="dg-page-enter text-dg-text flex-1 font-body flex flex-col overflow-hidden">
       <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 pt-3 pb-2 flex flex-col gap-2">
-        <SearchBar ref={searchRef} initialValue={q ?? ""} onRandom={handleRandom} />
+        <SearchBar
+          ref={searchRef}
+          initialValue={q ?? ""}
+          onRandom={handleRandom}
+          onFocusChange={setSearchFocused}
+        />
         <TypeFilterBar mediaType={mediaType} onTypeChange={handleTypeChange} />
       </div>
 
@@ -476,7 +487,8 @@ function CatalogPage() {
                         top: virtualRow.start,
                         height: virtualRow.size,
                         ["--type-color" as string]:
-                          STAMP_COLORS[item.mediaType] ?? "var(--color-dg-accent)",
+                          STAMP_COLORS[displayMediaType(item.mediaType, item.animationOrigin)] ??
+                          "var(--color-dg-accent)",
                         animationName: isNewData ? "fadeIn" : "none",
                         animationDuration: "280ms",
                         animationTimingFunction: "var(--ease-smooth)",
@@ -509,12 +521,13 @@ function CatalogPage() {
 
 function formatMeta(item: Media): string {
   const { mediaType, seasonCount, episodeCount, runtimeMinutes } = item;
-  if (mediaType === "tv_series" || mediaType === "anime") {
+  if (mediaType === "tv_series") {
     const parts: string[] = [];
-    if (seasonCount || episodeCount) {
-      const maxDigits = Math.max(String(seasonCount ?? 0).length, String(episodeCount ?? 0).length);
+    if (seasonCount || (episodeCount && episodeCount > 1)) {
+      const epToShow = episodeCount && episodeCount > 1 ? episodeCount : null;
+      const maxDigits = Math.max(String(seasonCount ?? 0).length, String(epToShow ?? 0).length);
       if (seasonCount) parts.push(`S${String(seasonCount).padStart(maxDigits, "0")}`);
-      if (episodeCount) parts.push(`E${String(episodeCount).padStart(maxDigits, "0")}`);
+      if (epToShow) parts.push(`E${String(epToShow).padStart(maxDigits, "0")}`);
     }
     return parts.join("");
   }
@@ -540,6 +553,7 @@ const MediaRow = memo(function MediaRow({
   onQuickAdd: (wikidataId: string, mediaType: string, e: React.MouseEvent) => void;
 }) {
   const meta = formatMeta(item);
+  const displayType = displayMediaType(item.mediaType, item.animationOrigin);
   const year = item.startYear
     ? `${item.startYear}${item.endYear && item.endYear !== item.startYear ? `\u2013${item.endYear}` : ""}`
     : "";
@@ -587,13 +601,13 @@ const MediaRow = memo(function MediaRow({
       >
         <CoverThumb
           title={item.title}
-          mediaType={item.mediaType}
+          mediaType={displayType}
           size={36}
           posterUrl={item.posterUrl ?? undefined}
         />
 
         <div className="flex items-center gap-1">
-          <StampBadge type={item.mediaType} index={index} />
+          <StampBadge type={displayType} index={index} />
         </div>
 
         <div className="min-w-0">
@@ -617,7 +631,7 @@ const MediaRow = memo(function MediaRow({
         </div>
 
         <div className="w-[4.5rem] flex items-center justify-end shrink-0">
-          {item.episodeCount ? (
+          {item.episodeCount && item.mediaType === "tv_series" ? (
             <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums text-right">
               {item.episodeCount}&nbsp;ep
             </span>

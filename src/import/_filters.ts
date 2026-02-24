@@ -1,3 +1,4 @@
+import { normalizeForSearch } from "~/lib/search";
 import {
   type MediaType,
   MediaTypeQValues,
@@ -68,34 +69,75 @@ export function getInstanceOfValues(entity: WikidataEntity): string[] {
 }
 
 /**
- * Determine media type with priority: anime > game > movie > tv_series
+ * Determine media type + animation origin.
+ * Anime movies → movie + "anime", anime series → tv_series + "anime".
+ * Non-anime entities with anime external IDs also get animationOrigin = "anime".
  */
-export function determineMediaType(entity: WikidataEntity): MediaType | null {
+export function determineMediaType(
+  entity: WikidataEntity,
+): { mediaType: MediaType; animationOrigin: string | null } | null {
   const instanceOfValues = getInstanceOfValues(entity);
 
-  // 1. Anime first (most specific)
+  // 1. Check anime P31 types first
+  let isAnimeType = false;
   for (const qValue of instanceOfValues) {
-    if (ANIME_TYPES.has(qValue)) return "anime";
+    if (ANIME_TYPES.has(qValue)) {
+      isAnimeType = true;
+      break;
+    }
+  }
+
+  if (isAnimeType) {
+    // Determine base type from specific anime P31 values
+    if (instanceOfValues.includes(Q.ANIME_FILM)) {
+      return { mediaType: "movie", animationOrigin: "anime" };
+    }
+    if (
+      instanceOfValues.includes(Q.ANIME_TV_SERIES) ||
+      instanceOfValues.includes(Q.ANIME_TV_SERIES_ALT)
+    ) {
+      return { mediaType: "tv_series", animationOrigin: "anime" };
+    }
+    // OVA/ONA → tv_series
+    if (instanceOfValues.includes(Q.OVA) || instanceOfValues.includes(Q.ONA)) {
+      return { mediaType: "tv_series", animationOrigin: "anime" };
+    }
+    // Generic Q1107 "anime" — use secondary signals
+    const episodeCount = getQuantityClaim(entity, P.EPISODE_COUNT);
+    const seasonCount = getQuantityClaim(entity, P.SEASON_COUNT);
+    if ((episodeCount != null && episodeCount > 1) || (seasonCount != null && seasonCount > 0)) {
+      return { mediaType: "tv_series", animationOrigin: "anime" };
+    }
+    return { mediaType: "movie", animationOrigin: "anime" };
   }
 
   // 2. Video game
-  if (instanceOfValues.includes(Q.VIDEO_GAME)) return "game";
+  if (instanceOfValues.includes(Q.VIDEO_GAME)) return { mediaType: "game", animationOrigin: null };
 
   // 3. Film (includes TV film and animated film)
-  if (
+  const isFilm =
     instanceOfValues.includes(Q.FILM) ||
     instanceOfValues.includes(Q.ANIMATED_FILM) ||
-    instanceOfValues.includes(Q.TV_FILM)
-  ) {
-    return "movie";
-  }
+    instanceOfValues.includes(Q.TV_FILM);
 
   // 4. TV series (includes animated TV series)
-  if (instanceOfValues.includes(Q.TV_SERIES) || instanceOfValues.includes(Q.ANIMATED_TV_SERIES)) {
-    return "tv_series";
+  const isTv =
+    instanceOfValues.includes(Q.TV_SERIES) || instanceOfValues.includes(Q.ANIMATED_TV_SERIES);
+
+  if (!isFilm && !isTv) return null;
+
+  if (isFilm && isTv) {
+    // Both film and TV — use episodes/seasons to disambiguate
+    const episodeCount = getQuantityClaim(entity, P.EPISODE_COUNT);
+    const seasonCount = getQuantityClaim(entity, P.SEASON_COUNT);
+    if ((episodeCount != null && episodeCount > 1) || (seasonCount != null && seasonCount > 0)) {
+      return { mediaType: "tv_series", animationOrigin: null };
+    }
+    return { mediaType: "movie", animationOrigin: null };
   }
 
-  return null;
+  if (isFilm) return { mediaType: "movie", animationOrigin: null };
+  return { mediaType: "tv_series", animationOrigin: null };
 }
 
 /**
@@ -431,16 +473,6 @@ function getCountryOfOrigin(entity: WikidataEntity): string | null {
   return COUNTRY_MAP[countryQId] ?? null;
 }
 
-function normalizeForSearch(title: string): string {
-  return title
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^\w\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function getBestTitle(entity: WikidataEntity): string | null {
   return (
     getLanguageString(entity.labels, "en") ??
@@ -454,8 +486,9 @@ function getBestTitle(entity: WikidataEntity): string | null {
  * Parse a Wikidata entity into our media format
  */
 export function parseMediaEntity(entity: WikidataEntity): ParsedMedia | null {
-  const mediaType = determineMediaType(entity);
-  if (!mediaType) return null;
+  const result = determineMediaType(entity);
+  if (!result) return null;
+  const { mediaType, animationOrigin } = result;
 
   const titleEn = getBestTitle(entity);
   if (!titleEn) return null;
@@ -465,20 +498,50 @@ export function parseMediaEntity(entity: WikidataEntity): ParsedMedia | null {
 
   const { title: originalTitle, language: originalLanguage } = getOriginalTitleAndLanguage(entity);
 
+  // Store type-prefixed TMDB path ("movie/{id}" or "tv/{id}") so consumers
+  // don't have to guess the TMDB namespace from mediaType.
   let tmdbId: string | null = null;
-  if (mediaType === "movie") {
-    tmdbId = getStringClaim(entity, P.TMDB_MOVIE_ID);
-  } else if (mediaType === "tv_series" || mediaType === "anime") {
-    tmdbId = getStringClaim(entity, P.TMDB_TV_ID) ?? getStringClaim(entity, P.TMDB_MOVIE_ID);
+  const tmdbMovieId = getStringClaim(entity, P.TMDB_MOVIE_ID);
+  const tmdbTvId = getStringClaim(entity, P.TMDB_TV_ID);
+  const instanceOfValues = getInstanceOfValues(entity);
+  const isFilmLike =
+    mediaType === "movie" ||
+    instanceOfValues.includes(Q.ANIME_FILM) ||
+    instanceOfValues.includes(Q.ANIMATED_FILM);
+  if (isFilmLike) {
+    if (tmdbMovieId) tmdbId = `movie/${tmdbMovieId}`;
+    else if (tmdbTvId) tmdbId = `tv/${tmdbTvId}`;
+  } else {
+    if (tmdbTvId) tmdbId = `tv/${tmdbTvId}`;
+    else if (tmdbMovieId) tmdbId = `movie/${tmdbMovieId}`;
+  }
+
+  // Extract English aliases, filtering out duplicates of title/originalTitle and junk
+  const titleLower = titleEn.toLowerCase();
+  const origLower = originalTitle?.toLowerCase();
+  const aliases: string[] = [];
+  const seenLower = new Set<string>([titleLower]);
+  if (origLower) seenLower.add(origLower);
+
+  for (const aliasObj of entity.aliases?.en ?? []) {
+    const v = aliasObj.value.trim();
+    if (!v || v.length > 100) continue;
+    const lo = v.toLowerCase();
+    if (seenLower.has(lo)) continue;
+    seenLower.add(lo);
+    aliases.push(v);
+    if (aliases.length >= 10) break;
   }
 
   const searchParts = [titleEn];
   if (originalTitle) searchParts.push(originalTitle);
+  for (const a of aliases) searchParts.push(a);
   const searchTitle = normalizeForSearch(searchParts.join(" "));
 
   return {
     wikidataId: entity.id,
     mediaType,
+    animationOrigin,
     title: titleEn,
     originalTitle,
     originalLanguage,
@@ -502,5 +565,6 @@ export function parseMediaEntity(entity: WikidataEntity): ParsedMedia | null {
     genreIds: getEntityIdClaims(entity, P.GENRE),
     platformIds: getEntityIdClaims(entity, P.PLATFORM),
     searchTitle,
+    aliases,
   };
 }
