@@ -261,10 +261,12 @@ function LoggedOutView() {
               Browse all →
             </Link>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            {samples.map((item, i) => (
-              <MediaCard key={item.id} item={item} index={i} />
-            ))}
+          <div className="sm:overflow-x-auto overflow-hidden pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex gap-3 sm:animate-none animate-[sampleDrift_45s_ease-in-out_infinite]">
+              {samples.map((item, i) => (
+                <MediaCard key={item.id} item={item} index={i} />
+              ))}
+            </div>
           </div>
         </section>
       )}

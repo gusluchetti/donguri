@@ -91,54 +91,33 @@ export const getRandomMediaId = createServerFn({ method: "GET" }).handler(async 
 });
 
 /**
- * Homepage sample: 12 items with posters — one of each type guaranteed,
- * remaining slots filled from the pool. Order is seeded-shuffled by day
- * so results are stable across hard refreshes but rotate daily.
+ * Homepage sample: 2 per type = 8 items with posters.
+ * Seeded PRNG (rotates every 30 min) keeps selection stable across refreshes.
+ * Display order is shuffled client-side.
  */
 export const getSamplesForHomepage = createServerFn({ method: "GET" }).handler(async () => {
   const { byType } = await getCacheArrays();
-  const TOTAL = 12;
+  const PER_TYPE = 2;
   const types = ["movie", "tv_series", "anime", "game"] as const;
 
-  // Simple seeded PRNG (mulberry32) — deterministic per day
-  const daySeed = Math.floor(Date.now() / 1_800_000);
-  let t = (daySeed | 0) + 0x6d2b79f5;
+  // Seeded PRNG (mulberry32) — deterministic per 30-min window
+  const seed = Math.floor(Date.now() / 1_800_000);
+  let t = (seed | 0) + 0x6d2b79f5;
   function rand() {
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   }
 
-  function seededPick<T>(arr: T[], n: number): T[] {
-    const copy = arr.slice();
-    for (let i = copy.length - 1; i > 0; i--) {
-      const j = Math.floor(rand() * (i + 1));
-      [copy[i], copy[j]] = [copy[j], copy[i]];
-    }
-    return copy.slice(0, n);
-  }
-
-  // One of each type first
   const samples: Media[] = [];
-  const usedIds = new Set<string>();
   for (const type of types) {
-    const pick = seededPick(
-      byType[type].filter((m) => m.posterUrl),
-      1,
-    );
-    for (const m of pick) {
-      samples.push(m);
-      usedIds.add(m.id);
+    const withPosters = byType[type].filter((m) => m.posterUrl);
+    // Fisher-Yates with seeded rand
+    for (let i = withPosters.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [withPosters[i], withPosters[j]] = [withPosters[j], withPosters[i]];
     }
-  }
-
-  // Fill remaining from the full pool
-  const remaining = TOTAL - samples.length;
-  if (remaining > 0) {
-    const pool = types.flatMap((type) =>
-      byType[type].filter((m) => m.posterUrl && !usedIds.has(m.id)),
-    );
-    samples.push(...seededPick(pool, remaining));
+    samples.push(...withPosters.slice(0, PER_TYPE));
   }
 
   return samples;

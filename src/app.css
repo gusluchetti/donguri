@@ -280,6 +280,22 @@ html[data-nav-back] ::view-transition-new(detail-content) {
   }
 }
 
+/* Slow back-and-forth drift for mobile sample carousel */
+@keyframes sampleDrift {
+  0%,
+  10% {
+    transform: translateX(0);
+  }
+  45%,
+  55% {
+    transform: translateX(calc(-100% + 100vw - 48px));
+  }
+  90%,
+  100% {
+    transform: translateX(0);
+  }
+}
+
 @keyframes stampDown {
   0% {
     transform: scale(1.35) rotate(var(--stamp-r, -1deg));
