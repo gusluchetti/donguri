@@ -139,7 +139,7 @@ function MediaDetailRouter() {
 function MediaDetailSkeleton() {
   const handleShuffle = useShuffleNav();
   return (
-    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
+    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <div className="flex items-center gap-1.5 mb-g2">
           <button
@@ -197,7 +197,7 @@ function MediaStubPage({
   const handleShuffle = useShuffleNav();
 
   return (
-    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
+    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <div className="flex items-center gap-1.5 mb-g2">
           <button
@@ -377,7 +377,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
   });
 
   return (
-    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
+    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <div className="flex items-center gap-1.5 mb-g2">
           <button
