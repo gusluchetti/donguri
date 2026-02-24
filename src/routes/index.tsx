@@ -1,5 +1,6 @@
 import { Star } from "@phosphor-icons/react";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
+import { useMemo } from "react";
 import type { Media } from "~/db/schema";
 import { watchlistOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
@@ -153,8 +154,18 @@ const STEPS = [
   },
 ];
 
+function shuffled<T>(arr: T[]): T[] {
+  const copy = arr.slice();
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
 function LoggedOutView() {
-  const { samples } = Route.useLoaderData();
+  const { samples: rawSamples } = Route.useLoaderData();
+  const samples = useMemo(() => shuffled(rawSamples), [rawSamples]);
 
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">

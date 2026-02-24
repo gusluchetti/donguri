@@ -141,12 +141,6 @@ export const getSamplesForHomepage = createServerFn({ method: "GET" }).handler(a
     samples.push(...seededPick(pool, remaining));
   }
 
-  // Final shuffle for display order
-  for (let i = samples.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [samples[i], samples[j]] = [samples[j], samples[i]];
-  }
-
   return samples;
 });
 
