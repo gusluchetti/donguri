@@ -79,12 +79,25 @@ export async function deleteCatalogEntry(
   const rkey = mediaRef;
   console.debug("[sync] deleteCatalogEntry did=%s rkey=%s", did, rkey);
 
-  await agent.com.atproto.repo.deleteRecord({
-    repo: did,
-    collection: COLLECTION,
-    rkey,
-  });
-  console.debug("[sync] deleteCatalogEntry PDS deleteRecord → ok");
+  try {
+    await agent.com.atproto.repo.deleteRecord({
+      repo: did,
+      collection: COLLECTION,
+      rkey,
+    });
+    console.debug("[sync] deleteCatalogEntry PDS deleteRecord → ok");
+  } catch (err) {
+    // If the record is already gone from PDS (e.g. deleted via another client,
+    // or was never synced), proceed with local DB cleanup instead of blocking.
+    const msg = err instanceof Error ? err.message : String(err);
+    const isNotFound = /RecordNotFound|Could not locate record/i.test(msg);
+    if (isNotFound) {
+      console.debug("[sync] deleteCatalogEntry PDS record already gone, proceeding with DB delete");
+    } else {
+      console.error("[sync] deleteCatalogEntry PDS deleteRecord FAILED:", err);
+      throw err;
+    }
+  }
 
   const db = getDb();
   await db

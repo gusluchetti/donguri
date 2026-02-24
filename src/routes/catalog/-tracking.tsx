@@ -603,11 +603,44 @@ export function TrackingPanel({
   ]);
 
   const handleRemove = useCallback(async () => {
+    const prev = entry;
+    setEntry(null);
+    setLocalStatus(null);
+    setLocalRating(null);
+    setLocalIsFavorite(false);
+    setLocalReplayCount(0);
+    setLocalWatchedEpisodes?.({});
+    setLocalWatchedAt?.(null);
+    serverEntry.current = null;
     await action.run(async () => {
-      await removeCatalogEntry({ data: { wikidataId } });
-      window.location.reload();
+      try {
+        await removeCatalogEntry({ data: { wikidataId } });
+        queryClient.invalidateQueries({ queryKey: ["user"] });
+        router.invalidate();
+      } catch (err) {
+        // Rollback optimistic removal on failure
+        setEntry(prev);
+        setLocalStatus(prev?.status ?? null);
+        setLocalRating(prev?.rating ?? null);
+        setLocalIsFavorite(prev?.isFavorite ?? false);
+        setLocalReplayCount(prev?.replayCount ?? 0);
+        setLocalWatchedEpisodes?.((prev?.watchedEpisodes as WatchedEpisodes) ?? {});
+        setLocalWatchedAt?.(prev?.watchedAt ?? null);
+        serverEntry.current = prev;
+        throw err;
+      }
     });
-  }, [wikidataId, action]);
+  }, [
+    entry,
+    wikidataId,
+    router,
+    queryClient,
+    action,
+    setLocalStatus,
+    setLocalIsFavorite,
+    setLocalWatchedEpisodes,
+    setLocalWatchedAt,
+  ]);
 
   const [ratingMode, setRatingMode] = useState(false);
   const notBusy = action.state !== "pending";
