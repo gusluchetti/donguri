@@ -93,6 +93,7 @@ export const Route = createFileRoute("/")({
         rel: "preload",
         as: "image",
         href: s.posterUrl as string,
+        fetchPriority: "high",
       })),
   }),
   component: HomePage,
@@ -250,7 +251,10 @@ function LoggedOutView() {
               Browse all →
             </Link>
           </div>
-          <div className="sm:overflow-x-auto overflow-hidden pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <div
+            className="sm:overflow-x-auto overflow-hidden pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            style={{ animation: "fadeIn 500ms ease-out both" }}
+          >
             <div className="flex gap-3 sm:animate-none animate-[sampleDrift_45s_ease-in-out_infinite]">
               {samples.map((item, i) => (
                 <MediaCard key={item.id} item={item} index={i} />
