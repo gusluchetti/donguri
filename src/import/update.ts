@@ -8,30 +8,37 @@
  *   bun run import:update --all --qrank=data/qrank.csv.gz
  *   bun run import:update --all --subset=data/subset.ndjson
  *   bun run import:update --all --anime-offline=data/anime-offline-database.jsonl
+ *   bun run import:update --all --recheck   # Re-fetch covers for all media
  *   bun run import:update --all --limit=1000
  */
 
 import fs from "node:fs";
+import path from "node:path";
 import readline from "node:readline";
+import { format } from "node:util";
 import zlib from "node:zlib";
 import * as clack from "@clack/prompts";
 import { eq, inArray, sql } from "drizzle-orm";
 import { cleanEnv, getDb } from "~/db";
 import { TRGM_SETUP_SQL } from "~/db/fts";
+import { CANONICAL_GENRES, GENRE_MAPPINGS } from "~/db/genre-data";
+import { CANONICAL_PLATFORMS, PLATFORM_MAPPINGS } from "~/db/platform-data";
 import {
-  genres,
+  canonicalGenres,
+  canonicalPlatforms,
+  genreMappings,
   importProgress,
   media,
   mediaGenres,
   mediaPlatforms,
-  platforms,
+  platformMappings,
   seasons,
 } from "~/db/schema";
 import { parseMediaEntity, shouldImportEntity } from "./_filters";
 import { formatDuration, withRetry } from "./_retry";
 import type { ParsedMedia, ParsedSeason, WikibaseEntityIdValue, WikidataEntity } from "./_types";
 import { WikidataProperties } from "./_types";
-import { type DbType, type ImportStats, processSuperBatch } from "./_upsert";
+import { type CanonicalLookup, type DbType, type ImportStats, processSuperBatch } from "./_upsert";
 
 // ═══ Constants ══════════════════════════════════════════════════════════════
 
@@ -91,6 +98,7 @@ function escapePostgresLiteral(str: string): string {
 /** Indexes to drop before --reset imports and recreate after. */
 const DROPPABLE_INDEXES = [
   "idx_media_type",
+  "idx_media_animation_origin",
   "idx_media_sitelinks",
   "idx_media_start_year",
   "idx_media_imdb",
@@ -101,10 +109,12 @@ const DROPPABLE_INDEXES = [
   "idx_media_popularity",
   "idx_media_title_trgm",
   "idx_media_original_title_trgm",
+  "idx_media_search_title_trgm",
 ];
 
 const RECREATE_INDEX_SQL = [
   `CREATE INDEX IF NOT EXISTS idx_media_type ON media (media_type)`,
+  `CREATE INDEX IF NOT EXISTS idx_media_animation_origin ON media (animation_origin)`,
   `CREATE INDEX IF NOT EXISTS idx_media_sitelinks ON media (sitelinks_count)`,
   `CREATE INDEX IF NOT EXISTS idx_media_start_year ON media (start_year)`,
   `CREATE INDEX IF NOT EXISTS idx_media_imdb ON media (imdb_id)`,
@@ -136,18 +146,95 @@ async function recreateIndexes(db: DbType): Promise<void> {
   console.log("Indexes recreated.");
 }
 
+// ═══ Seed canonical mappings (idempotent) ════════════════════════════════════
+
+async function seedCanonicalMappings(db: DbType): Promise<void> {
+  console.log("Syncing canonical genres/platforms...");
+
+  // ── Genres ──
+  const topGenres = CANONICAL_GENRES.filter((g) => g.parentSlug === null);
+  for (const g of topGenres) {
+    await db
+      .insert(canonicalGenres)
+      .values({ slug: g.slug, name: g.name, parentId: null, sortOrder: g.sortOrder })
+      .onConflictDoNothing({ target: canonicalGenres.slug });
+  }
+  const allGenres = await db.select().from(canonicalGenres);
+  const genreSlugToId = new Map(allGenres.map((g) => [g.slug, g.id]));
+
+  for (const g of CANONICAL_GENRES.filter(
+    (g): g is typeof g & { parentSlug: string } => g.parentSlug !== null,
+  )) {
+    const parentId = genreSlugToId.get(g.parentSlug);
+    if (!parentId) continue;
+    await db
+      .insert(canonicalGenres)
+      .values({ slug: g.slug, name: g.name, parentId, sortOrder: g.sortOrder })
+      .onConflictDoNothing({ target: canonicalGenres.slug });
+  }
+  const allGenresNow = await db.select().from(canonicalGenres);
+  const genreSlugToIdNow = new Map(allGenresNow.map((g) => [g.slug, g.id]));
+
+  for (const m of GENRE_MAPPINGS) {
+    const id = genreSlugToIdNow.get(m.canonicalSlug);
+    if (!id) continue;
+    await db
+      .insert(genreMappings)
+      .values({ wikidataId: m.wikidataId, canonicalGenreId: id, source: "manual" })
+      .onConflictDoNothing();
+  }
+
+  // ── Platforms ──
+  const topPlatforms = CANONICAL_PLATFORMS.filter((p) => p.parentSlug === null);
+  for (const p of topPlatforms) {
+    await db
+      .insert(canonicalPlatforms)
+      .values({ slug: p.slug, name: p.name, parentId: null, sortOrder: p.sortOrder })
+      .onConflictDoNothing({ target: canonicalPlatforms.slug });
+  }
+  const allPlatforms = await db.select().from(canonicalPlatforms);
+  const platSlugToId = new Map(allPlatforms.map((p) => [p.slug, p.id]));
+
+  for (const p of CANONICAL_PLATFORMS.filter(
+    (p): p is typeof p & { parentSlug: string } => p.parentSlug !== null,
+  )) {
+    const parentId = platSlugToId.get(p.parentSlug);
+    if (!parentId) continue;
+    await db
+      .insert(canonicalPlatforms)
+      .values({ slug: p.slug, name: p.name, parentId, sortOrder: p.sortOrder })
+      .onConflictDoNothing({ target: canonicalPlatforms.slug });
+  }
+  const allPlatformsNow = await db.select().from(canonicalPlatforms);
+  const platSlugToIdNow = new Map(allPlatformsNow.map((p) => [p.slug, p.id]));
+
+  for (const m of PLATFORM_MAPPINGS) {
+    const id = platSlugToIdNow.get(m.canonicalSlug);
+    if (!id) continue;
+    await db
+      .insert(platformMappings)
+      .values({ wikidataId: m.wikidataId, canonicalPlatformId: id, source: "manual" })
+      .onConflictDoNothing();
+  }
+
+  console.log(
+    `  Genres: ${allGenresNow.length} canonical, Platforms: ${allPlatformsNow.length} canonical`,
+  );
+}
+
 // ═══ Feature: Media Import ══════════════════════════════════════════════════
 
 interface MediaImportOpts {
   subsetPath: string;
   reset: boolean;
+  recheck: boolean;
   limit: number;
   batchSize: number;
   qrankPath: string | null;
 }
 
 async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> {
-  const { subsetPath, reset, limit, batchSize, qrankPath } = opts;
+  const { subsetPath, reset, recheck, limit, batchSize, qrankPath } = opts;
   const startTime = Date.now();
 
   if (reset) {
@@ -155,8 +242,6 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
     await db.delete(mediaGenres);
     await db.delete(mediaPlatforms);
     await db.delete(media);
-    await db.delete(genres);
-    await db.delete(platforms);
     await db.delete(importProgress);
     await dropIndexes(db);
   } else {
@@ -185,7 +270,7 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
     errors: 0,
     genresFound: 0,
     platformsFound: 0,
-    byType: { movie: 0, tv_series: 0, anime: 0, game: 0 },
+    byType: { movie: 0, tv_series: 0, game: 0 },
   };
 
   const [progressRecord] = await db
@@ -193,9 +278,39 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
     .values({ sourceFile: subsetPath, status: "running", startedAt: new Date() })
     .returning({ id: importProgress.id });
 
-  const genreCache: Record<string, string> = {};
-  const platformCache: Record<string, string> = {};
+  // Ensure canonical genres/platforms and their mappings are seeded (idempotent)
+  await seedCanonicalMappings(db);
+
+  // Pre-load canonical lookups: Q-ID → canonical_id[]
+  console.log("Loading canonical genre/platform mappings...");
+  const genreLookup: CanonicalLookup = {};
+  const platformLookup: CanonicalLookup = {};
+
+  const [gmRows, pmRows] = await Promise.all([
+    db
+      .select({ wikidataId: genreMappings.wikidataId, canonicalId: genreMappings.canonicalGenreId })
+      .from(genreMappings),
+    db
+      .select({
+        wikidataId: platformMappings.wikidataId,
+        canonicalId: platformMappings.canonicalPlatformId,
+      })
+      .from(platformMappings),
+  ]);
+  for (const row of gmRows) {
+    if (!genreLookup[row.wikidataId]) genreLookup[row.wikidataId] = [];
+    genreLookup[row.wikidataId].push(row.canonicalId);
+  }
+  for (const row of pmRows) {
+    if (!platformLookup[row.wikidataId]) platformLookup[row.wikidataId] = [];
+    platformLookup[row.wikidataId].push(row.canonicalId);
+  }
+  console.log(
+    `  Genre mappings: ${gmRows.length} entries, Platform mappings: ${pmRows.length} entries`,
+  );
+
   let batch: ParsedMedia[] = [];
+  const importedIds = new Set<string>();
 
   try {
     const rl = readline.createInterface({
@@ -235,17 +350,18 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
       const parsed = parseMediaEntity(entity);
       if (!parsed) continue;
 
+      importedIds.add(parsed.wikidataId);
       stats.byType[parsed.mediaType] = (stats.byType[parsed.mediaType] || 0) + 1;
       batch.push(parsed);
 
       if (batch.length >= batchSize) {
-        await processSuperBatch(db, batch, genreCache, platformCache, stats);
+        await processSuperBatch(db, batch, genreLookup, platformLookup, stats);
         batch = [];
       }
     }
 
     if (batch.length > 0) {
-      await processSuperBatch(db, batch, genreCache, platformCache, stats);
+      await processSuperBatch(db, batch, genreLookup, platformLookup, stats);
     }
 
     if (reset) {
@@ -254,6 +370,70 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
 
     if (qrankPath) {
       await applyQRank(db, qrankPath);
+    }
+
+    // ── Prune stale media + orphaned catalog entries on --recheck ──
+    if (recheck && importedIds.size > 0) {
+      console.log(
+        `\nPruning media not in subset (${importedIds.size.toLocaleString()} valid IDs)...`,
+      );
+
+      await db.$client.begin(async (tx) => {
+        await tx.unsafe(`CREATE TEMP TABLE _valid_ids (id text PRIMARY KEY) ON COMMIT DROP`);
+        const ids = [...importedIds];
+        for (let i = 0; i < ids.length; i += 5000) {
+          const chunk = ids.slice(i, i + 5000);
+          const values = chunk.map((id) => `(${escapePostgresLiteral(id)})`).join(",");
+          await tx.unsafe(`INSERT INTO _valid_ids (id) VALUES ${values}`);
+        }
+
+        const result = await tx.unsafe(
+          `DELETE FROM media m WHERE NOT EXISTS (SELECT 1 FROM _valid_ids v WHERE v.id = m.wikidata_id)`,
+        );
+        const cnt = result.count;
+
+        if (cnt > 0) {
+          console.log(`  Pruned ${cnt.toLocaleString()} stale media rows`);
+        } else {
+          console.log("  No stale media to prune");
+        }
+      });
+
+      // Clean orphaned catalog entries (media_wikidata_id not in media table)
+      const orphans = (await db.execute(
+        sql`SELECT ce.id, ce.media_wikidata_id, ce.media_title, ce.media_type,
+                   u.handle, u.auth_method
+            FROM catalog_entries ce
+            JOIN users u ON u.id = ce.user_id
+            LEFT JOIN media m ON m.wikidata_id = ce.media_wikidata_id
+            WHERE m.id IS NULL`,
+      )) as unknown as {
+        id: string;
+        media_wikidata_id: string;
+        media_title: string | null;
+        media_type: string | null;
+        handle: string;
+        auth_method: string;
+      }[];
+
+      if (orphans.length > 0) {
+        for (const o of orphans) {
+          console.log(
+            `[PRUNE] Removing orphaned catalog entry:\n` +
+              `  User: ${o.handle} (${o.auth_method}) | Media: ${o.media_wikidata_id} "${o.media_title ?? "?"}" (${o.media_type ?? "?"})`,
+          );
+        }
+        await db.execute(
+          sql`DELETE FROM catalog_entries WHERE id IN (
+            SELECT ce.id FROM catalog_entries ce
+            LEFT JOIN media m ON m.wikidata_id = ce.media_wikidata_id
+            WHERE m.id IS NULL
+          )`,
+        );
+        console.log(`  Pruned ${orphans.length} orphaned catalog entries`);
+      } else {
+        console.log("  No orphaned catalog entries");
+      }
     }
 
     await db
@@ -929,28 +1109,34 @@ async function runSeasons(
 interface FetchResult {
   url: string | null;
   status?: number;
+  resolvedTmdbId?: string;
 }
 
-async function fetchTmdbPoster(
-  tmdbId: string,
-  mediaType: string,
-  apiKey: string,
-): Promise<FetchResult> {
-  const primary = mediaType === "movie" ? "movie" : "tv";
-  const res = await fetch(`https://api.themoviedb.org/3/${primary}/${tmdbId}?api_key=${apiKey}`);
-  if (res.ok) {
-    const data = await res.json();
-    return { url: data.poster_path ? `https://image.tmdb.org/t/p/w342${data.poster_path}` : null };
+async function fetchTmdbPoster(wikidataId: string, apiKey: string): Promise<FetchResult> {
+  const res = await fetch(
+    `https://api.themoviedb.org/3/find/${wikidataId}?api_key=${apiKey}&external_source=wikidata_id`,
+  );
+  if (!res.ok) {
+    console.warn(`  [tmdb] ${res.status} for ${wikidataId}`);
+    return { url: null, status: res.status };
   }
-  // Fallback: try the other endpoint (handles TV series with TMDB movie IDs)
-  const fallback = primary === "movie" ? "tv" : "movie";
-  const res2 = await fetch(`https://api.themoviedb.org/3/${fallback}/${tmdbId}?api_key=${apiKey}`);
-  if (res2.ok) {
-    const data = await res2.json();
-    return { url: data.poster_path ? `https://image.tmdb.org/t/p/w342${data.poster_path}` : null };
-  }
-  console.warn(`  [tmdb] ${res.status}/${res2.status} for ${tmdbId}`);
-  return { url: null, status: res.status };
+  const data = await res.json();
+
+  const movie = data.movie_results?.[0];
+  if (movie?.poster_path)
+    return {
+      url: `https://image.tmdb.org/t/p/w342${movie.poster_path}`,
+      resolvedTmdbId: `movie/${movie.id}`,
+    };
+
+  const tv = data.tv_results?.[0];
+  if (tv?.poster_path)
+    return {
+      url: `https://image.tmdb.org/t/p/w342${tv.poster_path}`,
+      resolvedTmdbId: `tv/${tv.id}`,
+    };
+
+  return { url: null };
 }
 
 async function fetchAniListCover(anilistId: string): Promise<FetchResult> {
@@ -1019,6 +1205,7 @@ interface CoverCandidate {
   id: string;
   wikidataId: string;
   mediaType: string;
+  animationOrigin: string | null;
   tmdbId: string | null;
   anilistId: string | null;
   igdbId: string | null;
@@ -1029,6 +1216,7 @@ interface CoverResult {
   wikidataId: string;
   posterUrl: string;
   source: CoverSource;
+  resolvedTmdbId?: string;
 }
 
 /** Process items with bounded concurrency + per-item delay for rate limiting. */
@@ -1057,54 +1245,42 @@ async function resolveBatch(
   tmdbApiKey: string,
   stats: { bySource: Record<CoverSource, number>; failures: Record<CoverSource, number> },
 ): Promise<CoverResult[]> {
-  // Partition items by primary source
-  type WithTmdb = CoverCandidate & { tmdbId: string };
+  // Partition: all non-game items go through TMDB Find (uses wikidataId, no tmdbId required).
+  // Games go to IGDB. Anime without TMDB result falls back to AniList.
   type WithAnilist = CoverCandidate & { anilistId: string };
   type WithIgdb = CoverCandidate & { igdbId: string };
 
-  const tmdbItems: WithTmdb[] = [];
-  const anilistItems: WithAnilist[] = [];
+  const tmdbItems: CoverCandidate[] = [];
   const igdbItems: WithIgdb[] = [];
 
   for (const item of items) {
-    if (item.tmdbId && item.mediaType !== "game") tmdbItems.push(item as WithTmdb);
-    else if (item.anilistId && item.mediaType === "anime") anilistItems.push(item as WithAnilist);
-    else if (item.igdbId && item.mediaType === "game") igdbItems.push(item as WithIgdb);
+    if (item.mediaType === "game" && item.igdbId) igdbItems.push(item as WithIgdb);
+    else if (item.mediaType !== "game") tmdbItems.push(item);
   }
 
-  const unmatched = items.length - tmdbItems.length - anilistItems.length - igdbItems.length;
+  const unmatched = items.length - tmdbItems.length - igdbItems.length;
   console.log(
-    `  Queued: TMDB ${tmdbItems.length}, AniList ${anilistItems.length}, IGDB ${igdbItems.length}, unmatched ${unmatched}`,
+    `  Queued: TMDB Find ${tmdbItems.length}, IGDB ${igdbItems.length}, unmatched ${unmatched}`,
   );
 
   const results: CoverResult[] = [];
   const tmdbFailedAnime: WithAnilist[] = [];
 
-  // Run all three source queues in parallel
-  const [tmdbResults, anilistResults, igdbResults] = await Promise.all([
+  // Run TMDB Find + IGDB queues in parallel
+  const [tmdbResults, igdbResults] = await Promise.all([
     mapConcurrent(tmdbItems, COVER_CONCURRENCY_TMDB, 200, async (item) => {
-      const r = await fetchTmdbPoster(item.tmdbId, item.mediaType, tmdbApiKey);
+      const r = await fetchTmdbPoster(item.wikidataId, tmdbApiKey);
       if (r.url)
         return {
           id: item.id,
           wikidataId: item.wikidataId,
           posterUrl: r.url,
           source: "tmdb" as const,
+          resolvedTmdbId: r.resolvedTmdbId,
         };
       stats.failures.tmdb++;
-      if (item.anilistId && item.mediaType === "anime") tmdbFailedAnime.push(item as WithAnilist);
-      return null;
-    }),
-    mapConcurrent(anilistItems, COVER_CONCURRENCY_ANILIST, 670, async (item) => {
-      const r = await fetchAniListCover(item.anilistId);
-      if (r.url)
-        return {
-          id: item.id,
-          wikidataId: item.wikidataId,
-          posterUrl: r.url,
-          source: "anilist" as const,
-        };
-      stats.failures.anilist++;
+      if (item.anilistId && item.animationOrigin === "anime")
+        tmdbFailedAnime.push(item as WithAnilist);
       return null;
     }),
     mapConcurrent(igdbItems, COVER_CONCURRENCY_IGDB, 300, async (item) => {
@@ -1122,10 +1298,9 @@ async function resolveBatch(
   ]);
 
   for (const r of tmdbResults) if (r) results.push(r);
-  for (const r of anilistResults) if (r) results.push(r);
   for (const r of igdbResults) if (r) results.push(r);
 
-  // AniList fallback for anime that failed TMDB
+  // AniList fallback for anime that failed TMDB Find
   if (tmdbFailedAnime.length > 0) {
     const fallbackResults = await mapConcurrent(
       tmdbFailedAnime,
@@ -1155,7 +1330,7 @@ async function resolveBatch(
 
 async function batchUpdatePosters(
   db: DbType,
-  updates: { id: string; posterUrl: string }[],
+  updates: { id: string; posterUrl: string; resolvedTmdbId?: string }[],
 ): Promise<void> {
   if (updates.length === 0) return;
   const values = updates
@@ -1168,16 +1343,35 @@ async function batchUpdatePosters(
      WHERE media.id = v.id`,
     ),
   );
+
+  // Batch-update tmdb_id for items where Find API resolved a value
+  const tmdbUpdates = updates.filter(
+    (u): u is typeof u & { resolvedTmdbId: string } => !!u.resolvedTmdbId,
+  );
+  if (tmdbUpdates.length > 0) {
+    const tmdbValues = tmdbUpdates
+      .map((u) => `(${escapePostgresLiteral(u.id)}, ${escapePostgresLiteral(u.resolvedTmdbId)})`)
+      .join(", ");
+    await db.execute(
+      sql.raw(
+        `UPDATE media SET tmdb_id = v.tmdb_id, updated_at = now()
+       FROM (VALUES ${tmdbValues}) AS v(id, tmdb_id)
+       WHERE media.id = v.id`,
+      ),
+    );
+  }
 }
 
-async function runCovers(db: DbType): Promise<void> {
+async function runCovers(db: DbType, recheck: boolean): Promise<void> {
   const tmdbApiKey = cleanEnv(process.env.TMDB_API_KEY);
   if (!tmdbApiKey) {
     console.error("TMDB_API_KEY required for cover art — skipping");
     return;
   }
 
-  console.log("\nFetching media without cover art...");
+  console.log(
+    recheck ? "\nRe-checking all media covers..." : "\nFetching media without cover art...",
+  );
 
   let processed = 0;
   let resolved = 0;
@@ -1189,18 +1383,22 @@ async function runCovers(db: DbType): Promise<void> {
   };
 
   while (true) {
+    // Non-game items can always try TMDB Find (uses wikidataId, no tmdbId needed).
+    // Games still need igdbId. With --recheck, re-fetch items that already have covers.
+    const posterFilter = recheck ? sql`true` : sql`${media.posterUrl} IS NULL`;
     const candidates = await db
       .select({
         id: media.id,
         wikidataId: media.wikidataId,
         mediaType: media.mediaType,
+        animationOrigin: media.animationOrigin,
         tmdbId: media.tmdbId,
         anilistId: media.anilistId,
         igdbId: media.igdbId,
       })
       .from(media)
       .where(
-        sql`${media.posterUrl} IS NULL AND ${media.id} > ${lastId} AND (${media.tmdbId} IS NOT NULL OR ${media.anilistId} IS NOT NULL OR ${media.igdbId} IS NOT NULL)`,
+        sql`${posterFilter} AND ${media.id} > ${lastId} AND (${media.mediaType} != 'game' OR ${media.igdbId} IS NOT NULL)`,
       )
       .orderBy(sql`${media.id} ASC`)
       .limit(COVER_BATCH_SIZE);
@@ -1215,7 +1413,11 @@ async function runCovers(db: DbType): Promise<void> {
     if (results.length > 0) {
       await batchUpdatePosters(
         db,
-        results.map((r) => ({ id: r.id, posterUrl: r.posterUrl })),
+        results.map((r) => ({
+          id: r.id,
+          posterUrl: r.posterUrl,
+          resolvedTmdbId: r.resolvedTmdbId,
+        })),
       );
     }
 
@@ -1267,6 +1469,7 @@ interface RunConfig {
   qrankPath: string | null;
   animeOfflinePath: string | null;
   reset: boolean;
+  recheck: boolean;
   limit: number;
   batchSize: number;
 }
@@ -1277,6 +1480,7 @@ function parseCliArgs(): RunConfig | "interactive" {
   if (!args.includes("--all")) return "interactive";
 
   const reset = args.includes("--reset");
+  const recheck = args.includes("--recheck");
   const limitArg = args.find((a) => a.startsWith("--limit="));
   const limit = limitArg ? Number.parseInt(limitArg.split("=")[1], 10) : Infinity;
   const batchArg = args.find((a) => a.startsWith("--batch="));
@@ -1297,7 +1501,7 @@ function parseCliArgs(): RunConfig | "interactive" {
     if (idx !== -1) features.splice(idx, 1);
   }
 
-  return { features, subsetPath, qrankPath, animeOfflinePath, reset, limit, batchSize };
+  return { features, subsetPath, qrankPath, animeOfflinePath, reset, recheck, limit, batchSize };
 }
 
 async function interactiveMenu(): Promise<RunConfig> {
@@ -1329,6 +1533,11 @@ async function interactiveMenu(): Promise<RunConfig> {
   }
 
   const features = featuresResult as Feature[];
+
+  // Enforce dependency order: media → percentiles → seasons → covers
+  const FEATURE_ORDER: Feature[] = ["media", "percentiles", "seasons", "covers"];
+  features.sort((a, b) => FEATURE_ORDER.indexOf(a) - FEATURE_ORDER.indexOf(b));
+
   let subsetPath: string | null = null;
   let qrankPath: string | null = null;
   let animeOfflinePath: string | null = null;
@@ -1378,20 +1587,63 @@ async function interactiveMenu(): Promise<RunConfig> {
     animeOfflinePath = (animeResult as string) || null;
   }
 
+  let recheck = false;
+  if (features.includes("covers") || features.includes("media")) {
+    const recheckResult = await clack.confirm({
+      message: "Re-check covers + prune stale media?",
+      initialValue: false,
+    });
+    if (clack.isCancel(recheckResult)) {
+      clack.cancel("Cancelled.");
+      process.exit(0);
+    }
+    recheck = recheckResult as boolean;
+  }
+
   return {
     features,
     subsetPath,
     qrankPath,
     animeOfflinePath,
     reset: false,
+    recheck,
     limit: Infinity,
     batchSize: DEFAULT_BATCH_SIZE,
   };
 }
 
+// ═══ File Logging ════════════════════════════════════════════════════════════
+
+function setupFileLogging(): void {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const logDir = path.join(import.meta.dirname, "../../logs");
+  const logPath = path.join(logDir, `import-${timestamp}.log`);
+
+  fs.mkdirSync(logDir, { recursive: true });
+
+  const logStream = fs.createWriteStream(logPath, { flags: "a" });
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI escape sequences
+  const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
+
+  const tee =
+    (original: (...args: unknown[]) => void, prefix: string) =>
+    (...args: unknown[]) => {
+      original(...args);
+      logStream.write(`${prefix}${stripAnsi(format(...args))}\n`);
+    };
+
+  console.log = tee(console.log, "");
+  console.warn = tee(console.warn, "[WARN] ");
+  console.error = tee(console.error, "[ERR]  ");
+
+  process.on("exit", () => logStream.end());
+  console.log(`Logging to ${logPath}`);
+}
+
 // ═══ Main ═══════════════════════════════════════════════════════════════════
 
 async function main() {
+  setupFileLogging();
   const cliResult = parseCliArgs();
   const config = cliResult === "interactive" ? await interactiveMenu() : cliResult;
 
@@ -1434,6 +1686,7 @@ async function main() {
           await runMediaImport(db, {
             subsetPath: config.subsetPath,
             reset: config.reset,
+            recheck: config.recheck,
             limit: config.limit,
             batchSize: config.batchSize,
             qrankPath: config.qrankPath,
@@ -1446,7 +1699,7 @@ async function main() {
           await runSeasons(db, config.subsetPath, config.animeOfflinePath);
           break;
         case "covers":
-          await runCovers(db);
+          await runCovers(db, config.recheck);
           break;
       }
 

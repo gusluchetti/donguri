@@ -1,21 +1,23 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { getDb } from "~/db";
 import {
   canonicalGenres,
-  genreMappings,
-  genres,
+  canonicalPlatforms,
   type Media,
   media,
   mediaGenres,
   mediaPlatforms,
-  platforms,
   seasons,
 } from "~/db/schema";
+import { getSessionData } from "~/features/auth/auth.session";
+import { getMediaSource } from "./media-source";
+import { getCacheArrays } from "./popular-cache";
 
 const parentGenres = alias(canonicalGenres, "parent_genres");
+const parentPlatforms = alias(canonicalPlatforms, "parent_platforms");
 
 /** Return type of getMedia (defined explicitly to break circular inference). */
 type MediaDetail = Media & {
@@ -27,7 +29,14 @@ type MediaDetail = Media & {
     sortOrder: number | null;
     parentName: string | null;
   }[];
-  platforms: { id: string; name: string; wikidataId: string }[];
+  platforms: {
+    id: string;
+    slug: string;
+    name: string;
+    parentId: string | null;
+    sortOrder: number | null;
+    parentName: string | null;
+  }[];
   seasons: {
     id: string;
     seasonNumber: number;
@@ -50,58 +59,6 @@ const GetMediaInput = z.object({
   wikidataId: z.string(),
 });
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-async function searchMedia(
-  db: ReturnType<typeof getDb>,
-  searchTerm: string,
-  cursor: string | undefined,
-  limit: number,
-  mediaType?: string,
-) {
-  const offset = cursor ? Number.parseInt(cursor, 10) : 0;
-  const ilikeTerm = `%${searchTerm.replace(/[%_\\]/g, "\\$&")}%`;
-
-  const relevance = sql<number>`GREATEST(
-    word_similarity(${searchTerm}, ${media.title}),
-    word_similarity(${searchTerm}, COALESCE(${media.originalTitle}, ''))
-  )`;
-
-  const fuzzyCondition = sql`(
-    ${searchTerm} <% ${media.title}
-    OR ${searchTerm} <% COALESCE(${media.originalTitle}, '')
-    OR ${media.title} ILIKE ${ilikeTerm}
-    OR ${media.originalTitle} ILIKE ${ilikeTerm}
-  )`;
-
-  const conditions = [fuzzyCondition];
-  if (mediaType)
-    conditions.push(eq(media.mediaType, mediaType as "movie" | "tv_series" | "anime" | "game"));
-
-  const results = await db.transaction(async (tx) => {
-    await tx.execute(sql`SET LOCAL pg_trgm.word_similarity_threshold = 0.2`);
-    return tx
-      .select(getTableColumns(media))
-      .from(media)
-      .where(and(...conditions))
-      .orderBy(
-        desc(relevance),
-        sql`${media.popularityScore} ASC NULLS LAST`,
-        desc(media.sitelinksCount),
-        asc(media.id),
-      )
-      .limit(limit + 1)
-      .offset(offset);
-  });
-
-  const hasMore = results.length > limit;
-  const page = hasMore ? results.slice(0, limit) : results;
-  return {
-    items: page,
-    nextCursor: hasMore ? String(offset + limit) : null,
-  };
-}
-
 // ─── Server functions ───────────────────────────────────────────────────────
 
 /**
@@ -112,78 +69,71 @@ async function searchMedia(
 export const listMedia = createServerFn({ method: "GET" })
   .inputValidator(ListMediaInput)
   .handler(async ({ data }) => {
-    const db = getDb();
     const { cursor, limit, mediaType, search } = data;
-
     const trimmedSearch = search?.trim();
+
+    const session = await getSessionData();
+    const source = getMediaSource(session);
+
     if (trimmedSearch) {
-      return searchMedia(db, trimmedSearch, cursor, limit, mediaType);
+      return source.search(trimmedSearch, { cursor, limit, mediaType });
     }
-
-    // ── Browse mode (no search) ─────────────────────────────────────────
-    const conditions = [];
-
-    // Type filter
-    if (mediaType) conditions.push(eq(media.mediaType, mediaType));
-
-    // Keyset cursor pagination (popularity_score ASC NULLS LAST, sitelinks_count DESC, id ASC)
-    if (cursor) {
-      const [cursorItem] = await db
-        .select({
-          popularityScore: media.popularityScore,
-          sitelinksCount: media.sitelinksCount,
-          id: media.id,
-        })
-        .from(media)
-        .where(eq(media.id, cursor))
-        .limit(1);
-
-      if (cursorItem) {
-        const ps = cursorItem.popularityScore;
-        const sc = cursorItem.sitelinksCount ?? 0;
-        if (ps != null) {
-          conditions.push(
-            sql`(
-              (${media.popularityScore} IS NOT NULL AND (
-                ${media.popularityScore} > ${ps}
-                OR (${media.popularityScore} = ${ps} AND COALESCE(${media.sitelinksCount}, 0) < ${sc})
-                OR (${media.popularityScore} = ${ps} AND COALESCE(${media.sitelinksCount}, 0) = ${sc} AND ${media.id} > ${cursor})
-              ))
-              OR ${media.popularityScore} IS NULL
-            )`,
-          );
-        } else {
-          conditions.push(
-            sql`(
-              ${media.popularityScore} IS NULL AND (
-                COALESCE(${media.sitelinksCount}, 0) < ${sc}
-                OR (COALESCE(${media.sitelinksCount}, 0) = ${sc} AND ${media.id} > ${cursor})
-              )
-            )`,
-          );
-        }
-      }
-    }
-
-    const items = await db
-      .select()
-      .from(media)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(
-        sql`${media.popularityScore} ASC NULLS LAST`,
-        desc(media.sitelinksCount),
-        asc(media.id),
-      )
-      .limit(limit + 1);
-
-    const hasMore = items.length > limit;
-    const page = hasMore ? items.slice(0, limit) : items;
-
-    return {
-      items: page,
-      nextCursor: hasMore ? page[page.length - 1].id : null,
-    };
+    return source.list({ cursor, limit, mediaType });
   });
+
+/**
+ * Get a random media wikidata ID. Works for both logged-in (DB) and logged-out (cache) users.
+ */
+export const getRandomMediaId = createServerFn({ method: "GET" }).handler(async () => {
+  const session = await getSessionData();
+  const source = getMediaSource(session);
+  return source.randomId();
+});
+
+/**
+ * Homepage sample: 2 per type = 8 items with posters.
+ * Seeded PRNG (rotates every 30 min) keeps selection stable across refreshes.
+ * Display order is shuffled client-side.
+ */
+export const getSamplesForHomepage = createServerFn({ method: "GET" }).handler(async () => {
+  const { byType } = await getCacheArrays();
+  const PER_TYPE = 2;
+  const types = ["movie", "tv_series", "anime", "game"] as const;
+
+  // Seeded PRNG (mulberry32) — deterministic per 30-min window
+  const seed = Math.floor(Date.now() / 1_800_000);
+  let t = (seed | 0) + 0x6d2b79f5;
+  function rand() {
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+
+  const samples: Media[] = [];
+  for (const type of types) {
+    const withPosters = byType[type].filter((m) => m.posterUrl);
+    // Fisher-Yates with seeded rand
+    for (let i = withPosters.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [withPosters[i], withPosters[j]] = [withPosters[j], withPosters[i]];
+    }
+    samples.push(...withPosters.slice(0, PER_TYPE));
+  }
+
+  // Final shuffle for mixed display order
+  for (let i = samples.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [samples[i], samples[j]] = [samples[j], samples[i]];
+  }
+
+  return samples;
+});
+
+// ─── Server-side media detail cache ──────────────────────────────────────────
+
+const mediaDetailCache = new Map<string, { data: MediaDetail; ts: number }>();
+const DETAIL_CACHE_TTL = 10 * 60 * 1000; // 10 min
+const DETAIL_CACHE_MAX = 5000;
 
 /**
  * Get a single media item by Wikidata ID, including genres and platforms.
@@ -191,20 +141,19 @@ export const listMedia = createServerFn({ method: "GET" })
 export const getMedia = createServerFn({ method: "GET" })
   .inputValidator(GetMediaInput)
   .handler(async ({ data }): Promise<MediaDetail | null> => {
+    // Check server-side cache first
+    const cached = mediaDetailCache.get(data.wikidataId);
+    if (cached && Date.now() - cached.ts < DETAIL_CACHE_TTL) {
+      return cached.data;
+    }
+
     const db = getDb();
 
-    const item = await db
-      .select()
-      .from(media)
-      .where(eq(media.wikidataId, data.wikidataId))
-      .limit(1);
-
-    if (item.length === 0) return null;
-
-    // Fetch genres (with parent names via self-join), platforms, and seasons in parallel
-    const [itemGenres, itemPlatforms, itemSeasons] = await Promise.all([
+    // All 4 queries in parallel — JOIN through media by wikidataId (unique/indexed)
+    const [items, itemGenres, itemPlatforms, itemSeasons] = await Promise.all([
+      db.select().from(media).where(eq(media.wikidataId, data.wikidataId)).limit(1),
       db
-        .selectDistinct({
+        .select({
           id: canonicalGenres.id,
           slug: canonicalGenres.slug,
           name: canonicalGenres.name,
@@ -213,17 +162,32 @@ export const getMedia = createServerFn({ method: "GET" })
           parentName: parentGenres.name,
         })
         .from(mediaGenres)
-        .innerJoin(genres, eq(mediaGenres.genreId, genres.id))
-        .innerJoin(genreMappings, eq(genres.wikidataId, genreMappings.wikidataId))
-        .innerJoin(canonicalGenres, eq(genreMappings.canonicalGenreId, canonicalGenres.id))
+        .innerJoin(media, eq(mediaGenres.mediaId, media.id))
+        .innerJoin(canonicalGenres, eq(mediaGenres.canonicalGenreId, canonicalGenres.id))
         .leftJoin(parentGenres, eq(canonicalGenres.parentId, parentGenres.id))
-        .where(eq(mediaGenres.mediaId, item[0].id))
+        .where(eq(media.wikidataId, data.wikidataId))
         .orderBy(canonicalGenres.sortOrder),
       db
-        .select({ id: platforms.id, name: platforms.name, wikidataId: platforms.wikidataId })
+        .select({
+          id: canonicalPlatforms.id,
+          slug: canonicalPlatforms.slug,
+          name: canonicalPlatforms.name,
+          parentId: canonicalPlatforms.parentId,
+          sortOrder: canonicalPlatforms.sortOrder,
+          parentName: parentPlatforms.name,
+        })
         .from(mediaPlatforms)
-        .innerJoin(platforms, eq(mediaPlatforms.platformId, platforms.id))
-        .where(eq(mediaPlatforms.mediaId, item[0].id)),
+        .innerJoin(media, eq(mediaPlatforms.mediaId, media.id))
+        .innerJoin(
+          canonicalPlatforms,
+          eq(mediaPlatforms.canonicalPlatformId, canonicalPlatforms.id),
+        )
+        .leftJoin(parentPlatforms, eq(canonicalPlatforms.parentId, parentPlatforms.id))
+        .where(eq(media.wikidataId, data.wikidataId))
+        .orderBy(
+          sql`COALESCE(${parentPlatforms.sortOrder}, ${canonicalPlatforms.sortOrder})`,
+          canonicalPlatforms.sortOrder,
+        ),
       db
         .select({
           id: seasons.id,
@@ -233,16 +197,19 @@ export const getMedia = createServerFn({ method: "GET" })
           dataSource: seasons.dataSource,
         })
         .from(seasons)
-        .where(eq(seasons.mediaId, item[0].id))
+        .innerJoin(media, eq(seasons.mediaId, media.id))
+        .where(eq(media.wikidataId, data.wikidataId))
         .orderBy(seasons.seasonNumber),
     ]);
+
+    if (items.length === 0) return null;
 
     // TEMP: hide episode tracking for non-consecutive seasons
     const isConsecutive =
       itemSeasons.length === 0 || itemSeasons.every((s, i) => s.seasonNumber === i + 1);
 
-    const result = {
-      ...item[0],
+    const result: MediaDetail = {
+      ...items[0],
       genres: itemGenres.map((g) => ({
         id: g.id,
         slug: g.slug,
@@ -251,33 +218,23 @@ export const getMedia = createServerFn({ method: "GET" })
         sortOrder: g.sortOrder,
         parentName: g.parentName ?? null,
       })),
-      platforms: itemPlatforms,
+      platforms: itemPlatforms.map((p) => ({
+        id: p.id,
+        slug: p.slug,
+        name: p.name,
+        parentId: p.parentId,
+        sortOrder: p.sortOrder,
+        parentName: p.parentName ?? null,
+      })),
       seasons: isConsecutive ? itemSeasons : [],
     };
 
+    // Populate cache (FIFO eviction at max size)
+    if (mediaDetailCache.size >= DETAIL_CACHE_MAX) {
+      const firstKey = mediaDetailCache.keys().next().value;
+      if (firstKey) mediaDetailCache.delete(firstKey);
+    }
+    mediaDetailCache.set(data.wikidataId, { data: result, ts: Date.now() });
+
     return result;
   });
-
-/**
- * Get collection stats.
- */
-export const getMediaStats = createServerFn({ method: "GET" }).handler(async () => {
-  const db = getDb();
-
-  const [totalResult] = await db.select({ count: sql<number>`count(*)` }).from(media);
-
-  const typeCounts = await db
-    .select({
-      mediaType: media.mediaType,
-      count: sql<number>`count(*)`,
-    })
-    .from(media)
-    .groupBy(media.mediaType);
-
-  const result = {
-    total: totalResult.count,
-    byType: Object.fromEntries(typeCounts.map((r) => [r.mediaType, r.count])),
-  };
-
-  return result;
-});

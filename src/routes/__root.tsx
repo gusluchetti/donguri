@@ -2,11 +2,13 @@ import {
   Bookmark,
   MagnifyingGlass,
   Moon,
+  SignIn,
   SpeakerHigh,
   SpeakerNone,
   Sun,
 } from "@phosphor-icons/react";
-import { HotkeysProvider, useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
+import { getSequenceManager } from "@tanstack/hotkeys";
+import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   createRootRouteWithContext,
@@ -15,12 +17,14 @@ import {
   Link,
   Outlet,
   Scripts,
+  useLocation,
   useNavigate,
 } from "@tanstack/react-router";
 import { clear } from "idb-keyval";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import "../app.css";
 import { getAuthState, logout } from "~/features/auth/auth.functions";
+import { AuthBanner } from "~/features/auth/components/AuthBanner";
 import { getCatalogFingerprint } from "~/features/catalog/catalog.functions";
 import { trackedIdsOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
@@ -144,6 +148,8 @@ function RootComponent() {
   }, [queryClient]);
 
   const [showHelp, setShowHelp] = useState(false);
+  const pathname = useLocation({ select: (l) => l.pathname });
+  const showBanner = !auth && !/^\/(login|auth\/)/.test(pathname);
 
   return (
     <RootDocument theme={theme}>
@@ -165,15 +171,10 @@ function RootComponent() {
                 <div className="flex items-center gap-1 sm:gap-g1">
                   <Link
                     to="/"
-                    className="flex items-center gap-g1 no-underline cursor-pointer"
+                    className="flex items-center no-underline cursor-pointer text-dg-accent"
                     onClick={() => SoundEngine.click()}
                   >
-                    <span style={{ color: "var(--color-dg-accent)" }}>
-                      <AcornIcon size={24} />
-                    </span>
-                    <span className="hidden sm:inline font-display text-lg font-medium text-dg-text">
-                      donguri
-                    </span>
+                    <AcornIcon size={24} />
                   </Link>
                   {import.meta.env.DEV && (
                     <span className="text-[0.65rem] font-bold font-mono text-dg-movie tracking-wider bg-dg-movie/10 border border-dg-movie/30 rounded-sm px-1.5 py-0.5">
@@ -191,33 +192,46 @@ function RootComponent() {
                 </div>
 
                 <div className="flex items-center gap-1">
-                  {auth && (
-                    <span className="text-xs text-dg-accent hidden sm:inline mr-2">
-                      {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
-                    </span>
-                  )}
-                  <div
-                    className="mx-1 hidden sm:block"
-                    style={{
-                      width: 1,
-                      height: 16,
-                      background: "var(--color-dg-border)",
-                    }}
-                  />
-                  <SoundToggle />
-                  <ThemeToggle />
-                  {auth && (
-                    <button
-                      type="button"
-                      className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-tertiary font-body cursor-pointer transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text-secondary"
-                      onClick={handleLogout}
-                    >
-                      logout
-                    </button>
+                  {auth ? (
+                    <>
+                      <span className="text-xs text-dg-accent hidden sm:inline mr-2">
+                        {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
+                      </span>
+                      <div
+                        className="mx-1 hidden sm:block"
+                        style={{
+                          width: 1,
+                          height: 16,
+                          background: "var(--color-dg-border)",
+                        }}
+                      />
+                      <SoundToggle />
+                      <ThemeToggle />
+                      <button
+                        type="button"
+                        className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-tertiary font-body cursor-pointer transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text-secondary"
+                        onClick={handleLogout}
+                      >
+                        logout
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <SoundToggle />
+                      <ThemeToggle />
+                      <Link
+                        to="/login"
+                        className="hidden sm:inline text-xs text-dg-accent font-body no-underline border border-dg-accent/30 rounded-[3px] py-1 px-3 hover:border-dg-accent/60 transition-all duration-150"
+                        onClick={() => SoundEngine.click()}
+                      >
+                        sign in
+                      </Link>
+                    </>
                   )}
                 </div>
               </div>
             </nav>
+            {showBanner && <AuthBanner />}
             <Outlet />
             <footer className="hidden sm:block border-t border-dg-border-subtle px-g3 py-3 font-body shrink-0">
               <div className="max-w-[1100px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[0.7rem] text-dg-text-tertiary">
@@ -292,20 +306,38 @@ function GlobalShortcuts({
   useHotkey({ key: "?", shift: true }, () => setShowHelp((v) => !v));
   useHotkey(".", toggleTheme);
 
-  useHotkeySequence(["G", "H"], () => {
-    if (isInputFocused()) return;
-    navigate({ to: "/" });
-  });
-
-  useHotkeySequence(["G", "C"], () => {
-    if (isInputFocused()) return;
-    navigate({ to: "/catalog" });
-  });
-
-  useHotkeySequence(["G", "R"], () => {
-    if (isInputFocused()) return;
-    navigate({ to: "/roadmap" });
-  });
+  // Use raw sequence manager so we can pass preventDefault: false.
+  // The useHotkeySequence hook doesn't forward these options to the manager.
+  const navRef = useRef(navigate);
+  navRef.current = navigate;
+  useEffect(() => {
+    const opts = { preventDefault: false, stopPropagation: false } as const;
+    const guard = (fn: () => void) => () => {
+      if (isInputFocused()) return;
+      fn();
+    };
+    const mgr = getSequenceManager();
+    const unsubs = [
+      mgr.register(
+        ["G", "H"],
+        guard(() => navRef.current({ to: "/" })),
+        opts,
+      ),
+      mgr.register(
+        ["G", "C"],
+        guard(() => navRef.current({ to: "/catalog" })),
+        opts,
+      ),
+      mgr.register(
+        ["G", "R"],
+        guard(() => navRef.current({ to: "/roadmap" })),
+        opts,
+      ),
+    ];
+    return () => {
+      for (const u of unsubs) u();
+    };
+  }, []);
 
   return <HelpOverlay open={showHelp} onClose={() => setShowHelp(false)} />;
 }
@@ -414,6 +446,7 @@ function ThemeToggle() {
 }
 
 function BottomNav() {
+  const { auth } = Route.useLoaderData();
   const base =
     "flex-1 flex flex-col items-center justify-center gap-0.5 no-underline py-2 transition-colors duration-150";
   const active = { className: `${base} text-dg-accent` };
@@ -430,10 +463,22 @@ function BottomNav() {
       }}
     >
       <div className="flex items-stretch h-14">
-        <Link to="/" activeOptions={{ exact: true }} activeProps={active} inactiveProps={inactive}>
-          <Bookmark size={22} weight="bold" />
-          <span className="text-[0.6rem] uppercase tracking-wider">watchlist</span>
-        </Link>
+        {auth ? (
+          <Link
+            to="/"
+            activeOptions={{ exact: true }}
+            activeProps={active}
+            inactiveProps={inactive}
+          >
+            <Bookmark size={22} weight="bold" />
+            <span className="text-[0.6rem] uppercase tracking-wider">watchlist</span>
+          </Link>
+        ) : (
+          <Link to="/login" className={`${base} text-dg-accent`}>
+            <SignIn size={22} weight="bold" />
+            <span className="text-[0.6rem] uppercase tracking-wider">sign in</span>
+          </Link>
+        )}
 
         <Link
           to="/"

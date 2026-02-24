@@ -46,6 +46,7 @@ bun run import:update --all              # Non-interactive: all features, auto-d
 bun run import:update --all --reset      # Wipe + full reimport
 bun run import:update --all --qrank=data/qrank.csv.gz --subset=data/subset.ndjson
 bun run import:update --all --anime-offline=data/anime-offline-database.jsonl
+bun run import:update --all --recheck    # Re-fetch covers for all media (not just missing)
 
 # Step 3 (optional): Incremental Wikidata updates via SPARQL
 bun run src/import/incremental.ts --days=7           # Last 7 days
@@ -59,13 +60,10 @@ bun run src/import/incremental.ts --days=7 --dry-run # Preview only
 
 ## Validation (run before every commit)
 
-**Always run these four commands to validate changes. Fix any errors before committing.**
+**Always run `bun run validate` to validate changes. Fix any errors before committing.**
 
 ```bash
-bun run typecheck             # TypeScript type checking — fix all errors
-bun run format                # Biome formatter — auto-fixes in place
-bun run lint                  # Biome linter — fix all errors, warnings are OK
-bun run build                 # Vite production build — must succeed cleanly
+bun run validate              # format + lint + typecheck + build (stops on first failure)
 ```
 
 ## Architecture

@@ -1,17 +1,19 @@
+import { Shuffle } from "@phosphor-icons/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, getRouteApi, useRouter } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, useNavigate, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import type { CatalogEntry } from "~/db/schema";
 import { getMediaStub } from "~/features/catalog/catalog.functions";
-import { catalogEntryOptions } from "~/features/catalog/catalog.queries";
+import { catalogEntryOptions, trackedIdsOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
 import type { getMedia } from "~/features/media/media.functions";
+import { getRandomMediaId } from "~/features/media/media.functions";
 import { mediaDetailOptions } from "~/features/media/media.queries";
 import {
   countWatchedEpisodes,
+  displayMediaType,
   mediaTypeLabel,
   type WatchedEpisodes,
 } from "~/features/media/media-types";
@@ -24,31 +26,33 @@ const rootRoute = getRouteApi("__root__");
 type FullLoaderData = {
   kind: "full";
   media: NonNullable<Awaited<ReturnType<typeof getMedia>>>;
-  initialEntry?: CatalogEntry | null;
 };
 
 type StubLoaderData = {
   kind: "stub";
-  stub: { wikidataId: string; title: string; mediaType: string | null };
+  stub: {
+    wikidataId: string;
+    title: string;
+    mediaType: string | null;
+    animationOrigin?: string | null;
+  };
 };
 
 type LoaderData = FullLoaderData | StubLoaderData;
 
 export const Route = createFileRoute("/catalog/$wikidataId")({
   loader: async ({ params, context }): Promise<LoaderData> => {
-    const mediaPromise = context.queryClient.ensureQueryData(mediaDetailOptions(params.wikidataId));
-    const entryPromise = context.queryClient
-      .fetchQuery(catalogEntryOptions(params.wikidataId))
-      .catch(() => null);
+    // Non-blocking: warm tracking cache for logged-in users only
+    const isLoggedIn = !!context.queryClient.getQueryData(trackedIdsOptions().queryKey);
+    if (isLoggedIn) {
+      context.queryClient.prefetchQuery(catalogEntryOptions(params.wikidataId));
+    }
 
-    const [media, initialEntry] = await Promise.all([mediaPromise, entryPromise]);
+    // Blocking: media data is the page content
+    const media = await context.queryClient.ensureQueryData(mediaDetailOptions(params.wikidataId));
 
     if (media) {
-      return {
-        kind: "full",
-        media,
-        initialEntry,
-      };
+      return { kind: "full", media };
     }
 
     const stub = await getMediaStub({ data: { wikidataId: params.wikidataId } });
@@ -86,7 +90,7 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
       }
 
       if (m.mediaType === "movie") ogType = "video.movie";
-      else if (m.mediaType === "tv_series" || m.mediaType === "anime") ogType = "video.tv_show";
+      else if (m.mediaType === "tv_series") ogType = "video.tv_show";
     } else if (loaderData?.kind === "stub") {
       wikidataId = loaderData.stub.wikidataId;
       description = "Track on donguri";
@@ -114,31 +118,49 @@ function triggerNavBack() {
   setTimeout(() => delete document.documentElement.dataset.navBack, 500);
 }
 
+function useShuffleNav() {
+  const navigate = useNavigate();
+  return useCallback(async () => {
+    SoundEngine.dice();
+    const id = await getRandomMediaId();
+    if (id) {
+      SoundEngine.navForward();
+      navigate({ to: "/catalog/$wikidataId", params: { wikidataId: id } });
+    }
+  }, [navigate]);
+}
+
 function MediaDetailRouter() {
   const loaderData = Route.useLoaderData();
   if (loaderData.kind === "stub") return <MediaStubPage stub={loaderData.stub} />;
-  return (
-    <MediaDetailPage
-      wikidataId={loaderData.media.wikidataId}
-      initialEntry={loaderData.initialEntry}
-    />
-  );
+  return <MediaDetailPage wikidataId={loaderData.media.wikidataId} />;
 }
 
 function MediaDetailSkeleton() {
+  const handleShuffle = useShuffleNav();
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
-        <button
-          type="button"
-          onClick={() => {
-            SoundEngine.navBack();
-            triggerNavBack();
-          }}
-          className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm transition-all duration-150"
-        >
-          &larr; back
-        </button>
+        <div className="flex items-center gap-1.5 mb-g2">
+          <button
+            type="button"
+            onClick={() => {
+              SoundEngine.navBack();
+              triggerNavBack();
+            }}
+            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm transition-all duration-150"
+          >
+            &larr; back
+          </button>
+          <button
+            type="button"
+            title="Random title"
+            onClick={handleShuffle}
+            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+          >
+            <Shuffle size={17} weight="bold" />
+          </button>
+        </div>
         <div className="mb-g3">
           <div className="w-16 h-5 bg-dg-surface rounded-sm mb-3 animate-pulse" />
           <div className="w-2/3 h-8 bg-dg-surface rounded animate-pulse" />
@@ -164,28 +186,44 @@ function MediaDetailSkeleton() {
 function MediaStubPage({
   stub,
 }: {
-  stub: { wikidataId: string; title: string; mediaType: string | null };
+  stub: {
+    wikidataId: string;
+    title: string;
+    mediaType: string | null;
+    animationOrigin?: string | null;
+  };
 }) {
   const { auth } = rootRoute.useLoaderData();
+  const handleShuffle = useShuffleNav();
 
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
-        <button
-          type="button"
-          onClick={() => {
-            SoundEngine.navBack();
-            triggerNavBack();
-          }}
-          className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
-        >
-          &larr; back
-        </button>
+        <div className="flex items-center gap-1.5 mb-g2">
+          <button
+            type="button"
+            onClick={() => {
+              SoundEngine.navBack();
+              triggerNavBack();
+            }}
+            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
+          >
+            &larr; back
+          </button>
+          <button
+            type="button"
+            title="Random title"
+            onClick={handleShuffle}
+            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+          >
+            <Shuffle size={17} weight="bold" />
+          </button>
+        </div>
 
         <div className="mb-g3">
           {stub.mediaType && (
             <div className="mb-2">
-              <StampBadge type={stub.mediaType} />
+              <StampBadge type={displayMediaType(stub.mediaType, stub.animationOrigin ?? null)} />
             </div>
           )}
           <h1 className="font-display text-[1.6rem] sm:text-[2.25rem] font-normal m-0 leading-[1.15] tracking-[-0.03em]">
@@ -224,13 +262,7 @@ function MediaStubPage({
   );
 }
 
-function MediaDetailPage({
-  wikidataId,
-  initialEntry,
-}: {
-  wikidataId: string;
-  initialEntry?: CatalogEntry | null;
-}) {
+function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
   const { data } = useSuspenseQuery(mediaDetailOptions(wikidataId));
   if (!data) throw new Error("Media not found");
   const { auth } = rootRoute.useLoaderData();
@@ -241,35 +273,31 @@ function MediaDetailPage({
     router.history.back();
     setTimeout(() => delete document.documentElement.dataset.navBack, 500);
   }, [router]);
+  const handleShuffle = useShuffleNav();
 
-  const [localIsFavorite, setLocalIsFavorite] = useState(initialEntry?.isFavorite ?? false);
-  const [localWatchedEpisodes, setLocalWatchedEpisodes] = useState<WatchedEpisodes>(
-    (initialEntry?.watchedEpisodes as WatchedEpisodes) ?? {},
-  );
-  const [localWatchedAt, setLocalWatchedAt] = useState<string | null>(
-    initialEntry?.watchedAt ?? null,
-  );
-  const [localStatus, setLocalStatus] = useState<string | null>(initialEntry?.status ?? null);
+  const [localIsFavorite, setLocalIsFavorite] = useState(false);
+  const [localWatchedEpisodes, setLocalWatchedEpisodes] = useState<WatchedEpisodes>({});
+  const [localWatchedAt, setLocalWatchedAt] = useState<string | null>(null);
+  const [localStatus, setLocalStatus] = useState<string | null>(null);
 
   useHotkey("H", handleBack);
   useHotkey("ArrowLeft", handleBack);
   useHotkey("Backspace", handleBack);
   useHotkey("F", () => setLocalIsFavorite((v) => !v), {
-    enabled: !!auth && !!initialEntry?.status,
+    enabled: !!auth && !!localStatus,
   });
 
-  const isAnime = data.mediaType === "anime";
+  const isAnime = data.animationOrigin === "anime";
   const isGame = data.mediaType === "game";
-  const isTvOrAnime = data.mediaType === "tv_series" || isAnime;
-  const hasSeasons = isTvOrAnime && data.seasons && data.seasons.length > 0;
-
+  const isTv = data.mediaType === "tv_series";
   const totalEps =
-    hasSeasons && data.seasons
+    isTv && data.seasons && data.seasons.length > 0
       ? data.seasons.reduce(
           (sum: number, s: { episodeCount: number | null }) => sum + (s.episodeCount ?? 0),
           0,
         )
       : 0;
+  const hasSeasons = totalEps > 1;
 
   const handleWatchedEpisodesChange = useCallback(
     (newWatched: WatchedEpisodes) => {
@@ -306,10 +334,7 @@ function MediaDetailPage({
   if (data.tmdbId && !isGame) {
     externalLinks.push({
       label: "TMDB",
-      url:
-        data.mediaType === "movie"
-          ? `https://www.themoviedb.org/movie/${data.tmdbId}`
-          : `https://www.themoviedb.org/tv/${data.tmdbId}`,
+      url: `https://www.themoviedb.org/${data.tmdbId}`,
     });
   }
   if (data.malId && isAnime)
@@ -337,7 +362,7 @@ function MediaDetailPage({
       label: "IGDB",
       url: `https://www.igdb.com/games/${data.igdbId}`,
     });
-  if (data.tvdbId && isTvOrAnime) {
+  if (data.tvdbId && isTv) {
     const isNumeric = /^\d+$/.test(data.tvdbId);
     externalLinks.push({
       label: "TheTVDB",
@@ -354,13 +379,23 @@ function MediaDetailPage({
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
-        <button
-          type="button"
-          onClick={handleBack}
-          className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 mb-g2 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
-        >
-          &larr; back
-        </button>
+        <div className="flex items-center gap-1.5 mb-g2">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
+          >
+            &larr; back
+          </button>
+          <button
+            type="button"
+            title="Random title"
+            onClick={handleShuffle}
+            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+          >
+            <Shuffle size={17} weight="bold" />
+          </button>
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-g3 sm:gap-g4 mb-g3 sm:mb-g4">
           {/* Poster — portrait on mobile, stretches to match right column on desktop */}
@@ -368,7 +403,7 @@ function MediaDetailPage({
             <div className="aspect-[2/3] w-full sm:aspect-auto sm:h-full">
               <CoverThumb
                 title={data.title}
-                mediaType={data.mediaType ?? undefined}
+                mediaType={displayMediaType(data.mediaType, data.animationOrigin)}
                 posterUrl={data.posterUrl ?? undefined}
                 size={210}
                 loading="eager"
@@ -377,7 +412,7 @@ function MediaDetailPage({
           </div>
           <div className="min-w-0 flex-1" style={{ viewTransitionName: "detail-content" }}>
             <div className="mb-2">
-              <StampBadge type={data.mediaType} />
+              <StampBadge type={displayMediaType(data.mediaType, data.animationOrigin)} />
             </div>
             <h1 className="font-display text-[1.6rem] sm:text-[2.25rem] font-normal m-0 leading-[1.15] tracking-[-0.03em]">
               {data.title}
@@ -403,7 +438,7 @@ function MediaDetailPage({
                   <MetaItem label="Runtime" value={`${data.runtimeMinutes} min`} />
                 )}
                 {data.seasonCount && <MetaItem label="Seasons" value={String(data.seasonCount)} />}
-                {data.episodeCount && (
+                {data.episodeCount && data.episodeCount > 1 && (
                   <MetaItem label="Episodes" value={String(data.episodeCount)} />
                 )}
                 {data.qrankPct != null && (
@@ -478,7 +513,6 @@ function MediaDetailPage({
             <TrackingPanel
               wikidataId={data.wikidataId}
               mediaType={data.mediaType}
-              initialEntry={initialEntry}
               statusState={{ value: localStatus, set: setLocalStatus }}
               favoriteState={{ value: localIsFavorite, set: setLocalIsFavorite }}
               watchedEpisodesState={{
@@ -507,23 +541,47 @@ function MediaDetailPage({
           </div>
         )}
 
-        {data.platforms.length > 0 && (
-          <div className="mb-g3 sm:mb-g4">
-            <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-              Platforms
-            </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {data.platforms.map((p: { id: string; name: string }) => (
-                <span
-                  key={p.id}
-                  className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                >
-                  {p.name}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+        {data.platforms.length > 0 &&
+          (() => {
+            // Dedup platforms: hide parent family when specific children are present
+            const subPlatformParentIds = new Set(
+              data.platforms.flatMap((p: { parentId: string | null }) =>
+                p.parentId ? [p.parentId] : [],
+              ),
+            );
+            const visiblePlatforms = data.platforms.filter(
+              (p: { id: string; parentId: string | null }) => {
+                if (p.parentId) return true;
+                return !subPlatformParentIds.has(p.id);
+              },
+            );
+            return (
+              <div className="mb-g3 sm:mb-g4">
+                <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+                  Platforms
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {visiblePlatforms.map(
+                    (p: { id: string; name: string; parentName?: string | null }) => (
+                      <span
+                        key={p.id}
+                        className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                      >
+                        {p.parentName ? (
+                          <>
+                            <span className="text-dg-text-tertiary">{p.parentName} &rsaquo; </span>
+                            {p.name}
+                          </>
+                        ) : (
+                          p.name
+                        )}
+                      </span>
+                    ),
+                  )}
+                </div>
+              </div>
+            );
+          })()}
       </div>
     </div>
   );

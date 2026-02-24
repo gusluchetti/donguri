@@ -4,7 +4,7 @@ import {
   getUserCatalogEntries,
   getUserTrackedIds,
 } from "~/features/catalog/catalog.functions";
-import { getMediaStats, listMedia } from "~/features/media/media.functions";
+import { listMedia } from "~/features/media/media.functions";
 import { DATA_VERSION, idbPersister } from "~/lib/query";
 
 const persister = idbPersister?.persisterFn;
@@ -32,15 +32,6 @@ export function watchlistOptions() {
   });
 }
 
-export function mediaStatsOptions() {
-  return queryOptions({
-    queryKey: ["catalog", "stats", DATA_VERSION],
-    queryFn: () => getMediaStats({}),
-    staleTime: 30 * 60 * 1000,
-    persister,
-  });
-}
-
 export function catalogInfiniteOptions(
   mediaType?: "movie" | "tv_series" | "anime" | "game",
   search?: string,
@@ -59,7 +50,7 @@ export function catalogEntryOptions(wikidataId: string) {
   return queryOptions({
     queryKey: ["user", "entry", DATA_VERSION, wikidataId],
     queryFn: () => getCatalogEntry({ data: { wikidataId } }),
-    staleTime: 0,
+    staleTime: 30 * 60 * 1000, // 30 min — mutations invalidate immediately
     refetchOnWindowFocus: true,
     persister,
   });

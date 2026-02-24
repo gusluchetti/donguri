@@ -165,11 +165,12 @@ export const MediaTypeQValues = {
   ANIME_SEASON: "Q100269041",
 } as const;
 
-export type MediaType = "movie" | "tv_series" | "anime" | "game";
+export type MediaType = "movie" | "tv_series" | "game";
 
 export interface ParsedMedia {
   wikidataId: string;
   mediaType: MediaType;
+  animationOrigin: string | null;
   title: string;
   originalTitle: string | null;
   originalLanguage: string | null;
@@ -193,6 +194,7 @@ export interface ParsedMedia {
   genreIds: string[];
   platformIds: string[];
   searchTitle: string;
+  aliases: string[];
 }
 
 export interface ParsedSeason {
