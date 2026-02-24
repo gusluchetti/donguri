@@ -356,9 +356,17 @@ html[data-nav-back] ::view-transition-new(detail-content) {
     linear-gradient(90deg, var(--grid-color) 1px, transparent 1px),
     linear-gradient(0deg, var(--grid-color) 1px, transparent 1px);
   background-size: 64px 64px;
-  /* Radial mask centered on content area — fades toward edges */
-  mask-image: radial-gradient(circle at 50% 50%, black 0%, transparent 85%);
-  -webkit-mask-image: radial-gradient(circle at 50% 50%, black 0%, transparent 85%);
+  /* Inverted mask: grid fades where topo gradient glows, visible at edges */
+  mask-image:
+    radial-gradient(ellipse 120% 80% at 25% 45%, transparent, black 60%),
+    radial-gradient(ellipse 100% 120% at 75% 60%, transparent, black 55%),
+    radial-gradient(ellipse 140% 80% at 50% 50%, transparent, black 70%);
+  mask-composite: intersect;
+  -webkit-mask-image:
+    radial-gradient(ellipse 120% 80% at 25% 45%, transparent, black 60%),
+    radial-gradient(ellipse 100% 120% at 75% 60%, transparent, black 55%),
+    radial-gradient(ellipse 140% 80% at 50% 50%, transparent, black 70%);
+  -webkit-mask-composite: source-in;
   filter: blur(0.4px);
 }
 

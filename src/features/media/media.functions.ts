@@ -14,6 +14,7 @@ import {
 } from "~/db/schema";
 import { getSessionData } from "~/features/auth/auth.session";
 import { getMediaSource } from "./media-source";
+import { getCacheArrays } from "./popular-cache";
 
 const parentGenres = alias(canonicalGenres, "parent_genres");
 const parentPlatforms = alias(canonicalPlatforms, "parent_platforms");
@@ -87,6 +88,30 @@ export const getRandomMediaId = createServerFn({ method: "GET" }).handler(async 
   const session = await getSessionData();
   const source = getMediaSource(session);
   return source.randomId();
+});
+
+/**
+ * Homepage sample: first 3 items with posters from each type bucket (12 total).
+ * Uses the in-memory popular cache — zero extra DB queries.
+ */
+export const getSamplesForHomepage = createServerFn({ method: "GET" }).handler(async () => {
+  const { byType } = await getCacheArrays();
+  const SAMPLE_PER_TYPE = 3;
+  const types = ["movie", "tv_series", "anime", "game"] as const;
+
+  const samples: Media[] = [];
+  for (const type of types) {
+    const bucket = byType[type];
+    let count = 0;
+    for (const item of bucket) {
+      if (count >= SAMPLE_PER_TYPE) break;
+      if (item.posterUrl) {
+        samples.push(item);
+        count++;
+      }
+    }
+  }
+  return samples;
 });
 
 /**

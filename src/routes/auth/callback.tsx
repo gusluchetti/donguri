@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { handleOAuthCallback } from "~/features/auth/auth.functions";
+import { AcornIcon } from "~/features/media/components/AcornIcon";
 
 export const Route = createFileRoute("/auth/callback")({
   validateSearch: z.object({
@@ -34,22 +35,41 @@ function CallbackPage() {
   }, []);
 
   return (
-    <div className="bg-dg-bg text-dg-text flex-1 overflow-y-auto font-mono">
-      <div className="max-w-[600px] mx-auto px-6 py-16">
+    <div className="text-dg-text flex-1 overflow-y-auto font-body flex items-center justify-center">
+      <div className="w-full max-w-[400px] mx-auto px-g3 py-12 sm:py-16">
+        <div className="flex flex-col items-center mb-8">
+          <Link to="/" className="flex flex-col items-center gap-2 no-underline">
+            <span className="text-dg-accent">
+              <AcornIcon size={36} />
+            </span>
+            <span className="font-display text-[1.5rem] text-dg-text">donguri</span>
+          </Link>
+        </div>
+
         {error ? (
           <div className="border border-dg-movie/30 rounded p-5 bg-dg-surface">
             <p className="text-dg-movie text-[0.8rem] uppercase tracking-wider mb-3">
               Authentication error
             </p>
             <p className="text-dg-text-secondary text-[0.85rem] leading-relaxed mb-4">{error}</p>
-            <a href="/" className="text-[0.85rem] text-dg-accent no-underline">
-              Back to home
-            </a>
+            <div className="flex items-center gap-4">
+              <Link to="/login" className="text-[0.85rem] text-dg-accent no-underline">
+                Try again
+              </Link>
+              <Link
+                to="/"
+                className="text-[0.85rem] text-dg-text-tertiary no-underline hover:text-dg-text-secondary transition-colors"
+              >
+                Back to home
+              </Link>
+            </div>
           </div>
         ) : (
-          <p className="text-dg-text-secondary text-[0.85rem]">
-            <span className="dg-ellipsis">Authenticating</span>
-          </p>
+          <div className="text-center">
+            <p className="text-dg-text-secondary text-[0.85rem]">
+              <span className="dg-ellipsis">Authenticating</span>
+            </p>
+          </div>
         )}
       </div>
     </div>

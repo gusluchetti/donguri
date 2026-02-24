@@ -1,13 +1,16 @@
 import { Star } from "@phosphor-icons/react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { initiateLogin, initiateOAuthLogin } from "~/features/auth/auth.functions";
+import type { Media } from "~/db/schema";
+import { getAuthState } from "~/features/auth/auth.functions";
 import { watchlistOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
+import { AcornIcon } from "~/features/media/components/AcornIcon";
+import { MediaCard } from "~/features/media/components/MediaCard";
 import { SectionHeader } from "~/features/media/components/SectionHeader";
+import { homepageSampleOptions } from "~/features/media/media.queries";
 import {
   displayMediaType,
   ratingColor,
@@ -80,14 +83,22 @@ export const Route = createFileRoute("/")({
     ],
   }),
   loader: async ({ context }) => {
+    const auth = await getAuthState();
+    if (!auth) {
+      try {
+        const samples = await context.queryClient.fetchQuery(homepageSampleOptions());
+        return { entries: [] as CatalogEntryRow[], samples };
+      } catch {
+        return { entries: [] as CatalogEntryRow[], samples: [] as Media[] };
+      }
+    }
     try {
       const entries = (await context.queryClient.fetchQuery(
         watchlistOptions(),
       )) as CatalogEntryRow[];
-      return { entries };
+      return { entries, samples: [] as Media[] };
     } catch {
-      const entries: CatalogEntryRow[] = [];
-      return { entries };
+      return { entries: [] as CatalogEntryRow[], samples: [] as Media[] };
     }
   },
   staleTime: 5 * 60 * 1000,
@@ -119,142 +130,190 @@ function HomePage() {
     );
   }
 
+  return <LoggedOutView />;
+}
+
+// ─── Logged-Out Landing ─────────────────────────────────────────────────────
+
+const TYPE_CARDS = [
+  { type: "movie", label: "Movies", count: "28k+" },
+  { type: "tv_series", label: "TV Shows", count: "12k+" },
+  { type: "anime", label: "Anime", count: "8k+" },
+  { type: "game", label: "Games", count: "15k+" },
+] as const;
+
+const STEPS = [
+  {
+    step: "1",
+    title: "Create an account or sign in",
+    desc: "Use your AT Protocol identity, Google, or GitHub. We recommend AT Protocol for the full experience.",
+  },
+  {
+    step: "2",
+    title: "Browse and track",
+    desc: "Search across 100k+ titles. Mark what you\u2019re watching, playing, or planning to.",
+  },
+  {
+    step: "3",
+    title: "Your catalog, your way",
+    desc: "Rate, review, and organize. With AT Protocol, your data syncs to your own server.",
+  },
+];
+
+function LoggedOutView() {
+  const { samples } = Route.useLoaderData();
+
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
-      <div className="max-w-[1100px] mx-auto px-g3 py-6 sm:py-8">
-        <h1 className="font-display text-[1.8rem] sm:text-[2.25rem] font-normal tracking-[-0.03em] mb-2">
-          <span className="text-dg-accent">donguri</span>
+      {/* Hero */}
+      <section className="pt-10 sm:pt-16 pb-8 sm:pb-12 text-center">
+        <h1 className="font-display text-[2.5rem] sm:text-[3.5rem] font-normal tracking-[-0.04em] mb-3 text-dg-text flex items-center justify-center">
+          d
+          <span className="text-dg-accent inline-flex items-center" style={{ margin: "0 -0.06em" }}>
+            <span className="sm:hidden">
+              <AcornIcon size={38} />
+            </span>
+            <span className="hidden sm:inline-flex">
+              <AcornIcon size={52} />
+            </span>
+          </span>
+          nguri
         </h1>
-        <p className="text-dg-text-secondary text-[0.9rem] leading-relaxed mb-4 sm:mb-5">
-          Track movies, TV, anime, and games.
+        <p className="text-dg-text-secondary text-[1rem] sm:text-[1.1rem] leading-relaxed max-w-[480px] mx-auto mb-2">
+          All your media in one place.
         </p>
-
-        <SignInSection />
-
-        <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-5">
+        <p className="text-dg-text-tertiary text-[0.85rem] leading-relaxed max-w-[420px] mx-auto mb-8">
+          Track movies, TV shows, anime, and games.
+          <br />
+          Built on AT Protocol — your catalog, your data.
+        </p>
+        <div className="flex items-center justify-center gap-3 flex-wrap">
+          <Link
+            to="/login"
+            onClick={() => SoundEngine.click()}
+            className="bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110"
+          >
+            Get started
+          </Link>
           <Link
             to="/catalog"
-            className="text-[0.85rem] text-dg-accent no-underline py-2.5 sm:py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-150 text-center sm:text-left"
+            onClick={() => SoundEngine.click()}
+            className="border border-dg-border text-dg-text-secondary font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text"
           >
-            Browse catalog
-          </Link>
-          <Link
-            to="/roadmap"
-            className="text-[0.85rem] text-dg-text-secondary no-underline py-2.5 sm:py-2 px-4 border border-dg-border-subtle rounded-sm transition-all duration-150 text-center sm:text-left"
-          >
-            Roadmap
+            Browse catalog →
           </Link>
         </div>
-      </div>
-    </div>
-  );
-}
+      </section>
 
-function SignInSection() {
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="text-[0.8rem] text-dg-text-secondary uppercase tracking-wider">Sign in</div>
+      {/* Media type cards */}
+      <section className="py-3 sm:py-6 max-w-[1100px] mx-auto px-g3">
+        <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider mb-3">
+          One place for everything
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+          {TYPE_CARDS.map((t) => (
+            <Link
+              key={t.type}
+              to="/catalog"
+              search={{ type: t.type }}
+              className="border border-dg-border-subtle rounded bg-dg-surface p-4 text-center no-underline hover:border-dg-border-strong transition-colors"
+              onClick={() => SoundEngine.click()}
+            >
+              <div className="text-[0.85rem] font-medium text-dg-text mb-1">{t.label}</div>
+              <div className="text-[0.7rem] text-dg-text-tertiary">{t.count} titles</div>
+            </Link>
+          ))}
+        </div>
+      </section>
 
-      <BlueskyLoginForm />
+      {/* How it works */}
+      <section className="py-6 sm:py-8 max-w-[1100px] mx-auto px-g3 border-t border-dg-border-subtle">
+        <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider mb-4">
+          How it works
+        </div>
+        <div className="flex flex-col gap-4">
+          {STEPS.map((s) => (
+            <div key={s.step} className="flex gap-3 items-start">
+              <div className="w-7 h-7 rounded-full border border-dg-border flex items-center justify-center shrink-0 text-[0.75rem] text-dg-accent font-semibold">
+                {s.step}
+              </div>
+              <div>
+                <div className="text-[0.85rem] font-medium text-dg-text mb-0.5">{s.title}</div>
+                <div className="text-[0.8rem] text-dg-text-tertiary leading-relaxed">{s.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
-      <div className="flex items-center gap-3">
-        <div className="flex-1 border-t border-dg-border-subtle" />
-        <span className="text-[0.75rem] text-dg-text-tertiary">or</span>
-        <div className="flex-1 border-t border-dg-border-subtle" />
-      </div>
+      {/* Catalog sample */}
+      {samples.length > 0 && (
+        <section className="py-6 sm:py-8 max-w-[1100px] mx-auto px-g3 border-t border-dg-border-subtle">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider">
+              From the catalog
+            </div>
+            <Link to="/catalog" className="text-[0.7rem] text-dg-accent no-underline">
+              Browse all →
+            </Link>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            {samples.map((item, i) => (
+              <MediaCard key={item.id} item={item} index={i} />
+            ))}
+          </div>
+        </section>
+      )}
 
-      <div className="flex flex-col gap-2">
-        <OAuthButton provider="google" label="Continue with Google" />
-        <OAuthButton provider="github" label="Continue with GitHub" />
-      </div>
-    </div>
-  );
-}
+      {/* Value props */}
+      <section className="py-8 sm:py-12 max-w-[1100px] mx-auto px-g3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="border border-dg-border-subtle rounded bg-dg-surface p-4 sm:p-5">
+            <div className="font-body text-[0.85rem] font-semibold text-dg-text mb-1">
+              Your data, portable
+            </div>
+            <div className="text-[0.8rem] text-dg-text-secondary leading-relaxed">
+              With AT Protocol, your catalog syncs to your own data server. Take it anywhere.
+            </div>
+          </div>
+          <div className="border border-dg-border-subtle rounded bg-dg-surface p-4 sm:p-5">
+            <div className="font-body text-[0.85rem] font-semibold text-dg-text mb-1">
+              100k+ titles
+            </div>
+            <div className="text-[0.8rem] text-dg-text-secondary leading-relaxed">
+              Movies, TV, anime, and games — sourced from Wikidata, always growing.
+            </div>
+          </div>
+          <div className="border border-dg-border-subtle rounded bg-dg-surface p-4 sm:p-5">
+            <div className="font-body text-[0.85rem] font-semibold text-dg-text mb-1">
+              Free and open
+            </div>
+            <div className="text-[0.8rem] text-dg-text-secondary leading-relaxed">
+              Open source. No ads, no tracking, no premium tiers gating core features.
+            </div>
+          </div>
+        </div>
+      </section>
 
-function BlueskyLoginForm() {
-  const [handle, setHandle] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!handle.trim()) return;
-
-    setLoading(true);
-    setError(null);
-
-    const trimmed = handle.trim();
-
-    try {
-      const result = await initiateLogin({ data: { handle: trimmed } });
-      window.location.href = result.url;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to initiate login";
-      setError(msg);
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="border border-dg-border-subtle rounded p-4 sm:p-5 bg-dg-surface">
-      <form onSubmit={onSubmit}>
-        <label
-          htmlFor="handle"
-          className="block text-dg-text-secondary text-[0.8rem] uppercase tracking-wider mb-3"
+      {/* Bottom CTA */}
+      <section className="py-8 sm:py-12 text-center border-t border-dg-border-subtle max-w-[1100px] mx-auto px-g3">
+        <p className="font-display text-[1.3rem] sm:text-[1.5rem] text-dg-text mb-2">
+          Ready to start tracking?
+        </p>
+        <p className="text-[0.8rem] text-dg-text-tertiary mb-4">Free and open source.</p>
+        <Link
+          to="/login"
+          onClick={() => SoundEngine.click()}
+          className="inline-block bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110"
         >
-          Bluesky
-        </label>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            id="handle"
-            type="text"
-            value={handle}
-            onChange={(e) => setHandle(e.target.value)}
-            placeholder="handle.bsky.social"
-            disabled={loading}
-            className="flex-1 bg-dg-bg border border-dg-border rounded px-3 py-2.5 sm:py-2 text-base sm:text-[0.85rem] text-dg-text font-mono placeholder:text-dg-text-tertiary focus:outline-none focus:border-dg-accent/50 disabled:opacity-50"
-          />
-          <button
-            type="submit"
-            disabled={loading || !handle.trim()}
-            className="bg-transparent border border-dg-accent/30 text-dg-accent px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-body cursor-pointer transition-all duration-150 hover:border-dg-accent/60 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {loading ? <span className="dg-ellipsis">Signing in</span> : "Sign in"}
-          </button>
-        </div>
-        {error && <p className="text-dg-movie text-[0.8rem] mt-2">{error}</p>}
-      </form>
-      <p className="text-[0.75rem] text-dg-text-tertiary mt-3">
-        Your data syncs to your own PDS. Portable and private by design.
-      </p>
+          Get started
+        </Link>
+      </section>
     </div>
   );
 }
 
-function OAuthButton({ provider, label }: { provider: "google" | "github"; label: string }) {
-  const [loading, setLoading] = useState(false);
-
-  const onClick = async () => {
-    setLoading(true);
-    try {
-      const result = await initiateOAuthLogin({ data: { provider } });
-      window.location.href = result.url;
-    } catch {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={loading}
-      className="w-full bg-dg-surface border border-dg-border text-dg-text-secondary px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-body cursor-pointer transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text disabled:opacity-40 disabled:cursor-not-allowed text-center"
-    >
-      {loading ? <span className="dg-ellipsis">Redirecting</span> : label}
-    </button>
-  );
-}
+// ─── Logged-In Watchlist ────────────────────────────────────────────────────
 
 function LoggedInView() {
   const { data: entries = [] } = useSuspenseQuery(watchlistOptions()) as {
