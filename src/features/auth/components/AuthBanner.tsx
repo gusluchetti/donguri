@@ -5,10 +5,10 @@ import { SoundEngine } from "~/features/catalog/catalog.sound";
 const DISMISSED_KEY = "dg-banner-dismissed";
 
 export function AuthBanner() {
-  const [dismissed, setDismissed] = useState(true);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    setDismissed(sessionStorage.getItem(DISMISSED_KEY) === "1");
+    if (sessionStorage.getItem(DISMISSED_KEY) === "1") setDismissed(true);
   }, []);
 
   if (dismissed) return null;

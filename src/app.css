@@ -288,7 +288,7 @@ html[data-nav-back] ::view-transition-new(detail-content) {
   }
   45%,
   55% {
-    transform: translateX(calc(-100% + 100vw - 48px));
+    transform: translateX(-50%);
   }
   90%,
   100% {

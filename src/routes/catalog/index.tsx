@@ -438,8 +438,8 @@ function CatalogPage() {
             to="/"
             className="block border border-dg-accent/20 bg-dg-accent-soft rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-150"
           >
-            <span className="text-dg-accent">Sign in</span> to add titles to your watchlist and
-            track your progress.
+            You're seeing a limited catalog. <span className="text-dg-accent">Sign in</span> for the
+            full version and to start tracking your media.
           </Link>
         </div>
       )}
