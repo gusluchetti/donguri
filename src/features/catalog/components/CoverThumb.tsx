@@ -1,6 +1,14 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TYPE_HUES } from "~/features/media/media-types";
 import { useTheme } from "~/lib/theme";
+
+/**
+ * Module-level set of image URLs that have already loaded in this session.
+ * When a CoverThumb mounts with a URL that's already been loaded, it starts
+ * with opacity 1 instead of fading in again — prevents the "flash" when
+ * components re-mount from persisted cache on return visits.
+ */
+const loadedUrls = new Set<string>();
 
 /**
  * Hue-based gradient placeholder with first-letter watermark,
@@ -66,7 +74,6 @@ export function CoverThumb({
   loading = "lazy",
 }: CoverThumbProps) {
   const { theme } = useTheme();
-  const [loaded, setLoaded] = useState(false);
 
   const isLight = theme === "light";
   const isLarge = size > 60;
@@ -76,6 +83,38 @@ export function CoverThumb({
 
   // Smaller TMDB variant for list thumbnails; keeps full size for detail view.
   const imgSrc = posterUrl ? (isLarge ? posterUrl : tmdbResize(posterUrl, "w185")) : undefined;
+
+  // Start with loaded=true if this URL was already seen in this session,
+  // so we skip the fade-in flash on return visits / re-renders.
+  const alreadyCached = imgSrc ? loadedUrls.has(imgSrc) : false;
+  const [loaded, setLoaded] = useState(alreadyCached);
+
+  // If the posterUrl changes, reset loaded state (unless the new URL is also cached).
+  const prevSrc = useRef(imgSrc);
+  if (prevSrc.current !== imgSrc) {
+    prevSrc.current = imgSrc;
+    const nowCached = imgSrc ? loadedUrls.has(imgSrc) : false;
+    if (loaded !== nowCached) setLoaded(nowCached);
+  }
+
+  // Ref for detecting images that loaded before React hydration.
+  // During SSR, images render with opacity:0 and the browser may load them
+  // before React attaches the onLoad handler — so onLoad never fires.
+  const imgRef = useRef<HTMLImageElement>(null);
+  const loadedRef = useRef(loaded);
+  loadedRef.current = loaded;
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0 && !loadedRef.current) {
+      if (imgSrc) loadedUrls.add(imgSrc);
+      setLoaded(true);
+    }
+  }, [imgSrc]);
+
+  const onImageLoad = () => {
+    if (imgSrc) loadedUrls.add(imgSrc);
+    setLoaded(true);
+  };
 
   if (isLarge) {
     return (
@@ -108,10 +147,11 @@ export function CoverThumb({
         />
         {imgSrc && (
           <img
+            ref={imgRef}
             src={imgSrc}
             alt=""
             loading={loading}
-            onLoad={() => setLoaded(true)}
+            onLoad={onImageLoad}
             className="absolute inset-0 w-full h-full object-cover rounded"
             style={{ opacity: loaded ? 1 : 0, transition: "opacity 150ms ease-in" }}
           />
@@ -151,10 +191,11 @@ export function CoverThumb({
       />
       {imgSrc && (
         <img
+          ref={imgRef}
           src={imgSrc}
           alt=""
           loading={loading}
-          onLoad={() => setLoaded(true)}
+          onLoad={onImageLoad}
           className="absolute inset-0 w-full h-full object-cover rounded-[3px]"
           style={{ opacity: loaded ? 1 : 0, transition: "opacity 150ms ease-in" }}
         />
