@@ -6,6 +6,7 @@ import {
   SpeakerHigh,
   SpeakerNone,
   Sun,
+  User,
 } from "@phosphor-icons/react";
 import { getSequenceManager } from "@tanstack/hotkeys";
 import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
@@ -194,9 +195,13 @@ function RootComponent() {
                 <div className="flex items-center gap-1">
                   {auth ? (
                     <>
-                      <span className="text-xs text-dg-accent hidden sm:inline mr-2">
+                      <Link
+                        to="/profile"
+                        className="text-xs text-dg-accent hidden sm:inline mr-2 no-underline hover:underline"
+                        onClick={() => SoundEngine.click()}
+                      >
                         {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
-                      </span>
+                      </Link>
                       <div
                         className="mx-1 hidden sm:block"
                         style={{
@@ -501,6 +506,19 @@ function BottomNav() {
           <MagnifyingGlass size={22} weight="bold" />
           <span className="text-[0.6rem] uppercase tracking-wider">catalog</span>
         </Link>
+
+        {auth && (
+          <Link
+            to="/profile"
+            activeOptions={{ exact: true }}
+            activeProps={active}
+            inactiveProps={inactive}
+            onClick={() => SoundEngine.click()}
+          >
+            <User size={22} weight="bold" />
+            <span className="text-[0.6rem] uppercase tracking-wider">profile</span>
+          </Link>
+        )}
       </div>
     </nav>
   );
