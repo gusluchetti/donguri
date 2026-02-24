@@ -2,15 +2,20 @@ import { createServerFn } from "@tanstack/react-start";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 type Theme = "dark" | "light";
+export type ThemePreference = "dark" | "light" | "system";
 
 interface ThemeContextValue {
   theme: Theme;
+  preference: ThemePreference;
   toggleTheme: () => void;
+  setThemePreference: (pref: ThemePreference) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: "dark",
+  preference: "dark",
   toggleTheme: () => {},
+  setThemePreference: () => {},
 });
 
 export const getThemeCookie = createServerFn({ method: "GET" }).handler(async () => {
@@ -28,23 +33,54 @@ export function ThemeProvider({
   initialTheme?: Theme;
 }) {
   const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [preference, setPreferenceState] = useState<ThemePreference>(initialTheme);
   const transitionTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const toggleTheme = useCallback(() => {
-    const next = theme === "dark" ? "light" : "dark";
+  // Hydrate preference from localStorage on mount
+  useEffect(() => {
+    const pref = localStorage.getItem("dg-theme-pref");
+    if (pref === "dark" || pref === "light" || pref === "system") {
+      setPreferenceState(pref);
+    } else if (localStorage.getItem("dg-theme")) {
+      // Legacy: had a manual theme but no preference key
+      setPreferenceState(localStorage.getItem("dg-theme") as ThemePreference);
+    }
+  }, []);
 
+  const applyTheme = useCallback((resolved: Theme) => {
     clearTimeout(transitionTimer.current);
     document.documentElement.classList.add("theme-transition");
-    document.documentElement.setAttribute("data-theme", next);
-    localStorage.setItem("dg-theme", next);
+    document.documentElement.setAttribute("data-theme", resolved);
     // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API lacks Firefox/Safari support
-    document.cookie = `dg-theme=${next};path=/;max-age=${60 * 60 * 24 * 400};samesite=lax`;
-    setTheme(next);
-
+    document.cookie = `dg-theme=${resolved};path=/;max-age=${60 * 60 * 24 * 400};samesite=lax`;
+    setTheme(resolved);
     transitionTimer.current = setTimeout(() => {
       document.documentElement.classList.remove("theme-transition");
     }, 250);
-  }, [theme]);
+  }, []);
+
+  const setThemePreference = useCallback(
+    (pref: ThemePreference) => {
+      setPreferenceState(pref);
+      localStorage.setItem("dg-theme-pref", pref);
+      if (pref === "system") {
+        localStorage.removeItem("dg-theme");
+        const resolved = window.matchMedia("(prefers-color-scheme: light)").matches
+          ? "light"
+          : "dark";
+        applyTheme(resolved);
+      } else {
+        localStorage.setItem("dg-theme", pref);
+        applyTheme(pref);
+      }
+    },
+    [applyTheme],
+  );
+
+  const toggleTheme = useCallback(() => {
+    const next = theme === "dark" ? "light" : "dark";
+    setThemePreference(next);
+  }, [theme, setThemePreference]);
 
   // Listen for OS preference changes when no manual preference is saved
   useEffect(() => {
@@ -59,7 +95,11 @@ export function ThemeProvider({
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={{ theme, preference, toggleTheme, setThemePreference }}>
+      {children}
+    </ThemeContext.Provider>
+  );
 }
 
 export function useTheme() {

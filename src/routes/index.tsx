@@ -1,5 +1,6 @@
 import { Star } from "@phosphor-icons/react";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import type { Media } from "~/db/schema";
 import { watchlistOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
@@ -19,6 +20,7 @@ import {
   type StatusValue,
 } from "~/features/media/media-types";
 import { ogTags, pageTitle } from "~/lib/og";
+import { getExpandedSections, getWatchlistView, type WatchlistView } from "~/lib/settings";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -316,6 +318,21 @@ function LoggedOutView() {
 
 function LoggedInView() {
   const { entries } = Route.useLoaderData();
+  const [viewMode, setViewMode] = useState<WatchlistView>("mixed");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setViewMode(getWatchlistView());
+    const expandedSections = getExpandedSections();
+    const map: Record<string, boolean> = {};
+    for (const s of STATUS_ORDER) map[s] = !expandedSections.includes(s);
+    setCollapsed(map);
+  }, []);
+
+  const toggleCollapse = (status: string) => {
+    setCollapsed((prev) => ({ ...prev, [status]: !prev[status] }));
+    SoundEngine.click();
+  };
 
   // Group by status, sort within sections by updatedAt desc then mediaType alpha
   const grouped = new Map<string, CatalogEntryRow[]>();
@@ -344,7 +361,16 @@ function LoggedInView() {
           {STATUS_ORDER.map((status) => {
             const items = grouped.get(status);
             if (!items) return null;
-            return <WatchlistSection key={status} status={status} items={items} />;
+            return (
+              <WatchlistSection
+                key={status}
+                status={status}
+                items={items}
+                viewMode={viewMode}
+                collapsed={collapsed[status] ?? false}
+                onToggle={() => toggleCollapse(status)}
+              />
+            );
           })}
         </div>
       )}
@@ -352,9 +378,21 @@ function LoggedInView() {
   );
 }
 
-function WatchlistSection({ status, items }: { status: string; items: CatalogEntryRow[] }) {
+function WatchlistSection({
+  status,
+  items,
+  viewMode,
+  collapsed,
+  onToggle,
+}: {
+  status: string;
+  items: CatalogEntryRow[];
+  viewMode: WatchlistView;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
   const s = status as StatusValue;
-  const isGrid = GRID_STATUSES.has(status);
+  const useGrid = viewMode === "grid" || (viewMode === "mixed" && GRID_STATUSES.has(status));
 
   return (
     <div>
@@ -363,8 +401,10 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
         color={STATUS_SECTION_COLORS[s] ?? "var(--color-dg-text-secondary)"}
         count={items.length}
         icon={STATUS_ICONS[s] ?? "\u00b7"}
+        collapsed={collapsed}
+        onToggle={onToggle}
       />
-      {isGrid ? <WatchlistGrid items={items} /> : <WatchlistList items={items} />}
+      {!collapsed && (useGrid ? <WatchlistGrid items={items} /> : <WatchlistList items={items} />)}
     </div>
   );
 }

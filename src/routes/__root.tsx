@@ -1,5 +1,6 @@
 import {
   Bookmark,
+  GearSix,
   MagnifyingGlass,
   Moon,
   SignIn,
@@ -113,6 +114,7 @@ function RootDocument({ children, theme }: { children: ReactNode; theme: string 
 const NAV_ITEMS: readonly { to: string; label: string; exact?: boolean }[] = [
   { to: "/catalog", label: "catalog", exact: false },
   { to: "/roadmap", label: "roadmap", exact: true },
+  { to: "/settings", label: "settings", exact: true },
 ];
 
 function RootComponent() {
@@ -333,6 +335,11 @@ function GlobalShortcuts({
         guard(() => navRef.current({ to: "/roadmap" })),
         opts,
       ),
+      mgr.register(
+        ["G", "S"],
+        guard(() => navRef.current({ to: "/settings" })),
+        opts,
+      ),
     ];
     return () => {
       for (const u of unsubs) u();
@@ -500,6 +507,17 @@ function BottomNav() {
         >
           <MagnifyingGlass size={22} weight="bold" />
           <span className="text-[0.6rem] uppercase tracking-wider">catalog</span>
+        </Link>
+
+        <Link
+          to="/settings"
+          activeOptions={{ exact: true }}
+          activeProps={active}
+          inactiveProps={inactive}
+          onClick={() => SoundEngine.click()}
+        >
+          <GearSix size={22} weight="bold" />
+          <span className="text-[0.6rem] uppercase tracking-wider">settings</span>
         </Link>
       </div>
     </nav>
