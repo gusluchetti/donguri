@@ -23,6 +23,7 @@ import {
   type WatchedEpisodes,
 } from "~/features/media/media-types";
 import { useAction } from "~/hooks/use-action";
+import { broadcastInvalidation } from "~/lib/tab-sync";
 
 type StatePair<T> = { value: T; set: (v: T) => void };
 
@@ -571,6 +572,7 @@ export function TrackingPanel({
         setLocalWatchedAt?.(fresh?.watchedAt ?? null);
         serverEntry.current = fresh;
         queryClient.invalidateQueries({ queryKey: ["user"] });
+        broadcastInvalidation(["user"]);
         router.invalidate();
       } catch (err) {
         // Rollback optimistic update on failure
@@ -605,6 +607,7 @@ export function TrackingPanel({
   const handleRemove = useCallback(async () => {
     await action.run(async () => {
       await removeCatalogEntry({ data: { wikidataId } });
+      broadcastInvalidation(["user"]);
       window.location.reload();
     });
   }, [wikidataId, action]);

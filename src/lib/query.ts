@@ -1,13 +1,36 @@
 import { experimental_createQueryPersister } from "@tanstack/query-persist-client-core";
-import { QueryClient } from "@tanstack/react-query";
+import { focusManager, QueryClient } from "@tanstack/react-query";
 import { del, get, set } from "idb-keyval";
+import { setupTabSync } from "./tab-sync";
 
 // Auto-generated at Vite startup / build time — changes on every deploy, stable during dev.
 declare const __BUILD_ID__: string;
 export const DATA_VERSION = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "dev";
 
+// ─── Focus throttle ─────────────────────────────────────────────────────────
+// Prevent refetch storms when rapidly switching between tabs. The default
+// focusManager fires on every visibilitychange, which means N tabs × M queries
+// all hit the server simultaneously. We throttle so that a tab must be hidden
+// for at least FOCUS_THROTTLE_MS before a focus event triggers refetches.
+const FOCUS_THROTTLE_MS = 5_000;
+if (typeof window !== "undefined") {
+  let lastHiddenAt = 0;
+  focusManager.setEventListener((handleFocus) => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        lastHiddenAt = Date.now();
+      } else {
+        // Only signal "focused" if the tab was hidden long enough to warrant a refetch
+        handleFocus(Date.now() - lastHiddenAt >= FOCUS_THROTTLE_MS);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  });
+}
+
 export function createQueryClient() {
-  return new QueryClient({
+  const qc = new QueryClient({
     defaultOptions: {
       queries: {
         staleTime: 30_000,
@@ -18,6 +41,13 @@ export function createQueryClient() {
       },
     },
   });
+
+  // Wire up cross-tab invalidation via BroadcastChannel
+  if (typeof window !== "undefined") {
+    setupTabSync(qc);
+  }
+
+  return qc;
 }
 
 export const idbPersister =
@@ -30,7 +60,9 @@ export const idbPersister =
         },
         maxAge: 24 * 60 * 60 * 1000,
         prefix: "dg",
-        refetchOnRestore: true,
+        // Disabled: focus-based refetch + BroadcastChannel handle freshness.
+        // Having this true caused double-fetches (restore + focus) on every tab switch.
+        refetchOnRestore: false,
       })
     : undefined;
 

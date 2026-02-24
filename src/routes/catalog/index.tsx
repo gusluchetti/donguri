@@ -28,6 +28,7 @@ import {
   type StatusValue,
 } from "~/features/media/media-types";
 import { ogTags, pageTitle } from "~/lib/og";
+import { broadcastInvalidation } from "~/lib/tab-sync";
 
 const rootRoute = getRouteApi("__root__");
 
@@ -106,6 +107,7 @@ function useQuickAdd() {
           }, 1500),
         );
         queryClient.invalidateQueries({ queryKey: ["user"] });
+        broadcastInvalidation(["user"]);
         router.invalidate();
       } catch {
         setQuickAddState((prev) => {
