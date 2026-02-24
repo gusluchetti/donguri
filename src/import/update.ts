@@ -379,7 +379,7 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
       );
 
       await db.$client.begin(async (tx) => {
-        await tx.unsafe(`CREATE TEMP TABLE _valid_ids (id text NOT NULL) ON COMMIT DROP`);
+        await tx.unsafe(`CREATE TEMP TABLE _valid_ids (id text PRIMARY KEY) ON COMMIT DROP`);
         const ids = [...importedIds];
         for (let i = 0; i < ids.length; i += 5000) {
           const chunk = ids.slice(i, i + 5000);
@@ -387,12 +387,12 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
           await tx.unsafe(`INSERT INTO _valid_ids (id) VALUES ${values}`);
         }
 
-        const [{ cnt }] = (await tx.unsafe(
-          `SELECT COUNT(*)::int AS cnt FROM media WHERE wikidata_id NOT IN (SELECT id FROM _valid_ids)`,
-        )) as [{ cnt: number }];
+        const result = await tx.unsafe(
+          `DELETE FROM media m WHERE NOT EXISTS (SELECT 1 FROM _valid_ids v WHERE v.id = m.wikidata_id)`,
+        );
+        const cnt = result.count;
 
         if (cnt > 0) {
-          await tx.unsafe(`DELETE FROM media WHERE wikidata_id NOT IN (SELECT id FROM _valid_ids)`);
           console.log(`  Pruned ${cnt.toLocaleString()} stale media rows`);
         } else {
           console.log("  No stale media to prune");
