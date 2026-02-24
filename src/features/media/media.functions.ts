@@ -91,26 +91,62 @@ export const getRandomMediaId = createServerFn({ method: "GET" }).handler(async 
 });
 
 /**
- * Homepage sample: first 3 items with posters from each type bucket (12 total).
- * Uses the in-memory popular cache — zero extra DB queries.
+ * Homepage sample: 12 items with posters — one of each type guaranteed,
+ * remaining slots filled from the pool. Order is seeded-shuffled by day
+ * so results are stable across hard refreshes but rotate daily.
  */
 export const getSamplesForHomepage = createServerFn({ method: "GET" }).handler(async () => {
   const { byType } = await getCacheArrays();
-  const SAMPLE_PER_TYPE = 3;
+  const TOTAL = 12;
   const types = ["movie", "tv_series", "anime", "game"] as const;
 
+  // Simple seeded PRNG (mulberry32) — deterministic per day
+  const daySeed = Math.floor(Date.now() / 1_800_000);
+  let t = (daySeed | 0) + 0x6d2b79f5;
+  function rand() {
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+
+  function seededPick<T>(arr: T[], n: number): T[] {
+    const copy = arr.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy.slice(0, n);
+  }
+
+  // One of each type first
   const samples: Media[] = [];
+  const usedIds = new Set<string>();
   for (const type of types) {
-    const bucket = byType[type];
-    let count = 0;
-    for (const item of bucket) {
-      if (count >= SAMPLE_PER_TYPE) break;
-      if (item.posterUrl) {
-        samples.push(item);
-        count++;
-      }
+    const pick = seededPick(
+      byType[type].filter((m) => m.posterUrl),
+      1,
+    );
+    for (const m of pick) {
+      samples.push(m);
+      usedIds.add(m.id);
     }
   }
+
+  // Fill remaining from the full pool
+  const remaining = TOTAL - samples.length;
+  if (remaining > 0) {
+    const pool = types.flatMap((type) =>
+      byType[type].filter((m) => m.posterUrl && !usedIds.has(m.id)),
+    );
+    samples.push(...seededPick(pool, remaining));
+  }
+
+  // Final shuffle for display order
+  for (let i = samples.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [samples[i], samples[j]] = [samples[j], samples[i]];
+  }
+
   return samples;
 });
 

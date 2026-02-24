@@ -1,8 +1,6 @@
 import { Star } from "@phosphor-icons/react";
-import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import type { Media } from "~/db/schema";
-import { getAuthState } from "~/features/auth/auth.functions";
 import { watchlistOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
@@ -71,7 +69,15 @@ function episodePosition(item: CatalogEntryRow): string | null {
 }
 
 export const Route = createFileRoute("/")({
-  head: () => ({
+  loader: async ({ context }) => {
+    const [entries, samples] = await Promise.all([
+      context.queryClient.fetchQuery(watchlistOptions()).catch(() => [] as CatalogEntryRow[]),
+      context.queryClient.fetchQuery(homepageSampleOptions()).catch(() => [] as Media[]),
+    ]);
+    return { entries, samples };
+  },
+  staleTime: 5 * 60 * 1000,
+  head: ({ loaderData }) => ({
     meta: [
       { title: pageTitle("donguri") },
       ...ogTags({
@@ -81,27 +87,14 @@ export const Route = createFileRoute("/")({
         path: "/",
       }),
     ],
+    links: (loaderData?.samples ?? [])
+      .filter((s) => s.posterUrl)
+      .map((s) => ({
+        rel: "preload",
+        as: "image",
+        href: (s.posterUrl as string).replace(/\/t\/p\/\w+\//, "/t/p/w185/"),
+      })),
   }),
-  loader: async ({ context }) => {
-    const auth = await getAuthState();
-    if (!auth) {
-      try {
-        const samples = await context.queryClient.fetchQuery(homepageSampleOptions());
-        return { entries: [] as CatalogEntryRow[], samples };
-      } catch {
-        return { entries: [] as CatalogEntryRow[], samples: [] as Media[] };
-      }
-    }
-    try {
-      const entries = (await context.queryClient.fetchQuery(
-        watchlistOptions(),
-      )) as CatalogEntryRow[];
-      return { entries, samples: [] as Media[] };
-    } catch {
-      return { entries: [] as CatalogEntryRow[], samples: [] as Media[] };
-    }
-  },
-  staleTime: 5 * 60 * 1000,
   component: HomePage,
 });
 
@@ -123,7 +116,7 @@ function HomePage() {
   if (auth) {
     return (
       <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
-        <div className="max-w-[1100px] mx-auto px-g3 py-6 sm:py-8">
+        <div className="max-w-[1100px] mx-auto px-g3 py-4 sm:py-6">
           <LoggedInView />
         </div>
       </div>
@@ -166,7 +159,7 @@ function LoggedOutView() {
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       {/* Hero */}
-      <section className="pt-10 sm:pt-16 pb-8 sm:pb-12 text-center">
+      <section className="pt-3 sm:pt-6 pb-5 sm:pb-8 text-center">
         <h1 className="font-display text-[2.5rem] sm:text-[3.5rem] font-normal tracking-[-0.04em] mb-3 text-dg-text flex items-center justify-center">
           d
           <span className="text-dg-accent inline-flex items-center" style={{ margin: "0 -0.06em" }}>
@@ -182,7 +175,7 @@ function LoggedOutView() {
         <p className="text-dg-text-secondary text-[1rem] sm:text-[1.1rem] leading-relaxed max-w-[480px] mx-auto mb-2">
           All your media in one place.
         </p>
-        <p className="text-dg-text-tertiary text-[0.85rem] leading-relaxed max-w-[420px] mx-auto mb-8">
+        <p className="text-dg-text-tertiary text-[0.85rem] leading-relaxed max-w-[420px] mx-auto mb-5">
           Track movies, TV shows, anime, and games.
           <br />
           Built on AT Protocol — your catalog, your data.
@@ -227,11 +220,11 @@ function LoggedOutView() {
       </section>
 
       {/* How it works */}
-      <section className="py-6 sm:py-8 max-w-[1100px] mx-auto px-g3 border-t border-dg-border-subtle">
-        <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider mb-4">
+      <section className="py-4 sm:py-6 max-w-[1100px] mx-auto px-g3 border-t border-dg-border-subtle">
+        <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider mb-3">
           How it works
         </div>
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {STEPS.map((s) => (
             <div key={s.step} className="flex gap-3 items-start">
               <div className="w-7 h-7 rounded-full border border-dg-border flex items-center justify-center shrink-0 text-[0.75rem] text-dg-accent font-semibold">
@@ -248,7 +241,7 @@ function LoggedOutView() {
 
       {/* Catalog sample */}
       {samples.length > 0 && (
-        <section className="py-6 sm:py-8 max-w-[1100px] mx-auto px-g3 border-t border-dg-border-subtle">
+        <section className="py-4 sm:py-6 max-w-[1100px] mx-auto px-g3 border-t border-dg-border-subtle">
           <div className="flex items-center justify-between mb-3">
             <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider">
               From the catalog
@@ -266,7 +259,7 @@ function LoggedOutView() {
       )}
 
       {/* Value props */}
-      <section className="py-8 sm:py-12 max-w-[1100px] mx-auto px-g3">
+      <section className="py-5 sm:py-8 max-w-[1100px] mx-auto px-g3">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="border border-dg-border-subtle rounded bg-dg-surface p-4 sm:p-5">
             <div className="font-body text-[0.85rem] font-semibold text-dg-text mb-1">
@@ -296,7 +289,7 @@ function LoggedOutView() {
       </section>
 
       {/* Bottom CTA */}
-      <section className="py-8 sm:py-12 text-center border-t border-dg-border-subtle max-w-[1100px] mx-auto px-g3">
+      <section className="py-5 sm:py-8 text-center border-t border-dg-border-subtle max-w-[1100px] mx-auto px-g3">
         <p className="font-display text-[1.3rem] sm:text-[1.5rem] text-dg-text mb-2">
           Ready to start tracking?
         </p>
@@ -316,9 +309,7 @@ function LoggedOutView() {
 // ─── Logged-In Watchlist ────────────────────────────────────────────────────
 
 function LoggedInView() {
-  const { data: entries = [] } = useSuspenseQuery(watchlistOptions()) as {
-    data: CatalogEntryRow[];
-  };
+  const { entries } = Route.useLoaderData();
 
   // Group by status, sort within sections by updatedAt desc then mediaType alpha
   const grouped = new Map<string, CatalogEntryRow[]>();
