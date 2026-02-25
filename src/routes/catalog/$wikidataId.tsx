@@ -139,7 +139,7 @@ function MediaDetailRouter() {
 function MediaDetailSkeleton() {
   const handleShuffle = useShuffleNav();
   return (
-    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
+    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <div className="flex items-center gap-1.5 mb-g2">
           <button
@@ -197,7 +197,7 @@ function MediaStubPage({
   const handleShuffle = useShuffleNav();
 
   return (
-    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
+    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <div className="flex items-center gap-1.5 mb-g2">
           <button
@@ -377,7 +377,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
   });
 
   return (
-    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
+    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <div className="flex items-center gap-1.5 mb-g2">
           <button
@@ -398,7 +398,21 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-g3 sm:gap-g4 mb-g3 sm:mb-g4">
-          {/* Poster — portrait on mobile, stretches to match right column on desktop */}
+          {/* Mobile cover — centered above metadata */}
+          {data.posterUrl && (
+            <div className="sm:hidden flex justify-center">
+              <div className="w-[160px]">
+                <CoverThumb
+                  title={data.title}
+                  mediaType={displayMediaType(data.mediaType, data.animationOrigin)}
+                  posterUrl={data.posterUrl ?? undefined}
+                  size={160}
+                  loading="eager"
+                />
+              </div>
+            </div>
+          )}
+          {/* Desktop poster — stretches to match right column */}
           <div className="hidden sm:block sm:w-[210px] shrink-0">
             <div className="aspect-[2/3] w-full sm:aspect-auto sm:h-full">
               <CoverThumb
