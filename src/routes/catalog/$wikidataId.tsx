@@ -401,7 +401,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
           {/* Mobile cover — centered above metadata */}
           {data.posterUrl && (
             <div className="sm:hidden flex justify-center">
-              <div className="w-[160px]">
+              <div className="w-[120px] aspect-[2/3] overflow-hidden rounded">
                 <CoverThumb
                   title={data.title}
                   mediaType={displayMediaType(data.mediaType, data.animationOrigin)}

@@ -6,7 +6,7 @@ import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
 import { AcornIcon } from "~/features/media/components/AcornIcon";
-import { MediaCard } from "~/features/media/components/MediaCard";
+import { InfiniteCarousel } from "~/features/media/components/InfiniteCarousel";
 import { SectionHeader } from "~/features/media/components/SectionHeader";
 import { homepageSampleOptions } from "~/features/media/media.queries";
 import {
@@ -242,8 +242,8 @@ function LoggedOutView() {
 
       {/* Catalog sample */}
       {samples.length > 0 && (
-        <section className="py-4 sm:py-6 max-w-[1100px] mx-auto px-g3 border-t border-dg-border-subtle">
-          <div className="flex items-center justify-between mb-3">
+        <section className="py-4 sm:py-6 border-t border-dg-border-subtle overflow-hidden">
+          <div className="flex items-center justify-between mb-3 max-w-[1100px] mx-auto px-g3">
             <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider">
               From the catalog
             </div>
@@ -251,16 +251,7 @@ function LoggedOutView() {
               Browse all →
             </Link>
           </div>
-          <div
-            className="sm:overflow-x-auto overflow-hidden pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-            style={{ animation: "fadeIn 500ms ease-out both" }}
-          >
-            <div className="flex gap-3 sm:animate-none animate-[sampleDrift_45s_ease-in-out_infinite]">
-              {samples.map((item, i) => (
-                <MediaCard key={item.id} item={item} index={i} />
-              ))}
-            </div>
-          </div>
+          <InfiniteCarousel items={samples} />
         </section>
       )}
 
