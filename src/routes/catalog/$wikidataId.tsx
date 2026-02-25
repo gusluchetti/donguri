@@ -398,7 +398,21 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-g3 sm:gap-g4 mb-g3 sm:mb-g4">
-          {/* Poster — portrait on mobile, stretches to match right column on desktop */}
+          {/* Mobile cover — centered above metadata */}
+          {data.posterUrl && (
+            <div className="sm:hidden flex justify-center">
+              <div className="w-[160px]">
+                <CoverThumb
+                  title={data.title}
+                  mediaType={displayMediaType(data.mediaType, data.animationOrigin)}
+                  posterUrl={data.posterUrl ?? undefined}
+                  size={160}
+                  loading="eager"
+                />
+              </div>
+            </div>
+          )}
+          {/* Desktop poster — stretches to match right column */}
           <div className="hidden sm:block sm:w-[210px] shrink-0">
             <div className="aspect-[2/3] w-full sm:aspect-auto sm:h-full">
               <CoverThumb
