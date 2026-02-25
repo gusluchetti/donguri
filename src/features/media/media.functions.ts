@@ -97,7 +97,7 @@ export const getRandomMediaId = createServerFn({ method: "GET" }).handler(async 
  */
 export const getSamplesForHomepage = createServerFn({ method: "GET" }).handler(async () => {
   const { byType } = await getCacheArrays();
-  const PER_TYPE = 2;
+  const PER_TYPE = 25;
   const types = ["movie", "tv_series", "anime", "game"] as const;
 
   // Seeded PRNG (mulberry32) — deterministic per 30-min window
