@@ -1,5 +1,6 @@
 import { Star } from "@phosphor-icons/react";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
 import type { Media } from "~/db/schema";
 import { watchlistOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
@@ -127,6 +128,136 @@ function HomePage() {
   return <LoggedOutView />;
 }
 
+// ─── Infinite Carousel ──────────────────────────────────────────────────────
+
+function InfiniteCarousel({ items }: { items: Media[] }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const posRef = useRef(0);
+  const dragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartPos = useRef(0);
+  const rafRef = useRef<number | null>(null);
+  const pausedRef = useRef(false);
+  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Duplicate items for seamless loop
+  const doubled = [...items, ...items];
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    const SPEED = 0.4; // px per frame
+    let halfWidth = 0;
+
+    function measure() {
+      if (!track) return;
+      // Half = one copy width
+      halfWidth = track.scrollWidth / 2;
+    }
+
+    measure();
+    window.addEventListener("resize", measure);
+
+    function animate() {
+      if (!pausedRef.current && halfWidth > 0) {
+        posRef.current += SPEED;
+        if (posRef.current >= halfWidth) posRef.current -= halfWidth;
+        if (track) track.style.transform = `translateX(${-posRef.current}px)`;
+      }
+      rafRef.current = requestAnimationFrame(animate);
+    }
+
+    rafRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+
+  function pauseAndResume() {
+    pausedRef.current = true;
+    if (resumeTimer.current) clearTimeout(resumeTimer.current);
+    resumeTimer.current = setTimeout(() => {
+      pausedRef.current = false;
+    }, 1500);
+  }
+
+  // Mouse drag
+  function onMouseDown(e: React.MouseEvent) {
+    dragging.current = true;
+    dragStartX.current = e.clientX;
+    dragStartPos.current = posRef.current;
+    pausedRef.current = true;
+    if (resumeTimer.current) clearTimeout(resumeTimer.current);
+  }
+
+  function onMouseMove(e: React.MouseEvent) {
+    if (!dragging.current || !trackRef.current) return;
+    const delta = dragStartX.current - e.clientX;
+    const half = trackRef.current.scrollWidth / 2;
+    let next = dragStartPos.current + delta;
+    if (next < 0) next += half;
+    if (next >= half) next -= half;
+    posRef.current = next;
+    trackRef.current.style.transform = `translateX(${-next}px)`;
+  }
+
+  function onMouseUp() {
+    dragging.current = false;
+    pauseAndResume();
+  }
+
+  // Touch drag
+  function onTouchStart(e: React.TouchEvent) {
+    dragStartX.current = e.touches[0].clientX;
+    dragStartPos.current = posRef.current;
+    pausedRef.current = true;
+    if (resumeTimer.current) clearTimeout(resumeTimer.current);
+  }
+
+  function onTouchMove(e: React.TouchEvent) {
+    if (!trackRef.current) return;
+    const delta = dragStartX.current - e.touches[0].clientX;
+    const half = trackRef.current.scrollWidth / 2;
+    let next = dragStartPos.current + delta;
+    if (next < 0) next += half;
+    if (next >= half) next -= half;
+    posRef.current = next;
+    trackRef.current.style.transform = `translateX(${-next}px)`;
+  }
+
+  function onTouchEnd() {
+    pauseAndResume();
+  }
+
+  return (
+    <section
+      aria-label="Media catalog samples"
+      className="overflow-hidden cursor-grab active:cursor-grabbing select-none"
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={{ animation: "fadeIn 500ms ease-out both" }}
+    >
+      <div
+        ref={trackRef}
+        className="flex gap-3 will-change-transform pb-2"
+        style={{ width: "max-content" }}
+      >
+        {doubled.map((item, i) => (
+          <MediaCard key={`${item.id}-${i}`} item={item} index={i} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 // ─── Logged-Out Landing ─────────────────────────────────────────────────────
 
 const TYPE_CARDS = [
@@ -242,8 +373,8 @@ function LoggedOutView() {
 
       {/* Catalog sample */}
       {samples.length > 0 && (
-        <section className="py-4 sm:py-6 max-w-[1100px] mx-auto px-g3 border-t border-dg-border-subtle">
-          <div className="flex items-center justify-between mb-3">
+        <section className="py-4 sm:py-6 border-t border-dg-border-subtle overflow-hidden">
+          <div className="flex items-center justify-between mb-3 max-w-[1100px] mx-auto px-g3">
             <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider">
               From the catalog
             </div>
@@ -251,16 +382,7 @@ function LoggedOutView() {
               Browse all →
             </Link>
           </div>
-          <div
-            className="sm:overflow-x-auto overflow-hidden pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-            style={{ animation: "fadeIn 500ms ease-out both" }}
-          >
-            <div className="flex gap-3 sm:animate-none animate-[sampleDrift_45s_ease-in-out_infinite]">
-              {samples.map((item, i) => (
-                <MediaCard key={item.id} item={item} index={i} />
-              ))}
-            </div>
-          </div>
+          <InfiniteCarousel items={samples} />
         </section>
       )}
 
