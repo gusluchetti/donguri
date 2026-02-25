@@ -1,13 +1,12 @@
 import { Star } from "@phosphor-icons/react";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
 import type { Media } from "~/db/schema";
 import { watchlistOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
 import { AcornIcon } from "~/features/media/components/AcornIcon";
-import { MediaCard } from "~/features/media/components/MediaCard";
+import { InfiniteCarousel } from "~/features/media/components/InfiniteCarousel";
 import { SectionHeader } from "~/features/media/components/SectionHeader";
 import { homepageSampleOptions } from "~/features/media/media.queries";
 import {
@@ -126,136 +125,6 @@ function HomePage() {
   }
 
   return <LoggedOutView />;
-}
-
-// ─── Infinite Carousel ──────────────────────────────────────────────────────
-
-function InfiniteCarousel({ items }: { items: Media[] }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const posRef = useRef(0);
-  const dragging = useRef(false);
-  const dragStartX = useRef(0);
-  const dragStartPos = useRef(0);
-  const rafRef = useRef<number | null>(null);
-  const pausedRef = useRef(false);
-  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Duplicate items for seamless loop
-  const doubled = [...items, ...items];
-
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track) return;
-
-    const SPEED = 0.4; // px per frame
-    let halfWidth = 0;
-
-    function measure() {
-      if (!track) return;
-      // Half = one copy width
-      halfWidth = track.scrollWidth / 2;
-    }
-
-    measure();
-    window.addEventListener("resize", measure);
-
-    function animate() {
-      if (!pausedRef.current && halfWidth > 0) {
-        posRef.current += SPEED;
-        if (posRef.current >= halfWidth) posRef.current -= halfWidth;
-        if (track) track.style.transform = `translateX(${-posRef.current}px)`;
-      }
-      rafRef.current = requestAnimationFrame(animate);
-    }
-
-    rafRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      window.removeEventListener("resize", measure);
-    };
-  }, []);
-
-  function pauseAndResume() {
-    pausedRef.current = true;
-    if (resumeTimer.current) clearTimeout(resumeTimer.current);
-    resumeTimer.current = setTimeout(() => {
-      pausedRef.current = false;
-    }, 1500);
-  }
-
-  // Mouse drag
-  function onMouseDown(e: React.MouseEvent) {
-    dragging.current = true;
-    dragStartX.current = e.clientX;
-    dragStartPos.current = posRef.current;
-    pausedRef.current = true;
-    if (resumeTimer.current) clearTimeout(resumeTimer.current);
-  }
-
-  function onMouseMove(e: React.MouseEvent) {
-    if (!dragging.current || !trackRef.current) return;
-    const delta = dragStartX.current - e.clientX;
-    const half = trackRef.current.scrollWidth / 2;
-    let next = dragStartPos.current + delta;
-    if (next < 0) next += half;
-    if (next >= half) next -= half;
-    posRef.current = next;
-    trackRef.current.style.transform = `translateX(${-next}px)`;
-  }
-
-  function onMouseUp() {
-    dragging.current = false;
-    pauseAndResume();
-  }
-
-  // Touch drag
-  function onTouchStart(e: React.TouchEvent) {
-    dragStartX.current = e.touches[0].clientX;
-    dragStartPos.current = posRef.current;
-    pausedRef.current = true;
-    if (resumeTimer.current) clearTimeout(resumeTimer.current);
-  }
-
-  function onTouchMove(e: React.TouchEvent) {
-    if (!trackRef.current) return;
-    const delta = dragStartX.current - e.touches[0].clientX;
-    const half = trackRef.current.scrollWidth / 2;
-    let next = dragStartPos.current + delta;
-    if (next < 0) next += half;
-    if (next >= half) next -= half;
-    posRef.current = next;
-    trackRef.current.style.transform = `translateX(${-next}px)`;
-  }
-
-  function onTouchEnd() {
-    pauseAndResume();
-  }
-
-  return (
-    <section
-      aria-label="Media catalog samples"
-      className="overflow-hidden cursor-grab active:cursor-grabbing select-none"
-      onMouseDown={onMouseDown}
-      onMouseMove={onMouseMove}
-      onMouseUp={onMouseUp}
-      onMouseLeave={onMouseUp}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-      style={{ animation: "fadeIn 500ms ease-out both" }}
-    >
-      <div
-        ref={trackRef}
-        className="flex gap-3 will-change-transform pb-2"
-        style={{ width: "max-content" }}
-      >
-        {doubled.map((item, i) => (
-          <MediaCard key={`${item.id}-${i}`} item={item} index={i} />
-        ))}
-      </div>
-    </section>
-  );
 }
 
 // ─── Logged-Out Landing ─────────────────────────────────────────────────────
