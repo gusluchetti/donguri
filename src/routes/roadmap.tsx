@@ -153,6 +153,9 @@ function RoadmapPage() {
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
         <Markdown components={components}>{roadmapMd}</Markdown>
+        <div className="mt-8 pt-4 border-t border-dg-border-subtle text-[0.7rem] text-dg-text-tertiary sm:hidden">
+          v2026.02.25
+        </div>
       </div>
     </div>
   );
