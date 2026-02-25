@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#e8702e" />
+    <title>Offline — donguri</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0f0e0c;
+        color: #c8bfa9;
+        font-family: "IBM Plex Mono", "DM Sans", system-ui, sans-serif;
+      }
+      .container { text-align: center; padding: 2rem; }
+      .icon { margin-bottom: 1.5rem; }
+      .icon svg { width: 48px; height: 48px; fill: #e8702e; }
+      h1 {
+        font-family: "Fraunces", serif;
+        font-size: 1.75rem;
+        font-weight: 400;
+        color: #d4a44a;
+        margin-bottom: 0.5rem;
+      }
+      p {
+        font-size: 0.9rem;
+        color: #8a7f6e;
+        margin-bottom: 1.5rem;
+        line-height: 1.5;
+      }
+      button {
+        font-family: "DM Sans", system-ui, sans-serif;
+        font-size: 0.85rem;
+        color: #e8702e;
+        background: transparent;
+        border: 1px solid rgba(232, 112, 46, 0.3);
+        border-radius: 3px;
+        padding: 0.5rem 1.25rem;
+        cursor: pointer;
+        transition: border-color 0.15s;
+      }
+      button:hover { border-color: rgba(232, 112, 46, 0.6); }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M232,104a56.06,56.06,0,0,0-56-56H136a24,24,0,0,1,24-24,8,8,0,0,0,0-16,40,40,0,0,0-40,40H80a56.06,56.06,0,0,0-56,56,16,16,0,0,0,8,13.83V128c0,35.53,33.12,62.12,59.74,83.49C103.66,221.07,120,234.18,120,240a8,8,0,0,0,16,0c0-5.82,16.34-18.93,28.26-28.51C190.88,190.12,224,163.53,224,128V117.83A16,16,0,0,0,232,104ZM80,64h96a40.06,40.06,0,0,1,40,40H40A40,40,0,0,1,80,64Zm74.25,135c-10.62,8.52-20,16-26.25,23.37-6.25-7.32-15.63-14.85-26.25-23.37C77.8,179.79,48,155.86,48,128v-8H208v8C208,155.86,178.2,179.79,154.25,199Z"/></svg>
+      </div>
+      <h1>offline</h1>
+      <p>You're not connected to the internet.<br/>Check your connection and try again.</p>
+      <button type="button" onclick="location.reload()">retry</button>
+    </div>
+  </body>
+</html>
