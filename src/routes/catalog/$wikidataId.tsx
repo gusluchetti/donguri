@@ -607,7 +607,7 @@ function PopularityMeta({
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function onMouseEnter() {
-    hoverTimer.current = setTimeout(() => setVisible(true), 1000);
+    hoverTimer.current = setTimeout(() => setVisible(true), 200);
   }
 
   function onMouseLeave() {
@@ -625,7 +625,7 @@ function PopularityMeta({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider cursor-default">
+      <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider cursor-help underline decoration-dotted decoration-dg-border underline-offset-2">
         Popularity
       </span>
       <span className="text-[0.85rem] text-dg-text">{rounded}</span>
