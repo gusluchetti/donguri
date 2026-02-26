@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type { Media } from "~/db/schema";
 import { MediaCard } from "./MediaCard";
 
-const SPEED = 0.15;
+const SPEED = 0.08;
 
 export function InfiniteCarousel({ items }: { items: Media[] }) {
   const trackRef = useRef<HTMLDivElement>(null);
