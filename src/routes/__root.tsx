@@ -6,6 +6,7 @@ import {
   SpeakerHigh,
   SpeakerNone,
   Sun,
+  User,
 } from "@phosphor-icons/react";
 import { getSequenceManager } from "@tanstack/hotkeys";
 import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
@@ -119,6 +120,10 @@ const NAV_ITEMS: readonly { to: string; label: string; exact?: boolean }[] = [
   { to: "/roadmap", label: "roadmap", exact: true },
 ];
 
+const AUTH_NAV_ITEMS: readonly { to: string; label: string; exact?: boolean }[] = [
+  { to: "/profile", label: "profile", exact: true },
+];
+
 function RootComponent() {
   const { auth, theme } = Route.useLoaderData();
   const queryClient = Route.useRouteContext().queryClient;
@@ -199,6 +204,12 @@ function RootComponent() {
                         {item.label}
                       </NavButton>
                     ))}
+                    {auth &&
+                      AUTH_NAV_ITEMS.map((item) => (
+                        <NavButton key={item.to} to={item.to} exact={item.exact !== false}>
+                          {item.label}
+                        </NavButton>
+                      ))}
                   </div>
                 </div>
 
@@ -342,6 +353,11 @@ function GlobalShortcuts({
       mgr.register(
         ["G", "R"],
         guard(() => navRef.current({ to: "/roadmap" })),
+        opts,
+      ),
+      mgr.register(
+        ["G", "P"],
+        guard(() => navRef.current({ to: "/profile" })),
         opts,
       ),
     ];
@@ -512,6 +528,19 @@ function BottomNav() {
           <MagnifyingGlass size={22} weight="bold" />
           <span className="text-[0.6rem] uppercase tracking-wider">catalog</span>
         </Link>
+
+        {auth && (
+          <Link
+            to="/profile"
+            activeOptions={{ exact: true }}
+            activeProps={active}
+            inactiveProps={inactive}
+            onClick={() => SoundEngine.click()}
+          >
+            <User size={22} weight="bold" />
+            <span className="text-[0.6rem] uppercase tracking-wider">profile</span>
+          </Link>
+        )}
       </div>
     </nav>
   );
