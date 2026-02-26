@@ -59,10 +59,13 @@ export function InfiniteCarousel({ items }: { items: Media[] }) {
   const slides = [...items, ...items];
 
   return (
-    <div className="select-none relative" style={{ animation: "fadeIn 500ms ease-out both" }}>
+    <div
+      className="select-none relative max-w-[1100px] mx-auto px-g3"
+      style={{ animation: "fadeIn 500ms ease-out both" }}
+    >
       {/* Fade edges */}
-      <div className="absolute inset-y-0 left-0 w-12 sm:w-20 z-10 pointer-events-none bg-gradient-to-r from-dg-bg to-transparent" />
-      <div className="absolute inset-y-0 right-0 w-12 sm:w-20 z-10 pointer-events-none bg-gradient-to-l from-dg-bg to-transparent" />
+      <div className="absolute inset-y-0 left-0 w-16 sm:w-24 z-10 pointer-events-none bg-gradient-to-r from-dg-bg to-transparent" />
+      <div className="absolute inset-y-0 right-0 w-16 sm:w-24 z-10 pointer-events-none bg-gradient-to-l from-dg-bg to-transparent" />
 
       <div className="overflow-hidden" ref={emblaRef}>
         <div className="flex">
