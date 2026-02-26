@@ -247,7 +247,8 @@ function LoggedOutView() {
 
       {/* Catalog sample — right under type cards */}
       {samples.length > 0 && (
-        <section className="py-4 sm:py-6 border-t border-dg-border-subtle overflow-hidden">
+        <section className="py-4 sm:py-6 overflow-hidden">
+          <div className="border-t border-dg-border-subtle max-w-[1100px] mx-auto px-g3 mb-3 pt-4 sm:pt-6" />
           <div className="flex items-center justify-between mb-3 max-w-[1100px] mx-auto px-g3">
             <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider">
               From the catalog
