@@ -30,6 +30,7 @@ import { trackedIdsOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { AcornIcon } from "~/features/media/components/AcornIcon";
 import { BackgroundLayers } from "~/features/media/components/BackgroundLayers";
+import { getBannerCookie } from "~/lib/banner";
 import { HelpOverlay } from "~/lib/hotkeys/HelpOverlay";
 import { isInputFocused } from "~/lib/hotkeys/shortcuts";
 import { ogTags, pageTitle } from "~/lib/og";
@@ -75,7 +76,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
   }),
   loader: async ({ context }) => {
-    const [auth, theme] = await Promise.all([getAuthState(), getThemeCookie()]);
+    const [auth, theme, bannerDismissed] = await Promise.all([
+      getAuthState(),
+      getThemeCookie(),
+      getBannerCookie(),
+    ]);
     let trackedIds: Record<string, string | null> = {};
     if (auth) {
       try {
@@ -89,7 +94,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         console.error("[root] getUserTrackedIds FAILED:", err, "(continuing with empty)");
       }
     }
-    return { auth, trackedIds, theme };
+    return { auth, trackedIds, theme, bannerDismissed };
   },
   staleTime: 5 * 60 * 1000,
   component: RootComponent,
@@ -120,7 +125,7 @@ const NAV_ITEMS: readonly { to: string; label: string; exact?: boolean }[] = [
 ];
 
 function RootComponent() {
-  const { auth, theme } = Route.useLoaderData();
+  const { auth, theme, bannerDismissed } = Route.useLoaderData();
   const queryClient = Route.useRouteContext().queryClient;
 
   const handleLogout = useCallback(async () => {
@@ -160,7 +165,7 @@ function RootComponent() {
 
   const [showHelp, setShowHelp] = useState(false);
   const pathname = useLocation({ select: (l) => l.pathname });
-  const showBanner = !auth && !/^\/(login|auth\/)/.test(pathname);
+  const showBanner = !auth && !bannerDismissed && !/^\/(login|auth\/)/.test(pathname);
 
   return (
     <RootDocument theme={theme}>
@@ -242,7 +247,7 @@ function RootComponent() {
                 </div>
               </div>
             </nav>
-            {showBanner && <AuthBanner />}
+            {showBanner && <AuthBanner initialDismissed={false} />}
             <Outlet />
             <footer className="hidden sm:block border-t border-dg-border-subtle px-g3 py-3 font-body shrink-0">
               <div className="max-w-[1100px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[0.7rem] text-dg-text-tertiary">

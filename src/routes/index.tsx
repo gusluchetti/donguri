@@ -1,7 +1,8 @@
 import { Star } from "@phosphor-icons/react";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
-import type { Media } from "~/db/schema";
-import { watchlistOptions } from "~/features/catalog/catalog.queries";
+import { Suspense } from "react";
+import { trackedIdsOptions, watchlistOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
@@ -70,14 +71,18 @@ function episodePosition(item: CatalogEntryRow): string | null {
 
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
-    const [entries, samples] = await Promise.all([
-      context.queryClient.fetchQuery(watchlistOptions()).catch(() => [] as CatalogEntryRow[]),
-      context.queryClient.fetchQuery(homepageSampleOptions()).catch(() => [] as Media[]),
-    ]);
-    return { entries, samples };
+    const isLoggedIn = !!context.queryClient.getQueryData(trackedIdsOptions().queryKey);
+    // Non-blocking: warm sample cache for carousel
+    context.queryClient.prefetchQuery(homepageSampleOptions());
+    const entries = isLoggedIn
+      ? await context.queryClient
+          .fetchQuery(watchlistOptions())
+          .catch(() => [] as CatalogEntryRow[])
+      : [];
+    return { entries };
   },
   staleTime: 5 * 60 * 1000,
-  head: ({ loaderData }) => ({
+  head: () => ({
     meta: [
       { title: pageTitle("donguri") },
       ...ogTags({
@@ -87,14 +92,6 @@ export const Route = createFileRoute("/")({
         path: "/",
       }),
     ],
-    links: (loaderData?.samples ?? [])
-      .filter((s) => s.posterUrl)
-      .map((s) => ({
-        rel: "preload",
-        as: "image",
-        href: s.posterUrl as string,
-        fetchPriority: "high",
-      })),
   }),
   component: HomePage,
 });
@@ -136,11 +133,27 @@ const TYPE_CARDS = [
   { type: "game", label: "Games", count: "15k+" },
 ] as const;
 
+const AT_LINK = (
+  <a
+    href="https://atproto.com"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-150 underline decoration-dg-border-strong underline-offset-2"
+  >
+    AT Protocol
+  </a>
+);
+
 const STEPS = [
   {
     step: "1",
     title: "Create an account or sign in",
-    desc: "Use your AT Protocol identity, Google, or GitHub. We recommend AT Protocol for the full experience.",
+    desc: (
+      <>
+        Use your {AT_LINK} identity, Google, or GitHub. We recommend AT Protocol for the full
+        experience.
+      </>
+    ),
   },
   {
     step: "2",
@@ -150,13 +163,11 @@ const STEPS = [
   {
     step: "3",
     title: "Your catalog, your way",
-    desc: "Rate, review, and organize. With AT Protocol, your data syncs to your own server.",
+    desc: <>Rate, review, and organize. With {AT_LINK}, your data syncs to your own server.</>,
   },
 ];
 
 function LoggedOutView() {
-  const { samples } = Route.useLoaderData();
-
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       {/* Hero */}
@@ -179,7 +190,16 @@ function LoggedOutView() {
         <p className="text-dg-text-tertiary text-[0.85rem] leading-relaxed max-w-[420px] mx-auto mb-5">
           Track movies, TV shows, anime, and games.
           <br />
-          Built on AT Protocol — your catalog, your data.
+          Built on{" "}
+          <a
+            href="https://atproto.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-150 underline decoration-dg-border-strong underline-offset-2"
+          >
+            AT Protocol
+          </a>{" "}
+          — your catalog, your data.
         </p>
         <div className="flex items-center justify-center gap-3 flex-wrap">
           <Link
@@ -220,8 +240,31 @@ function LoggedOutView() {
         </div>
       </section>
 
+      {/* Catalog sample — right under type cards */}
+      <Suspense
+        fallback={
+          <section className="pt-4 sm:pt-6 pb-4 sm:pb-6 overflow-hidden">
+            <div className="flex items-center justify-between mb-3 max-w-[1100px] mx-auto px-g3">
+              <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider">
+                From the catalog
+              </div>
+            </div>
+            <div className="max-w-[1100px] mx-auto px-g3 flex gap-3 opacity-30">
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+                <div
+                  key={i}
+                  className="w-[120px] h-[180px] shrink-0 rounded bg-dg-surface border border-dg-border-subtle"
+                />
+              ))}
+            </div>
+          </section>
+        }
+      >
+        <CarouselSection />
+      </Suspense>
+
       {/* How it works */}
-      <section className="py-4 sm:py-6 max-w-[1100px] mx-auto px-g3 border-t border-dg-border-subtle">
+      <section className="py-4 sm:py-6 max-w-[1100px] mx-auto px-g3">
         <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider mb-3">
           How it works
         </div>
@@ -240,21 +283,6 @@ function LoggedOutView() {
         </div>
       </section>
 
-      {/* Catalog sample */}
-      {samples.length > 0 && (
-        <section className="py-4 sm:py-6 border-t border-dg-border-subtle overflow-hidden">
-          <div className="flex items-center justify-between mb-3 max-w-[1100px] mx-auto px-g3">
-            <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider">
-              From the catalog
-            </div>
-            <Link to="/catalog" className="text-[0.7rem] text-dg-accent no-underline">
-              Browse all →
-            </Link>
-          </div>
-          <InfiniteCarousel items={samples} />
-        </section>
-      )}
-
       {/* Value props */}
       <section className="py-5 sm:py-8 max-w-[1100px] mx-auto px-g3">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -263,7 +291,16 @@ function LoggedOutView() {
               Your data, portable
             </div>
             <div className="text-[0.8rem] text-dg-text-secondary leading-relaxed">
-              With AT Protocol, your catalog syncs to your own data server. Take it anywhere.
+              With{" "}
+              <a
+                href="https://atproto.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-150 underline decoration-dg-border-strong underline-offset-2"
+              >
+                AT Protocol
+              </a>
+              , your catalog syncs to your own data server. Take it anywhere.
             </div>
           </div>
           <div className="border border-dg-border-subtle rounded bg-dg-surface p-4 sm:p-5">
@@ -300,6 +337,25 @@ function LoggedOutView() {
         </Link>
       </section>
     </div>
+  );
+}
+
+function CarouselSection() {
+  const { data: samples } = useSuspenseQuery(homepageSampleOptions());
+  if (samples.length === 0) return null;
+
+  return (
+    <section className="pt-4 sm:pt-6 pb-4 sm:pb-6 overflow-hidden">
+      <div className="flex items-center justify-between mb-3 max-w-[1100px] mx-auto px-g3">
+        <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider">
+          From the catalog
+        </div>
+        <Link to="/catalog" className="text-[0.7rem] text-dg-accent no-underline">
+          Browse all →
+        </Link>
+      </div>
+      <InfiniteCarousel items={samples} />
+    </section>
   );
 }
 

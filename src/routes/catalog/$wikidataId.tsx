@@ -1,7 +1,7 @@
 import { Shuffle } from "@phosphor-icons/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, getRouteApi, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getMediaStub } from "~/features/catalog/catalog.functions";
 import { catalogEntryOptions, trackedIdsOptions } from "~/features/catalog/catalog.queries";
@@ -541,10 +541,24 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
           </div>
         )}
 
-        {/* Read-only episode tracker for unauthenticated users */}
-        {!auth && hasSeasons && data.seasons && (
-          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-g3 sm:mb-g4 p-g2 sm:p-g3">
-            <EpisodeTracker seasons={data.seasons} />
+        {!auth && (
+          <div
+            className="rounded mb-g3 sm:mb-g4 px-g2 sm:px-g3 py-g2 sm:py-g3"
+            style={{
+              background: "var(--color-dg-accent-soft)",
+              border: "1px solid color-mix(in srgb, var(--color-dg-accent) 20%, transparent)",
+            }}
+          >
+            <p className="text-[0.85rem] sm:text-[0.9rem] text-dg-text-secondary m-0">
+              <Link
+                to="/login"
+                onClick={() => SoundEngine.click()}
+                className="inline-block bg-dg-accent text-white font-body text-[0.85rem] sm:text-[0.9rem] rounded-sm px-3 py-1 no-underline transition-all duration-150 hover:brightness-110 mr-1.5"
+              >
+                Sign in
+              </Link>{" "}
+              to track this title, rate it, and see detailed episode data.
+            </p>
           </div>
         )}
 
