@@ -193,27 +193,33 @@ const SearchBar = forwardRef<
     [],
   );
 
+  const flush = (input: string) => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = undefined;
+    navigate({
+      search: (prev) => ({ ...prev, q: input || undefined }),
+      replace: true,
+      viewTransition: false,
+    });
+  };
+
   const handleChange = (input: string) => {
     setValue(input);
     if (input.length > 0) SoundEngine.search();
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => {
-      timeoutRef.current = undefined;
-      navigate({
-        search: (prev) => ({ ...prev, q: input || undefined }),
-        replace: true,
-        viewTransition: false,
-      });
-    }, 300);
+    timeoutRef.current = setTimeout(() => flush(input), 150);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      flush(value);
+    }
   };
 
   const handleClear = () => {
     setValue("");
-    navigate({
-      search: (prev) => ({ ...prev, q: undefined }),
-      replace: true,
-      viewTransition: false,
-    });
+    flush("");
   };
 
   return (
@@ -231,6 +237,7 @@ const SearchBar = forwardRef<
           placeholder="Search catalog..."
           value={value}
           onChange={(e) => handleChange(e.target.value)}
+          onKeyDown={handleKeyDown}
           onFocus={() => {
             setFocused(true);
             onFocusChange?.(true);

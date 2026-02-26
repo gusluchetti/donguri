@@ -136,11 +136,27 @@ const TYPE_CARDS = [
   { type: "game", label: "Games", count: "15k+" },
 ] as const;
 
+const AT_LINK = (
+  <a
+    href="https://atproto.com"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-150 underline decoration-dg-border-strong underline-offset-2"
+  >
+    AT Protocol
+  </a>
+);
+
 const STEPS = [
   {
     step: "1",
     title: "Create an account or sign in",
-    desc: "Use your AT Protocol identity, Google, or GitHub. We recommend AT Protocol for the full experience.",
+    desc: (
+      <>
+        Use your {AT_LINK} identity, Google, or GitHub. We recommend AT Protocol for the full
+        experience.
+      </>
+    ),
   },
   {
     step: "2",
@@ -150,7 +166,7 @@ const STEPS = [
   {
     step: "3",
     title: "Your catalog, your way",
-    desc: "Rate, review, and organize. With AT Protocol, your data syncs to your own server.",
+    desc: <>Rate, review, and organize. With {AT_LINK}, your data syncs to your own server.</>,
   },
 ];
 
@@ -179,7 +195,16 @@ function LoggedOutView() {
         <p className="text-dg-text-tertiary text-[0.85rem] leading-relaxed max-w-[420px] mx-auto mb-5">
           Track movies, TV shows, anime, and games.
           <br />
-          Built on AT Protocol — your catalog, your data.
+          Built on{" "}
+          <a
+            href="https://atproto.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-150 underline decoration-dg-border-strong underline-offset-2"
+          >
+            AT Protocol
+          </a>{" "}
+          — your catalog, your data.
         </p>
         <div className="flex items-center justify-center gap-3 flex-wrap">
           <Link
@@ -220,6 +245,21 @@ function LoggedOutView() {
         </div>
       </section>
 
+      {/* Catalog sample — right under type cards */}
+      {samples.length > 0 && (
+        <section className="py-4 sm:py-6 border-t border-dg-border-subtle overflow-hidden">
+          <div className="flex items-center justify-between mb-3 max-w-[1100px] mx-auto px-g3">
+            <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider">
+              From the catalog
+            </div>
+            <Link to="/catalog" className="text-[0.7rem] text-dg-accent no-underline">
+              Browse all →
+            </Link>
+          </div>
+          <InfiniteCarousel items={samples} />
+        </section>
+      )}
+
       {/* How it works */}
       <section className="py-4 sm:py-6 max-w-[1100px] mx-auto px-g3 border-t border-dg-border-subtle">
         <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider mb-3">
@@ -240,21 +280,6 @@ function LoggedOutView() {
         </div>
       </section>
 
-      {/* Catalog sample */}
-      {samples.length > 0 && (
-        <section className="py-4 sm:py-6 border-t border-dg-border-subtle overflow-hidden">
-          <div className="flex items-center justify-between mb-3 max-w-[1100px] mx-auto px-g3">
-            <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider">
-              From the catalog
-            </div>
-            <Link to="/catalog" className="text-[0.7rem] text-dg-accent no-underline">
-              Browse all →
-            </Link>
-          </div>
-          <InfiniteCarousel items={samples} />
-        </section>
-      )}
-
       {/* Value props */}
       <section className="py-5 sm:py-8 max-w-[1100px] mx-auto px-g3">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -263,7 +288,16 @@ function LoggedOutView() {
               Your data, portable
             </div>
             <div className="text-[0.8rem] text-dg-text-secondary leading-relaxed">
-              With AT Protocol, your catalog syncs to your own data server. Take it anywhere.
+              With{" "}
+              <a
+                href="https://atproto.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-150 underline decoration-dg-border-strong underline-offset-2"
+              >
+                AT Protocol
+              </a>
+              , your catalog syncs to your own data server. Take it anywhere.
             </div>
           </div>
           <div className="border border-dg-border-subtle rounded bg-dg-surface p-4 sm:p-5">

@@ -62,7 +62,14 @@ function BlueskyLoginForm() {
           htmlFor="handle"
           className="flex items-center gap-2 text-dg-text-secondary text-[0.8rem] uppercase tracking-wider mb-3"
         >
-          AT Protocol
+          <a
+            href="https://atproto.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-inherit no-underline hover:text-dg-accent transition-colors duration-150"
+          >
+            AT Protocol
+          </a>
           <span className="normal-case tracking-normal text-[0.65rem] text-dg-accent border border-dg-accent/30 rounded-sm px-1.5 py-px font-semibold">
             recommended
           </span>
