@@ -11,7 +11,10 @@ const rootRoute = getRouteApi("__root__");
 
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
-    const isLoggedIn = !!context.queryClient.getQueryData(trackedIdsOptions().queryKey);
+    const trackedIds = await context.queryClient
+      .ensureQueryData(trackedIdsOptions())
+      .catch(() => null);
+    const isLoggedIn = !!trackedIds;
     await context.queryClient.prefetchQuery(homepageSampleOptions());
     const entries = isLoggedIn
       ? await context.queryClient
