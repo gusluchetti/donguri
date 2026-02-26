@@ -1,21 +1,16 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 
-const DISMISSED_KEY = "dg-banner-dismissed";
-
-export function AuthBanner() {
-  const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
-    if (sessionStorage.getItem(DISMISSED_KEY) === "1") setDismissed(true);
-  }, []);
+export function AuthBanner({ initialDismissed = false }: { initialDismissed?: boolean }) {
+  const [dismissed, setDismissed] = useState(initialDismissed);
 
   if (dismissed) return null;
 
   const handleDismiss = () => {
     SoundEngine.click();
-    sessionStorage.setItem(DISMISSED_KEY, "1");
+    // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API lacks Firefox/Safari support
+    document.cookie = "dg-banner-dismissed=1;path=/;max-age=34560000;samesite=lax";
     setDismissed(true);
   };
 

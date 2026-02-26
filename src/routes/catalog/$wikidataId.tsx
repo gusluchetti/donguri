@@ -1,7 +1,7 @@
 import { Shuffle } from "@phosphor-icons/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, getRouteApi, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { getMediaStub } from "~/features/catalog/catalog.functions";
 import { catalogEntryOptions, trackedIdsOptions } from "~/features/catalog/catalog.queries";
@@ -545,6 +545,17 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
                 />
               )}
             </TrackingPanel>
+          </div>
+        )}
+
+        {!auth && (
+          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-g3 sm:mb-g4 px-g2 sm:px-g3 py-3">
+            <p className="text-[0.8rem] text-dg-text-tertiary m-0">
+              <Link to="/login" className="text-dg-accent no-underline font-medium hover:underline">
+                Sign in
+              </Link>{" "}
+              to start tracking this title.
+            </p>
           </div>
         )}
 

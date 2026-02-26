@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 type Theme = "dark" | "light";
 
@@ -28,22 +28,14 @@ export function ThemeProvider({
   initialTheme?: Theme;
 }) {
   const [theme, setTheme] = useState<Theme>(initialTheme);
-  const transitionTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const toggleTheme = useCallback(() => {
     const next = theme === "dark" ? "light" : "dark";
-
-    clearTimeout(transitionTimer.current);
-    document.documentElement.classList.add("theme-transition");
     document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("dg-theme", next);
     // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API lacks Firefox/Safari support
     document.cookie = `dg-theme=${next};path=/;max-age=${60 * 60 * 24 * 400};samesite=lax`;
     setTheme(next);
-
-    transitionTimer.current = setTimeout(() => {
-      document.documentElement.classList.remove("theme-transition");
-    }, 250);
   }, [theme]);
 
   // Listen for OS preference changes when no manual preference is saved

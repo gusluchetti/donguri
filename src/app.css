@@ -148,17 +148,6 @@ img {
   }
 }
 
-/* Theme transition (applied temporarily during toggle) */
-html.theme-transition,
-html.theme-transition *,
-html.theme-transition *::before,
-html.theme-transition *::after {
-  transition:
-    background-color 200ms ease,
-    color 200ms ease,
-    border-color 200ms ease;
-}
-
 /* ─── View Transitions ──────────────────────────────────────────── */
 
 ::view-transition-old(root) {
@@ -285,7 +274,7 @@ html[data-nav-back] ::view-transition-new(detail-content) {
     transform: translate3d(0, 0, 0);
   }
   to {
-    transform: translate3d(var(--carousel-distance), 0, 0);
+    transform: translate3d(-50%, 0, 0);
   }
 }
 

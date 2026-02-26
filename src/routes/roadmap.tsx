@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useRef } from "react";
-import Markdown from "react-markdown";
+import { lazy, Suspense, useMemo, useRef } from "react";
 import { ogTags, pageTitle } from "~/lib/og";
+
+const Markdown = lazy(() => import("react-markdown"));
+
 import rawRoadmap from "../../ROADMAP.md?raw";
 
 const roadmapMd = rawRoadmap.replace(/<!--[\s\S]*?-->/g, "");
@@ -152,7 +154,22 @@ function RoadmapPage() {
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
-        <Markdown components={components}>{roadmapMd}</Markdown>
+        <Suspense
+          fallback={
+            <div className="flex justify-center py-12">
+              <div
+                className="w-5 h-5 border-2 border-dg-border-subtle rounded-full"
+                style={{
+                  borderTopColor: "var(--color-dg-accent)",
+                  animation: "spin 0.6s linear infinite",
+                }}
+              />
+              <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+            </div>
+          }
+        >
+          <Markdown components={components}>{roadmapMd}</Markdown>
+        </Suspense>
         <div className="mt-8 pt-4 border-t border-dg-border-subtle text-[0.7rem] text-dg-text-tertiary sm:hidden">
           v2026.02.25
         </div>
