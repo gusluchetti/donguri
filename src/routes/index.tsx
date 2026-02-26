@@ -1,7 +1,6 @@
 import { Star } from "@phosphor-icons/react";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
-import { Suspense } from "react";
 import { trackedIdsOptions, watchlistOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
@@ -72,8 +71,7 @@ function episodePosition(item: CatalogEntryRow): string | null {
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
     const isLoggedIn = !!context.queryClient.getQueryData(trackedIdsOptions().queryKey);
-    // Non-blocking: warm sample cache for carousel
-    context.queryClient.prefetchQuery(homepageSampleOptions());
+    await context.queryClient.prefetchQuery(homepageSampleOptions());
     const entries = isLoggedIn
       ? await context.queryClient
           .fetchQuery(watchlistOptions())
@@ -241,27 +239,7 @@ function LoggedOutView() {
       </section>
 
       {/* Catalog sample — right under type cards */}
-      <Suspense
-        fallback={
-          <section className="pt-4 sm:pt-6 pb-4 sm:pb-6 overflow-hidden">
-            <div className="flex items-center justify-between mb-3 max-w-[1100px] mx-auto px-g3">
-              <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider">
-                From the catalog
-              </div>
-            </div>
-            <div className="max-w-[1100px] mx-auto px-g3 flex gap-3 opacity-30">
-              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-                <div
-                  key={i}
-                  className="w-[120px] h-[180px] shrink-0 rounded bg-dg-surface border border-dg-border-subtle"
-                />
-              ))}
-            </div>
-          </section>
-        }
-      >
-        <CarouselSection />
-      </Suspense>
+      <CarouselSection />
 
       {/* How it works */}
       <section className="py-4 sm:py-6 max-w-[1100px] mx-auto px-g3">
@@ -341,8 +319,8 @@ function LoggedOutView() {
 }
 
 function CarouselSection() {
-  const { data: samples } = useSuspenseQuery(homepageSampleOptions());
-  if (samples.length === 0) return null;
+  const { data: samples } = useQuery(homepageSampleOptions());
+  if (!samples || samples.length === 0) return null;
 
   return (
     <section className="pt-4 sm:pt-6 pb-4 sm:pb-6 overflow-hidden">

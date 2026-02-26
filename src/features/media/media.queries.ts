@@ -19,6 +19,5 @@ export function homepageSampleOptions() {
     queryKey: ["homepage", "samples", DATA_VERSION],
     queryFn: () => getSamplesForHomepage({}),
     staleTime: 30 * 60 * 1000,
-    persister,
   });
 }
