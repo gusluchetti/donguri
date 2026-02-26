@@ -603,60 +603,63 @@ function PopularityMeta({
   qrankPct: string | null;
   sitelinksPct: string | null;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("click", handleClick, true);
-    return () => document.removeEventListener("click", handleClick, true);
-  }, [open]);
+  function onMouseEnter() {
+    hoverTimer.current = setTimeout(() => setVisible(true), 1000);
+  }
+
+  function onMouseLeave() {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    setVisible(false);
+  }
 
   const rounded = Number.parseFloat(score).toFixed(1);
   const hasQrank = qrankPct != null;
 
   return (
-    <div ref={ref} className="relative flex flex-col gap-0.5">
-      <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider">
+    // biome-ignore lint/a11y/noStaticElementInteractions: tooltip trigger via hover, no keyboard action needed
+    <div
+      className="relative flex flex-col gap-0.5"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider cursor-default">
         Popularity
       </span>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="text-[0.85rem] text-dg-text text-left cursor-pointer bg-transparent border-0 p-0 font-body underline decoration-dg-border-subtle decoration-dotted underline-offset-2 hover:decoration-dg-accent transition-colors"
-      >
-        {rounded}
-      </button>
+      <span className="text-[0.85rem] text-dg-text">{rounded}</span>
 
-      {open && (
-        <div className="absolute bottom-full left-0 mb-1.5 z-50 w-[260px] p-2.5 rounded border border-dg-border-subtle bg-dg-surface text-[0.75rem] leading-relaxed text-dg-text-secondary shadow-lg">
-          {hasQrank ? (
-            <p className="m-0">
-              <span className="text-dg-text">score</span> = 0.6 &times; QRank ({qrankPct}) + 0.4
-              &times; Sitelinks ({sitelinksPct ?? "n/a"})
-            </p>
-          ) : (
-            <p className="m-0">
-              <span className="text-dg-text">score</span> = Sitelinks only (no QRank data)
-            </p>
-          )}
-          <div className="mt-1.5 flex items-center gap-1.5 text-[0.7rem] text-dg-text-tertiary">
-            <a
-              href="https://qrank.wmcloud.org/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-dg-accent/70 no-underline hover:text-dg-accent transition-colors"
-            >
-              QRank {"\u2197"}
-            </a>
-            <span>&middot;</span>
-            <span>Wikipedia sitelinks coverage</span>
-          </div>
+      <div
+        className="absolute bottom-full left-0 mb-1.5 z-50 w-[260px] p-2.5 rounded border border-dg-border-subtle bg-dg-surface text-[0.75rem] leading-relaxed text-dg-text-secondary shadow-lg pointer-events-none transition-all duration-200"
+        style={{
+          opacity: visible ? 1 : 0,
+          transform: visible ? "translateY(0)" : "translateY(4px)",
+        }}
+      >
+        {hasQrank ? (
+          <p className="m-0">
+            <span className="text-dg-text">score</span> = 0.6 &times; QRank ({qrankPct}) + 0.4
+            &times; Sitelinks ({sitelinksPct ?? "n/a"})
+          </p>
+        ) : (
+          <p className="m-0">
+            <span className="text-dg-text">score</span> = Sitelinks only (no QRank data)
+          </p>
+        )}
+        <div className="mt-1.5 flex items-center gap-1.5 text-[0.7rem] text-dg-text-tertiary">
+          <a
+            href="https://qrank.wmcloud.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-dg-accent/70 no-underline hover:text-dg-accent transition-colors pointer-events-auto"
+          >
+            QRank {"\u2197"}
+          </a>
+          <span>&middot;</span>
+          <span>Wikipedia sitelinks coverage</span>
         </div>
-      )}
+      </div>
     </div>
   );
 }
