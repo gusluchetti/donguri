@@ -38,7 +38,6 @@
     "@tanstack/react-virtual": "^3.13.0",
     "drizzle-kit": "^0.31.0",
     "drizzle-orm": "^0.45.1",
-    "embla-carousel-auto-scroll": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
     "idb-keyval": "^6.2.2",
     "lucide-react": "^0.563.0",
