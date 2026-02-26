@@ -556,16 +556,16 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               border: "1px solid color-mix(in srgb, var(--color-dg-accent) 20%, transparent)",
             }}
           >
-            <p className="text-[0.85rem] sm:text-[0.9rem] text-dg-text-secondary m-0 mb-2.5">
-              Sign in to track this title, rate it, and see detailed episode data.
+            <p className="text-[0.85rem] sm:text-[0.9rem] text-dg-text-secondary m-0">
+              <Link
+                to="/login"
+                onClick={() => SoundEngine.click()}
+                className="inline-block bg-dg-accent text-white font-body text-[0.85rem] sm:text-[0.9rem] rounded-sm px-3 py-1 no-underline transition-all duration-150 hover:brightness-110 mr-1.5"
+              >
+                Sign in
+              </Link>{" "}
+              to track this title, rate it, and see detailed episode data.
             </p>
-            <Link
-              to="/login"
-              onClick={() => SoundEngine.click()}
-              className="inline-block bg-dg-accent text-white font-body text-[0.8rem] rounded-sm px-4 py-2 no-underline transition-all duration-150 hover:brightness-110"
-            >
-              Sign in
-            </Link>
           </div>
         )}
 
