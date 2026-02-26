@@ -23,8 +23,9 @@ import {
 import { clear } from "idb-keyval";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import "../app.css";
-import { getAuthState, logout } from "~/features/auth/auth.functions";
+import { getAuthState, getOnboardingStatus, logout } from "~/features/auth/auth.functions";
 import { AuthBanner } from "~/features/auth/components/AuthBanner";
+import { OnboardingModal } from "~/features/auth/components/OnboardingModal";
 import { getCatalogFingerprint } from "~/features/catalog/catalog.functions";
 import { trackedIdsOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
@@ -77,19 +78,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   loader: async ({ context }) => {
     const [auth, theme] = await Promise.all([getAuthState(), getThemeCookie()]);
     let trackedIds: Record<string, string | null> = {};
+    let onboardingCompleted = false;
     if (auth) {
       try {
-        const [ids, fingerprint] = await Promise.all([
+        const [ids, fingerprint, onboarding] = await Promise.all([
           context.queryClient.fetchQuery(trackedIdsOptions()),
           getCatalogFingerprint(),
+          getOnboardingStatus({}),
         ]);
         trackedIds = ids;
+        onboardingCompleted = onboarding.onboardingCompleted;
         checkCatalogFreshness(context.queryClient, fingerprint);
       } catch (err) {
         console.error("[root] getUserTrackedIds FAILED:", err, "(continuing with empty)");
       }
     }
-    return { auth, trackedIds, theme };
+    return { auth, trackedIds, theme, onboardingCompleted };
   },
   staleTime: 5 * 60 * 1000,
   component: RootComponent,
@@ -120,7 +124,7 @@ const NAV_ITEMS: readonly { to: string; label: string; exact?: boolean }[] = [
 ];
 
 function RootComponent() {
-  const { auth, theme } = Route.useLoaderData();
+  const { auth, theme, onboardingCompleted } = Route.useLoaderData();
   const queryClient = Route.useRouteContext().queryClient;
 
   const handleLogout = useCallback(async () => {
@@ -159,6 +163,7 @@ function RootComponent() {
   }, [queryClient]);
 
   const [showHelp, setShowHelp] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(!onboardingCompleted);
   const pathname = useLocation({ select: (l) => l.pathname });
   const showBanner = !auth && !/^\/(login|auth\/)/.test(pathname);
 
@@ -167,6 +172,9 @@ function RootComponent() {
       <ThemeProvider initialTheme={theme}>
         <HotkeysProvider>
           <GlobalShortcuts showHelp={showHelp} setShowHelp={setShowHelp} />
+          {auth && showOnboarding && (
+            <OnboardingModal onComplete={() => setShowOnboarding(false)} />
+          )}
           <div className="h-dvh overflow-hidden flex flex-col relative z-[2]">
             <nav
               className="font-body shrink-0 sticky top-0 z-30"

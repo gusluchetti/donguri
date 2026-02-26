@@ -190,6 +190,7 @@ export const users = pgTable("users", {
   authMethod: text("auth_method", {
     enum: ["atproto", "google", "github"],
   }).notNull(),
+  onboardingCompleted: boolean("onboarding_completed").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

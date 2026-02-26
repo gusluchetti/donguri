@@ -184,6 +184,28 @@ export const handleOAuthProviderCallback = createServerFn({ method: "GET" })
     return handleProviderCallback(data.provider, data.code);
   });
 
+// ─── Onboarding ──────────────────────────────────────────────────────────────
+
+export const getOnboardingStatus = createServerFn({ method: "GET" }).handler(async () => {
+  const session = await getSessionData();
+  if (!session) return { onboardingCompleted: false };
+  const db = getDb();
+  const [row] = await db
+    .select({ onboardingCompleted: users.onboardingCompleted })
+    .from(users)
+    .where(eq(users.id, session.userId))
+    .limit(1);
+  return { onboardingCompleted: row?.onboardingCompleted ?? false };
+});
+
+export const completeOnboarding = createServerFn({ method: "POST" }).handler(async () => {
+  const session = await getSessionData();
+  if (!session) return { ok: false };
+  const db = getDb();
+  await db.update(users).set({ onboardingCompleted: true }).where(eq(users.id, session.userId));
+  return { ok: true };
+});
+
 // ─── Logout ───────────────────────────────────────────────────────────────────
 
 export const logout = createServerFn({ method: "POST" }).handler(async () => {
