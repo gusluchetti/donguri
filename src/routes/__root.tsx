@@ -73,10 +73,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
   }),
   loader: async ({ context }) => {
-    const [auth, theme] = await Promise.all([
-      getAuthState(),
-      getThemeCookie(),
-    ]);
+    const [auth, theme] = await Promise.all([getAuthState(), getThemeCookie()]);
     let trackedIds: Record<string, string | null> = {};
     if (auth) {
       try {
