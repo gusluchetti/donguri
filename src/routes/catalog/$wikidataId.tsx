@@ -2,7 +2,7 @@ import { Shuffle } from "@phosphor-icons/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useNavigate, useRouter } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getMediaStub } from "~/features/catalog/catalog.functions";
 import { catalogEntryOptions, trackedIdsOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
@@ -455,20 +455,13 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
                 {data.episodeCount && data.episodeCount > 1 && (
                   <MetaItem label="Episodes" value={String(data.episodeCount)} />
                 )}
-                {data.qrankPct != null && (
-                  <div className="flex flex-col gap-0.5">
-                    <a
-                      href="https://qrank.wmcloud.org/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider whitespace-nowrap hover:text-dg-accent transition-colors"
-                    >
-                      Popularity (QRank) ↗
-                    </a>
-                    <span className="text-[0.85rem] text-dg-text">Top {data.qrankPct}%</span>
-                  </div>
+                {data.popularityScore != null && (
+                  <PopularityMeta
+                    score={data.popularityScore}
+                    qrankPct={data.qrankPct}
+                    sitelinksPct={data.sitelinksPct}
+                  />
                 )}
-                <MetaItem label="Sitelinks" value={String(data.sitelinksCount ?? 0)} />
               </div>
               {visibleGenres.length > 0 && (
                 <div className="border-t border-dg-border-subtle mt-3 pt-3">
@@ -597,6 +590,73 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
             );
           })()}
       </div>
+    </div>
+  );
+}
+
+function PopularityMeta({
+  score,
+  qrankPct,
+  sitelinksPct,
+}: {
+  score: string;
+  qrankPct: string | null;
+  sitelinksPct: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("click", handleClick, true);
+    return () => document.removeEventListener("click", handleClick, true);
+  }, [open]);
+
+  const rounded = Number.parseFloat(score).toFixed(1);
+  const hasQrank = qrankPct != null;
+
+  return (
+    <div ref={ref} className="relative flex flex-col gap-0.5">
+      <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider">
+        Popularity
+      </span>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-[0.85rem] text-dg-text text-left cursor-pointer bg-transparent border-0 p-0 font-body underline decoration-dg-border-subtle decoration-dotted underline-offset-2 hover:decoration-dg-accent transition-colors"
+      >
+        {rounded}
+      </button>
+
+      {open && (
+        <div className="absolute bottom-full left-0 mb-1.5 z-50 w-[260px] p-2.5 rounded border border-dg-border-subtle bg-dg-surface text-[0.75rem] leading-relaxed text-dg-text-secondary shadow-lg">
+          {hasQrank ? (
+            <p className="m-0">
+              <span className="text-dg-text">score</span> = 0.6 &times; QRank ({qrankPct}) + 0.4
+              &times; Sitelinks ({sitelinksPct ?? "n/a"})
+            </p>
+          ) : (
+            <p className="m-0">
+              <span className="text-dg-text">score</span> = Sitelinks only (no QRank data)
+            </p>
+          )}
+          <div className="mt-1.5 flex items-center gap-1.5 text-[0.7rem] text-dg-text-tertiary">
+            <a
+              href="https://qrank.wmcloud.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-dg-accent/70 no-underline hover:text-dg-accent transition-colors"
+            >
+              QRank {"\u2197"}
+            </a>
+            <span>&middot;</span>
+            <span>Wikipedia sitelinks coverage</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
