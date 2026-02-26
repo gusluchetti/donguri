@@ -604,38 +604,43 @@ function PopularityMeta({
   sitelinksPct: string | null;
 }) {
   const [visible, setVisible] = useState(false);
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function onMouseEnter() {
-    hoverTimer.current = setTimeout(() => setVisible(true), 200);
+  function show() {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    setVisible(true);
   }
 
-  function onMouseLeave() {
-    if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    setVisible(false);
+  // Small grace period so mouse can travel from label to tooltip without flicker
+  function hide() {
+    hideTimer.current = setTimeout(() => setVisible(false), 80);
   }
 
   const rounded = Number.parseFloat(score).toFixed(1);
   const hasQrank = qrankPct != null;
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: tooltip trigger via hover, no keyboard action needed
-    <div
-      className="relative flex flex-col gap-0.5"
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-    >
-      <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider cursor-help underline decoration-dotted decoration-dg-border underline-offset-2">
+    <div className="relative flex flex-col gap-0.5">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: tooltip trigger */}
+      <span
+        className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider cursor-help underline decoration-dotted decoration-dg-border underline-offset-2 w-fit"
+        onMouseEnter={show}
+        onMouseLeave={hide}
+      >
         Popularity
       </span>
       <span className="text-[0.85rem] text-dg-text">{rounded}</span>
 
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: tooltip body needs hover to stay open */}
       <div
-        className="absolute bottom-full left-0 mb-1.5 z-50 w-[260px] p-2.5 rounded border border-dg-border-subtle bg-dg-surface text-[0.75rem] leading-relaxed text-dg-text-secondary shadow-lg pointer-events-none transition-all duration-200"
+        className="absolute bottom-full left-0 mb-1.5 z-50 w-[260px] p-2.5 rounded border border-dg-border-subtle bg-dg-surface text-[0.75rem] leading-relaxed text-dg-text-secondary shadow-lg transition-all duration-150"
         style={{
           opacity: visible ? 1 : 0,
           transform: visible ? "translateY(0)" : "translateY(4px)",
+          pointerEvents: visible ? "auto" : "none",
         }}
+        onMouseEnter={show}
+        onMouseLeave={hide}
       >
         {hasQrank ? (
           <p className="m-0">
@@ -652,7 +657,7 @@ function PopularityMeta({
             href="https://qrank.wmcloud.org/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-dg-accent/70 no-underline hover:text-dg-accent transition-colors pointer-events-auto"
+            className="text-dg-accent/70 no-underline hover:text-dg-accent transition-colors"
           >
             QRank {"\u2197"}
           </a>
