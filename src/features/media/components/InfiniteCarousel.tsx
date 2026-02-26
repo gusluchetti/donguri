@@ -1,13 +1,11 @@
 import useEmblaCarousel from "embla-carousel-react";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { Media } from "~/db/schema";
 import { MediaCard } from "./MediaCard";
 
-const SPEED_NORMAL = 0.5;
-const SPEED_HOVER = 0.2;
+const SPEED = 0.5;
 
 export function InfiniteCarousel({ items }: { items: Media[] }) {
-  const speedRef = useRef(SPEED_NORMAL);
   const rafRef = useRef<number>(0);
 
   const [emblaRef, emblaApi] = useEmblaCarousel({
@@ -35,12 +33,9 @@ export function InfiniteCarousel({ items }: { items: Media[] }) {
 
     function scroll() {
       previousLocation.set(location);
-
-      const velocity = -speedRef.current;
-      location.add(velocity);
+      location.add(-SPEED);
       target.set(location);
 
-      // Wrap around for infinite loop
       if (limit.reachedMin(offsetLocation.get())) {
         const currentIndex = scrollTarget.byDistance(0, false).index;
         if (index.get() !== currentIndex) {
@@ -60,25 +55,15 @@ export function InfiniteCarousel({ items }: { items: Media[] }) {
     };
   }, [emblaApi]);
 
-  const onMouseEnter = useCallback(() => {
-    speedRef.current = SPEED_HOVER;
-  }, []);
-
-  const onMouseLeave = useCallback(() => {
-    speedRef.current = SPEED_NORMAL;
-  }, []);
-
   // Duplicate to guarantee enough slides for seamless loop
   const slides = [...items, ...items];
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: hover slows carousel, not interactive
-    <div
-      className="select-none"
-      style={{ animation: "fadeIn 500ms ease-out both" }}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-    >
+    <div className="select-none relative" style={{ animation: "fadeIn 500ms ease-out both" }}>
+      {/* Fade edges */}
+      <div className="absolute inset-y-0 left-0 w-12 sm:w-20 z-10 pointer-events-none bg-gradient-to-r from-dg-bg to-transparent" />
+      <div className="absolute inset-y-0 right-0 w-12 sm:w-20 z-10 pointer-events-none bg-gradient-to-l from-dg-bg to-transparent" />
+
       <div className="overflow-hidden" ref={emblaRef}>
         <div className="flex">
           {slides.map((item, i) => (
