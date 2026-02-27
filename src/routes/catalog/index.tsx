@@ -624,7 +624,7 @@ const MediaRow = memo(function MediaRow({
             </span>
             {trackedStatus && (
               <span
-                className={`text-[0.58rem] font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none ${STATUS_BUTTON_COLORS[trackedStatus as StatusValue] ?? ""}`}
+                className={`text-[0.58rem] font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none inline-flex items-center ${STATUS_BUTTON_COLORS[trackedStatus as StatusValue] ?? ""}`}
               >
                 <StatusIcon status={trackedStatus as StatusValue} size={9} />
               </span>

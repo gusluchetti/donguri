@@ -70,14 +70,16 @@ function episodePosition(item: CatalogEntryRow): string | null {
 
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
-    const isLoggedIn = !!context.queryClient.getQueryData(trackedIdsOptions().queryKey);
     await context.queryClient.prefetchQuery(homepageSampleOptions());
-    const entries = isLoggedIn
-      ? await context.queryClient
-          .fetchQuery(watchlistOptions())
-          .catch(() => [] as CatalogEntryRow[])
-      : [];
-    return { entries };
+    try {
+      await context.queryClient.ensureQueryData(trackedIdsOptions());
+      const entries = await context.queryClient
+        .fetchQuery(watchlistOptions())
+        .catch(() => [] as CatalogEntryRow[]);
+      return { entries };
+    } catch {
+      return { entries: [] as CatalogEntryRow[] };
+    }
   },
   staleTime: 5 * 60 * 1000,
   head: () => ({

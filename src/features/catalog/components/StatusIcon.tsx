@@ -15,5 +15,5 @@ export function StatusIcon({ status, size = 10 }: { status: StatusValue; size?: 
   const entry = STATUS_ICON_MAP[status];
   if (!entry) return null;
   const { Icon, weight } = entry;
-  return <Icon size={size} weight={weight} />;
+  return <Icon size={size} weight={weight} className="shrink-0" />;
 }

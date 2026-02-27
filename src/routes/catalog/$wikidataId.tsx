@@ -43,10 +43,10 @@ type LoaderData = FullLoaderData | StubLoaderData;
 export const Route = createFileRoute("/catalog/$wikidataId")({
   loader: async ({ params, context }): Promise<LoaderData> => {
     // Non-blocking: warm tracking cache for logged-in users only
-    const isLoggedIn = !!context.queryClient.getQueryData(trackedIdsOptions().queryKey);
-    if (isLoggedIn) {
-      context.queryClient.prefetchQuery(catalogEntryOptions(params.wikidataId));
-    }
+    context.queryClient.ensureQueryData(trackedIdsOptions()).then(
+      () => { context.queryClient.prefetchQuery(catalogEntryOptions(params.wikidataId)); },
+      () => {},
+    );
 
     // Blocking: media data is the page content
     const media = await context.queryClient.ensureQueryData(mediaDetailOptions(params.wikidataId));
