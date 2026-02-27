@@ -6,6 +6,7 @@ import {
   SpeakerHigh,
   SpeakerNone,
   Sun,
+  UserCircle,
 } from "@phosphor-icons/react";
 import { getSequenceManager } from "@tanstack/hotkeys";
 import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
@@ -73,10 +74,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
   }),
   loader: async ({ context }) => {
-    const [auth, theme] = await Promise.all([
-      getAuthState(),
-      getThemeCookie(),
-    ]);
+    const [auth, theme] = await Promise.all([getAuthState(), getThemeCookie()]);
     let trackedIds: Record<string, string | null> = {};
     if (auth) {
       try {
@@ -204,9 +202,13 @@ function RootComponent() {
                 <div className="flex items-center gap-1">
                   {auth ? (
                     <>
-                      <span className="text-xs text-dg-accent hidden sm:inline mr-2">
+                      <Link
+                        to="/profile"
+                        className="text-xs text-dg-accent hidden sm:inline mr-2 no-underline hover:opacity-70 transition-opacity"
+                        onClick={() => SoundEngine.click()}
+                      >
                         {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
-                      </span>
+                      </Link>
                       <div
                         className="mx-1 hidden sm:block"
                         style={{
@@ -340,6 +342,11 @@ function GlobalShortcuts({
       mgr.register(
         ["G", "R"],
         guard(() => navRef.current({ to: "/roadmap" })),
+        opts,
+      ),
+      mgr.register(
+        ["G", "P"],
+        guard(() => navRef.current({ to: "/profile" })),
         opts,
       ),
     ];
@@ -510,6 +517,19 @@ function BottomNav() {
           <MagnifyingGlass size={22} weight="bold" />
           <span className="text-[0.6rem] uppercase tracking-wider">catalog</span>
         </Link>
+
+        {auth && (
+          <Link
+            to="/profile"
+            activeOptions={{ exact: true }}
+            activeProps={active}
+            inactiveProps={inactive}
+            onClick={() => SoundEngine.click()}
+          >
+            <UserCircle size={22} weight="bold" />
+            <span className="text-[0.6rem] uppercase tracking-wider">profile</span>
+          </Link>
+        )}
       </div>
     </nav>
   );
