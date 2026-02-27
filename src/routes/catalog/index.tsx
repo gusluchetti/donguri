@@ -414,7 +414,6 @@ function CatalogPage() {
     SoundEngine.dice();
     const id = await getRandomMediaId();
     if (id) {
-      SoundEngine.navForward();
       navigate({ to: "/catalog/$wikidataId", params: { wikidataId: id } });
     }
   }, [navigate]);
