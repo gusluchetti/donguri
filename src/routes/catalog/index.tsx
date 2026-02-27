@@ -19,12 +19,12 @@ import { catalogInfiniteOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
+import { StatusIcon } from "~/features/catalog/components/StatusIcon";
 import { getRandomMediaId } from "~/features/media/media.functions";
 import {
   displayMediaType,
   STAMP_COLORS,
   STATUS_BUTTON_COLORS,
-  STATUS_ICONS,
   type StatusValue,
 } from "~/features/media/media-types";
 import { ogTags, pageTitle } from "~/lib/og";
@@ -151,7 +151,7 @@ function TypeFilterBar({
             type="button"
             key={t.label}
             onClick={() => onTypeChange(t.value)}
-            className="py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 font-body text-xs cursor-pointer flex items-center gap-1.5 flex-1 justify-center transition-all duration-150 relative"
+            className="py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 font-body text-xs cursor-pointer flex items-center gap-1.5 flex-1 justify-center transition-all duration-150 relative active:scale-[0.97] active:opacity-80"
             style={{
               background: isActive ? "var(--color-dg-elevated)" : "transparent",
               color: isActive ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)",
@@ -266,7 +266,7 @@ const SearchBar = forwardRef<
         type="button"
         title="Random title"
         onClick={() => onRandom?.()}
-        className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+        className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms] active:scale-[0.97] active:opacity-80"
       >
         <Shuffle size={17} weight="bold" />
       </button>
@@ -414,7 +414,6 @@ function CatalogPage() {
     SoundEngine.dice();
     const id = await getRandomMediaId();
     if (id) {
-      SoundEngine.navForward();
       navigate({ to: "/catalog/$wikidataId", params: { wikidataId: id } });
     }
   }, [navigate]);
@@ -624,9 +623,9 @@ const MediaRow = memo(function MediaRow({
             </span>
             {trackedStatus && (
               <span
-                className={`text-[0.58rem] font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none ${STATUS_BUTTON_COLORS[trackedStatus as StatusValue] ?? ""}`}
+                className={`text-[0.58rem] font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none inline-flex items-center ${STATUS_BUTTON_COLORS[trackedStatus as StatusValue] ?? ""}`}
               >
-                {STATUS_ICONS[trackedStatus as StatusValue]}
+                <StatusIcon status={trackedStatus as StatusValue} size={9} />
               </span>
             )}
           </div>

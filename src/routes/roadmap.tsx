@@ -90,7 +90,7 @@ function RoadmapPage() {
 
         if (key === "what we believe") {
           return (
-            <h2 className="font-display text-[1.25rem] sm:text-[1.4rem] font-light italic tracking-[-0.02em] text-dg-text mt-8 mb-4">
+            <h2 className="font-display text-[1.25rem] sm:text-[1.4rem] font-light italic tracking-[-0.02em] text-dg-text mt-5 sm:mt-8 mb-3 sm:mb-4">
               {children}
             </h2>
           );
@@ -99,7 +99,7 @@ function RoadmapPage() {
         const color = ctx.current.sectionColor;
         return (
           <h2
-            className="text-[0.8rem] uppercase tracking-wider mb-2 mt-6 first:mt-0 flex items-center gap-2"
+            className="text-[0.8rem] uppercase tracking-wider mb-2 mt-4 sm:mt-6 first:mt-0 flex items-center gap-2"
             style={{ color }}
           >
             <span
@@ -118,7 +118,7 @@ function RoadmapPage() {
       ),
 
       ul: ({ children }: { children?: React.ReactNode }) => (
-        <div className="border border-dg-border-subtle rounded bg-dg-surface divide-y divide-dg-border-subtle mb-6 overflow-hidden">
+        <div className="border border-dg-border-subtle rounded bg-dg-surface divide-y divide-dg-border-subtle mb-4 sm:mb-6 overflow-hidden">
           {children}
         </div>
       ),
@@ -127,7 +127,7 @@ function RoadmapPage() {
         if (ctx.current.sectionKey === "what we believe") {
           ctx.current.beliefIndex = 0;
           return (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10 pb-8 border-b border-dg-border-subtle">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-10 pb-5 sm:pb-8 border-b border-dg-border-subtle">
               {children}
             </div>
           );
@@ -153,7 +153,7 @@ function RoadmapPage() {
 
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
-      <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6 sm:py-8">
+      <div className="max-w-[1100px] mx-auto px-4 py-4 sm:px-6 sm:py-8">
         <Suspense
           fallback={
             <div className="flex justify-center py-12">

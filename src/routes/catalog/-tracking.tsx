@@ -171,7 +171,7 @@ function StatusButtons({
             type="button"
             onClick={() => onStatusChange(s)}
             disabled={isPending}
-            className={`text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-body cursor-pointer shrink-0 transition-all duration-150 disabled:opacity-50 ${
+            className={`text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-body cursor-pointer shrink-0 transition-all duration-150 disabled:opacity-50 active:scale-[0.97] active:opacity-80 ${
               isActive
                 ? colorClass
                 : "border-dg-border-subtle text-dg-text-secondary bg-transparent hover:border-dg-border"
@@ -250,7 +250,7 @@ function ReplaySection({ localReplayCount, isPending, mediaType, onChange }: Rep
         type="button"
         onClick={() => onChange(Math.max(0, localReplayCount - 1))}
         disabled={isPending || localReplayCount <= 0}
-        className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30"
+        className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30 active:scale-[0.97] active:opacity-80"
       >
         -
       </button>
@@ -261,7 +261,7 @@ function ReplaySection({ localReplayCount, isPending, mediaType, onChange }: Rep
         type="button"
         onClick={() => onChange(localReplayCount + 1)}
         disabled={isPending}
-        className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30"
+        className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30 active:scale-[0.97] active:opacity-80"
       >
         +
       </button>
@@ -321,7 +321,7 @@ function TrackingSaveBar({
         type="button"
         onClick={onSave}
         disabled={actionState === "pending" || !isDirty}
-        className={`text-[0.75rem] font-body rounded-sm border px-3 py-1 bg-transparent cursor-pointer transition-all duration-150 disabled:cursor-default ${
+        className={`text-[0.75rem] font-body rounded-sm border px-3 py-1 bg-transparent cursor-pointer transition-all duration-150 disabled:cursor-default active:scale-[0.97] active:opacity-80 ${
           actionState === "pending"
             ? "border-dg-accent/50 text-dg-accent/70"
             : actionState === "error"
@@ -339,7 +339,7 @@ function TrackingSaveBar({
           type="button"
           onClick={onRemove}
           disabled={actionState === "pending"}
-          className="text-[0.75rem] font-body rounded-sm border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 cursor-pointer transition-all duration-150 hover:text-dg-anime hover:border-dg-anime/40 disabled:opacity-50 disabled:cursor-default"
+          className="text-[0.75rem] font-body rounded-sm border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 cursor-pointer transition-all duration-150 hover:text-dg-anime hover:border-dg-anime/40 disabled:opacity-50 disabled:cursor-default active:scale-[0.97] active:opacity-80"
           title="Remove from list"
         >
           delete
@@ -653,7 +653,7 @@ export function TrackingPanel({
           <button
             type="button"
             onClick={() => setLocalIsFavorite(!localIsFavorite)}
-            className={`flex items-center bg-transparent border-none cursor-pointer p-1 -m-1 transition-colors duration-150 ${
+            className={`flex items-center bg-transparent border-none cursor-pointer p-1 -m-1 transition-colors duration-150 active:scale-[0.97] active:opacity-80 ${
               localIsFavorite ? "text-dg-accent" : "text-dg-text-tertiary hover:text-dg-accent/60"
             }`}
             title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
