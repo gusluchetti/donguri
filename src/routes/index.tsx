@@ -18,6 +18,8 @@ import {
   STATUS_ORDER,
   type StatusValue,
 } from "~/features/media/media-types";
+import { OnboardingFlow } from "~/features/onboarding/OnboardingFlow";
+import { onboardingPicksOptions } from "~/features/onboarding/onboarding.queries";
 import { ogTags, pageTitle } from "~/lib/og";
 
 const rootRoute = getRouteApi("__root__");
@@ -72,10 +74,14 @@ export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
     await context.queryClient.prefetchQuery(homepageSampleOptions());
     try {
-      await context.queryClient.ensureQueryData(trackedIdsOptions());
+      const trackedIds = await context.queryClient.ensureQueryData(trackedIdsOptions());
       const entries = await context.queryClient
         .fetchQuery(watchlistOptions())
         .catch(() => [] as CatalogEntryRow[]);
+      // Prefetch onboarding picks when logged in but collection is empty
+      if (trackedIds && entries.length === 0) {
+        context.queryClient.prefetchQuery(onboardingPicksOptions());
+      }
       return { entries };
     } catch {
       return { entries: [] as CatalogEntryRow[] };
@@ -110,18 +116,23 @@ const GRID_STATUSES = new Set<string>(["completed", "mastered"]);
 
 function HomePage() {
   const { auth } = rootRoute.useLoaderData();
+  const { entries } = Route.useLoaderData();
 
-  if (auth) {
-    return (
-      <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
-        <div className="max-w-[1100px] mx-auto px-g3 py-4 sm:py-6">
-          <LoggedInView />
-        </div>
-      </div>
-    );
+  if (!auth) {
+    return <LoggedOutView />;
   }
 
-  return <LoggedOutView />;
+  if (entries.length === 0) {
+    return <OnboardingFlow />;
+  }
+
+  return (
+    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
+      <div className="max-w-[1100px] mx-auto px-g3 py-4 sm:py-6">
+        <LoggedInView />
+      </div>
+    </div>
+  );
 }
 
 // ─── Logged-Out Landing ─────────────────────────────────────────────────────
