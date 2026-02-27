@@ -63,7 +63,7 @@ function ProfilePage() {
             </p>
             <Link
               to="/catalog"
-              className="text-sm text-dg-accent no-underline border border-dg-accent/20 rounded-[3px] py-2 px-4 hover:border-dg-accent/50 transition-all duration-150"
+              className="text-sm text-dg-accent no-underline border border-dg-accent/20 rounded-[3px] py-2 px-4 hover:border-dg-accent/50 transition-all duration-150 active:scale-[0.97] active:opacity-80"
               onClick={() => SoundEngine.click()}
             >
               explore catalog
@@ -145,7 +145,7 @@ function ProfileHeader({
         <button
           type="button"
           onClick={onLogout}
-          className="bg-transparent border-none font-body text-[0.7rem] text-dg-accent/50 hover:text-dg-accent/80 cursor-pointer p-0 transition-colors"
+          className="bg-transparent border-none font-body text-[0.7rem] text-dg-accent/50 hover:text-dg-accent/80 cursor-pointer p-0 transition-colors active:opacity-80"
         >
           logout
         </button>

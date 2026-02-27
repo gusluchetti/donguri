@@ -91,15 +91,64 @@ function click(): void {
   const t = c.currentTime;
   const o = c.createOscillator();
   const g = c.createGain();
-  o.type = "sine";
-  o.frequency.setValueAtTime(700, t);
-  o.frequency.exponentialRampToValueAtTime(440, t + 0.05);
-  g.gain.setValueAtTime(0.07, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+  o.type = "square";
+  o.frequency.setValueAtTime(1200, t);
+  o.frequency.exponentialRampToValueAtTime(600, t + 0.03);
+  g.gain.setValueAtTime(0.06, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
   o.connect(g);
   g.connect(m);
   o.start(t);
-  o.stop(t + 0.06);
+  o.stop(t + 0.03);
+}
+
+/** Press down — mechanical snap on pointer down */
+function pressDown(): void {
+  if (!isEnabled()) return;
+  const c = getCtx();
+  const m = getMaster();
+  const t = c.currentTime;
+  // Sharp snap
+  const o1 = c.createOscillator();
+  const g1 = c.createGain();
+  o1.type = "square";
+  o1.frequency.setValueAtTime(1400, t);
+  o1.frequency.exponentialRampToValueAtTime(800, t + 0.015);
+  g1.gain.setValueAtTime(0.05, t);
+  g1.gain.exponentialRampToValueAtTime(0.001, t + 0.015);
+  o1.connect(g1);
+  g1.connect(m);
+  o1.start(t);
+  o1.stop(t + 0.015);
+  // Low thud
+  const o2 = c.createOscillator();
+  const g2 = c.createGain();
+  o2.type = "sine";
+  o2.frequency.setValueAtTime(120, t);
+  g2.gain.setValueAtTime(0.04, t);
+  g2.gain.exponentialRampToValueAtTime(0.001, t + 0.025);
+  o2.connect(g2);
+  g2.connect(m);
+  o2.start(t);
+  o2.stop(t + 0.025);
+}
+
+/** Press up — light release on pointer up */
+function pressUp(): void {
+  if (!isEnabled()) return;
+  const c = getCtx();
+  const m = getMaster();
+  const t = c.currentTime;
+  const o = c.createOscillator();
+  const g = c.createGain();
+  o.type = "triangle";
+  o.frequency.setValueAtTime(1800, t);
+  g.gain.setValueAtTime(0.03, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.012);
+  o.connect(g);
+  g.connect(m);
+  o.start(t);
+  o.stop(t + 0.012);
 }
 
 /** Navigate forward — rising tone */
@@ -240,6 +289,8 @@ export const SoundEngine = {
   setVolume,
   tick,
   click,
+  pressDown,
+  pressUp,
   navForward,
   navBack,
   stamp,

@@ -58,7 +58,7 @@ function SoundSection() {
           setOn(next);
           if (next) SoundEngine.click();
         }}
-        className="flex items-center gap-3 bg-transparent border border-dg-border-subtle rounded p-3 cursor-pointer transition-all duration-150 hover:border-dg-border-strong w-full text-left"
+        className="flex items-center gap-3 bg-transparent border border-dg-border-subtle rounded p-3 cursor-pointer transition-all duration-150 hover:border-dg-border-strong w-full text-left active:scale-[0.99] active:opacity-80"
       >
         {on ? (
           <SpeakerHigh size={20} weight="bold" className="text-dg-accent shrink-0" />
@@ -123,7 +123,7 @@ function ThemeSection() {
                 setThemePreference(value);
                 SoundEngine.click();
               }}
-              className={`flex-1 flex items-center justify-center gap-1.5 no-underline font-body text-xs tracking-[0.06em] uppercase rounded-[3px] py-[7px] px-2 transition-all duration-150 border cursor-pointer ${
+              className={`flex-1 flex items-center justify-center gap-1.5 no-underline font-body text-xs tracking-[0.06em] uppercase rounded-[3px] py-[7px] px-2 transition-all duration-150 border cursor-pointer active:scale-[0.97] active:opacity-80 ${
                 active
                   ? "bg-dg-accent-soft border-dg-accent text-dg-accent font-semibold"
                   : "bg-transparent border-dg-border text-dg-text-secondary hover:border-dg-border-strong"

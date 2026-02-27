@@ -151,7 +151,7 @@ function TypeFilterBar({
             type="button"
             key={t.label}
             onClick={() => onTypeChange(t.value)}
-            className="py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 font-body text-xs cursor-pointer flex items-center gap-1.5 flex-1 justify-center transition-all duration-150 relative"
+            className="py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 font-body text-xs cursor-pointer flex items-center gap-1.5 flex-1 justify-center transition-all duration-150 relative active:scale-[0.97] active:opacity-80"
             style={{
               background: isActive ? "var(--color-dg-elevated)" : "transparent",
               color: isActive ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)",
@@ -266,7 +266,7 @@ const SearchBar = forwardRef<
         type="button"
         title="Random title"
         onClick={() => onRandom?.()}
-        className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+        className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms] active:scale-[0.97] active:opacity-80"
       >
         <Shuffle size={17} weight="bold" />
       </button>

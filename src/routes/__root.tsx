@@ -129,11 +129,12 @@ function RootComponent() {
     window.location.href = "/";
   }, [queryClient]);
 
-  // Register service worker for PWA support
+  // Register service worker for PWA support + enable CSS :active on iOS Safari
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
+    document.addEventListener("touchstart", () => {}, { passive: true });
   }, []);
 
   // Global error handler: stale deploys + expired AT Protocol sessions
@@ -220,7 +221,7 @@ function RootComponent() {
                       />
                       <button
                         type="button"
-                        className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-tertiary font-body cursor-pointer transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text-secondary"
+                        className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-tertiary font-body cursor-pointer transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text-secondary active:scale-[0.97] active:opacity-80"
                         onClick={handleLogout}
                       >
                         logout
@@ -232,7 +233,7 @@ function RootComponent() {
                       <ThemeToggle />
                       <Link
                         to="/login"
-                        className="hidden sm:inline text-xs text-dg-accent font-body no-underline border border-dg-accent/30 rounded-[3px] py-1 px-3 hover:border-dg-accent/60 transition-all duration-150"
+                        className="hidden sm:inline text-xs text-dg-accent font-body no-underline border border-dg-accent/30 rounded-[3px] py-1 px-3 hover:border-dg-accent/60 transition-all duration-150 active:scale-[0.97] active:opacity-80"
                         onClick={() => SoundEngine.click()}
                       >
                         sign in
@@ -250,7 +251,7 @@ function RootComponent() {
                   <button
                     type="button"
                     onClick={() => setShowHelp(true)}
-                    className="text-dg-text-tertiary hover:text-dg-text-secondary bg-transparent border-none font-body cursor-pointer p-0 text-[0.7rem] transition-colors"
+                    className="text-dg-text-tertiary hover:text-dg-text-secondary bg-transparent border-none font-body cursor-pointer p-0 text-[0.7rem] transition-colors active:opacity-80"
                   >
                     shortcuts (?)
                   </button>
@@ -430,7 +431,7 @@ function NavButton({
     <Link
       to={to}
       activeOptions={{ exact }}
-      className="no-underline font-body text-xs tracking-[0.06em] uppercase rounded-[3px] py-[5px] px-2 sm:px-3 transition-all duration-150 border relative active:scale-[0.97] active:opacity-70"
+      className="no-underline font-body text-xs tracking-[0.06em] uppercase rounded-[3px] py-[5px] px-2 sm:px-3 transition-all duration-150 border relative active:scale-[0.97] active:opacity-80"
       activeProps={{
         className: "bg-dg-accent-soft border-dg-accent text-dg-accent font-semibold",
       }}
@@ -451,7 +452,7 @@ function ThemeToggle() {
     <button
       type="button"
       onClick={toggleTheme}
-      className="bg-transparent border border-dg-border rounded-[3px] py-1.5 px-2.5 sm:py-1 sm:px-2 text-xs text-dg-text-secondary cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center"
+      className="bg-transparent border border-dg-border rounded-[3px] py-1.5 px-2.5 sm:py-1 sm:px-2 text-xs text-dg-text-secondary cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center active:scale-[0.97] active:opacity-80"
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
       title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
     >
@@ -491,7 +492,13 @@ function BottomNav() {
           <span className="text-[0.6rem] uppercase tracking-wider">catalog</span>
         </Link>
 
-        <Link to="/" activeOptions={{ exact: true }} activeProps={active} inactiveProps={inactive}>
+        <Link
+          to="/"
+          activeOptions={{ exact: true }}
+          activeProps={active}
+          inactiveProps={inactive}
+          onClick={() => SoundEngine.click()}
+        >
           <Bookmark size={22} weight="bold" />
           <span className="text-[0.6rem] uppercase tracking-wider">watchlist</span>
         </Link>
@@ -526,7 +533,7 @@ function SoundToggle() {
         setOn(next);
         if (next) SoundEngine.click();
       }}
-      className="bg-transparent border border-dg-border rounded-[3px] py-1.5 px-2.5 sm:py-1 sm:px-2 text-xs cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center"
+      className="bg-transparent border border-dg-border rounded-[3px] py-1.5 px-2.5 sm:py-1 sm:px-2 text-xs cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center active:scale-[0.97] active:opacity-80"
       style={{ color: on ? "var(--color-dg-text-secondary)" : "var(--color-dg-text-tertiary)" }}
       aria-label={on ? "Mute sounds" : "Unmute sounds"}
       title={on ? "Mute sounds" : "Unmute sounds"}

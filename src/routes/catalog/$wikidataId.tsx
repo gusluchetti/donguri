@@ -150,7 +150,7 @@ function MediaDetailSkeleton() {
               SoundEngine.navBack();
               triggerNavBack();
             }}
-            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm transition-all duration-150"
+            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm transition-all duration-150 active:scale-[0.97] active:opacity-80"
           >
             &larr; back
           </button>
@@ -158,7 +158,7 @@ function MediaDetailSkeleton() {
             type="button"
             title="Random title"
             onClick={handleShuffle}
-            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms] active:scale-[0.97] active:opacity-80"
           >
             <Shuffle size={17} weight="bold" />
           </button>
@@ -208,7 +208,7 @@ function MediaStubPage({
               SoundEngine.navBack();
               triggerNavBack();
             }}
-            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
+            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150 active:scale-[0.97] active:opacity-80"
           >
             &larr; back
           </button>
@@ -216,7 +216,7 @@ function MediaStubPage({
             type="button"
             title="Random title"
             onClick={handleShuffle}
-            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms] active:scale-[0.97] active:opacity-80"
           >
             <Shuffle size={17} weight="bold" />
           </button>
@@ -385,7 +385,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
           <button
             type="button"
             onClick={handleBack}
-            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
+            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150 active:scale-[0.97] active:opacity-80"
           >
             &larr; back
           </button>
@@ -393,7 +393,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
             type="button"
             title="Random title"
             onClick={handleShuffle}
-            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms] active:scale-[0.97] active:opacity-80"
           >
             <Shuffle size={17} weight="bold" />
           </button>
@@ -555,7 +555,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               <Link
                 to="/login"
                 onClick={() => SoundEngine.click()}
-                className="inline-block bg-dg-accent text-white font-body text-[0.85rem] sm:text-[0.9rem] rounded-sm px-3 py-1 no-underline transition-all duration-150 hover:brightness-110 mr-1.5"
+                className="inline-block bg-dg-accent text-white font-body text-[0.85rem] sm:text-[0.9rem] rounded-sm px-3 py-1 no-underline transition-all duration-150 hover:brightness-110 mr-1.5 active:scale-[0.97] active:opacity-80"
               >
                 Sign in
               </Link>{" "}

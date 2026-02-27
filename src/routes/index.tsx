@@ -205,14 +205,14 @@ function LoggedOutView() {
           <Link
             to="/login"
             onClick={() => SoundEngine.click()}
-            className="bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110"
+            className="bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110 active:scale-[0.97] active:opacity-80"
           >
             Get started
           </Link>
           <Link
             to="/catalog"
             onClick={() => SoundEngine.click()}
-            className="border border-dg-border text-dg-text-secondary font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text"
+            className="border border-dg-border text-dg-text-secondary font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text active:scale-[0.97] active:opacity-80"
           >
             Browse catalog →
           </Link>
@@ -230,7 +230,7 @@ function LoggedOutView() {
               key={t.type}
               to="/catalog"
               search={{ type: t.type }}
-              className="border border-dg-border-subtle rounded bg-dg-surface p-4 text-center no-underline hover:border-dg-border-strong transition-colors"
+              className="border border-dg-border-subtle rounded bg-dg-surface p-4 text-center no-underline hover:border-dg-border-strong transition-all duration-150 active:scale-[0.97] active:opacity-80"
               onClick={() => SoundEngine.click()}
             >
               <div className="text-[0.85rem] font-medium text-dg-text mb-1">{t.label}</div>
@@ -311,7 +311,7 @@ function LoggedOutView() {
         <Link
           to="/login"
           onClick={() => SoundEngine.click()}
-          className="inline-block bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110"
+          className="inline-block bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110 active:scale-[0.97] active:opacity-80"
         >
           Get started
         </Link>
