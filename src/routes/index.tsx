@@ -73,6 +73,7 @@ function episodePosition(item: CatalogEntryRow): string | null {
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
     await context.queryClient.prefetchQuery(homepageSampleOptions());
+    if (!context.auth) return { entries: [] as CatalogEntryRow[] };
     try {
       const trackedIds = await context.queryClient.ensureQueryData(trackedIdsOptions());
       const entries = await context.queryClient
@@ -115,7 +116,7 @@ const STATUS_SECTION_COLORS: Record<StatusValue, string> = {
 const GRID_STATUSES = new Set<string>(["completed", "mastered"]);
 
 function HomePage() {
-  const { auth } = rootRoute.useLoaderData();
+  const { auth } = rootRoute.useRouteContext();
   const { entries } = Route.useLoaderData();
 
   if (!auth) {

@@ -13,8 +13,8 @@ export function createQueryClient() {
         staleTime: 30_000,
         gcTime: 30 * 60 * 1000,
         retry: 1,
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
+        refetchOnWindowFocus: true,
+        refetchOnReconnect: true,
       },
     },
   });

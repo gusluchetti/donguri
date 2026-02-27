@@ -43,12 +43,14 @@ type LoaderData = FullLoaderData | StubLoaderData;
 export const Route = createFileRoute("/catalog/$wikidataId")({
   loader: async ({ params, context }): Promise<LoaderData> => {
     // Non-blocking: warm tracking cache for logged-in users only
-    context.queryClient.ensureQueryData(trackedIdsOptions()).then(
-      () => {
-        context.queryClient.prefetchQuery(catalogEntryOptions(params.wikidataId));
-      },
-      () => {},
-    );
+    if (context.auth) {
+      context.queryClient.ensureQueryData(trackedIdsOptions()).then(
+        () => {
+          context.queryClient.prefetchQuery(catalogEntryOptions(params.wikidataId));
+        },
+        () => {},
+      );
+    }
 
     // Blocking: media data is the page content
     const media = await context.queryClient.ensureQueryData(mediaDetailOptions(params.wikidataId));
@@ -194,7 +196,7 @@ function MediaStubPage({
     animationOrigin?: string | null;
   };
 }) {
-  const { auth } = rootRoute.useLoaderData();
+  const { auth } = rootRoute.useRouteContext();
   const handleShuffle = useShuffleNav();
 
   return (
@@ -266,7 +268,7 @@ function MediaStubPage({
 function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
   const { data } = useSuspenseQuery(mediaDetailOptions(wikidataId));
   if (!data) throw new Error("Media not found");
-  const { auth } = rootRoute.useLoaderData();
+  const { auth } = rootRoute.useRouteContext();
   const router = useRouter();
   const handleBack = useCallback(() => {
     SoundEngine.navBack();

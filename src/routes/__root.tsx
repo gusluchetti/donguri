@@ -21,6 +21,7 @@ import {
 } from "@tanstack/react-router";
 import { clear } from "idb-keyval";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import type { SessionData } from "~/features/auth/auth.functions";
 import "../app.css";
 import { NavProgress } from "~/components/NavProgress";
 import { getAuthState, logout } from "~/features/auth/auth.functions";
@@ -73,10 +74,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
     ],
   }),
-  loader: async ({ context }) => {
+  beforeLoad: async () => {
     const [auth, theme] = await Promise.all([getAuthState(), getThemeCookie()]);
+    return { auth: auth as SessionData | null, theme };
+  },
+  loader: async ({ context }) => {
     let trackedIds: Record<string, string | null> = {};
-    if (auth) {
+    if (context.auth) {
       try {
         const [ids, fingerprint] = await Promise.all([
           context.queryClient.fetchQuery(trackedIdsOptions()),
@@ -88,7 +92,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         console.error("[root] getUserTrackedIds FAILED:", err, "(continuing with empty)");
       }
     }
-    return { auth, trackedIds, theme };
+    return { trackedIds };
   },
   staleTime: 5 * 60 * 1000,
   component: RootComponent,
@@ -119,8 +123,8 @@ const NAV_ITEMS: readonly { to: string; label: string; exact?: boolean }[] = [
 ];
 
 function RootComponent() {
-  const { auth, theme } = Route.useLoaderData();
-  const queryClient = Route.useRouteContext().queryClient;
+  const { auth, theme } = Route.useRouteContext();
+  const { queryClient } = Route.useRouteContext();
 
   const handleLogout = useCallback(async () => {
     await logout();
@@ -477,7 +481,7 @@ function ThemeToggle() {
 }
 
 function BottomNav() {
-  const { auth } = Route.useLoaderData();
+  const { auth } = Route.useRouteContext();
   const base =
     "flex-1 flex flex-col items-center justify-center gap-0.5 no-underline py-2 transition-colors duration-150 active:scale-95 active:opacity-60";
   const active = { className: `${base} text-dg-accent` };

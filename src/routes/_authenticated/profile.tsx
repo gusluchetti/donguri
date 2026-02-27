@@ -1,9 +1,9 @@
 import { ClockCounterClockwise, Gear } from "@phosphor-icons/react";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { clear } from "idb-keyval";
 import { useCallback } from "react";
-import { getAuthState, logout } from "~/features/auth/auth.functions";
+import { logout } from "~/features/auth/auth.functions";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
@@ -20,11 +20,7 @@ import type { ProfileData } from "~/features/profile/profile.functions";
 import { profileDataOptions } from "~/features/profile/profile.queries";
 import { ogTags, pageTitle } from "~/lib/og";
 
-export const Route = createFileRoute("/profile")({
-  beforeLoad: async () => {
-    const auth = await getAuthState();
-    if (!auth) throw redirect({ to: "/login" });
-  },
+export const Route = createFileRoute("/_authenticated/profile")({
   loader: async ({ context }) => {
     await context.queryClient.prefetchQuery(profileDataOptions());
     return {};

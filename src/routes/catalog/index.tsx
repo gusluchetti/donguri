@@ -1,20 +1,19 @@
 import { Check, CircleNotch, MagnifyingGlass, Plus, Shuffle, X } from "@phosphor-icons/react";
 import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
-import { keepPreviousData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import {
   createFileRoute,
   getRouteApi,
   Link,
   useElementScrollRestoration,
   useNavigate,
-  useRouter,
 } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { Media } from "~/db/schema";
 import { useCatalogCursor } from "~/features/catalog/catalog.cursor";
-import { setCatalogEntry } from "~/features/catalog/catalog.functions";
+import { useSetCatalogEntry } from "~/features/catalog/catalog.mutations";
 import { catalogInfiniteOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
@@ -76,51 +75,46 @@ export const Route = createFileRoute("/catalog/")({
 type QuickAddState = "pending" | "done";
 
 function useQuickAdd() {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
+  const mutation = useSetCatalogEntry();
   const [quickAddState, setQuickAddState] = useState<Record<string, QuickAddState>>({});
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   const handleQuickAdd = useCallback(
-    async (wikidataId: string, itemMediaType: string, e: React.MouseEvent) => {
+    (wikidataId: string, itemMediaType: string, e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
       const defaultStatus: "planned" | "in_progress" =
         itemMediaType === "movie" ? "planned" : "in_progress";
-      setLocalOverrides((prev) => ({ ...prev, [wikidataId]: defaultStatus }));
       setQuickAddState((prev) => ({ ...prev, [wikidataId]: "pending" }));
-      try {
-        await setCatalogEntry({ data: { wikidataId, status: defaultStatus } });
-        setQuickAddState((prev) => ({ ...prev, [wikidataId]: "done" }));
-        clearTimeout(timers.current.get(wikidataId));
-        timers.current.set(
-          wikidataId,
-          setTimeout(() => {
-            timers.current.delete(wikidataId);
+      mutation.mutate(
+        { wikidataId, status: defaultStatus },
+        {
+          onSuccess: () => {
+            setQuickAddState((prev) => ({ ...prev, [wikidataId]: "done" }));
+            clearTimeout(timers.current.get(wikidataId));
+            timers.current.set(
+              wikidataId,
+              setTimeout(() => {
+                timers.current.delete(wikidataId);
+                setQuickAddState((prev) => {
+                  const next = { ...prev };
+                  delete next[wikidataId];
+                  return next;
+                });
+              }, 1500),
+            );
+          },
+          onError: () => {
             setQuickAddState((prev) => {
               const next = { ...prev };
               delete next[wikidataId];
               return next;
             });
-          }, 1500),
-        );
-        queryClient.invalidateQueries({ queryKey: ["user"] });
-        router.invalidate();
-      } catch {
-        setQuickAddState((prev) => {
-          const next = { ...prev };
-          delete next[wikidataId];
-          return next;
-        });
-        setLocalOverrides((prev) => {
-          const next = { ...prev };
-          delete next[wikidataId];
-          return next;
-        });
-      }
+          },
+        },
+      );
     },
-    [router, queryClient],
+    [mutation],
   );
 
   useEffect(
@@ -130,7 +124,7 @@ function useQuickAdd() {
     [],
   );
 
-  return { localOverrides, quickAddState, handleQuickAdd };
+  return { quickAddState, handleQuickAdd };
 }
 
 type FilterType = "movie" | "tv_series" | "anime" | "game" | undefined;
@@ -275,7 +269,8 @@ const SearchBar = forwardRef<
 });
 
 function CatalogPage() {
-  const { auth, trackedIds: rootTrackedIds } = rootRoute.useLoaderData();
+  const { auth } = rootRoute.useRouteContext();
+  const { trackedIds: rootTrackedIds } = rootRoute.useLoaderData();
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog/" });
 
@@ -295,12 +290,12 @@ function CatalogPage() {
     if (!isPlaceholderData && allItems.length > 0) seenQueryKeys.current.add(currentQueryKey);
   }, [currentQueryKey, isPlaceholderData, allItems.length]);
 
-  const { localOverrides, quickAddState, handleQuickAdd } = useQuickAdd();
+  const { quickAddState, handleQuickAdd } = useQuickAdd();
   const parentRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchFocused, setSearchFocused] = useState(false);
 
-  const trackedIds: Record<string, string | null> = { ...rootTrackedIds, ...localOverrides };
+  const trackedIds: Record<string, string | null> = rootTrackedIds;
 
   const handleTypeChange = useCallback(
     (type: FilterType) => {
