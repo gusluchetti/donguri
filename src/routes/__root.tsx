@@ -531,7 +531,7 @@ function SoundToggle() {
       onClick={() => {
         const next = SoundEngine.toggle();
         setOn(next);
-        if (next) SoundEngine.click();
+        if (next) SoundEngine.toggleOn();
       }}
       className="bg-transparent border border-dg-border rounded-[3px] py-1.5 px-2.5 sm:py-1 sm:px-2 text-xs cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center active:scale-[0.97] active:opacity-80"
       style={{ color: on ? "var(--color-dg-text-secondary)" : "var(--color-dg-text-tertiary)" }}

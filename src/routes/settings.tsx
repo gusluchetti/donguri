@@ -56,7 +56,7 @@ function SoundSection() {
         onClick={() => {
           const next = SoundEngine.toggle();
           setOn(next);
-          if (next) SoundEngine.click();
+          if (next) SoundEngine.toggleOn();
         }}
         className="flex items-center gap-3 bg-transparent border border-dg-border-subtle rounded p-3 cursor-pointer transition-all duration-150 hover:border-dg-border-strong w-full text-left active:scale-[0.99] active:opacity-80"
       >
