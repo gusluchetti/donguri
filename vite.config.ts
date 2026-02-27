@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
@@ -31,5 +32,28 @@ export default defineConfig({
       },
     },
   },
-  plugins: [tailwindcss(), tsconfigPaths(), tanstackStart(), react()],
+  plugins: [
+    tailwindcss(),
+    tsconfigPaths(),
+    tanstackStart({
+      serverFns: {
+        generateFunctionId: ({ filename, functionName }) => {
+          if (process.env.NODE_ENV === "development") {
+            const short = filename
+              .replace(/^.*\/app\//, "")
+              .replace(/\.(ts|tsx)$/, "")
+              .replaceAll("/", ".");
+            const hash = crypto
+              .createHash("sha1")
+              .update(`${filename}--${functionName}`)
+              .digest("hex")
+              .slice(0, 8);
+            return `${short}--${functionName}_${hash}`;
+          }
+          return undefined;
+        },
+      },
+    }),
+    react(),
+  ],
 });
