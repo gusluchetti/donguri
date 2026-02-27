@@ -2,7 +2,6 @@ import {
   Bookmark,
   MagnifyingGlass,
   Moon,
-  SignIn,
   SpeakerHigh,
   SpeakerNone,
   Sun,
@@ -23,6 +22,7 @@ import {
 import { clear } from "idb-keyval";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import "../app.css";
+import { NavProgress } from "~/components/NavProgress";
 import { getAuthState, logout } from "~/features/auth/auth.functions";
 import { getCatalogFingerprint } from "~/features/catalog/catalog.functions";
 import { trackedIdsOptions } from "~/features/catalog/catalog.queries";
@@ -36,7 +36,7 @@ import { checkCatalogFreshness } from "~/lib/query";
 import { getThemeCookie, ThemeProvider, useTheme } from "~/lib/theme";
 
 // Sets data-theme before first paint. Also syncs the cookie for SSR on next visit.
-const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('dg-theme');if(!t){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.setAttribute('data-theme',t);document.cookie='dg-theme='+t+';path=/;max-age=34560000;samesite=lax'}catch(e){document.documentElement.setAttribute('data-theme','dark')}})()`;
+const THEME_INIT_SCRIPT = `(function(){try{var p=localStorage.getItem('dg-theme-pref')||'system';var t=p==='system'?(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):p;document.documentElement.setAttribute('data-theme',t);document.cookie='dg-theme='+t+';path=/;max-age=34560000;samesite=lax'}catch(e){document.documentElement.setAttribute('data-theme','dark')}})()`;
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
@@ -164,9 +164,10 @@ function RootComponent() {
       <ThemeProvider initialTheme={theme}>
         <HotkeysProvider>
           <GlobalShortcuts showHelp={showHelp} setShowHelp={setShowHelp} />
+          <NavProgress />
           <div className="h-dvh overflow-hidden flex flex-col relative z-[2]">
             <nav
-              className="font-body shrink-0 sticky top-0 z-30"
+              className={`font-body shrink-0 sticky top-0 z-30 ${auth ? "hidden sm:block" : ""}`}
               style={{
                 background: "var(--nav-bg)",
                 backdropFilter: "blur(16px) saturate(1.3)",
@@ -204,21 +205,19 @@ function RootComponent() {
                     <>
                       <Link
                         to="/profile"
-                        className="text-xs text-dg-accent hidden sm:inline mr-2 no-underline hover:opacity-70 transition-opacity"
+                        className="text-xs text-dg-accent mr-2 no-underline hover:opacity-70 transition-opacity"
                         onClick={() => SoundEngine.click()}
                       >
                         {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
                       </Link>
                       <div
-                        className="mx-1 hidden sm:block"
+                        className="mx-1"
                         style={{
                           width: 1,
                           height: 16,
                           background: "var(--color-dg-border)",
                         }}
                       />
-                      <SoundToggle />
-                      <ThemeToggle />
                       <button
                         type="button"
                         className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-tertiary font-body cursor-pointer transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text-secondary"
@@ -431,7 +430,7 @@ function NavButton({
     <Link
       to={to}
       activeOptions={{ exact }}
-      className="no-underline font-body text-xs tracking-[0.06em] uppercase rounded-[3px] py-[5px] px-2 sm:px-3 transition-all duration-150 border relative"
+      className="no-underline font-body text-xs tracking-[0.06em] uppercase rounded-[3px] py-[5px] px-2 sm:px-3 transition-all duration-150 border relative active:scale-[0.97] active:opacity-70"
       activeProps={{
         className: "bg-dg-accent-soft border-dg-accent text-dg-accent font-semibold",
       }}
@@ -452,7 +451,7 @@ function ThemeToggle() {
     <button
       type="button"
       onClick={toggleTheme}
-      className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-secondary cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center"
+      className="bg-transparent border border-dg-border rounded-[3px] py-1.5 px-2.5 sm:py-1 sm:px-2 text-xs text-dg-text-secondary cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center"
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
       title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
     >
@@ -464,9 +463,11 @@ function ThemeToggle() {
 function BottomNav() {
   const { auth } = Route.useLoaderData();
   const base =
-    "flex-1 flex flex-col items-center justify-center gap-0.5 no-underline py-2 transition-colors duration-150";
+    "flex-1 flex flex-col items-center justify-center gap-0.5 no-underline py-2 transition-colors duration-150 active:scale-95 active:opacity-60";
   const active = { className: `${base} text-dg-accent` };
   const inactive = { className: `${base} text-dg-text-tertiary` };
+
+  if (!auth) return null;
 
   return (
     <nav
@@ -479,34 +480,6 @@ function BottomNav() {
       }}
     >
       <div className="flex items-stretch h-14">
-        {auth ? (
-          <Link
-            to="/"
-            activeOptions={{ exact: true }}
-            activeProps={active}
-            inactiveProps={inactive}
-          >
-            <Bookmark size={22} weight="bold" />
-            <span className="text-[0.6rem] uppercase tracking-wider">watchlist</span>
-          </Link>
-        ) : (
-          <Link to="/login" className={`${base} text-dg-accent`}>
-            <SignIn size={22} weight="bold" />
-            <span className="text-[0.6rem] uppercase tracking-wider">sign in</span>
-          </Link>
-        )}
-
-        <Link
-          to="/"
-          activeOptions={{ exact: true }}
-          activeProps={active}
-          inactiveProps={inactive}
-          onClick={() => SoundEngine.click()}
-        >
-          <AcornIcon size={26} />
-          <span className="text-[0.6rem] uppercase tracking-wider">home</span>
-        </Link>
-
         <Link
           to="/catalog"
           activeOptions={{ exact: false }}
@@ -518,18 +491,21 @@ function BottomNav() {
           <span className="text-[0.6rem] uppercase tracking-wider">catalog</span>
         </Link>
 
-        {auth && (
-          <Link
-            to="/profile"
-            activeOptions={{ exact: true }}
-            activeProps={active}
-            inactiveProps={inactive}
-            onClick={() => SoundEngine.click()}
-          >
-            <UserCircle size={22} weight="bold" />
-            <span className="text-[0.6rem] uppercase tracking-wider">profile</span>
-          </Link>
-        )}
+        <Link to="/" activeOptions={{ exact: true }} activeProps={active} inactiveProps={inactive}>
+          <Bookmark size={22} weight="bold" />
+          <span className="text-[0.6rem] uppercase tracking-wider">watchlist</span>
+        </Link>
+
+        <Link
+          to="/profile"
+          activeOptions={{ exact: true }}
+          activeProps={active}
+          inactiveProps={inactive}
+          onClick={() => SoundEngine.click()}
+        >
+          <UserCircle size={22} weight="bold" />
+          <span className="text-[0.6rem] uppercase tracking-wider">profile</span>
+        </Link>
       </div>
     </nav>
   );
@@ -550,7 +526,7 @@ function SoundToggle() {
         setOn(next);
         if (next) SoundEngine.click();
       }}
-      className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center"
+      className="bg-transparent border border-dg-border rounded-[3px] py-1.5 px-2.5 sm:py-1 sm:px-2 text-xs cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center"
       style={{ color: on ? "var(--color-dg-text-secondary)" : "var(--color-dg-text-tertiary)" }}
       aria-label={on ? "Mute sounds" : "Unmute sounds"}
       title={on ? "Mute sounds" : "Unmute sounds"}

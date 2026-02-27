@@ -1,0 +1,2 @@
+## Validation
+bun run validate

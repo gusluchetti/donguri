@@ -1,6 +1,9 @@
+import { ClockCounterClockwise, Gear } from "@phosphor-icons/react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { getAuthState } from "~/features/auth/auth.functions";
+import { clear } from "idb-keyval";
+import { useCallback } from "react";
+import { getAuthState, logout } from "~/features/auth/auth.functions";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
@@ -43,12 +46,17 @@ export const Route = createFileRoute("/profile")({
 function ProfilePage() {
   const { data } = useSuspenseQuery(profileDataOptions());
   const { stats, recent, user, daysActive } = data;
+  const handleLogout = useCallback(async () => {
+    await logout();
+    clear();
+    window.location.href = "/";
+  }, []);
 
   if (stats.totalEntries === 0) {
     return (
       <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
         <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
-          <ProfileHeader user={user} daysActive={daysActive} />
+          <ProfileHeader user={user} daysActive={daysActive} onLogout={handleLogout} />
           <div className="flex flex-col items-center justify-center py-g8 gap-g2">
             <p className="font-display text-[1.3rem] text-dg-text-secondary">
               nothing tracked yet.
@@ -69,7 +77,7 @@ function ProfilePage() {
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4 flex flex-col gap-g3">
-        <ProfileHeader user={user} daysActive={daysActive} />
+        <ProfileHeader user={user} daysActive={daysActive} onLogout={handleLogout} />
         <StatsGrid stats={stats} daysActive={daysActive} />
         <TerritoryBar typeCounts={stats.typeCounts} totalEntries={stats.totalEntries} />
         <StatusBreakdown statusCounts={stats.statusCounts} />
@@ -81,7 +89,15 @@ function ProfilePage() {
 
 // ─── Profile Header ────────────────────────────────────────────────────────
 
-function ProfileHeader({ user, daysActive }: { user: ProfileData["user"]; daysActive: number }) {
+function ProfileHeader({
+  user,
+  daysActive,
+  onLogout,
+}: {
+  user: ProfileData["user"];
+  daysActive: number;
+  onLogout: () => void;
+}) {
   const authLabel =
     user.authMethod === "atproto" ? "bsky" : user.authMethod === "google" ? "google" : "github";
 
@@ -93,28 +109,46 @@ function ProfileHeader({ user, daysActive }: { user: ProfileData["user"]; daysAc
     : null;
 
   return (
-    <div className="border border-dg-border-subtle rounded bg-dg-surface p-4 sm:p-5 flex items-center gap-g2">
-      <Avatar handle={user.handle} avatarUrl={user.avatarUrl} authMethod={user.authMethod} />
-      <div className="flex flex-col gap-0.5 min-w-0">
-        <span className="font-display text-[1.5rem] leading-tight truncate">{user.handle}</span>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span
-            className="inline-block font-body text-[8px] font-bold tracking-[0.12em] uppercase rounded-[1px] whitespace-nowrap"
-            style={{
-              color: "var(--color-dg-text-tertiary)",
-              border: "1px solid var(--color-dg-border)",
-              padding: "0px 4px",
-              background: "var(--stamp-bg)",
-            }}
-          >
-            {authLabel}
-          </span>
-          {memberSince && (
-            <span className="font-mono text-[0.7rem] text-dg-text-tertiary tabular-nums">
-              since {memberSince} · {daysActive}d
+    <div className="border border-dg-border-subtle rounded bg-dg-surface p-4 sm:p-5 flex flex-col gap-3">
+      <div className="flex items-center gap-g2">
+        <Avatar handle={user.handle} avatarUrl={user.avatarUrl} authMethod={user.authMethod} />
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <span className="font-display text-[1.5rem] leading-tight truncate">{user.handle}</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className="inline-block font-body text-[8px] font-bold tracking-[0.12em] uppercase rounded-[1px] whitespace-nowrap"
+              style={{
+                color: "var(--color-dg-text-tertiary)",
+                border: "1px solid var(--color-dg-border)",
+                padding: "0px 4px",
+                background: "var(--stamp-bg)",
+              }}
+            >
+              {authLabel}
             </span>
-          )}
+            {memberSince && (
+              <span className="font-mono text-[0.7rem] text-dg-text-tertiary tabular-nums">
+                since {memberSince} · {daysActive}d
+              </span>
+            )}
+          </div>
         </div>
+        <Link
+          to="/settings"
+          className="ml-auto self-start text-dg-text-tertiary hover:text-dg-text-secondary transition-colors no-underline"
+          onClick={() => SoundEngine.navForward()}
+        >
+          <Gear size={20} weight="bold" />
+        </Link>
+      </div>
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={onLogout}
+          className="bg-transparent border-none font-body text-[0.7rem] text-dg-accent/50 hover:text-dg-accent/80 cursor-pointer p-0 transition-colors"
+        >
+          logout
+        </button>
       </div>
     </div>
   );
@@ -293,7 +327,7 @@ function RecentTrail({ entries }: { entries: ProfileData["recent"] }) {
         label="recent trail"
         color="var(--color-dg-accent)"
         count={entries.length}
-        icon="\u25CB"
+        icon={<ClockCounterClockwise size={12} weight="bold" />}
       />
       <div className="flex flex-col">
         {entries.map((entry, i) => {

@@ -5,9 +5,12 @@
  */
 
 const STORAGE_KEY = "dg-sound";
+const VOLUME_KEY = "dg-sound-volume";
 
 let ctx: AudioContext | null = null;
+let master: GainNode | null = null;
 let enabled: boolean | null = null; // null = not yet read from storage
+let volume: number | null = null;
 
 function isEnabled(): boolean {
   if (enabled === null) {
@@ -23,6 +26,36 @@ function getCtx(): AudioContext {
   return ctx;
 }
 
+function getMaster(): GainNode {
+  const c = getCtx();
+  if (!master) {
+    master = c.createGain();
+    master.gain.value = getVolume();
+    master.connect(c.destination);
+  }
+  return master;
+}
+
+function getVolume(): number {
+  if (volume === null) {
+    if (typeof window === "undefined") return 1;
+    const stored = localStorage.getItem(VOLUME_KEY);
+    volume = stored != null ? Number.parseFloat(stored) : 1;
+    if (Number.isNaN(volume) || volume < 0 || volume > 1) volume = 1;
+  }
+  return volume;
+}
+
+function setVolume(v: number): void {
+  volume = Math.max(0, Math.min(1, v));
+  if (typeof window !== "undefined") {
+    localStorage.setItem(VOLUME_KEY, String(volume));
+  }
+  if (master) {
+    master.gain.value = volume;
+  }
+}
+
 /** Toggle sound on/off. Returns new state. */
 function toggle(): boolean {
   enabled = !isEnabled();
@@ -36,6 +69,7 @@ function toggle(): boolean {
 function tick(): void {
   if (!isEnabled()) return;
   const c = getCtx();
+  const m = getMaster();
   const t = c.currentTime;
   const o = c.createOscillator();
   const g = c.createGain();
@@ -44,7 +78,7 @@ function tick(): void {
   g.gain.setValueAtTime(0.02, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.025);
   o.connect(g);
-  g.connect(c.destination);
+  g.connect(m);
   o.start(t);
   o.stop(t + 0.015);
 }
@@ -53,6 +87,7 @@ function tick(): void {
 function click(): void {
   if (!isEnabled()) return;
   const c = getCtx();
+  const m = getMaster();
   const t = c.currentTime;
   const o = c.createOscillator();
   const g = c.createGain();
@@ -62,7 +97,7 @@ function click(): void {
   g.gain.setValueAtTime(0.07, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
   o.connect(g);
-  g.connect(c.destination);
+  g.connect(m);
   o.start(t);
   o.stop(t + 0.06);
 }
@@ -71,6 +106,7 @@ function click(): void {
 function navForward(): void {
   if (!isEnabled()) return;
   const c = getCtx();
+  const m = getMaster();
   const t = c.currentTime;
   const o = c.createOscillator();
   const g = c.createGain();
@@ -80,7 +116,7 @@ function navForward(): void {
   g.gain.setValueAtTime(0.06, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
   o.connect(g);
-  g.connect(c.destination);
+  g.connect(m);
   o.start(t);
   o.stop(t + 0.15);
 }
@@ -89,6 +125,7 @@ function navForward(): void {
 function navBack(): void {
   if (!isEnabled()) return;
   const c = getCtx();
+  const m = getMaster();
   const t = c.currentTime;
   const o = c.createOscillator();
   const g = c.createGain();
@@ -98,7 +135,7 @@ function navBack(): void {
   g.gain.setValueAtTime(0.06, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
   o.connect(g);
-  g.connect(c.destination);
+  g.connect(m);
   o.start(t);
   o.stop(t + 0.15);
 }
@@ -107,6 +144,7 @@ function navBack(): void {
 function stamp(): void {
   if (!isEnabled()) return;
   const c = getCtx();
+  const m = getMaster();
   const t = c.currentTime;
   // Low thud
   const o1 = c.createOscillator();
@@ -117,7 +155,7 @@ function stamp(): void {
   g1.gain.setValueAtTime(0.15, t);
   g1.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
   o1.connect(g1);
-  g1.connect(c.destination);
+  g1.connect(m);
   o1.start(t);
   o1.stop(t + 0.16);
   // High crack
@@ -128,7 +166,7 @@ function stamp(): void {
   g2.gain.setValueAtTime(0.05, t);
   g2.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
   o2.connect(g2);
-  g2.connect(c.destination);
+  g2.connect(m);
   o2.start(t);
   o2.stop(t + 0.04);
 }
@@ -137,6 +175,7 @@ function stamp(): void {
 function sealUnlock(): void {
   if (!isEnabled()) return;
   const c = getCtx();
+  const m = getMaster();
   const t = c.currentTime;
   for (const [i, freq] of [310, 392, 466].entries()) {
     const o = c.createOscillator();
@@ -147,7 +186,7 @@ function sealUnlock(): void {
     g.gain.linearRampToValueAtTime(0.06, t + i * 0.08);
     g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.08 + 0.25);
     o.connect(g);
-    g.connect(c.destination);
+    g.connect(m);
     o.start(t + i * 0.08);
     o.stop(t + i * 0.08 + 0.3);
   }
@@ -157,6 +196,7 @@ function sealUnlock(): void {
 function dice(): void {
   if (!isEnabled()) return;
   const c = getCtx();
+  const m = getMaster();
   const t = c.currentTime;
   const o = c.createOscillator();
   const g = c.createGain();
@@ -169,7 +209,7 @@ function dice(): void {
   g.gain.setValueAtTime(0.06, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
   o.connect(g);
-  g.connect(c.destination);
+  g.connect(m);
   o.start(t);
   o.stop(t + 0.2);
 }
@@ -178,6 +218,7 @@ function dice(): void {
 function search(): void {
   if (!isEnabled()) return;
   const c = getCtx();
+  const m = getMaster();
   const t = c.currentTime;
   const o = c.createOscillator();
   const g = c.createGain();
@@ -187,7 +228,7 @@ function search(): void {
   g.gain.setValueAtTime(0.025, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
   o.connect(g);
-  g.connect(c.destination);
+  g.connect(m);
   o.start(t);
   o.stop(t + 0.04);
 }
@@ -195,6 +236,8 @@ function search(): void {
 export const SoundEngine = {
   toggle,
   isEnabled,
+  getVolume,
+  setVolume,
   tick,
   click,
   navForward,

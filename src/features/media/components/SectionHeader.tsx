@@ -12,7 +12,10 @@ export function SectionHeader({
   return (
     <div className="flex items-center gap-g1 py-g2 pb-g1">
       <div className="w-[2.5px] h-[18px] rounded-sm shrink-0" style={{ background: color }} />
-      <span className="text-xs font-bold tracking-[0.1em] uppercase inline-flex items-center gap-1" style={{ color }}>
+      <span
+        className="text-xs font-bold tracking-[0.1em] uppercase inline-flex items-center gap-1"
+        style={{ color }}
+      >
         {icon} {label}
       </span>
       <span className="text-[9px] text-dg-text-tertiary tabular-nums">{count}</span>

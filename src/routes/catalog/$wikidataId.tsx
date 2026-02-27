@@ -44,7 +44,9 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
   loader: async ({ params, context }): Promise<LoaderData> => {
     // Non-blocking: warm tracking cache for logged-in users only
     context.queryClient.ensureQueryData(trackedIdsOptions()).then(
-      () => { context.queryClient.prefetchQuery(catalogEntryOptions(params.wikidataId)); },
+      () => {
+        context.queryClient.prefetchQuery(catalogEntryOptions(params.wikidataId));
+      },
       () => {},
     );
 
