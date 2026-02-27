@@ -19,12 +19,12 @@ import { catalogInfiniteOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
+import { StatusIcon } from "~/features/catalog/components/StatusIcon";
 import { getRandomMediaId } from "~/features/media/media.functions";
 import {
   displayMediaType,
   STAMP_COLORS,
   STATUS_BUTTON_COLORS,
-  STATUS_ICONS,
   type StatusValue,
 } from "~/features/media/media-types";
 import { ogTags, pageTitle } from "~/lib/og";
@@ -626,7 +626,7 @@ const MediaRow = memo(function MediaRow({
               <span
                 className={`text-[0.58rem] font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none ${STATUS_BUTTON_COLORS[trackedStatus as StatusValue] ?? ""}`}
               >
-                {STATUS_ICONS[trackedStatus as StatusValue]}
+                <StatusIcon status={trackedStatus as StatusValue} size={9} />
               </span>
             )}
           </div>

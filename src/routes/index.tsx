@@ -5,6 +5,7 @@ import { trackedIdsOptions, watchlistOptions } from "~/features/catalog/catalog.
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
+import { StatusIcon } from "~/features/catalog/components/StatusIcon";
 import { AcornIcon } from "~/features/media/components/AcornIcon";
 import { InfiniteCarousel } from "~/features/media/components/InfiniteCarousel";
 import { SectionHeader } from "~/features/media/components/SectionHeader";
@@ -13,7 +14,6 @@ import {
   displayMediaType,
   ratingColor,
   replayCountLabel,
-  STATUS_ICONS,
   STATUS_LABELS_GENERIC,
   STATUS_ORDER,
   type StatusValue,
@@ -387,7 +387,7 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
         label={STATUS_LABELS_GENERIC[s] ?? status}
         color={STATUS_SECTION_COLORS[s] ?? "var(--color-dg-text-secondary)"}
         count={items.length}
-        icon={STATUS_ICONS[s] ?? "\u00b7"}
+        icon={<StatusIcon status={s} size={12} />}
       />
       {isGrid ? <WatchlistGrid items={items} /> : <WatchlistList items={items} />}
     </div>

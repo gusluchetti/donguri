@@ -7,7 +7,7 @@ export function SectionHeader({
   label: string;
   color: string;
   count: number | string;
-  icon: string;
+  icon: React.ReactNode;
 }) {
   return (
     <div className="flex items-center gap-g1 py-g2 pb-g1">
