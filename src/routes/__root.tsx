@@ -137,6 +137,21 @@ function RootComponent() {
     document.addEventListener("touchstart", () => {}, { passive: true });
   }, []);
 
+  // Warm up audio engine on first user gesture (pre-renders all sound buffers)
+  useEffect(() => {
+    const warmup = () => {
+      SoundEngine.init();
+      document.removeEventListener("pointerdown", warmup, true);
+      document.removeEventListener("keydown", warmup, true);
+    };
+    document.addEventListener("pointerdown", warmup, { capture: true });
+    document.addEventListener("keydown", warmup, { capture: true });
+    return () => {
+      document.removeEventListener("pointerdown", warmup, true);
+      document.removeEventListener("keydown", warmup, true);
+    };
+  }, []);
+
   // Global error handler: stale deploys + expired AT Protocol sessions
   useEffect(() => {
     const onError = (e: PromiseRejectionEvent) => {
