@@ -68,7 +68,7 @@ async function exchangeGoogleCode(code: string, redirectUri: string): Promise<Us
 
   return {
     providerId: payload.sub,
-    name: payload.name || payload.email?.split("@")[0] || "User",
+    name: payload.email?.split("@")[0] || "User",
     email: payload.email || null,
     avatarUrl: payload.picture || null,
   };
@@ -148,7 +148,7 @@ async function exchangeGitHubCode(code: string, redirectUri: string): Promise<Us
 
   return {
     providerId: String(user.id),
-    name: user.name || user.login,
+    name: user.login,
     email,
     avatarUrl: user.avatar_url,
   };

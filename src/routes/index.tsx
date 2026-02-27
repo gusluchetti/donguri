@@ -5,6 +5,7 @@ import { trackedIdsOptions, watchlistOptions } from "~/features/catalog/catalog.
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
+import { StatusIcon } from "~/features/catalog/components/StatusIcon";
 import { AcornIcon } from "~/features/media/components/AcornIcon";
 import { InfiniteCarousel } from "~/features/media/components/InfiniteCarousel";
 import { SectionHeader } from "~/features/media/components/SectionHeader";
@@ -13,7 +14,6 @@ import {
   displayMediaType,
   ratingColor,
   replayCountLabel,
-  STATUS_ICONS,
   STATUS_LABELS_GENERIC,
   STATUS_ORDER,
   type StatusValue,
@@ -70,14 +70,16 @@ function episodePosition(item: CatalogEntryRow): string | null {
 
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
-    const isLoggedIn = !!context.queryClient.getQueryData(trackedIdsOptions().queryKey);
     await context.queryClient.prefetchQuery(homepageSampleOptions());
-    const entries = isLoggedIn
-      ? await context.queryClient
-          .fetchQuery(watchlistOptions())
-          .catch(() => [] as CatalogEntryRow[])
-      : [];
-    return { entries };
+    try {
+      await context.queryClient.ensureQueryData(trackedIdsOptions());
+      const entries = await context.queryClient
+        .fetchQuery(watchlistOptions())
+        .catch(() => [] as CatalogEntryRow[]);
+      return { entries };
+    } catch {
+      return { entries: [] as CatalogEntryRow[] };
+    }
   },
   staleTime: 5 * 60 * 1000,
   head: () => ({
@@ -203,14 +205,14 @@ function LoggedOutView() {
           <Link
             to="/login"
             onClick={() => SoundEngine.click()}
-            className="bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110"
+            className="bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110 active:scale-[0.97] active:opacity-80"
           >
             Get started
           </Link>
           <Link
             to="/catalog"
             onClick={() => SoundEngine.click()}
-            className="border border-dg-border text-dg-text-secondary font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text"
+            className="border border-dg-border text-dg-text-secondary font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text active:scale-[0.97] active:opacity-80"
           >
             Browse catalog →
           </Link>
@@ -228,7 +230,7 @@ function LoggedOutView() {
               key={t.type}
               to="/catalog"
               search={{ type: t.type }}
-              className="border border-dg-border-subtle rounded bg-dg-surface p-4 text-center no-underline hover:border-dg-border-strong transition-colors"
+              className="border border-dg-border-subtle rounded bg-dg-surface p-4 text-center no-underline hover:border-dg-border-strong transition-all duration-150 active:scale-[0.97] active:opacity-80"
               onClick={() => SoundEngine.click()}
             >
               <div className="text-[0.85rem] font-medium text-dg-text mb-1">{t.label}</div>
@@ -309,7 +311,7 @@ function LoggedOutView() {
         <Link
           to="/login"
           onClick={() => SoundEngine.click()}
-          className="inline-block bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110"
+          className="inline-block bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110 active:scale-[0.97] active:opacity-80"
         >
           Get started
         </Link>
@@ -387,7 +389,7 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
         label={STATUS_LABELS_GENERIC[s] ?? status}
         color={STATUS_SECTION_COLORS[s] ?? "var(--color-dg-text-secondary)"}
         count={items.length}
-        icon={STATUS_ICONS[s] ?? "\u00b7"}
+        icon={<StatusIcon status={s} size={12} />}
       />
       {isGrid ? <WatchlistGrid items={items} /> : <WatchlistList items={items} />}
     </div>
