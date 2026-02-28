@@ -145,7 +145,7 @@ function TypeFilterBar({
             type="button"
             key={t.label}
             onClick={() => onTypeChange(t.value)}
-            className="py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 font-body text-xs cursor-pointer flex items-center gap-1.5 flex-1 justify-center transition-all duration-150 relative active:scale-[0.97] active:opacity-80"
+            className="py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 font-body text-xs cursor-pointer flex items-center gap-1.5 flex-1 justify-center transition-all duration-50 relative active:scale-[0.97] active:opacity-80"
             style={{
               background: isActive ? "var(--color-dg-elevated)" : "transparent",
               color: isActive ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)",
@@ -193,7 +193,6 @@ const SearchBar = forwardRef<
     navigate({
       search: (prev) => ({ ...prev, q: input || undefined }),
       replace: true,
-      viewTransition: false,
     });
   };
 
@@ -220,7 +219,7 @@ const SearchBar = forwardRef<
     <div className="relative flex gap-1.5">
       <div className="relative flex-1">
         <div
-          className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors duration-[120ms]"
+          className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors duration-50"
           style={{ color: focused ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)" }}
         >
           <MagnifyingGlass size={14} weight="bold" />
@@ -240,7 +239,7 @@ const SearchBar = forwardRef<
             setFocused(false);
             onFocusChange?.(false);
           }}
-          className="w-full py-2.5 pl-9 pr-8 bg-dg-surface border rounded text-dg-text font-body text-base sm:text-[0.85rem] outline-none box-border transition-all duration-[120ms]"
+          className="w-full py-2.5 pl-9 pr-8 bg-dg-surface border rounded text-dg-text font-body text-base sm:text-[0.85rem] outline-none box-border transition-all duration-50"
           style={{
             borderColor: focused ? "var(--color-dg-accent)" : "var(--color-dg-border)",
             boxShadow: focused ? "0 0 0 2px var(--color-dg-accent-glow)" : "none",
@@ -260,7 +259,7 @@ const SearchBar = forwardRef<
         type="button"
         title="Random title"
         onClick={() => onRandom?.()}
-        className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms] active:scale-[0.97] active:opacity-80"
+        className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-50 active:scale-[0.97] active:opacity-80"
       >
         <Shuffle size={17} weight="bold" />
       </button>
@@ -300,7 +299,7 @@ function CatalogPage() {
   const handleTypeChange = useCallback(
     (type: FilterType) => {
       SoundEngine.click();
-      navigate({ search: (prev) => ({ ...prev, type }), viewTransition: false });
+      navigate({ search: (prev) => ({ ...prev, type }) });
     },
     [navigate],
   );
@@ -422,7 +421,7 @@ function CatalogPage() {
   }, [virtualItems, allItems.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <div className="dg-page-enter text-dg-text flex-1 font-body flex flex-col overflow-hidden">
+    <div className="text-dg-text flex-1 font-body flex flex-col overflow-hidden">
       <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 pt-3 pb-2 flex flex-col gap-2">
         <SearchBar
           ref={searchRef}
@@ -437,7 +436,7 @@ function CatalogPage() {
         <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 pb-2">
           <Link
             to="/"
-            className="block border border-dg-accent/20 bg-dg-accent-soft rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-150"
+            className="block border border-dg-accent/20 bg-dg-accent-soft rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-50"
           >
             You're seeing a limited catalog. <span className="text-dg-accent">Sign in</span> for the
             full version and to start tracking your media.
@@ -448,7 +447,7 @@ function CatalogPage() {
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 pb-4 flex-1 flex flex-col min-h-0">
           <div
-            className="flex-1 min-h-0 border border-dg-border rounded-md overflow-hidden flex flex-col transition-opacity duration-150 bg-dg-surface"
+            className="flex-1 min-h-0 border border-dg-border rounded-md overflow-hidden flex flex-col transition-opacity duration-50 bg-dg-surface"
             style={{ opacity: isPlaceholderData ? 0.5 : 1 }}
           >
             <div ref={parentRef} className="flex-1 min-h-0 overflow-auto">
@@ -491,11 +490,11 @@ function CatalogPage() {
                           STAMP_COLORS[displayMediaType(item.mediaType, item.animationOrigin)] ??
                           "var(--color-dg-accent)",
                         animationName: isNewData ? "fadeIn" : "none",
-                        animationDuration: "280ms",
+                        animationDuration: "50ms",
                         animationTimingFunction: "var(--ease-smooth)",
                         animationFillMode: "both",
                         animationDelay:
-                          isNewData && virtualRow.index < 20 ? `${virtualRow.index * 25}ms` : "0ms",
+                          isNewData && virtualRow.index < 20 ? `${virtualRow.index * 8}ms` : "0ms",
                       }}
                       onClick={() => SoundEngine.navForward()}
                       onMouseEnter={() => SoundEngine.tick()}
@@ -592,12 +591,12 @@ const MediaRow = memo(function MediaRow({
       onTouchEnd={handleTouchEnd}
     >
       <div
-        className="absolute left-0 top-0 bottom-0 w-[2.5px] opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+        className="absolute left-0 top-0 bottom-0 w-[2.5px] opacity-0 group-hover:opacity-100 transition-opacity duration-50"
         style={{ backgroundColor: "var(--type-color)" }}
       />
 
       <div
-        className="grid items-center flex-1 min-w-0 gap-2 sm:gap-g2 py-1.5 px-3 sm:px-g3 group-hover:bg-dg-row-hover transition-colors duration-100"
+        className="grid items-center flex-1 min-w-0 gap-2 sm:gap-g2 py-1.5 px-3 sm:px-g3 group-hover:bg-dg-row-hover transition-colors duration-50"
         style={{ gridTemplateColumns: "36px auto 1fr auto" }}
       >
         <CoverThumb
@@ -646,7 +645,7 @@ const MediaRow = memo(function MediaRow({
 
       {showAdd && (
         <div
-          className={`shrink-0 overflow-hidden transition-[width] duration-150 h-full flex items-center ${panelOpen ? "w-10" : "w-0 group-hover:w-10"}`}
+          className={`shrink-0 overflow-hidden transition-[width] duration-50 h-full flex items-center ${panelOpen ? "w-10" : "w-0 group-hover:w-10"}`}
         >
           <div
             className="w-10 h-full flex items-center justify-center"
@@ -658,7 +657,7 @@ const MediaRow = memo(function MediaRow({
             <button
               type="button"
               onClick={handleQuickAddClick}
-              className="w-full h-full flex items-center justify-center bg-transparent border-none cursor-pointer transition-colors duration-100"
+              className="w-full h-full flex items-center justify-center bg-transparent border-none cursor-pointer transition-colors duration-50"
               style={{
                 color:
                   addState === "done" ? "var(--color-dg-stamped)" : "var(--color-dg-text-tertiary)",

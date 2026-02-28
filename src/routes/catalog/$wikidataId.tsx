@@ -1,7 +1,7 @@
 import { Shuffle } from "@phosphor-icons/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getMediaStub } from "~/features/catalog/catalog.functions";
 import { catalogEntryOptions, trackedIdsOptions } from "~/features/catalog/catalog.queries";
@@ -17,6 +17,7 @@ import {
   mediaTypeLabel,
   type WatchedEpisodes,
 } from "~/features/media/media-types";
+import { prefetchImage } from "~/lib/image-prefetch";
 import { ogTags, pageTitle } from "~/lib/og";
 import { EpisodeTracker } from "./-episodes";
 import { TrackingPanel } from "./-tracking";
@@ -54,6 +55,10 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
 
     // Blocking: media data is the page content
     const media = await context.queryClient.ensureQueryData(mediaDetailOptions(params.wikidataId));
+
+    if (media?.posterUrl) {
+      prefetchImage(media.posterUrl);
+    }
 
     if (media) {
       return { kind: "full", media };
@@ -116,10 +121,11 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
   component: MediaDetailRouter,
 });
 
-function triggerNavBack() {
-  document.documentElement.dataset.navBack = "1";
-  window.history.back();
-  setTimeout(() => delete document.documentElement.dataset.navBack, 500);
+function useNavBack() {
+  return useCallback(() => {
+    SoundEngine.navBack();
+    window.history.back();
+  }, []);
 }
 
 function useShuffleNav() {
@@ -140,18 +146,16 @@ function MediaDetailRouter() {
 }
 
 function MediaDetailSkeleton() {
+  const handleBack = useNavBack();
   const handleShuffle = useShuffleNav();
   return (
-    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
+    <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <div className="flex items-center gap-1.5 mb-g2">
           <button
             type="button"
-            onClick={() => {
-              SoundEngine.navBack();
-              triggerNavBack();
-            }}
-            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm transition-all duration-150 active:scale-[0.97] active:opacity-80"
+            onClick={handleBack}
+            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm transition-all duration-50 active:scale-[0.97] active:opacity-80"
           >
             &larr; back
           </button>
@@ -159,7 +163,7 @@ function MediaDetailSkeleton() {
             type="button"
             title="Random title"
             onClick={handleShuffle}
-            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms] active:scale-[0.97] active:opacity-80"
+            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-50 active:scale-[0.97] active:opacity-80"
           >
             <Shuffle size={17} weight="bold" />
           </button>
@@ -197,19 +201,17 @@ function MediaStubPage({
   };
 }) {
   const { auth } = rootRoute.useRouteContext();
+  const handleBack = useNavBack();
   const handleShuffle = useShuffleNav();
 
   return (
-    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
+    <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <div className="flex items-center gap-1.5 mb-g2">
           <button
             type="button"
-            onClick={() => {
-              SoundEngine.navBack();
-              triggerNavBack();
-            }}
-            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150 active:scale-[0.97] active:opacity-80"
+            onClick={handleBack}
+            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-50 active:scale-[0.97] active:opacity-80"
           >
             &larr; back
           </button>
@@ -217,7 +219,7 @@ function MediaStubPage({
             type="button"
             title="Random title"
             onClick={handleShuffle}
-            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms] active:scale-[0.97] active:opacity-80"
+            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-50 active:scale-[0.97] active:opacity-80"
           >
             <Shuffle size={17} weight="bold" />
           </button>
@@ -254,7 +256,7 @@ function MediaStubPage({
               href={`https://www.wikidata.org/wiki/${stub.wikidataId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-150"
+              className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-50"
             >
               Wikidata {"\u2197"}
             </a>
@@ -269,13 +271,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
   const { data } = useSuspenseQuery(mediaDetailOptions(wikidataId));
   if (!data) throw new Error("Media not found");
   const { auth } = rootRoute.useRouteContext();
-  const router = useRouter();
-  const handleBack = useCallback(() => {
-    SoundEngine.navBack();
-    document.documentElement.dataset.navBack = "1";
-    router.history.back();
-    setTimeout(() => delete document.documentElement.dataset.navBack, 500);
-  }, [router]);
+  const handleBack = useNavBack();
   const handleShuffle = useShuffleNav();
 
   const [localIsFavorite, setLocalIsFavorite] = useState(false);
@@ -380,13 +376,13 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
   });
 
   return (
-    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
+    <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <div className="flex items-center gap-1.5 mb-g2">
           <button
             type="button"
             onClick={handleBack}
-            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150 active:scale-[0.97] active:opacity-80"
+            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-50 active:scale-[0.97] active:opacity-80"
           >
             &larr; back
           </button>
@@ -394,7 +390,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
             type="button"
             title="Random title"
             onClick={handleShuffle}
-            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms] active:scale-[0.97] active:opacity-80"
+            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-50 active:scale-[0.97] active:opacity-80"
           >
             <Shuffle size={17} weight="bold" />
           </button>
@@ -427,7 +423,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               />
             </div>
           </div>
-          <div className="min-w-0 flex-1" style={{ viewTransitionName: "detail-content" }}>
+          <div className="min-w-0 flex-1">
             <div className="mb-2">
               <StampBadge type={displayMediaType(data.mediaType, data.animationOrigin)} />
             </div>
@@ -507,7 +503,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
                       href={link.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-150"
+                      className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-50"
                     >
                       {link.label} {"\u2197"}
                     </a>
@@ -556,7 +552,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               <Link
                 to="/login"
                 onClick={() => SoundEngine.click()}
-                className="inline-block bg-dg-accent text-white font-body text-[0.85rem] sm:text-[0.9rem] rounded-sm px-3 py-1 no-underline transition-all duration-150 hover:brightness-110 mr-1.5 active:scale-[0.97] active:opacity-80"
+                className="inline-block bg-dg-accent text-white font-body text-[0.85rem] sm:text-[0.9rem] rounded-sm px-3 py-1 no-underline transition-all duration-50 hover:brightness-110 mr-1.5 active:scale-[0.97] active:opacity-80"
               >
                 Sign in
               </Link>{" "}
@@ -650,7 +646,7 @@ function PopularityMeta({
 
       {/* biome-ignore lint/a11y/noStaticElementInteractions: tooltip body needs hover to stay open */}
       <div
-        className="absolute bottom-full left-0 mb-1.5 z-50 w-[260px] p-2.5 rounded border border-dg-border-subtle bg-dg-surface text-[0.75rem] leading-relaxed text-dg-text-secondary shadow-lg transition-all duration-150"
+        className="absolute bottom-full left-0 mb-1.5 z-50 w-[260px] p-2.5 rounded border border-dg-border-subtle bg-dg-surface text-[0.75rem] leading-relaxed text-dg-text-secondary shadow-lg transition-all duration-50"
         style={{
           opacity: visible ? 1 : 0,
           transform: visible ? "translateY(0)" : "translateY(4px)",

@@ -36,7 +36,7 @@ function SeasonProgressBar({
       </span>
       <div className="flex-1 h-[6px] bg-dg-elevated rounded-full overflow-hidden">
         <div
-          className="h-full rounded-full transition-all duration-300"
+          className="h-full rounded-full transition-all duration-50"
           style={{
             width: `${pct}%`,
             background: dim
@@ -79,7 +79,7 @@ function EpisodeCounter({
           type="button"
           onClick={onDecrement}
           disabled={!canDecrement}
-          className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-150 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono active:scale-[0.97] active:opacity-80"
+          className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-50 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono active:scale-[0.97] active:opacity-80"
         >
           -
         </button>
@@ -90,7 +90,7 @@ function EpisodeCounter({
           type="button"
           onClick={onIncrement}
           disabled={!canIncrement}
-          className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-150 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono active:scale-[0.97] active:opacity-80"
+          className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-50 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono active:scale-[0.97] active:opacity-80"
         >
           +
         </button>

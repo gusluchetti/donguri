@@ -150,7 +150,7 @@ const AT_LINK = (
     href="https://atproto.com"
     target="_blank"
     rel="noopener noreferrer"
-    className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-150 underline decoration-dg-border-strong underline-offset-2"
+    className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-50 underline decoration-dg-border-strong underline-offset-2"
   >
     AT Protocol
   </a>
@@ -207,7 +207,7 @@ function LoggedOutView() {
             href="https://atproto.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-150 underline decoration-dg-border-strong underline-offset-2"
+            className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-50 underline decoration-dg-border-strong underline-offset-2"
           >
             AT Protocol
           </a>{" "}
@@ -217,14 +217,14 @@ function LoggedOutView() {
           <Link
             to="/login"
             onClick={() => SoundEngine.click()}
-            className="bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110 active:scale-[0.97] active:opacity-80"
+            className="bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-50 hover:brightness-110 active:scale-[0.97] active:opacity-80"
           >
             Get started
           </Link>
           <Link
             to="/catalog"
             onClick={() => SoundEngine.click()}
-            className="border border-dg-border text-dg-text-secondary font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text active:scale-[0.97] active:opacity-80"
+            className="border border-dg-border text-dg-text-secondary font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-50 hover:border-dg-border-strong hover:text-dg-text active:scale-[0.97] active:opacity-80"
           >
             Browse catalog →
           </Link>
@@ -242,7 +242,7 @@ function LoggedOutView() {
               key={t.type}
               to="/catalog"
               search={{ type: t.type }}
-              className="border border-dg-border-subtle rounded bg-dg-surface p-4 text-center no-underline hover:border-dg-border-strong transition-all duration-150 active:scale-[0.97] active:opacity-80"
+              className="border border-dg-border-subtle rounded bg-dg-surface p-4 text-center no-underline hover:border-dg-border-strong transition-all duration-50 active:scale-[0.97] active:opacity-80"
               onClick={() => SoundEngine.click()}
             >
               <div className="text-[0.85rem] font-medium text-dg-text mb-1">{t.label}</div>
@@ -288,7 +288,7 @@ function LoggedOutView() {
                 href="https://atproto.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-150 underline decoration-dg-border-strong underline-offset-2"
+                className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-50 underline decoration-dg-border-strong underline-offset-2"
               >
                 AT Protocol
               </a>
@@ -323,7 +323,7 @@ function LoggedOutView() {
         <Link
           to="/login"
           onClick={() => SoundEngine.click()}
-          className="inline-block bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110 active:scale-[0.97] active:opacity-80"
+          className="inline-block bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-50 hover:brightness-110 active:scale-[0.97] active:opacity-80"
         >
           Get started
         </Link>
@@ -420,11 +420,11 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
           className="no-underline text-inherit cursor-pointer group"
           onClick={() => SoundEngine.navForward()}
           style={{
-            animation: `fadeIn 320ms var(--ease-smooth) both ${i * 30}ms`,
+            animation: `fadeIn 50ms var(--ease-smooth) both ${i * 8}ms`,
           }}
         >
           <div className="w-full aspect-[2/3] rounded overflow-hidden relative">
-            <div className="w-full h-full transition-transform duration-200 ease-out group-hover:scale-[1.03]">
+            <div className="w-full h-full transition-transform duration-50 ease-out group-hover:scale-[1.03]">
               <CoverThumb
                 title={item.mediaTitle ?? "?"}
                 mediaType={
@@ -438,7 +438,7 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
               />
             </div>
           </div>
-          <div className="mt-1 text-xs font-medium text-dg-text truncate transition-colors duration-150 group-hover:text-dg-accent">
+          <div className="mt-1 text-xs font-medium text-dg-text truncate transition-colors duration-50 group-hover:text-dg-accent">
             {item.isFavorite && (
               <Star size={10} weight="fill" className="text-dg-accent mr-0.5 inline-block" />
             )}
@@ -473,14 +473,14 @@ function WatchlistListItem({ item, index }: { item: CatalogEntryRow; index: numb
       key={item.id}
       to="/catalog/$wikidataId"
       params={{ wikidataId: item.mediaWikidataId }}
-      className="flex items-center gap-3 px-3 sm:px-g3 py-3 sm:py-2.5 no-underline text-inherit transition-all duration-100 relative group hover:bg-dg-row-hover hover:translate-x-[3px]"
+      className="flex items-center gap-3 px-3 sm:px-g3 py-3 sm:py-2.5 no-underline text-inherit transition-all duration-50 relative group hover:bg-dg-row-hover hover:translate-x-[3px]"
       onClick={() => SoundEngine.navForward()}
       onMouseEnter={() => SoundEngine.tick()}
       style={{
-        animation: `fadeIn 320ms var(--ease-smooth) both ${index * 25}ms`,
+        animation: `fadeIn 50ms var(--ease-smooth) both ${index * 8}ms`,
       }}
     >
-      <div className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm bg-transparent group-hover:bg-dg-accent transition-all duration-150 group-hover:shadow-[0_0_8px_rgba(232,112,46,0.3)]" />
+      <div className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm bg-transparent group-hover:bg-dg-accent transition-all duration-50 group-hover:shadow-[0_0_8px_rgba(232,112,46,0.3)]" />
       <StampBadge
         type={displayMediaType(item.mediaType ?? "", item.animationOrigin)}
         index={index}

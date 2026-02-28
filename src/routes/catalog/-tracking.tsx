@@ -171,14 +171,14 @@ function StatusButtons({
             type="button"
             onClick={() => onStatusChange(s)}
             disabled={isPending}
-            className={`text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-body cursor-pointer shrink-0 transition-all duration-150 disabled:opacity-50 active:scale-[0.97] active:opacity-80 ${
+            className={`text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-body cursor-pointer shrink-0 transition-all duration-50 disabled:opacity-50 active:scale-[0.97] active:opacity-80 ${
               isActive
                 ? colorClass
                 : "border-dg-border-subtle text-dg-text-secondary bg-transparent hover:border-dg-border"
             }`}
             style={{
               animation:
-                isActive && statusAnimating ? "stampDown 300ms var(--ease-smooth) both" : "none",
+                isActive && statusAnimating ? "stampDown 50ms var(--ease-smooth) both" : "none",
             }}
           >
             {label}
@@ -225,7 +225,7 @@ function RatingSection({ localRating, isPending, ratingMode, onChange }: RatingS
             type="button"
             onClick={() => onChange(null)}
             disabled={isPending}
-            className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-2 -m-2 hover:text-dg-anime transition-colors duration-150 disabled:opacity-50"
+            className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-2 -m-2 hover:text-dg-anime transition-colors duration-50 disabled:opacity-50"
             title="Clear rating"
           >
             <X size={14} />
@@ -321,7 +321,7 @@ function TrackingSaveBar({
         type="button"
         onClick={onSave}
         disabled={actionState === "pending" || !isDirty}
-        className={`text-[0.75rem] font-body rounded-sm border px-3 py-1 bg-transparent cursor-pointer transition-all duration-150 disabled:cursor-default active:scale-[0.97] active:opacity-80 ${
+        className={`text-[0.75rem] font-body rounded-sm border px-3 py-1 bg-transparent cursor-pointer transition-all duration-50 disabled:cursor-default active:scale-[0.97] active:opacity-80 ${
           actionState === "pending"
             ? "border-dg-accent/50 text-dg-accent/70"
             : actionState === "error"
@@ -339,7 +339,7 @@ function TrackingSaveBar({
           type="button"
           onClick={onRemove}
           disabled={actionState === "pending"}
-          className="text-[0.75rem] font-body rounded-sm border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 cursor-pointer transition-all duration-150 hover:text-dg-anime hover:border-dg-anime/40 disabled:opacity-50 disabled:cursor-default active:scale-[0.97] active:opacity-80"
+          className="text-[0.75rem] font-body rounded-sm border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 cursor-pointer transition-all duration-50 hover:text-dg-anime hover:border-dg-anime/40 disabled:opacity-50 disabled:cursor-default active:scale-[0.97] active:opacity-80"
           title="Remove from list"
         >
           delete
@@ -653,7 +653,7 @@ export function TrackingPanel({
           <button
             type="button"
             onClick={() => setLocalIsFavorite(!localIsFavorite)}
-            className={`flex items-center bg-transparent border-none cursor-pointer p-1 -m-1 transition-colors duration-150 active:scale-[0.97] active:opacity-80 ${
+            className={`flex items-center bg-transparent border-none cursor-pointer p-1 -m-1 transition-colors duration-50 active:scale-[0.97] active:opacity-80 ${
               localIsFavorite ? "text-dg-accent" : "text-dg-text-tertiary hover:text-dg-accent/60"
             }`}
             title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
