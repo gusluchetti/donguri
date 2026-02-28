@@ -42,7 +42,7 @@ export function StatusBadge({
         background: "var(--stamp-bg)",
         cursor: onClick ? "pointer" : "default",
         transition: "all 120ms var(--ease-spring)",
-        animation: animating ? "stampDown 300ms var(--ease-smooth) both" : "none",
+        animation: animating ? "stampDown 50ms var(--ease-smooth) both" : "none",
       }}
     >
       <span

@@ -148,97 +148,12 @@ img {
   }
 }
 
-/* ─── View Transitions ──────────────────────────────────────────── */
-
-::view-transition-old(root) {
-  animation: 45ms var(--ease-smooth) both vt-fade-out;
-}
-
-::view-transition-new(root) {
-  animation: 70ms var(--ease-smooth) both vt-fade-in;
-}
-
-::view-transition-old(*),
-::view-transition-new(*) {
-  animation-duration: 70ms;
-}
-
-@keyframes vt-fade-out {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
-
-@keyframes vt-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Back navigation — reversed slide direction */
-html:active-view-transition-type(back) ::view-transition-old(root) {
-  animation: 45ms var(--ease-smooth) both vt-fade-out-back;
-}
-
-html:active-view-transition-type(back) ::view-transition-new(root) {
-  animation: 70ms var(--ease-smooth) both vt-fade-in-back;
-}
-
-html:active-view-transition-type(back) .dg-page-enter {
-  animation: none;
-}
-
-@keyframes vt-fade-out-back {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-}
-
-@keyframes vt-fade-in-back {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Nav stays locked in place — no animation, no flicker */
-::view-transition-old(nav),
-::view-transition-new(nav) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
-/* Kill backdrop-filter during transitions — it causes blur artifacts */
-::view-transition-old(nav) {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
 /* ─── Keyframes ─────────────────────────────────────────────────── */
 
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(2px);
   }
   to {
     opacity: 1;
@@ -268,22 +183,6 @@ html:active-view-transition-type(back) .dg-page-enter {
     transform: scale(1) rotate(var(--stamp-r, -1deg));
     opacity: 1;
   }
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Page entrance animation — applied to route root divs */
-.dg-page-enter {
-  animation: scaleIn 280ms var(--ease-smooth) both;
 }
 
 @keyframes pulse {
@@ -495,7 +394,7 @@ input[type="range"].dg-range:disabled {
   animation: none;
   transform: scaleX(1);
   opacity: 0;
-  transition: opacity 300ms ease-out;
+  transition: opacity 50ms ease-out;
 }
 
 @keyframes nav-progress {
@@ -516,15 +415,6 @@ input[type="range"].dg-range:disabled {
     animation: none !important;
     transition-duration: 0.01ms !important;
     transition-delay: 0ms !important;
-  }
-
-  /* View transitions: kill animations + fix blend mode (UA default is plus-lighter
-     which causes washed-out artifacts when old/new frames overlap without fading) */
-  ::view-transition-group(*),
-  ::view-transition-old(*),
-  ::view-transition-new(*) {
-    animation: none !important;
-    mix-blend-mode: normal !important;
   }
 
   /* Restore ellipsis loader content (animation: none loses the ::after content) */

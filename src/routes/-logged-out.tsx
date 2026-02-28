@@ -17,7 +17,7 @@ const AT_LINK = (
     href="https://atproto.com"
     target="_blank"
     rel="noopener noreferrer"
-    className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-150 underline decoration-dg-border-strong underline-offset-2"
+    className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-50 underline decoration-dg-border-strong underline-offset-2"
   >
     AT Protocol
   </a>
@@ -74,7 +74,7 @@ export function LoggedOutView() {
             href="https://atproto.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-150 underline decoration-dg-border-strong underline-offset-2"
+            className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-50 underline decoration-dg-border-strong underline-offset-2"
           >
             AT Protocol
           </a>{" "}
@@ -84,14 +84,14 @@ export function LoggedOutView() {
           <Link
             to="/login"
             onClick={() => SoundEngine.click()}
-            className="bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110"
+            className="bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-50 hover:brightness-110"
           >
             Get started
           </Link>
           <Link
             to="/catalog"
             onClick={() => SoundEngine.click()}
-            className="border border-dg-border text-dg-text-secondary font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text"
+            className="border border-dg-border text-dg-text-secondary font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-50 hover:border-dg-border-strong hover:text-dg-text"
           >
             Browse catalog →
           </Link>
@@ -155,7 +155,7 @@ export function LoggedOutView() {
                 href="https://atproto.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-150 underline decoration-dg-border-strong underline-offset-2"
+                className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-50 underline decoration-dg-border-strong underline-offset-2"
               >
                 AT Protocol
               </a>
@@ -190,7 +190,7 @@ export function LoggedOutView() {
         <Link
           to="/login"
           onClick={() => SoundEngine.click()}
-          className="inline-block bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110"
+          className="inline-block bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-50 hover:brightness-110"
         >
           Get started
         </Link>
