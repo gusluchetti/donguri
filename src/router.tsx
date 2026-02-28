@@ -14,15 +14,6 @@ export function getRouter() {
       defaultPreload: "intent",
       defaultStaleTime: 30_000,
       defaultPreloadStaleTime: 30_000,
-      defaultViewTransition: {
-        types: ({ fromLocation, toLocation }) => {
-          if (!fromLocation) return ["forward"];
-          const fromIdx = fromLocation.state.__TSR_index ?? 0;
-          const toIdx = toLocation.state.__TSR_index ?? 0;
-          if (fromIdx === toIdx) return false;
-          return fromIdx > toIdx ? ["back"] : ["forward"];
-        },
-      },
       defaultPendingMs: 200,
       defaultPendingMinMs: 300,
       defaultPendingComponent: DefaultPendingComponent,
