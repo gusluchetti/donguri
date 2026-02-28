@@ -1,8 +1,8 @@
 import { Shuffle } from "@phosphor-icons/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, getRouteApi, useNavigate, useRouter } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { createFileRoute, getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getMediaStub } from "~/features/catalog/catalog.functions";
 import { catalogEntryOptions, trackedIdsOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
@@ -43,9 +43,13 @@ type LoaderData = FullLoaderData | StubLoaderData;
 export const Route = createFileRoute("/catalog/$wikidataId")({
   loader: async ({ params, context }): Promise<LoaderData> => {
     // Non-blocking: warm tracking cache for logged-in users only
-    const isLoggedIn = !!context.queryClient.getQueryData(trackedIdsOptions().queryKey);
-    if (isLoggedIn) {
-      context.queryClient.prefetchQuery(catalogEntryOptions(params.wikidataId));
+    if (context.auth) {
+      context.queryClient.ensureQueryData(trackedIdsOptions()).then(
+        () => {
+          context.queryClient.prefetchQuery(catalogEntryOptions(params.wikidataId));
+        },
+        () => {},
+      );
     }
 
     // Blocking: media data is the page content
@@ -124,7 +128,6 @@ function useShuffleNav() {
     SoundEngine.dice();
     const id = await getRandomMediaId();
     if (id) {
-      SoundEngine.navForward();
       navigate({ to: "/catalog/$wikidataId", params: { wikidataId: id } });
     }
   }, [navigate]);
@@ -148,7 +151,7 @@ function MediaDetailSkeleton() {
               SoundEngine.navBack();
               triggerNavBack();
             }}
-            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm transition-all duration-150"
+            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm transition-all duration-150 active:scale-[0.97] active:opacity-80"
           >
             &larr; back
           </button>
@@ -156,7 +159,7 @@ function MediaDetailSkeleton() {
             type="button"
             title="Random title"
             onClick={handleShuffle}
-            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms] active:scale-[0.97] active:opacity-80"
           >
             <Shuffle size={17} weight="bold" />
           </button>
@@ -193,7 +196,7 @@ function MediaStubPage({
     animationOrigin?: string | null;
   };
 }) {
-  const { auth } = rootRoute.useLoaderData();
+  const { auth } = rootRoute.useRouteContext();
   const handleShuffle = useShuffleNav();
 
   return (
@@ -206,7 +209,7 @@ function MediaStubPage({
               SoundEngine.navBack();
               triggerNavBack();
             }}
-            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
+            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150 active:scale-[0.97] active:opacity-80"
           >
             &larr; back
           </button>
@@ -214,7 +217,7 @@ function MediaStubPage({
             type="button"
             title="Random title"
             onClick={handleShuffle}
-            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms] active:scale-[0.97] active:opacity-80"
           >
             <Shuffle size={17} weight="bold" />
           </button>
@@ -265,7 +268,7 @@ function MediaStubPage({
 function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
   const { data } = useSuspenseQuery(mediaDetailOptions(wikidataId));
   if (!data) throw new Error("Media not found");
-  const { auth } = rootRoute.useLoaderData();
+  const { auth } = rootRoute.useRouteContext();
   const router = useRouter();
   const handleBack = useCallback(() => {
     SoundEngine.navBack();
@@ -383,7 +386,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
           <button
             type="button"
             onClick={handleBack}
-            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150"
+            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150 active:scale-[0.97] active:opacity-80"
           >
             &larr; back
           </button>
@@ -391,7 +394,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
             type="button"
             title="Random title"
             onClick={handleShuffle}
-            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms] active:scale-[0.97] active:opacity-80"
           >
             <Shuffle size={17} weight="bold" />
           </button>
@@ -455,20 +458,13 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
                 {data.episodeCount && data.episodeCount > 1 && (
                   <MetaItem label="Episodes" value={String(data.episodeCount)} />
                 )}
-                {data.qrankPct != null && (
-                  <div className="flex flex-col gap-0.5">
-                    <a
-                      href="https://qrank.wmcloud.org/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider whitespace-nowrap hover:text-dg-accent transition-colors"
-                    >
-                      Popularity (QRank) ↗
-                    </a>
-                    <span className="text-[0.85rem] text-dg-text">Top {data.qrankPct}%</span>
-                  </div>
+                {data.popularityScore != null && (
+                  <PopularityMeta
+                    score={data.popularityScore}
+                    qrankPct={data.qrankPct}
+                    sitelinksPct={data.sitelinksPct}
+                  />
                 )}
-                <MetaItem label="Sitelinks" value={String(data.sitelinksCount ?? 0)} />
               </div>
               {visibleGenres.length > 0 && (
                 <div className="border-t border-dg-border-subtle mt-3 pt-3">
@@ -548,10 +544,24 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
           </div>
         )}
 
-        {/* Read-only episode tracker for unauthenticated users */}
-        {!auth && hasSeasons && data.seasons && (
-          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-g3 sm:mb-g4 p-g2 sm:p-g3">
-            <EpisodeTracker seasons={data.seasons} />
+        {!auth && (
+          <div
+            className="rounded mb-g3 sm:mb-g4 px-g2 sm:px-g3 py-g2 sm:py-g3"
+            style={{
+              background: "var(--color-dg-accent-soft)",
+              border: "1px solid color-mix(in srgb, var(--color-dg-accent) 20%, transparent)",
+            }}
+          >
+            <p className="text-[0.85rem] sm:text-[0.9rem] text-dg-text-secondary m-0">
+              <Link
+                to="/login"
+                onClick={() => SoundEngine.click()}
+                className="inline-block bg-dg-accent text-white font-body text-[0.85rem] sm:text-[0.9rem] rounded-sm px-3 py-1 no-underline transition-all duration-150 hover:brightness-110 mr-1.5 active:scale-[0.97] active:opacity-80"
+              >
+                Sign in
+              </Link>{" "}
+              to track this title, rate it, and see detailed episode data.
+            </p>
           </div>
         )}
 
@@ -596,6 +606,81 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               </div>
             );
           })()}
+      </div>
+    </div>
+  );
+}
+
+function PopularityMeta({
+  score,
+  qrankPct,
+  sitelinksPct,
+}: {
+  score: string;
+  qrankPct: string | null;
+  sitelinksPct: string | null;
+}) {
+  const [visible, setVisible] = useState(false);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function show() {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    setVisible(true);
+  }
+
+  // Small grace period so mouse can travel from label to tooltip without flicker
+  function hide() {
+    hideTimer.current = setTimeout(() => setVisible(false), 80);
+  }
+
+  const rounded = Number.parseFloat(score).toFixed(1);
+  const hasQrank = qrankPct != null;
+
+  return (
+    <div className="relative flex flex-col gap-0.5">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: tooltip trigger */}
+      <span
+        className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider cursor-help underline decoration-dotted decoration-dg-border underline-offset-2 w-fit"
+        onMouseEnter={show}
+        onMouseLeave={hide}
+      >
+        Popularity
+      </span>
+      <span className="text-[0.85rem] text-dg-text">{rounded}</span>
+
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: tooltip body needs hover to stay open */}
+      <div
+        className="absolute bottom-full left-0 mb-1.5 z-50 w-[260px] p-2.5 rounded border border-dg-border-subtle bg-dg-surface text-[0.75rem] leading-relaxed text-dg-text-secondary shadow-lg transition-all duration-150"
+        style={{
+          opacity: visible ? 1 : 0,
+          transform: visible ? "translateY(0)" : "translateY(4px)",
+          pointerEvents: visible ? "auto" : "none",
+        }}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+      >
+        {hasQrank ? (
+          <p className="m-0">
+            <span className="text-dg-text">score</span> = 0.6 &times; QRank ({qrankPct}) + 0.4
+            &times; Sitelinks ({sitelinksPct ?? "n/a"})
+          </p>
+        ) : (
+          <p className="m-0">
+            <span className="text-dg-text">score</span> = Sitelinks only (no QRank data)
+          </p>
+        )}
+        <div className="mt-1.5 flex items-center gap-1.5 text-[0.7rem] text-dg-text-tertiary">
+          <a
+            href="https://qrank.wmcloud.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-dg-accent/70 no-underline hover:text-dg-accent transition-colors"
+          >
+            QRank {"\u2197"}
+          </a>
+          <span>&middot;</span>
+          <span>Wikipedia sitelinks coverage</span>
+        </div>
       </div>
     </div>
   );

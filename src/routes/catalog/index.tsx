@@ -1,30 +1,29 @@
 import { Check, CircleNotch, MagnifyingGlass, Plus, Shuffle, X } from "@phosphor-icons/react";
 import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
-import { keepPreviousData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import {
   createFileRoute,
   getRouteApi,
   Link,
   useElementScrollRestoration,
   useNavigate,
-  useRouter,
 } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { Media } from "~/db/schema";
 import { useCatalogCursor } from "~/features/catalog/catalog.cursor";
-import { setCatalogEntry } from "~/features/catalog/catalog.functions";
+import { useSetCatalogEntry } from "~/features/catalog/catalog.mutations";
 import { catalogInfiniteOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
+import { StatusIcon } from "~/features/catalog/components/StatusIcon";
 import { getRandomMediaId } from "~/features/media/media.functions";
 import {
   displayMediaType,
   STAMP_COLORS,
   STATUS_BUTTON_COLORS,
-  STATUS_ICONS,
   type StatusValue,
 } from "~/features/media/media-types";
 import { ogTags, pageTitle } from "~/lib/og";
@@ -76,51 +75,46 @@ export const Route = createFileRoute("/catalog/")({
 type QuickAddState = "pending" | "done";
 
 function useQuickAdd() {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const [localOverrides, setLocalOverrides] = useState<Record<string, string>>({});
+  const mutation = useSetCatalogEntry();
   const [quickAddState, setQuickAddState] = useState<Record<string, QuickAddState>>({});
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   const handleQuickAdd = useCallback(
-    async (wikidataId: string, itemMediaType: string, e: React.MouseEvent) => {
+    (wikidataId: string, itemMediaType: string, e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
       const defaultStatus: "planned" | "in_progress" =
         itemMediaType === "movie" ? "planned" : "in_progress";
-      setLocalOverrides((prev) => ({ ...prev, [wikidataId]: defaultStatus }));
       setQuickAddState((prev) => ({ ...prev, [wikidataId]: "pending" }));
-      try {
-        await setCatalogEntry({ data: { wikidataId, status: defaultStatus } });
-        setQuickAddState((prev) => ({ ...prev, [wikidataId]: "done" }));
-        clearTimeout(timers.current.get(wikidataId));
-        timers.current.set(
-          wikidataId,
-          setTimeout(() => {
-            timers.current.delete(wikidataId);
+      mutation.mutate(
+        { wikidataId, status: defaultStatus },
+        {
+          onSuccess: () => {
+            setQuickAddState((prev) => ({ ...prev, [wikidataId]: "done" }));
+            clearTimeout(timers.current.get(wikidataId));
+            timers.current.set(
+              wikidataId,
+              setTimeout(() => {
+                timers.current.delete(wikidataId);
+                setQuickAddState((prev) => {
+                  const next = { ...prev };
+                  delete next[wikidataId];
+                  return next;
+                });
+              }, 1500),
+            );
+          },
+          onError: () => {
             setQuickAddState((prev) => {
               const next = { ...prev };
               delete next[wikidataId];
               return next;
             });
-          }, 1500),
-        );
-        queryClient.invalidateQueries({ queryKey: ["user"] });
-        router.invalidate();
-      } catch {
-        setQuickAddState((prev) => {
-          const next = { ...prev };
-          delete next[wikidataId];
-          return next;
-        });
-        setLocalOverrides((prev) => {
-          const next = { ...prev };
-          delete next[wikidataId];
-          return next;
-        });
-      }
+          },
+        },
+      );
     },
-    [router, queryClient],
+    [mutation],
   );
 
   useEffect(
@@ -130,7 +124,7 @@ function useQuickAdd() {
     [],
   );
 
-  return { localOverrides, quickAddState, handleQuickAdd };
+  return { quickAddState, handleQuickAdd };
 }
 
 type FilterType = "movie" | "tv_series" | "anime" | "game" | undefined;
@@ -151,7 +145,7 @@ function TypeFilterBar({
             type="button"
             key={t.label}
             onClick={() => onTypeChange(t.value)}
-            className="py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 font-body text-xs cursor-pointer flex items-center gap-1.5 flex-1 justify-center transition-all duration-150 relative"
+            className="py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 font-body text-xs cursor-pointer flex items-center gap-1.5 flex-1 justify-center transition-all duration-150 relative active:scale-[0.97] active:opacity-80"
             style={{
               background: isActive ? "var(--color-dg-elevated)" : "transparent",
               color: isActive ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)",
@@ -193,27 +187,33 @@ const SearchBar = forwardRef<
     [],
   );
 
+  const flush = (input: string) => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = undefined;
+    navigate({
+      search: (prev) => ({ ...prev, q: input || undefined }),
+      replace: true,
+      viewTransition: false,
+    });
+  };
+
   const handleChange = (input: string) => {
     setValue(input);
     if (input.length > 0) SoundEngine.search();
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => {
-      timeoutRef.current = undefined;
-      navigate({
-        search: (prev) => ({ ...prev, q: input || undefined }),
-        replace: true,
-        viewTransition: false,
-      });
-    }, 300);
+    timeoutRef.current = setTimeout(() => flush(input), 150);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      flush(value);
+    }
   };
 
   const handleClear = () => {
     setValue("");
-    navigate({
-      search: (prev) => ({ ...prev, q: undefined }),
-      replace: true,
-      viewTransition: false,
-    });
+    flush("");
   };
 
   return (
@@ -231,6 +231,7 @@ const SearchBar = forwardRef<
           placeholder="Search catalog..."
           value={value}
           onChange={(e) => handleChange(e.target.value)}
+          onKeyDown={handleKeyDown}
           onFocus={() => {
             setFocused(true);
             onFocusChange?.(true);
@@ -259,7 +260,7 @@ const SearchBar = forwardRef<
         type="button"
         title="Random title"
         onClick={() => onRandom?.()}
-        className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms]"
+        className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms] active:scale-[0.97] active:opacity-80"
       >
         <Shuffle size={17} weight="bold" />
       </button>
@@ -268,7 +269,8 @@ const SearchBar = forwardRef<
 });
 
 function CatalogPage() {
-  const { auth, trackedIds: rootTrackedIds } = rootRoute.useLoaderData();
+  const { auth } = rootRoute.useRouteContext();
+  const { trackedIds: rootTrackedIds } = rootRoute.useLoaderData();
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog/" });
 
@@ -288,12 +290,12 @@ function CatalogPage() {
     if (!isPlaceholderData && allItems.length > 0) seenQueryKeys.current.add(currentQueryKey);
   }, [currentQueryKey, isPlaceholderData, allItems.length]);
 
-  const { localOverrides, quickAddState, handleQuickAdd } = useQuickAdd();
+  const { quickAddState, handleQuickAdd } = useQuickAdd();
   const parentRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchFocused, setSearchFocused] = useState(false);
 
-  const trackedIds: Record<string, string | null> = { ...rootTrackedIds, ...localOverrides };
+  const trackedIds: Record<string, string | null> = rootTrackedIds;
 
   const handleTypeChange = useCallback(
     (type: FilterType) => {
@@ -407,7 +409,6 @@ function CatalogPage() {
     SoundEngine.dice();
     const id = await getRandomMediaId();
     if (id) {
-      SoundEngine.navForward();
       navigate({ to: "/catalog/$wikidataId", params: { wikidataId: id } });
     }
   }, [navigate]);
@@ -617,9 +618,9 @@ const MediaRow = memo(function MediaRow({
             </span>
             {trackedStatus && (
               <span
-                className={`text-[0.58rem] font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none ${STATUS_BUTTON_COLORS[trackedStatus as StatusValue] ?? ""}`}
+                className={`text-[0.58rem] font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none inline-flex items-center ${STATUS_BUTTON_COLORS[trackedStatus as StatusValue] ?? ""}`}
               >
-                {STATUS_ICONS[trackedStatus as StatusValue]}
+                <StatusIcon status={trackedStatus as StatusValue} size={9} />
               </span>
             )}
           </div>

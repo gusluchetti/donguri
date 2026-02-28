@@ -62,7 +62,14 @@ function BlueskyLoginForm() {
           htmlFor="handle"
           className="flex items-center gap-2 text-dg-text-secondary text-[0.8rem] uppercase tracking-wider mb-3"
         >
-          AT Protocol
+          <a
+            href="https://atproto.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-inherit no-underline hover:text-dg-accent transition-colors duration-150"
+          >
+            AT Protocol
+          </a>
           <span className="normal-case tracking-normal text-[0.65rem] text-dg-accent border border-dg-accent/30 rounded-sm px-1.5 py-px font-semibold">
             recommended
           </span>
@@ -80,7 +87,7 @@ function BlueskyLoginForm() {
           <button
             type="submit"
             disabled={loading || !handle.trim()}
-            className="bg-transparent border border-dg-accent/30 text-dg-accent px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-body cursor-pointer transition-all duration-150 hover:border-dg-accent/60 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="bg-transparent border border-dg-accent/30 text-dg-accent px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-body cursor-pointer transition-all duration-150 hover:border-dg-accent/60 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97] active:opacity-80"
           >
             {loading ? <span className="dg-ellipsis">Signing in</span> : "Sign in"}
           </button>
@@ -121,7 +128,7 @@ function OAuthButton({
       type="button"
       onClick={onClick}
       disabled={loading}
-      className="w-full bg-dg-surface border border-dg-border text-dg-text-secondary px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-body cursor-pointer transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+      className="w-full bg-dg-surface border border-dg-border text-dg-text-secondary px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-body cursor-pointer transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.97] active:opacity-80"
     >
       {loading ? (
         <span className="dg-ellipsis">Redirecting</span>
