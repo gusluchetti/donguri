@@ -516,21 +516,41 @@ export function parseMediaEntity(entity: WikidataEntity): ParsedMedia | null {
     else if (tmdbMovieId) tmdbId = `movie/${tmdbMovieId}`;
   }
 
-  // Extract English aliases, filtering out duplicates of title/originalTitle and junk
+  // Extract aliases from multiple languages for better search coverage
   const titleLower = titleEn.toLowerCase();
   const origLower = originalTitle?.toLowerCase();
   const aliases: string[] = [];
   const seenLower = new Set<string>([titleLower]);
   if (origLower) seenLower.add(origLower);
 
-  for (const aliasObj of entity.aliases?.en ?? []) {
-    const v = aliasObj.value.trim();
-    if (!v || v.length > 100) continue;
-    const lo = v.toLowerCase();
-    if (seenLower.has(lo)) continue;
+  // Languages where label is also pulled as an alias candidate (native script / romanized)
+  const labelLangs = ["mul", "ja", "ko"] as const;
+  // All languages to pull aliases from, in priority order
+  const aliasLangs = ["en", "mul", "ja", "ko", "zh", "fr", "es", "pt", "de"] as const;
+
+  const addAlias = (v: string): boolean => {
+    const trimmed = v.trim();
+    if (!trimmed || trimmed.length > 100) return false;
+    const lo = trimmed.toLowerCase();
+    if (seenLower.has(lo)) return false;
     seenLower.add(lo);
-    aliases.push(v);
-    if (aliases.length >= 10) break;
+    aliases.push(trimmed);
+    return aliases.length >= 20;
+  };
+
+  // Pull labels from select languages (native script titles)
+  for (const lang of labelLangs) {
+    const label = entity.labels?.[lang]?.value;
+    if (label && addAlias(label)) break;
+  }
+
+  // Pull aliases from all target languages
+  if (aliases.length < 20) {
+    outer: for (const lang of aliasLangs) {
+      for (const aliasObj of entity.aliases?.[lang] ?? []) {
+        if (addAlias(aliasObj.value)) break outer;
+      }
+    }
   }
 
   const searchParts = [titleEn];
