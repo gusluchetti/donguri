@@ -1,7 +1,7 @@
 import { Shuffle } from "@phosphor-icons/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, getRouteApi, Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getMediaStub } from "~/features/catalog/catalog.functions";
 import { catalogEntryOptions, trackedIdsOptions } from "~/features/catalog/catalog.queries";
@@ -17,6 +17,7 @@ import {
   mediaTypeLabel,
   type WatchedEpisodes,
 } from "~/features/media/media-types";
+import { prefetchImage } from "~/lib/image-prefetch";
 import { ogTags, pageTitle } from "~/lib/og";
 import { EpisodeTracker } from "./-episodes";
 import { TrackingPanel } from "./-tracking";
@@ -54,6 +55,10 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
 
     // Blocking: media data is the page content
     const media = await context.queryClient.ensureQueryData(mediaDetailOptions(params.wikidataId));
+
+    if (media?.posterUrl) {
+      prefetchImage(media.posterUrl);
+    }
 
     if (media) {
       return { kind: "full", media };
@@ -116,10 +121,11 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
   component: MediaDetailRouter,
 });
 
-function triggerNavBack() {
-  document.documentElement.dataset.navBack = "1";
-  window.history.back();
-  setTimeout(() => delete document.documentElement.dataset.navBack, 500);
+function useNavBack() {
+  return useCallback(() => {
+    SoundEngine.navBack();
+    window.history.back();
+  }, []);
 }
 
 function useShuffleNav() {
@@ -140,6 +146,7 @@ function MediaDetailRouter() {
 }
 
 function MediaDetailSkeleton() {
+  const handleBack = useNavBack();
   const handleShuffle = useShuffleNav();
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
@@ -147,10 +154,7 @@ function MediaDetailSkeleton() {
         <div className="flex items-center gap-1.5 mb-g2">
           <button
             type="button"
-            onClick={() => {
-              SoundEngine.navBack();
-              triggerNavBack();
-            }}
+            onClick={handleBack}
             className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm transition-all duration-150 active:scale-[0.97] active:opacity-80"
           >
             &larr; back
@@ -197,6 +201,7 @@ function MediaStubPage({
   };
 }) {
   const { auth } = rootRoute.useRouteContext();
+  const handleBack = useNavBack();
   const handleShuffle = useShuffleNav();
 
   return (
@@ -205,10 +210,7 @@ function MediaStubPage({
         <div className="flex items-center gap-1.5 mb-g2">
           <button
             type="button"
-            onClick={() => {
-              SoundEngine.navBack();
-              triggerNavBack();
-            }}
+            onClick={handleBack}
             className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-150 active:scale-[0.97] active:opacity-80"
           >
             &larr; back
@@ -269,13 +271,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
   const { data } = useSuspenseQuery(mediaDetailOptions(wikidataId));
   if (!data) throw new Error("Media not found");
   const { auth } = rootRoute.useRouteContext();
-  const router = useRouter();
-  const handleBack = useCallback(() => {
-    SoundEngine.navBack();
-    document.documentElement.dataset.navBack = "1";
-    router.history.back();
-    setTimeout(() => delete document.documentElement.dataset.navBack, 500);
-  }, [router]);
+  const handleBack = useNavBack();
   const handleShuffle = useShuffleNav();
 
   const [localIsFavorite, setLocalIsFavorite] = useState(false);
@@ -427,7 +423,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               />
             </div>
           </div>
-          <div className="min-w-0 flex-1" style={{ viewTransitionName: "detail-content" }}>
+          <div className="min-w-0 flex-1">
             <div className="mb-2">
               <StampBadge type={displayMediaType(data.mediaType, data.animationOrigin)} />
             </div>

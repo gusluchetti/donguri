@@ -186,19 +186,15 @@ img {
 }
 
 /* Back navigation — reversed slide direction */
-html[data-nav-back] ::view-transition-old(root) {
+html:active-view-transition-type(back) ::view-transition-old(root) {
   animation: 45ms var(--ease-smooth) both vt-fade-out-back;
 }
 
-html[data-nav-back] ::view-transition-new(root) {
+html:active-view-transition-type(back) ::view-transition-new(root) {
   animation: 70ms var(--ease-smooth) both vt-fade-in-back;
 }
 
-html[data-nav-back] ::view-transition-old(detail-content) {
-  animation: 45ms var(--ease-smooth) both vt-fade-out-back;
-}
-
-html[data-nav-back] ::view-transition-new(detail-content) {
+html:active-view-transition-type(back) .dg-page-enter {
   animation: none;
 }
 
@@ -235,25 +231,6 @@ html[data-nav-back] ::view-transition-new(detail-content) {
 ::view-transition-old(nav) {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-}
-
-::view-transition-old(detail-content) {
-  animation: 45ms var(--ease-smooth) both vt-fade-out;
-}
-
-::view-transition-new(detail-content) {
-  animation: 150ms var(--ease-smooth) 25ms both vt-content-in;
-}
-
-@keyframes vt-content-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* ─── Keyframes ─────────────────────────────────────────────────── */
