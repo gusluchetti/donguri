@@ -8,7 +8,7 @@ export const Route = createFileRoute("/auth/github/callback")({
     code: z.string().optional(),
     error: z.string().optional(),
   }),
-  beforeLoad: async ({ search }) => {
+  beforeLoad: async ({ search, context }) => {
     if (search.error) throw new Error("Authentication was denied or failed.");
     if (!search.code) throw new Error("Missing authorization code.");
 
@@ -17,6 +17,7 @@ export const Route = createFileRoute("/auth/github/callback")({
     } catch {
       throw new Error("Authentication failed. Please try again.");
     }
+    context.queryClient.removeQueries({ queryKey: ["auth"] });
     throw redirect({ to: "/" });
   },
   errorComponent: AuthCallbackError,

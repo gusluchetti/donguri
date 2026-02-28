@@ -1,5 +1,7 @@
+import type { QueryClient } from "@tanstack/react-query";
 import { createServerFn } from "@tanstack/react-start";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { themeOptions } from "~/features/auth/auth.queries";
 
 export type ThemePreference = "system" | "dark" | "light";
 type ResolvedTheme = "dark" | "light";
@@ -40,9 +42,11 @@ export const getThemeCookie = createServerFn({ method: "GET" }).handler(async ()
 export function ThemeProvider({
   children,
   initialTheme = "dark",
+  queryClient,
 }: {
   children: React.ReactNode;
   initialTheme?: ResolvedTheme;
+  queryClient?: QueryClient;
 }) {
   const [preference, setPreference] = useState<ThemePreference>(() => {
     if (typeof window === "undefined") return "system";
@@ -50,13 +54,17 @@ export function ThemeProvider({
   });
   const [theme, setTheme] = useState<ResolvedTheme>(initialTheme);
 
-  const setThemePreference = useCallback((p: ThemePreference) => {
-    setPreference(p);
-    localStorage.setItem("dg-theme-pref", p);
-    const resolved = resolveTheme(p);
-    setTheme(resolved);
-    applyTheme(resolved);
-  }, []);
+  const setThemePreference = useCallback(
+    (p: ThemePreference) => {
+      setPreference(p);
+      localStorage.setItem("dg-theme-pref", p);
+      const resolved = resolveTheme(p);
+      setTheme(resolved);
+      applyTheme(resolved);
+      queryClient?.setQueryData(themeOptions().queryKey, resolved);
+    },
+    [queryClient],
+  );
 
   // Cycles dark → light → system
   const toggleTheme = useCallback(() => {

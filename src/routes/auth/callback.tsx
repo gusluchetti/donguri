@@ -11,7 +11,7 @@ export const Route = createFileRoute("/auth/callback")({
     error: z.string().optional(),
     error_description: z.string().optional(),
   }),
-  beforeLoad: async ({ search }) => {
+  beforeLoad: async ({ search, context }) => {
     if (search.error) throw new Error("Authentication was denied or failed.");
 
     try {
@@ -19,6 +19,7 @@ export const Route = createFileRoute("/auth/callback")({
     } catch {
       throw new Error("Authentication failed. Please try again.");
     }
+    context.queryClient.removeQueries({ queryKey: ["auth"] });
     throw redirect({ to: "/" });
   },
   errorComponent: AuthCallbackError,

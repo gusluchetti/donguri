@@ -10,6 +10,7 @@ import {
 import { getSequenceManager } from "@tanstack/hotkeys";
 import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
 import type { QueryClient } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
   createRootRouteWithContext,
   type ErrorComponentProps,
@@ -19,12 +20,14 @@ import {
   Scripts,
   useNavigate,
 } from "@tanstack/react-router";
+import { TanStackRouterDevtools } from "@tanstack/router-devtools";
 import { clear } from "idb-keyval";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import type { SessionData } from "~/features/auth/auth.functions";
 import "../app.css";
 import { NavProgress } from "~/components/NavProgress";
-import { getAuthState, logout } from "~/features/auth/auth.functions";
+import { logout } from "~/features/auth/auth.functions";
+import { authOptions, themeOptions } from "~/features/auth/auth.queries";
 import { getCatalogFingerprint } from "~/features/catalog/catalog.functions";
 import { trackedIdsOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
@@ -34,7 +37,7 @@ import { HelpOverlay } from "~/lib/hotkeys/HelpOverlay";
 import { isInputFocused } from "~/lib/hotkeys/shortcuts";
 import { ogTags, pageTitle } from "~/lib/og";
 import { checkCatalogFreshness } from "~/lib/query";
-import { getThemeCookie, ThemeProvider, useTheme } from "~/lib/theme";
+import { ThemeProvider, useTheme } from "~/lib/theme";
 
 // Sets data-theme before first paint. Also syncs the cookie for SSR on next visit.
 const THEME_INIT_SCRIPT = `(function(){try{var p=localStorage.getItem('dg-theme-pref')||'system';var t=p==='system'?(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):p;document.documentElement.setAttribute('data-theme',t);document.cookie='dg-theme='+t+';path=/;max-age=34560000;samesite=lax'}catch(e){document.documentElement.setAttribute('data-theme','dark')}})()`;
@@ -74,8 +77,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
     ],
   }),
-  beforeLoad: async () => {
-    const [auth, theme] = await Promise.all([getAuthState(), getThemeCookie()]);
+  beforeLoad: async ({ context }) => {
+    const [auth, theme] = await Promise.all([
+      context.queryClient.ensureQueryData(authOptions()),
+      context.queryClient.ensureQueryData(themeOptions()),
+    ]);
     return { auth: auth as SessionData | null, theme };
   },
   loader: async ({ context }) => {
@@ -181,7 +187,7 @@ function RootComponent() {
 
   return (
     <RootDocument theme={theme}>
-      <ThemeProvider initialTheme={theme}>
+      <ThemeProvider initialTheme={theme} queryClient={queryClient}>
         <HotkeysProvider>
           <GlobalShortcuts showHelp={showHelp} setShowHelp={setShowHelp} />
           <NavProgress />
@@ -319,6 +325,12 @@ function RootComponent() {
           </div>
         </HotkeysProvider>
       </ThemeProvider>
+      {import.meta.env.DEV && (
+        <>
+          <ReactQueryDevtools buttonPosition="bottom-left" />
+          <TanStackRouterDevtools position="bottom-right" />
+        </>
+      )}
     </RootDocument>
   );
 }
