@@ -19,8 +19,9 @@ export function InfiniteCarousel({ items }: { items: Media[] }) {
     const track = trackRef.current;
     if (!track) return;
 
-    const SPEED = 0.5; // px per frame
+    const SPEED = 0.03; // px per ms (~30px/s, frame-rate independent)
     let halfWidth = 0;
+    let lastTime = 0;
 
     function measure() {
       if (!track) return;
@@ -34,12 +35,16 @@ export function InfiniteCarousel({ items }: { items: Media[] }) {
 
     window.addEventListener("resize", measure);
 
-    function animate() {
-      if (!pausedRef.current && halfWidth > 0) {
-        posRef.current += SPEED;
-        if (posRef.current >= halfWidth) posRef.current -= halfWidth;
-        if (track) track.style.transform = `translateX(${-posRef.current}px)`;
+    function animate(now: number) {
+      if (lastTime) {
+        const dt = now - lastTime;
+        if (!pausedRef.current && halfWidth > 0) {
+          posRef.current += SPEED * dt;
+          if (posRef.current >= halfWidth) posRef.current -= halfWidth;
+          if (track) track.style.transform = `translateX(${-posRef.current}px)`;
+        }
       }
+      lastTime = now;
       rafRef.current = requestAnimationFrame(animate);
     }
 
