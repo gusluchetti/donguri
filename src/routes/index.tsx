@@ -1,11 +1,10 @@
 import { Star } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
-import { trackedIdsOptions, watchlistOptions } from "~/features/catalog/catalog.queries";
+import type { Media } from "~/db/schema";
+import { watchlistOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
-import { StatusIcon } from "~/features/catalog/components/StatusIcon";
 import { AcornIcon } from "~/features/media/components/AcornIcon";
 import { InfiniteCarousel } from "~/features/media/components/InfiniteCarousel";
 import { SectionHeader } from "~/features/media/components/SectionHeader";
@@ -14,12 +13,11 @@ import {
   displayMediaType,
   ratingColor,
   replayCountLabel,
+  STATUS_ICONS,
   STATUS_LABELS_GENERIC,
   STATUS_ORDER,
   type StatusValue,
 } from "~/features/media/media-types";
-import { OnboardingFlow } from "~/features/onboarding/OnboardingFlow";
-import { onboardingPicksOptions } from "~/features/onboarding/onboarding.queries";
 import { ogTags, pageTitle } from "~/lib/og";
 
 const rootRoute = getRouteApi("__root__");
@@ -72,24 +70,14 @@ function episodePosition(item: CatalogEntryRow): string | null {
 
 export const Route = createFileRoute("/")({
   loader: async ({ context }) => {
-    await context.queryClient.prefetchQuery(homepageSampleOptions());
-    if (!context.auth) return { entries: [] as CatalogEntryRow[] };
-    try {
-      const trackedIds = await context.queryClient.ensureQueryData(trackedIdsOptions());
-      const entries = await context.queryClient
-        .fetchQuery(watchlistOptions())
-        .catch(() => [] as CatalogEntryRow[]);
-      // Prefetch onboarding picks when logged in but collection is empty
-      if (trackedIds && entries.length === 0) {
-        context.queryClient.prefetchQuery(onboardingPicksOptions());
-      }
-      return { entries };
-    } catch {
-      return { entries: [] as CatalogEntryRow[] };
-    }
+    const [entries, samples] = await Promise.all([
+      context.queryClient.fetchQuery(watchlistOptions()).catch(() => [] as CatalogEntryRow[]),
+      context.queryClient.fetchQuery(homepageSampleOptions()).catch(() => [] as Media[]),
+    ]);
+    return { entries, samples };
   },
   staleTime: 5 * 60 * 1000,
-  head: () => ({
+  head: ({ loaderData }) => ({
     meta: [
       { title: pageTitle("donguri") },
       ...ogTags({
@@ -99,6 +87,14 @@ export const Route = createFileRoute("/")({
         path: "/",
       }),
     ],
+    links: (loaderData?.samples ?? [])
+      .filter((s) => s.posterUrl)
+      .map((s) => ({
+        rel: "preload",
+        as: "image",
+        href: s.posterUrl as string,
+        fetchPriority: "high",
+      })),
   }),
   component: HomePage,
 });
@@ -116,24 +112,19 @@ const STATUS_SECTION_COLORS: Record<StatusValue, string> = {
 const GRID_STATUSES = new Set<string>(["completed", "mastered"]);
 
 function HomePage() {
-  const { auth } = rootRoute.useRouteContext();
-  const { entries } = Route.useLoaderData();
+  const { auth } = rootRoute.useLoaderData();
 
-  if (!auth) {
-    return <LoggedOutView />;
-  }
-
-  if (entries.length === 0) {
-    return <OnboardingFlow />;
-  }
-
-  return (
-    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
-      <div className="max-w-[1100px] mx-auto px-g3 py-4 sm:py-6">
-        <LoggedInView />
+  if (auth) {
+    return (
+      <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
+        <div className="max-w-[1100px] mx-auto px-g3 py-4 sm:py-6">
+          <LoggedInView />
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return <LoggedOutView />;
 }
 
 // ─── Logged-Out Landing ─────────────────────────────────────────────────────
@@ -145,27 +136,11 @@ const TYPE_CARDS = [
   { type: "game", label: "Games", count: "15k+" },
 ] as const;
 
-const AT_LINK = (
-  <a
-    href="https://atproto.com"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-150 underline decoration-dg-border-strong underline-offset-2"
-  >
-    AT Protocol
-  </a>
-);
-
 const STEPS = [
   {
     step: "1",
     title: "Create an account or sign in",
-    desc: (
-      <>
-        Use your {AT_LINK} identity, Google, or GitHub. We recommend AT Protocol for the full
-        experience.
-      </>
-    ),
+    desc: "Use your AT Protocol identity, Google, or GitHub. We recommend AT Protocol for the full experience.",
   },
   {
     step: "2",
@@ -175,11 +150,13 @@ const STEPS = [
   {
     step: "3",
     title: "Your catalog, your way",
-    desc: <>Rate, review, and organize. With {AT_LINK}, your data syncs to your own server.</>,
+    desc: "Rate, review, and organize. With AT Protocol, your data syncs to your own server.",
   },
 ];
 
 function LoggedOutView() {
+  const { samples } = Route.useLoaderData();
+
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       {/* Hero */}
@@ -202,29 +179,20 @@ function LoggedOutView() {
         <p className="text-dg-text-tertiary text-[0.85rem] leading-relaxed max-w-[420px] mx-auto mb-5">
           Track movies, TV shows, anime, and games.
           <br />
-          Built on{" "}
-          <a
-            href="https://atproto.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-150 underline decoration-dg-border-strong underline-offset-2"
-          >
-            AT Protocol
-          </a>{" "}
-          — your catalog, your data.
+          Built on AT Protocol — your catalog, your data.
         </p>
         <div className="flex items-center justify-center gap-3 flex-wrap">
           <Link
             to="/login"
             onClick={() => SoundEngine.click()}
-            className="bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110 active:scale-[0.97] active:opacity-80"
+            className="bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110"
           >
             Get started
           </Link>
           <Link
             to="/catalog"
             onClick={() => SoundEngine.click()}
-            className="border border-dg-border text-dg-text-secondary font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text active:scale-[0.97] active:opacity-80"
+            className="border border-dg-border text-dg-text-secondary font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text"
           >
             Browse catalog →
           </Link>
@@ -242,7 +210,7 @@ function LoggedOutView() {
               key={t.type}
               to="/catalog"
               search={{ type: t.type }}
-              className="border border-dg-border-subtle rounded bg-dg-surface p-4 text-center no-underline hover:border-dg-border-strong transition-all duration-150 active:scale-[0.97] active:opacity-80"
+              className="border border-dg-border-subtle rounded bg-dg-surface p-4 text-center no-underline hover:border-dg-border-strong transition-colors"
               onClick={() => SoundEngine.click()}
             >
               <div className="text-[0.85rem] font-medium text-dg-text mb-1">{t.label}</div>
@@ -252,11 +220,8 @@ function LoggedOutView() {
         </div>
       </section>
 
-      {/* Catalog sample — right under type cards */}
-      <CarouselSection />
-
       {/* How it works */}
-      <section className="py-4 sm:py-6 max-w-[1100px] mx-auto px-g3">
+      <section className="py-4 sm:py-6 max-w-[1100px] mx-auto px-g3 border-t border-dg-border-subtle">
         <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider mb-3">
           How it works
         </div>
@@ -275,6 +240,21 @@ function LoggedOutView() {
         </div>
       </section>
 
+      {/* Catalog sample */}
+      {samples.length > 0 && (
+        <section className="py-4 sm:py-6 border-t border-dg-border-subtle overflow-hidden">
+          <div className="flex items-center justify-between mb-3 max-w-[1100px] mx-auto px-g3">
+            <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider">
+              From the catalog
+            </div>
+            <Link to="/catalog" className="text-[0.7rem] text-dg-accent no-underline">
+              Browse all →
+            </Link>
+          </div>
+          <InfiniteCarousel items={samples} />
+        </section>
+      )}
+
       {/* Value props */}
       <section className="py-5 sm:py-8 max-w-[1100px] mx-auto px-g3">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -283,16 +263,7 @@ function LoggedOutView() {
               Your data, portable
             </div>
             <div className="text-[0.8rem] text-dg-text-secondary leading-relaxed">
-              With{" "}
-              <a
-                href="https://atproto.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-dg-text-secondary hover:text-dg-accent transition-colors duration-150 underline decoration-dg-border-strong underline-offset-2"
-              >
-                AT Protocol
-              </a>
-              , your catalog syncs to your own data server. Take it anywhere.
+              With AT Protocol, your catalog syncs to your own data server. Take it anywhere.
             </div>
           </div>
           <div className="border border-dg-border-subtle rounded bg-dg-surface p-4 sm:p-5">
@@ -323,31 +294,12 @@ function LoggedOutView() {
         <Link
           to="/login"
           onClick={() => SoundEngine.click()}
-          className="inline-block bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110 active:scale-[0.97] active:opacity-80"
+          className="inline-block bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-150 hover:brightness-110"
         >
           Get started
         </Link>
       </section>
     </div>
-  );
-}
-
-function CarouselSection() {
-  const { data: samples } = useQuery(homepageSampleOptions());
-  if (!samples || samples.length === 0) return null;
-
-  return (
-    <section className="pt-4 sm:pt-6 pb-4 sm:pb-6 overflow-hidden">
-      <div className="flex items-center justify-between mb-3 max-w-[1100px] mx-auto px-g3">
-        <div className="text-[0.75rem] text-dg-text-tertiary uppercase tracking-wider">
-          From the catalog
-        </div>
-        <Link to="/catalog" className="text-[0.7rem] text-dg-accent no-underline">
-          Browse all →
-        </Link>
-      </div>
-      <InfiniteCarousel items={samples} />
-    </section>
   );
 }
 
@@ -401,7 +353,7 @@ function WatchlistSection({ status, items }: { status: string; items: CatalogEnt
         label={STATUS_LABELS_GENERIC[s] ?? status}
         color={STATUS_SECTION_COLORS[s] ?? "var(--color-dg-text-secondary)"}
         count={items.length}
-        icon={<StatusIcon status={s} size={12} />}
+        icon={STATUS_ICONS[s] ?? "\u00b7"}
       />
       {isGrid ? <WatchlistGrid items={items} /> : <WatchlistList items={items} />}
     </div>

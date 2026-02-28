@@ -1,5 +1,8 @@
-import { STATUS_LABELS_GENERIC, type StatusValue } from "~/features/media/media-types";
-import { StatusIcon } from "./StatusIcon";
+import {
+  STATUS_ICONS,
+  STATUS_LABELS_GENERIC,
+  type StatusValue,
+} from "~/features/media/media-types";
 
 const STATUS_COLOR_MAP: Record<StatusValue, string> = {
   planned: "var(--color-dg-charted)",
@@ -26,6 +29,7 @@ export function StatusBadge({
   onClick?: () => void;
 }) {
   const color = STATUS_COLOR_MAP[status];
+  const icon = STATUS_ICONS[status];
   const label = STATUS_LABELS_GENERIC[status];
   if (!color) return null;
 
@@ -53,7 +57,7 @@ export function StatusBadge({
           opacity: 0.25,
         }}
       />
-      <StatusIcon status={status} size={compact ? 8 : 10} />
+      <span className="text-[8px]">{icon}</span>
       {label}
     </button>
   );

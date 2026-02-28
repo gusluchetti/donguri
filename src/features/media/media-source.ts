@@ -129,17 +129,13 @@ class DbSource implements MediaSource {
     const aliasIlike = `%|${searchTerm}|%`;
     const aliasLikeTerm = `%${searchTerm.replace(/[%_\\]/g, "\\$&")}%`;
 
-    const exactTitle = `${searchTerm.replace(/[%_\\]/g, "\\$&")}`;
     const relevance = sql<number>`GREATEST(
-      CASE WHEN ${media.aliases} IS NOT NULL AND '|' || ${media.aliases} || '|' LIKE ${aliasExact} THEN 10.0 ELSE 0 END,
-      CASE WHEN ${media.aliases} IS NOT NULL AND '|' || ${media.aliases} || '|' ILIKE ${aliasIlike} THEN 8.0 ELSE 0 END,
-      CASE WHEN ${media.title} ILIKE ${exactTitle} THEN 5.0 ELSE 0 END,
-      CASE WHEN ${media.originalTitle} ILIKE ${exactTitle} THEN 4.5 ELSE 0 END,
-      CASE WHEN ${media.aliases} ILIKE ${aliasLikeTerm} THEN 3.0 ELSE 0 END,
+      CASE WHEN ${media.aliases} IS NOT NULL AND '|' || ${media.aliases} || '|' LIKE ${aliasExact} THEN 2.0 ELSE 0 END,
+      CASE WHEN ${media.aliases} IS NOT NULL AND '|' || ${media.aliases} || '|' ILIKE ${aliasIlike} THEN 1.9 ELSE 0 END,
       word_similarity(${searchTerm}, ${media.title}),
       word_similarity(${searchTerm}, COALESCE(${media.originalTitle}, '')),
       word_similarity(${normalizedTerm}, COALESCE(${media.searchTitle}, ''))
-    ) + COALESCE(1.0 - ${media.popularityScore}, 0)`;
+    )`;
 
     const fuzzyCondition = sql`(
       ${searchTerm} <% ${media.title}
@@ -241,29 +237,25 @@ class CacheSource implements MediaSource {
       const origLower = item.originalTitle?.toLowerCase() ?? "";
       const itemAliases = item.aliases ? item.aliases.split("|") : [];
       const searchTitleVal = item.searchTitle ?? "";
-      // Popularity bonus: 0-1 where higher = more popular
-      const popBonus = item.popularityScore != null ? 1.0 - Number(item.popularityScore) : 0;
 
       if (itemAliases.includes(searchTerm)) {
-        scored.push({ item, score: 10 + popBonus });
+        scored.push({ item, score: 5 });
         continue;
       }
       if (itemAliases.some((a) => a.toLowerCase() === lower)) {
-        scored.push({ item, score: 8 + popBonus });
+        scored.push({ item, score: 4 });
         continue;
       }
       if (titleLower === lower || origLower === lower) {
-        scored.push({ item, score: 5 + popBonus });
-      } else if (itemAliases.some((a) => a.toLowerCase().includes(lower))) {
-        scored.push({ item, score: 3 + popBonus });
+        scored.push({ item, score: 3 });
       } else if (titleLower.startsWith(lower) || origLower.startsWith(lower)) {
-        scored.push({ item, score: 2 + popBonus });
+        scored.push({ item, score: 2 });
       } else if (
         titleLower.includes(lower) ||
         origLower.includes(lower) ||
         searchTitleVal.includes(normalized)
       ) {
-        scored.push({ item, score: 1 + popBonus });
+        scored.push({ item, score: 1 });
       }
     }
 

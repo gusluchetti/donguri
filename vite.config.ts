@@ -11,9 +11,6 @@ export default defineConfig({
   resolve: {
     dedupe: ["react", "react-dom", "react-dom/server"],
   },
-  optimizeDeps: {
-    include: ["react-markdown"],
-  },
   define: {
     __BUILD_ID__: JSON.stringify(Date.now().toString(36)),
   },

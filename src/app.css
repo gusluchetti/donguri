@@ -148,6 +148,17 @@ img {
   }
 }
 
+/* Theme transition (applied temporarily during toggle) */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition:
+    background-color 200ms ease,
+    color 200ms ease,
+    border-color 200ms ease;
+}
+
 /* ─── View Transitions ──────────────────────────────────────────── */
 
 ::view-transition-old(root) {
@@ -269,12 +280,19 @@ html[data-nav-back] ::view-transition-new(detail-content) {
   }
 }
 
-@keyframes carouselScroll {
-  from {
-    transform: translate3d(0, 0, 0);
+/* Slow back-and-forth drift for mobile sample carousel */
+@keyframes sampleDrift {
+  0%,
+  10% {
+    transform: translateX(0);
   }
-  to {
-    transform: translate3d(-50%, 0, 0);
+  45%,
+  55% {
+    transform: translateX(-50%);
+  }
+  90%,
+  100% {
+    transform: translateX(0);
   }
 }
 
@@ -496,37 +514,6 @@ input[type="range"].dg-range:disabled {
   }
   75% {
     content: "...";
-  }
-}
-
-/* ─── Navigation progress bar ──────────────────────────────────────────────── */
-
-.dg-nav-progress {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  z-index: 9998;
-  background: var(--color-dg-accent);
-  transform-origin: left;
-  transform: scaleX(0);
-  animation: nav-progress 8s cubic-bezier(0.1, 0.4, 0.2, 0.9) forwards;
-}
-
-.dg-nav-progress-done {
-  animation: none;
-  transform: scaleX(1);
-  opacity: 0;
-  transition: opacity 300ms ease-out;
-}
-
-@keyframes nav-progress {
-  0% {
-    transform: scaleX(0);
-  }
-  100% {
-    transform: scaleX(0.95);
   }
 }
 

@@ -96,6 +96,17 @@ export function replayCountLabel(count: number, mediaType?: string): string | nu
   return `${verb} x${count + 1}`;
 }
 
+// ─── Status Icons ───────────────────────────────────────────────────────────
+
+export const STATUS_ICONS: Record<StatusValue, string> = {
+  planned: "\u25C7", // ◇
+  in_progress: "\u25B8", // ▸
+  on_hold: "\u2016", // ‖
+  completed: "\u25A0", // ■
+  mastered: "\u2726", // ✦
+  dropped: "\u2715", // ✕
+};
+
 // ─── Status Colors ──────────────────────────────────────────────────────────
 
 /** Text color per status (homepage section headers) */

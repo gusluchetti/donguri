@@ -1,6 +1,5 @@
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 import { routerWithQueryClient } from "@tanstack/react-router-with-query";
-import { DefaultPendingComponent } from "~/components/DefaultPendingComponent";
 import { createQueryClient } from "~/lib/query";
 import { routeTree } from "./routeTree.gen";
 
@@ -15,9 +14,6 @@ export function getRouter() {
       defaultStaleTime: 30_000,
       defaultPreloadStaleTime: 30_000,
       defaultViewTransition: true,
-      defaultPendingMs: 200,
-      defaultPendingMinMs: 300,
-      defaultPendingComponent: DefaultPendingComponent,
       context: { queryClient },
     }),
     queryClient,

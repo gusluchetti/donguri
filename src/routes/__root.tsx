@@ -2,15 +2,14 @@ import {
   Bookmark,
   MagnifyingGlass,
   Moon,
+  SignIn,
   SpeakerHigh,
   SpeakerNone,
   Sun,
-  UserCircle,
 } from "@phosphor-icons/react";
 import { getSequenceManager } from "@tanstack/hotkeys";
 import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
 import type { QueryClient } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
   createRootRouteWithContext,
   type ErrorComponentProps,
@@ -18,16 +17,14 @@ import {
   Link,
   Outlet,
   Scripts,
+  useLocation,
   useNavigate,
 } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/router-devtools";
 import { clear } from "idb-keyval";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import type { SessionData } from "~/features/auth/auth.functions";
 import "../app.css";
-import { NavProgress } from "~/components/NavProgress";
-import { logout } from "~/features/auth/auth.functions";
-import { authOptions, themeOptions } from "~/features/auth/auth.queries";
+import { getAuthState, logout } from "~/features/auth/auth.functions";
+import { AuthBanner } from "~/features/auth/components/AuthBanner";
 import { getCatalogFingerprint } from "~/features/catalog/catalog.functions";
 import { trackedIdsOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
@@ -37,10 +34,10 @@ import { HelpOverlay } from "~/lib/hotkeys/HelpOverlay";
 import { isInputFocused } from "~/lib/hotkeys/shortcuts";
 import { ogTags, pageTitle } from "~/lib/og";
 import { checkCatalogFreshness } from "~/lib/query";
-import { ThemeProvider, useTheme } from "~/lib/theme";
+import { getThemeCookie, ThemeProvider, useTheme } from "~/lib/theme";
 
 // Sets data-theme before first paint. Also syncs the cookie for SSR on next visit.
-const THEME_INIT_SCRIPT = `(function(){try{var p=localStorage.getItem('dg-theme-pref')||'system';var t=p==='system'?(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):p;document.documentElement.setAttribute('data-theme',t);document.cookie='dg-theme='+t+';path=/;max-age=34560000;samesite=lax'}catch(e){document.documentElement.setAttribute('data-theme','dark')}})()`;
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('dg-theme');if(!t){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.setAttribute('data-theme',t);document.cookie='dg-theme='+t+';path=/;max-age=34560000;samesite=lax'}catch(e){document.documentElement.setAttribute('data-theme','dark')}})()`;
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
@@ -77,16 +74,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
     ],
   }),
-  beforeLoad: async ({ context }) => {
-    const [auth, theme] = await Promise.all([
-      context.queryClient.ensureQueryData(authOptions()),
-      context.queryClient.ensureQueryData(themeOptions()),
-    ]);
-    return { auth: auth as SessionData | null, theme };
-  },
   loader: async ({ context }) => {
+    const [auth, theme] = await Promise.all([getAuthState(), getThemeCookie()]);
     let trackedIds: Record<string, string | null> = {};
-    if (context.auth) {
+    if (auth) {
       try {
         const [ids, fingerprint] = await Promise.all([
           context.queryClient.fetchQuery(trackedIdsOptions()),
@@ -98,7 +89,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         console.error("[root] getUserTrackedIds FAILED:", err, "(continuing with empty)");
       }
     }
-    return { trackedIds };
+    return { auth, trackedIds, theme };
   },
   staleTime: 5 * 60 * 1000,
   component: RootComponent,
@@ -129,8 +120,8 @@ const NAV_ITEMS: readonly { to: string; label: string; exact?: boolean }[] = [
 ];
 
 function RootComponent() {
-  const { auth, theme } = Route.useRouteContext();
-  const { queryClient } = Route.useRouteContext();
+  const { auth, theme } = Route.useLoaderData();
+  const queryClient = Route.useRouteContext().queryClient;
 
   const handleLogout = useCallback(async () => {
     await logout();
@@ -139,27 +130,11 @@ function RootComponent() {
     window.location.href = "/";
   }, [queryClient]);
 
-  // Register service worker for PWA support + enable CSS :active on iOS Safari
+  // Register service worker for PWA support
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
-    document.addEventListener("touchstart", () => {}, { passive: true });
-  }, []);
-
-  // Warm up audio engine on first user gesture (pre-renders all sound buffers)
-  useEffect(() => {
-    const warmup = () => {
-      SoundEngine.init();
-      document.removeEventListener("pointerdown", warmup, true);
-      document.removeEventListener("keydown", warmup, true);
-    };
-    document.addEventListener("pointerdown", warmup, { capture: true });
-    document.addEventListener("keydown", warmup, { capture: true });
-    return () => {
-      document.removeEventListener("pointerdown", warmup, true);
-      document.removeEventListener("keydown", warmup, true);
-    };
   }, []);
 
   // Global error handler: stale deploys + expired AT Protocol sessions
@@ -184,16 +159,17 @@ function RootComponent() {
   }, [queryClient]);
 
   const [showHelp, setShowHelp] = useState(false);
+  const pathname = useLocation({ select: (l) => l.pathname });
+  const showBanner = !auth && !/^\/(login|auth\/)/.test(pathname);
 
   return (
     <RootDocument theme={theme}>
-      <ThemeProvider initialTheme={theme} queryClient={queryClient}>
+      <ThemeProvider initialTheme={theme}>
         <HotkeysProvider>
           <GlobalShortcuts showHelp={showHelp} setShowHelp={setShowHelp} />
-          <NavProgress />
           <div className="h-dvh overflow-hidden flex flex-col relative z-[2]">
             <nav
-              className={`font-body shrink-0 sticky top-0 z-30 ${auth ? "hidden sm:block" : ""}`}
+              className="font-body shrink-0 sticky top-0 z-30"
               style={{
                 background: "var(--nav-bg)",
                 backdropFilter: "blur(16px) saturate(1.3)",
@@ -229,24 +205,22 @@ function RootComponent() {
                 <div className="flex items-center gap-1">
                   {auth ? (
                     <>
-                      <Link
-                        to="/profile"
-                        className="text-xs text-dg-accent mr-2 no-underline hover:opacity-70 transition-opacity"
-                        onClick={() => SoundEngine.click()}
-                      >
+                      <span className="text-xs text-dg-accent hidden sm:inline mr-2">
                         {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
-                      </Link>
+                      </span>
                       <div
-                        className="mx-1"
+                        className="mx-1 hidden sm:block"
                         style={{
                           width: 1,
                           height: 16,
                           background: "var(--color-dg-border)",
                         }}
                       />
+                      <SoundToggle />
+                      <ThemeToggle />
                       <button
                         type="button"
-                        className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-tertiary font-body cursor-pointer transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text-secondary active:scale-[0.97] active:opacity-80"
+                        className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-tertiary font-body cursor-pointer transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text-secondary"
                         onClick={handleLogout}
                       >
                         logout
@@ -258,7 +232,7 @@ function RootComponent() {
                       <ThemeToggle />
                       <Link
                         to="/login"
-                        className="hidden sm:inline text-xs text-dg-accent font-body no-underline border border-dg-accent/30 rounded-[3px] py-1 px-3 hover:border-dg-accent/60 transition-all duration-150 active:scale-[0.97] active:opacity-80"
+                        className="hidden sm:inline text-xs text-dg-accent font-body no-underline border border-dg-accent/30 rounded-[3px] py-1 px-3 hover:border-dg-accent/60 transition-all duration-150"
                         onClick={() => SoundEngine.click()}
                       >
                         sign in
@@ -268,15 +242,16 @@ function RootComponent() {
                 </div>
               </div>
             </nav>
+            {showBanner && <AuthBanner />}
             <Outlet />
             <footer className="hidden sm:block border-t border-dg-border-subtle px-g3 py-3 font-body shrink-0">
               <div className="max-w-[1100px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[0.7rem] text-dg-text-tertiary">
                 <span className="flex items-center gap-2">
-                  <span>v2026.02.27</span>
+                  <span>v2026.02.25-2</span>
                   <button
                     type="button"
                     onClick={() => setShowHelp(true)}
-                    className="text-dg-text-tertiary hover:text-dg-text-secondary bg-transparent border-none font-body cursor-pointer p-0 text-[0.7rem] transition-colors active:opacity-80"
+                    className="text-dg-text-tertiary hover:text-dg-text-secondary bg-transparent border-none font-body cursor-pointer p-0 text-[0.7rem] transition-colors"
                   >
                     shortcuts (?)
                   </button>
@@ -325,12 +300,6 @@ function RootComponent() {
           </div>
         </HotkeysProvider>
       </ThemeProvider>
-      {import.meta.env.DEV && (
-        <>
-          <ReactQueryDevtools buttonPosition="bottom-left" />
-          <TanStackRouterDevtools position="bottom-right" />
-        </>
-      )}
     </RootDocument>
   );
 }
@@ -373,11 +342,6 @@ function GlobalShortcuts({
       mgr.register(
         ["G", "R"],
         guard(() => navRef.current({ to: "/roadmap" })),
-        opts,
-      ),
-      mgr.register(
-        ["G", "P"],
-        guard(() => navRef.current({ to: "/profile" })),
         opts,
       ),
     ];
@@ -462,7 +426,7 @@ function NavButton({
     <Link
       to={to}
       activeOptions={{ exact }}
-      className="no-underline font-body text-xs tracking-[0.06em] uppercase rounded-[3px] py-[5px] px-2 sm:px-3 transition-all duration-150 border relative active:scale-[0.97] active:opacity-80"
+      className="no-underline font-body text-xs tracking-[0.06em] uppercase rounded-[3px] py-[5px] px-2 sm:px-3 transition-all duration-150 border relative"
       activeProps={{
         className: "bg-dg-accent-soft border-dg-accent text-dg-accent font-semibold",
       }}
@@ -483,7 +447,7 @@ function ThemeToggle() {
     <button
       type="button"
       onClick={toggleTheme}
-      className="bg-transparent border border-dg-border rounded-[3px] py-1.5 px-2.5 sm:py-1 sm:px-2 text-xs text-dg-text-secondary cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center active:scale-[0.97] active:opacity-80"
+      className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-secondary cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center"
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
       title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
     >
@@ -493,13 +457,11 @@ function ThemeToggle() {
 }
 
 function BottomNav() {
-  const { auth } = Route.useRouteContext();
+  const { auth } = Route.useLoaderData();
   const base =
-    "flex-1 flex flex-col items-center justify-center gap-0.5 no-underline py-2 transition-colors duration-150 active:scale-95 active:opacity-60";
+    "flex-1 flex flex-col items-center justify-center gap-0.5 no-underline py-2 transition-colors duration-150";
   const active = { className: `${base} text-dg-accent` };
   const inactive = { className: `${base} text-dg-text-tertiary` };
-
-  if (!auth) return null;
 
   return (
     <nav
@@ -512,6 +474,34 @@ function BottomNav() {
       }}
     >
       <div className="flex items-stretch h-14">
+        {auth ? (
+          <Link
+            to="/"
+            activeOptions={{ exact: true }}
+            activeProps={active}
+            inactiveProps={inactive}
+          >
+            <Bookmark size={22} weight="bold" />
+            <span className="text-[0.6rem] uppercase tracking-wider">watchlist</span>
+          </Link>
+        ) : (
+          <Link to="/login" className={`${base} text-dg-accent`}>
+            <SignIn size={22} weight="bold" />
+            <span className="text-[0.6rem] uppercase tracking-wider">sign in</span>
+          </Link>
+        )}
+
+        <Link
+          to="/"
+          activeOptions={{ exact: true }}
+          activeProps={active}
+          inactiveProps={inactive}
+          onClick={() => SoundEngine.click()}
+        >
+          <AcornIcon size={26} />
+          <span className="text-[0.6rem] uppercase tracking-wider">home</span>
+        </Link>
+
         <Link
           to="/catalog"
           activeOptions={{ exact: false }}
@@ -521,28 +511,6 @@ function BottomNav() {
         >
           <MagnifyingGlass size={22} weight="bold" />
           <span className="text-[0.6rem] uppercase tracking-wider">catalog</span>
-        </Link>
-
-        <Link
-          to="/"
-          activeOptions={{ exact: true }}
-          activeProps={active}
-          inactiveProps={inactive}
-          onClick={() => SoundEngine.click()}
-        >
-          <Bookmark size={22} weight="bold" />
-          <span className="text-[0.6rem] uppercase tracking-wider">watchlist</span>
-        </Link>
-
-        <Link
-          to="/profile"
-          activeOptions={{ exact: true }}
-          activeProps={active}
-          inactiveProps={inactive}
-          onClick={() => SoundEngine.click()}
-        >
-          <UserCircle size={22} weight="bold" />
-          <span className="text-[0.6rem] uppercase tracking-wider">profile</span>
         </Link>
       </div>
     </nav>
@@ -562,9 +530,9 @@ function SoundToggle() {
       onClick={() => {
         const next = SoundEngine.toggle();
         setOn(next);
-        if (next) SoundEngine.toggleOn();
+        if (next) SoundEngine.click();
       }}
-      className="bg-transparent border border-dg-border rounded-[3px] py-1.5 px-2.5 sm:py-1 sm:px-2 text-xs cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center active:scale-[0.97] active:opacity-80"
+      className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center"
       style={{ color: on ? "var(--color-dg-text-secondary)" : "var(--color-dg-text-tertiary)" }}
       aria-label={on ? "Mute sounds" : "Unmute sounds"}
       title={on ? "Mute sounds" : "Unmute sounds"}
