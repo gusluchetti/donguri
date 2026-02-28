@@ -86,9 +86,38 @@ export function clearSessionCookie(): void {
   deleteCookie(COOKIE_NAME, { path: "/" });
 }
 
+// In-memory cache: skip DB lookup when we've recently verified this userId.
+const verifiedUsers = new Map<string, number>();
+const VERIFY_TTL = 5 * 60 * 1000; // 5 minutes
+const SWEEP_INTERVAL = 10 * 60 * 1000; // 10 minutes
+
+// Periodic sweep to prevent unbounded growth
+let sweepTimer: ReturnType<typeof setInterval> | null = null;
+function ensureSweep() {
+  if (sweepTimer) return;
+  sweepTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [key, ts] of verifiedUsers) {
+      if (now - ts > VERIFY_TTL) verifiedUsers.delete(key);
+    }
+    if (verifiedUsers.size === 0 && sweepTimer) {
+      clearInterval(sweepTimer);
+      sweepTimer = null;
+    }
+  }, SWEEP_INTERVAL);
+  // Don't block process shutdown
+  if (typeof sweepTimer === "object" && "unref" in sweepTimer) sweepTimer.unref();
+}
+
 export async function requireAuth(): Promise<SessionData> {
   const session = await getSessionData();
   if (!session) throw new Error("Not authenticated");
+
+  // Check in-memory cache before hitting DB
+  const cachedAt = verifiedUsers.get(session.userId);
+  if (cachedAt && Date.now() - cachedAt < VERIFY_TTL) {
+    return session;
+  }
 
   // Verify the user actually exists in the DB — catches stale cookies from
   // other environments (e.g. prod session used against a fresh local DB).
@@ -100,9 +129,12 @@ export async function requireAuth(): Promise<SessionData> {
     .limit(1);
 
   if (!row) {
+    verifiedUsers.delete(session.userId);
     clearSessionCookie();
     throw new Error("SESSION_EXPIRED");
   }
 
+  verifiedUsers.set(session.userId, Date.now());
+  ensureSweep();
   return session;
 }

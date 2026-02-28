@@ -1,13 +1,11 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { getAuthState } from "~/features/auth/auth.functions";
 import { SignInSection } from "~/features/auth/components/SignInSection";
 import { AcornIcon } from "~/features/media/components/AcornIcon";
 import { ogTags, pageTitle } from "~/lib/og";
 
 export const Route = createFileRoute("/login")({
-  beforeLoad: async () => {
-    const auth = await getAuthState();
-    if (auth) throw redirect({ to: "/" });
+  beforeLoad: ({ context }) => {
+    if (context.auth) throw redirect({ to: "/" });
   },
   head: () => ({
     meta: [

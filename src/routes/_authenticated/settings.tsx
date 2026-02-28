@@ -1,15 +1,10 @@
 import { ArrowLeft, Monitor, Moon, SpeakerHigh, SpeakerNone, Sun } from "@phosphor-icons/react";
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { getAuthState } from "~/features/auth/auth.functions";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { type ThemePreference, useTheme } from "~/lib/theme";
 
-export const Route = createFileRoute("/settings")({
-  beforeLoad: async () => {
-    const auth = await getAuthState();
-    if (!auth) throw redirect({ to: "/login" });
-  },
+export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
 });
 
