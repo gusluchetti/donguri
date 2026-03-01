@@ -129,11 +129,15 @@ function BlogPost() {
                     {children}
                   </code>
                 ),
+                strong: ({ children }) => (
+                  <span className="text-dg-text font-semibold">{children}</span>
+                ),
                 blockquote: ({ children }) => (
                   <blockquote className="border-l-2 border-dg-accent/40 pl-4 my-4 text-dg-text-tertiary italic">
                     {children}
                   </blockquote>
                 ),
+                hr: () => <hr className="border-none border-t border-dg-border-subtle my-6" />,
               }}
             >
               {post.body}
