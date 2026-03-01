@@ -219,3 +219,134 @@ export function clearSeasonFrom(
   if (Object.keys(result[key]).length === 0) delete result[key];
   return result;
 }
+
+/** Toggle a single episode on/off. Returns new watched map. */
+export function toggleEpisode(
+  watched: WatchedEpisodes | null | undefined,
+  season: number,
+  ep: number,
+  date: string,
+): WatchedEpisodes {
+  const result: WatchedEpisodes = watched ? structuredClone(watched) : {};
+  const key = String(season);
+  const epKey = String(ep);
+  if (result[key]?.[epKey]) {
+    delete result[key][epKey];
+    if (Object.keys(result[key]).length === 0) delete result[key];
+  } else {
+    if (!result[key]) result[key] = {};
+    result[key][epKey] = date;
+  }
+  return result;
+}
+
+/** Check if a specific episode is watched. */
+export function isEpisodeWatched(
+  watched: WatchedEpisodes | null | undefined,
+  season: number,
+  ep: number,
+): boolean {
+  return !!watched?.[String(season)]?.[String(ep)];
+}
+
+/** Get the watch date for an episode, or null. */
+export function getEpisodeDate(
+  watched: WatchedEpisodes | null | undefined,
+  season: number,
+  ep: number,
+): string | null {
+  return watched?.[String(season)]?.[String(ep)] ?? null;
+}
+
+/** Mark a range [from, to] inclusive as watched. Preserves existing dates. */
+export function markEpisodeRange(
+  watched: WatchedEpisodes | null | undefined,
+  season: number,
+  from: number,
+  to: number,
+  date: string,
+): WatchedEpisodes {
+  const result: WatchedEpisodes = watched ? structuredClone(watched) : {};
+  const key = String(season);
+  if (!result[key]) result[key] = {};
+  const lo = Math.min(from, to);
+  const hi = Math.max(from, to);
+  for (let i = lo; i <= hi; i++) {
+    const epKey = String(i);
+    if (!result[key][epKey]) result[key][epKey] = date;
+  }
+  return result;
+}
+
+/** Find next unwatched episode across seasons. Returns { season, episode } or null. */
+export function nextUnwatchedEpisode(
+  watched: WatchedEpisodes | null | undefined,
+  seasons: { seasonNumber: number; episodeCount: number | null }[],
+): { season: number; episode: number } | null {
+  for (const s of seasons) {
+    if (!s.episodeCount || s.episodeCount <= 0) continue;
+    for (let ep = 1; ep <= s.episodeCount; ep++) {
+      if (!isEpisodeWatched(watched, s.seasonNumber, ep)) {
+        return { season: s.seasonNumber, episode: ep };
+      }
+    }
+  }
+  return null;
+}
+
+/** Group all watched episodes by date, sorted newest-first. */
+export function buildWatchLog(
+  watched: WatchedEpisodes | null | undefined,
+): { date: string; entries: { season: number; episode: number }[] }[] {
+  if (!watched) return [];
+  const byDate = new Map<string, { season: number; episode: number }[]>();
+  for (const [seasonKey, eps] of Object.entries(watched)) {
+    const season = Number(seasonKey);
+    for (const [epKey, date] of Object.entries(eps)) {
+      const episode = Number(epKey);
+      const list = byDate.get(date);
+      if (list) {
+        list.push({ season, episode });
+      } else {
+        byDate.set(date, [{ season, episode }]);
+      }
+    }
+  }
+  // Sort entries within each date by season then episode
+  for (const entries of byDate.values()) {
+    entries.sort((a, b) => a.season - b.season || a.episode - b.episode);
+  }
+  return [...byDate.entries()]
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([date, entries]) => ({ date, entries }));
+}
+
+/** Collapse consecutive episodes into range strings like "S01 E01-E03, S01 E05". */
+export function formatEpisodeRanges(entries: { season: number; episode: number }[]): string {
+  if (entries.length === 0) return "";
+  const ranges: string[] = [];
+  let i = 0;
+  while (i < entries.length) {
+    const start = entries[i];
+    let end = start;
+    // Extend range while same season and consecutive
+    while (
+      i + 1 < entries.length &&
+      entries[i + 1].season === start.season &&
+      entries[i + 1].episode === end.episode + 1
+    ) {
+      i++;
+      end = entries[i];
+    }
+    const s = `S${String(start.season).padStart(2, "0")}`;
+    if (start.episode === end.episode) {
+      ranges.push(`${s} E${String(start.episode).padStart(2, "0")}`);
+    } else {
+      ranges.push(
+        `${s} E${String(start.episode).padStart(2, "0")}\u2013E${String(end.episode).padStart(2, "0")}`,
+      );
+    }
+    i++;
+  }
+  return ranges.join(", ");
+}

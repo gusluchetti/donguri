@@ -1,11 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  clearSeasonFrom,
+  buildWatchLog,
   countSeasonWatched,
   countWatchedEpisodes,
-  highestConsecutiveEpisode,
-  markThroughEpisode,
+  formatEpisodeRanges,
+  getEpisodeDate,
+  isEpisodeWatched,
+  markEpisodeRange,
+  nextUnwatchedEpisode,
   todayISO,
+  toggleEpisode,
   type WatchedEpisodes,
 } from "~/features/media/media-types";
 
@@ -53,62 +57,127 @@ function SeasonProgressBar({
   );
 }
 
-function EpisodeCounter({
-  consecutiveEp,
-  seasonEpCount,
-  canDecrement,
-  canIncrement,
-  episodeDate,
-  onIncrement,
-  onDecrement,
-  onDateChange,
+function CurrentProgress({
+  watchedEpisodes,
+  seasons,
 }: {
-  consecutiveEp: number;
-  seasonEpCount: number;
-  canDecrement: boolean;
-  canIncrement: boolean;
-  episodeDate: string;
-  onIncrement: () => void;
-  onDecrement: () => void;
-  onDateChange: (date: string) => void;
+  watchedEpisodes: WatchedEpisodes;
+  seasons: Season[];
 }) {
-  return (
-    <div className="flex flex-col items-center gap-3 py-3">
-      <div className="flex items-center gap-4">
-        <button
-          type="button"
-          onClick={onDecrement}
-          disabled={!canDecrement}
-          className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-50 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono active:scale-[0.97] active:opacity-80"
-        >
-          -
-        </button>
-        <span className="text-[0.9rem] tabular-nums text-dg-text min-w-[5rem] text-center font-mono">
-          {consecutiveEp} / {seasonEpCount}
-        </span>
-        <button
-          type="button"
-          onClick={onIncrement}
-          disabled={!canIncrement}
-          className="w-9 h-9 flex items-center justify-center text-[1rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm cursor-pointer transition-all duration-50 hover:border-dg-accent/40 hover:text-dg-accent disabled:opacity-30 disabled:cursor-default font-mono active:scale-[0.97] active:opacity-80"
-        >
-          +
-        </button>
-      </div>
+  const next = nextUnwatchedEpisode(watchedEpisodes, seasons);
+  const totalWatched = countWatchedEpisodes(watchedEpisodes);
+  if (totalWatched === 0) return null;
 
-      <div className="flex items-center gap-2">
-        <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider">
-          Watched on
-        </span>
-        <input
-          type="date"
-          value={episodeDate}
-          max={todayISO()}
-          onChange={(e) => onDateChange(e.target.value || todayISO())}
-          className="text-[0.75rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none focus:border-dg-accent transition-colors"
-        />
-      </div>
+  return (
+    <div className="text-[0.75rem] text-dg-text-secondary font-mono py-1.5">
+      {next ? (
+        <>
+          Currently on:{" "}
+          <span className="text-dg-accent">
+            S{String(next.season).padStart(2, "0")}E{String(next.episode).padStart(2, "0")}
+          </span>
+        </>
+      ) : (
+        <span className="text-dg-stamped">All episodes watched</span>
+      )}
     </div>
+  );
+}
+
+function EpisodeGrid({
+  seasonNumber,
+  episodeCount,
+  watchedEpisodes,
+  episodeDate,
+  onWatchedChange,
+  latestWatchedRef,
+}: {
+  seasonNumber: number;
+  episodeCount: number;
+  watchedEpisodes: WatchedEpisodes;
+  episodeDate: string;
+  onWatchedChange: (w: WatchedEpisodes) => void;
+  latestWatchedRef: React.RefObject<WatchedEpisodes>;
+}) {
+  const lastClickedRef = useRef<number | null>(null);
+  const next = nextUnwatchedEpisode(watchedEpisodes, [{ seasonNumber, episodeCount }]);
+  const nextEp = next?.season === seasonNumber ? next.episode : null;
+
+  const handleClick = useCallback(
+    (ep: number, shiftKey: boolean) => {
+      const current = latestWatchedRef.current;
+      let result: WatchedEpisodes;
+      if (shiftKey && lastClickedRef.current != null) {
+        // Shift+click: mark range from last-clicked to current
+        result = markEpisodeRange(current, seasonNumber, lastClickedRef.current, ep, episodeDate);
+      } else {
+        result = toggleEpisode(current, seasonNumber, ep, episodeDate);
+      }
+      lastClickedRef.current = ep;
+      latestWatchedRef.current = result;
+      onWatchedChange(result);
+    },
+    [seasonNumber, episodeDate, onWatchedChange, latestWatchedRef],
+  );
+
+  return (
+    <div
+      className="grid gap-1 py-2"
+      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(32px, 1fr))" }}
+    >
+      {Array.from({ length: episodeCount }, (_, i) => {
+        const ep = i + 1;
+        const watched = isEpisodeWatched(watchedEpisodes, seasonNumber, ep);
+        const isNext = ep === nextEp;
+        const date = getEpisodeDate(watchedEpisodes, seasonNumber, ep);
+
+        return (
+          <button
+            key={ep}
+            type="button"
+            title={date ? `Watched ${date}` : `Episode ${ep}`}
+            onClick={(e) => handleClick(ep, e.shiftKey)}
+            className={`min-h-[40px] sm:min-h-[32px] flex items-center justify-center text-[0.7rem] font-mono rounded-sm cursor-pointer transition-all duration-50 active:scale-[0.95] ${
+              watched
+                ? "bg-dg-accent text-white border border-dg-accent"
+                : isNext
+                  ? "bg-transparent border-2 border-dg-accent text-dg-accent"
+                  : "bg-transparent border border-dg-border-subtle text-dg-text-tertiary hover:border-dg-border hover:text-dg-text-secondary"
+            }`}
+          >
+            {ep}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function formatLogDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function WatchLog({ watchedEpisodes }: { watchedEpisodes: WatchedEpisodes }) {
+  const log = buildWatchLog(watchedEpisodes);
+  if (log.length === 0) return null;
+
+  return (
+    <details className="mt-3">
+      <summary className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider cursor-pointer select-none hover:text-dg-text-secondary transition-colors">
+        Watch log
+      </summary>
+      <div className="mt-2 ml-2 border-l-2 border-dg-border-subtle pl-3 space-y-1.5">
+        {log.map((group) => (
+          <div key={group.date} className="text-[0.7rem] font-mono leading-relaxed">
+            <span className="text-dg-text-secondary">{formatLogDate(group.date)}</span>
+            <span className="text-dg-text-tertiary"> &mdash; </span>
+            <span className="text-dg-text">{formatEpisodeRanges(group.entries)}</span>
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -132,11 +201,8 @@ export function EpisodeTracker({
 
   // Auto-select first incomplete season on mount
   const [selectedSeason, setSelectedSeason] = useState(() => {
-    for (const s of seasons) {
-      if (s.episodeCount == null) continue;
-      const w = highestConsecutiveEpisode(watchedEpisodes, s.seasonNumber);
-      if (w < s.episodeCount) return s.seasonNumber;
-    }
+    const next = nextUnwatchedEpisode(watchedEpisodes, seasons);
+    if (next) return next.season;
     return seasons[0]?.seasonNumber ?? 1;
   });
   const [episodeDate, setEpisodeDate] = useState(todayISO());
@@ -144,69 +210,9 @@ export function EpisodeTracker({
   const currentSeason = seasons.find((s) => s.seasonNumber === selectedSeason) ?? seasons[0];
   const seasonEpCount = currentSeason?.episodeCount ?? 0;
   const seasonWatched = countSeasonWatched(watchedEpisodes, currentSeason?.seasonNumber ?? 0);
-  const consecutiveEp = highestConsecutiveEpisode(
-    watchedEpisodes,
-    currentSeason?.seasonNumber ?? 0,
-  );
 
   const totalEps = seasons.reduce((sum, s) => sum + (s.episodeCount ?? 0), 0);
   const totalWatched = countWatchedEpisodes(watchedEpisodes);
-
-  // Cross-season navigation
-  const idx = seasons.findIndex((s) => s.seasonNumber === currentSeason.seasonNumber);
-  const nextSeason = isMultiSeason
-    ? seasons.slice(idx + 1).find((s) => (s.episodeCount ?? 0) > 0)
-    : undefined;
-  const prevSeason = isMultiSeason
-    ? seasons
-        .slice(0, idx)
-        .reverse()
-        .find((s) => highestConsecutiveEpisode(watchedEpisodes, s.seasonNumber) > 0)
-    : undefined;
-
-  const handleIncrement = () => {
-    const current = latestWatchedRef.current;
-    if (consecutiveEp < seasonEpCount) {
-      const next = markThroughEpisode(
-        current,
-        currentSeason.seasonNumber,
-        consecutiveEp + 1,
-        episodeDate,
-      );
-      latestWatchedRef.current = next;
-      onWatchedChange?.(next);
-    } else if (nextSeason) {
-      const next = markThroughEpisode(current, nextSeason.seasonNumber, 1, episodeDate);
-      latestWatchedRef.current = next;
-      onWatchedChange?.(next);
-      setSelectedSeason(nextSeason.seasonNumber);
-    }
-  };
-
-  const handleDecrement = () => {
-    const current = latestWatchedRef.current;
-    if (consecutiveEp > 0) {
-      const next = clearSeasonFrom(
-        current,
-        currentSeason.seasonNumber,
-        consecutiveEp,
-        seasonEpCount,
-      );
-      latestWatchedRef.current = next;
-      onWatchedChange?.(next);
-    } else if (prevSeason) {
-      const pc = highestConsecutiveEpisode(current, prevSeason.seasonNumber);
-      const next = clearSeasonFrom(
-        current,
-        prevSeason.seasonNumber,
-        pc,
-        prevSeason.episodeCount ?? 0,
-      );
-      latestWatchedRef.current = next;
-      onWatchedChange?.(next);
-      setSelectedSeason(prevSeason.seasonNumber);
-    }
-  };
 
   return (
     <div>
@@ -247,16 +253,33 @@ export function EpisodeTracker({
       )}
 
       {interactive && seasonEpCount > 0 && (
-        <EpisodeCounter
-          consecutiveEp={consecutiveEp}
-          seasonEpCount={seasonEpCount}
-          canDecrement={consecutiveEp > 0 || !!prevSeason}
-          canIncrement={consecutiveEp < seasonEpCount || !!nextSeason}
-          episodeDate={episodeDate}
-          onIncrement={handleIncrement}
-          onDecrement={handleDecrement}
-          onDateChange={setEpisodeDate}
-        />
+        <>
+          <CurrentProgress watchedEpisodes={watchedEpisodes} seasons={seasons} />
+
+          <EpisodeGrid
+            seasonNumber={currentSeason.seasonNumber}
+            episodeCount={seasonEpCount}
+            watchedEpisodes={watchedEpisodes}
+            episodeDate={episodeDate}
+            onWatchedChange={onWatchedChange}
+            latestWatchedRef={latestWatchedRef}
+          />
+
+          <div className="flex items-center gap-2 pt-2">
+            <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider">
+              Watched on
+            </span>
+            <input
+              type="date"
+              value={episodeDate}
+              max={todayISO()}
+              onChange={(e) => setEpisodeDate(e.target.value || todayISO())}
+              className="text-[0.75rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none focus:border-dg-accent transition-colors"
+            />
+          </div>
+
+          <WatchLog watchedEpisodes={watchedEpisodes} />
+        </>
       )}
 
       {!interactive && seasons.length > 0 && (
