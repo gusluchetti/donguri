@@ -30,16 +30,18 @@ const modules = import.meta.glob("/content/blog/*.md", {
 
 /** All blog posts, sorted newest-first. Computed once at module load. */
 export const posts: BlogPost[] = Object.entries(modules)
-  .map(([, raw]) => {
+  .map(([path, raw]) => {
     const { meta, body } = parseFrontmatter(raw);
+    // Infer slug from filename (e.g. /content/blog/my-post.md → my-post)
+    const slug = path.replace(/^.*\//, "").replace(/\.md$/, "");
     return {
-      slug: meta.slug ?? "",
+      slug,
       title: meta.title ?? "Untitled",
       date: meta.date ?? "",
       body,
     };
   })
-  .filter((p) => p.slug && p.date)
+  .filter((p) => p.date)
   .sort((a, b) => b.date.localeCompare(a.date));
 
 /** Lookup a single post by slug. */
