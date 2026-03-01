@@ -1,4 +1,12 @@
-import { Check, CircleNotch, MagnifyingGlass, Plus, Shuffle, X } from "@phosphor-icons/react";
+import {
+  Check,
+  CircleNotch,
+  DotsThree,
+  MagnifyingGlass,
+  Plus,
+  Shuffle,
+  X,
+} from "@phosphor-icons/react";
 import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import {
@@ -167,8 +175,13 @@ function TypeFilterBar({
 
 const SearchBar = forwardRef<
   HTMLInputElement,
-  { initialValue: string; onRandom?: () => void; onFocusChange?: (focused: boolean) => void }
->(function SearchBar({ initialValue, onRandom, onFocusChange }, ref) {
+  {
+    initialValue: string;
+    onRandom?: () => void;
+    onFocusChange?: (focused: boolean) => void;
+    mobileExtra?: React.ReactNode;
+  }
+>(function SearchBar({ initialValue, onRandom, onFocusChange, mobileExtra }, ref) {
   const navigate = useNavigate({ from: "/catalog/" });
   const { q } = Route.useSearch();
   const [value, setValue] = useState(initialValue);
@@ -239,7 +252,7 @@ const SearchBar = forwardRef<
             setFocused(false);
             onFocusChange?.(false);
           }}
-          className="w-full py-2.5 pl-9 pr-8 bg-dg-surface border rounded text-dg-text font-body text-base sm:text-[0.85rem] outline-none box-border transition-all duration-50"
+          className="w-full py-2 sm:py-2.5 pl-9 pr-8 bg-dg-surface border rounded text-dg-text font-body text-[0.85rem] sm:text-[0.85rem] outline-none box-border transition-all duration-50"
           style={{
             borderColor: focused ? "var(--color-dg-accent)" : "var(--color-dg-border)",
             boxShadow: focused ? "0 0 0 2px var(--color-dg-accent-glow)" : "none",
@@ -263,6 +276,7 @@ const SearchBar = forwardRef<
       >
         <Shuffle size={17} weight="bold" />
       </button>
+      {mobileExtra}
     </div>
   );
 });
@@ -404,6 +418,29 @@ function CatalogPage() {
     { enabled: !searchFocused && selectedIndex >= 0 && !!auth },
   );
 
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on click-outside
+  useEffect(() => {
+    if (!filterOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) {
+        setFilterOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [filterOpen]);
+
+  const handleTypeChangeMobile = useCallback(
+    (type: FilterType) => {
+      handleTypeChange(type);
+      setFilterOpen(false);
+    },
+    [handleTypeChange],
+  );
+
   const handleRandom = useCallback(async () => {
     SoundEngine.dice();
     const id = await getRandomMediaId();
@@ -422,18 +459,63 @@ function CatalogPage() {
 
   return (
     <div className="text-dg-text flex-1 font-body flex flex-col overflow-hidden">
-      <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 pt-3 pb-2 flex flex-col gap-2">
-        <SearchBar
-          ref={searchRef}
-          initialValue={q ?? ""}
-          onRandom={handleRandom}
-          onFocusChange={setSearchFocused}
-        />
-        <TypeFilterBar mediaType={mediaType} onTypeChange={handleTypeChange} />
+      <div className="max-w-[1100px] mx-auto w-full px-2 sm:px-6 pt-2 sm:pt-3 pb-2 flex flex-col gap-2">
+        {/* Mobile-only header links */}
+        <div className="flex items-center justify-center gap-1.5 text-[0.7rem] text-dg-text-tertiary sm:hidden">
+          <Link
+            to="/blog"
+            className="no-underline text-dg-text-tertiary hover:text-dg-text-secondary transition-colors"
+          >
+            blog
+          </Link>
+          <span>&middot;</span>
+          <Link
+            to="/roadmap"
+            className="no-underline text-dg-text-tertiary hover:text-dg-text-secondary transition-colors"
+          >
+            roadmap
+          </Link>
+        </div>
+
+        {/* Search row with mobile filter toggle */}
+        <div className="relative" ref={filterDropdownRef}>
+          <SearchBar
+            ref={searchRef}
+            initialValue={q ?? ""}
+            onRandom={handleRandom}
+            onFocusChange={setSearchFocused}
+            mobileExtra={
+              <button
+                type="button"
+                title="Filters"
+                onClick={() => setFilterOpen((o) => !o)}
+                className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-50 active:scale-[0.97] active:opacity-80 sm:hidden"
+                style={{
+                  color: filterOpen ? "var(--color-dg-accent)" : undefined,
+                  borderColor: filterOpen ? "var(--color-dg-accent)" : undefined,
+                }}
+              >
+                <DotsThree size={20} weight="bold" />
+              </button>
+            }
+          />
+
+          {/* Mobile filter dropdown */}
+          {filterOpen && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-20 sm:hidden">
+              <TypeFilterBar mediaType={mediaType} onTypeChange={handleTypeChangeMobile} />
+            </div>
+          )}
+        </div>
+
+        {/* Desktop filter bar — always visible */}
+        <div className="hidden sm:block">
+          <TypeFilterBar mediaType={mediaType} onTypeChange={handleTypeChange} />
+        </div>
       </div>
 
       {!auth && (
-        <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 pb-2">
+        <div className="max-w-[1100px] mx-auto w-full px-2 sm:px-6 pb-2">
           <Link
             to="/"
             className="block border border-dg-accent/20 bg-dg-accent-soft rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-50"
@@ -445,7 +527,7 @@ function CatalogPage() {
       )}
 
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-        <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 pb-4 flex-1 flex flex-col min-h-0">
+        <div className="max-w-[1100px] mx-auto w-full px-2 sm:px-6 pb-4 flex-1 flex flex-col min-h-0">
           <div
             className="flex-1 min-h-0 border border-dg-border rounded-md overflow-hidden flex flex-col transition-opacity duration-50 bg-dg-surface"
             style={{ opacity: isPlaceholderData ? 0.5 : 1 }}
@@ -596,7 +678,7 @@ const MediaRow = memo(function MediaRow({
       />
 
       <div
-        className="grid items-center flex-1 min-w-0 gap-2 sm:gap-g2 py-1.5 px-3 sm:px-g3 group-hover:bg-dg-row-hover transition-colors duration-50"
+        className="grid items-center flex-1 min-w-0 gap-1.5 sm:gap-2 py-1.5 px-2 sm:px-3 group-hover:bg-dg-row-hover transition-colors duration-50"
         style={{ gridTemplateColumns: "36px auto 1fr auto" }}
       >
         <CoverThumb
