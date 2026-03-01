@@ -125,6 +125,7 @@ function RootDocument({ children, theme }: { children: ReactNode; theme: string 
 
 const NAV_ITEMS: readonly { to: string; label: string; exact?: boolean }[] = [
   { to: "/catalog", label: "catalog", exact: false },
+  { to: "/blog", label: "blog", exact: false },
   { to: "/roadmap", label: "roadmap", exact: true },
 ];
 
@@ -367,6 +368,11 @@ function GlobalShortcuts({
       mgr.register(
         ["G", "C"],
         guard(() => navRef.current({ to: "/catalog" })),
+        opts,
+      ),
+      mgr.register(
+        ["G", "B"],
+        guard(() => navRef.current({ to: "/blog" })),
         opts,
       ),
       mgr.register(
