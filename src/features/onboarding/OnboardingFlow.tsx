@@ -141,13 +141,13 @@ export function OnboardingFlow() {
                   key={t.key}
                   type="button"
                   onClick={() => toggleType(t.key)}
-                  className="relative rounded p-4 sm:p-5 text-left transition-all duration-200 cursor-pointer border-2"
+                  className="relative rounded p-4 sm:p-5 text-left transition-all duration-50 cursor-pointer border-2"
                   style={{
                     borderColor: active ? color : "var(--color-dg-border-subtle)",
                     background: active
                       ? `linear-gradient(135deg, hsl(${hue},18%,14%) 0%, hsl(${hue},12%,10%) 100%)`
                       : "var(--color-dg-surface)",
-                    animation: `fadeIn 320ms var(--ease-smooth) both ${i * 60}ms`,
+                    animation: `fadeIn 50ms var(--ease-smooth) both ${i * 12}ms`,
                   }}
                 >
                   {active && (
@@ -169,7 +169,7 @@ export function OnboardingFlow() {
             type="button"
             onClick={handleNext}
             disabled={selectedTypes.size === 0}
-            className="mt-8 w-full bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-3 transition-all duration-150 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            className="mt-8 w-full bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-3 transition-all duration-50 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
             Next
           </button>
@@ -209,7 +209,7 @@ export function OnboardingFlow() {
           <button
             type="button"
             onClick={handleShuffle}
-            className="flex items-center gap-1.5 text-[0.75rem] text-dg-text-secondary bg-dg-surface border border-dg-border rounded-sm px-3 py-1.5 cursor-pointer hover:border-dg-border-strong transition-all duration-150 font-body shrink-0 mt-6"
+            className="flex items-center gap-1.5 text-[0.75rem] text-dg-text-secondary bg-dg-surface border border-dg-border rounded-sm px-3 py-1.5 cursor-pointer hover:border-dg-border-strong transition-all duration-50 font-body shrink-0 mt-6"
           >
             <Shuffle size={14} weight="bold" />
             Shuffle
@@ -232,11 +232,11 @@ export function OnboardingFlow() {
                 onClick={() => toggleTitle(item.wikidataId)}
                 className="text-left bg-transparent border-none p-0 cursor-pointer group relative"
                 style={{
-                  animation: `fadeIn 320ms var(--ease-smooth) both ${i * 25}ms`,
+                  animation: `fadeIn 50ms var(--ease-smooth) both ${i * 8}ms`,
                 }}
               >
                 <div
-                  className="w-full aspect-[2/3] rounded overflow-hidden relative transition-all duration-200"
+                  className="w-full aspect-[2/3] rounded overflow-hidden relative transition-all duration-50"
                   style={{
                     outline: isSelected
                       ? "2.5px solid var(--color-dg-accent)"
@@ -244,7 +244,7 @@ export function OnboardingFlow() {
                     outlineOffset: "-2.5px",
                   }}
                 >
-                  <div className="w-full h-full transition-transform duration-200 ease-out group-hover:scale-[1.03]">
+                  <div className="w-full h-full transition-transform duration-50 ease-out group-hover:scale-[1.03]">
                     <CoverThumb
                       title={item.title}
                       mediaType={displayType}
@@ -258,7 +258,7 @@ export function OnboardingFlow() {
                       className="absolute inset-0 flex items-center justify-center rounded"
                       style={{
                         background: "rgba(0,0,0,0.4)",
-                        animation: "sealPop 300ms var(--ease-smooth) both",
+                        animation: "sealPop 50ms var(--ease-smooth) both",
                       }}
                     >
                       <div className="w-8 h-8 rounded-full bg-dg-accent flex items-center justify-center">
@@ -267,7 +267,7 @@ export function OnboardingFlow() {
                     </div>
                   )}
                 </div>
-                <div className="mt-1 text-xs font-medium text-dg-text truncate transition-colors duration-150 group-hover:text-dg-accent">
+                <div className="mt-1 text-xs font-medium text-dg-text truncate transition-colors duration-50 group-hover:text-dg-accent">
                   {item.title}
                 </div>
                 <div className="mt-0.5">
@@ -291,7 +291,7 @@ export function OnboardingFlow() {
               type="button"
               onClick={() => mutation.mutate()}
               disabled={selectedIds.size === 0 || isSaving}
-              className="bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 transition-all duration-150 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer min-w-[140px] text-center"
+              className="bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 transition-all duration-50 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer min-w-[140px] text-center"
             >
               {isSaving ? (
                 <span className="dg-ellipsis">Saving</span>

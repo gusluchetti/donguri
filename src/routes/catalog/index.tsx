@@ -1,4 +1,12 @@
-import { Check, CircleNotch, MagnifyingGlass, Plus, Shuffle, X } from "@phosphor-icons/react";
+import {
+  Check,
+  CircleNotch,
+  DotsThree,
+  MagnifyingGlass,
+  Plus,
+  Shuffle,
+  X,
+} from "@phosphor-icons/react";
 import { useHotkey, useHotkeySequence } from "@tanstack/react-hotkeys";
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import {
@@ -145,7 +153,7 @@ function TypeFilterBar({
             type="button"
             key={t.label}
             onClick={() => onTypeChange(t.value)}
-            className="py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 font-body text-xs cursor-pointer flex items-center gap-1.5 flex-1 justify-center transition-all duration-150 relative active:scale-[0.97] active:opacity-80"
+            className="py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 font-body text-xs cursor-pointer flex items-center gap-1.5 flex-1 justify-center transition-all duration-50 relative active:scale-[0.97] active:opacity-80"
             style={{
               background: isActive ? "var(--color-dg-elevated)" : "transparent",
               color: isActive ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)",
@@ -167,8 +175,13 @@ function TypeFilterBar({
 
 const SearchBar = forwardRef<
   HTMLInputElement,
-  { initialValue: string; onRandom?: () => void; onFocusChange?: (focused: boolean) => void }
->(function SearchBar({ initialValue, onRandom, onFocusChange }, ref) {
+  {
+    initialValue: string;
+    onRandom?: () => void;
+    onFocusChange?: (focused: boolean) => void;
+    mobileExtra?: React.ReactNode;
+  }
+>(function SearchBar({ initialValue, onRandom, onFocusChange, mobileExtra }, ref) {
   const navigate = useNavigate({ from: "/catalog/" });
   const { q } = Route.useSearch();
   const [value, setValue] = useState(initialValue);
@@ -193,7 +206,6 @@ const SearchBar = forwardRef<
     navigate({
       search: (prev) => ({ ...prev, q: input || undefined }),
       replace: true,
-      viewTransition: false,
     });
   };
 
@@ -220,7 +232,7 @@ const SearchBar = forwardRef<
     <div className="relative flex gap-1.5">
       <div className="relative flex-1">
         <div
-          className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors duration-[120ms]"
+          className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors duration-50"
           style={{ color: focused ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)" }}
         >
           <MagnifyingGlass size={14} weight="bold" />
@@ -240,7 +252,7 @@ const SearchBar = forwardRef<
             setFocused(false);
             onFocusChange?.(false);
           }}
-          className="w-full py-2.5 pl-9 pr-8 bg-dg-surface border rounded text-dg-text font-body text-base sm:text-[0.85rem] outline-none box-border transition-all duration-[120ms]"
+          className="w-full py-2 sm:py-2.5 pl-9 pr-8 bg-dg-surface border rounded text-dg-text font-body text-[0.85rem] sm:text-[0.85rem] outline-none box-border transition-all duration-50"
           style={{
             borderColor: focused ? "var(--color-dg-accent)" : "var(--color-dg-border)",
             boxShadow: focused ? "0 0 0 2px var(--color-dg-accent-glow)" : "none",
@@ -260,10 +272,11 @@ const SearchBar = forwardRef<
         type="button"
         title="Random title"
         onClick={() => onRandom?.()}
-        className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-[120ms] active:scale-[0.97] active:opacity-80"
+        className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-50 active:scale-[0.97] active:opacity-80"
       >
         <Shuffle size={17} weight="bold" />
       </button>
+      {mobileExtra}
     </div>
   );
 });
@@ -300,7 +313,7 @@ function CatalogPage() {
   const handleTypeChange = useCallback(
     (type: FilterType) => {
       SoundEngine.click();
-      navigate({ search: (prev) => ({ ...prev, type }), viewTransition: false });
+      navigate({ search: (prev) => ({ ...prev, type }) });
     },
     [navigate],
   );
@@ -405,6 +418,29 @@ function CatalogPage() {
     { enabled: !searchFocused && selectedIndex >= 0 && !!auth },
   );
 
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on click-outside
+  useEffect(() => {
+    if (!filterOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) {
+        setFilterOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [filterOpen]);
+
+  const handleTypeChangeMobile = useCallback(
+    (type: FilterType) => {
+      handleTypeChange(type);
+      setFilterOpen(false);
+    },
+    [handleTypeChange],
+  );
+
   const handleRandom = useCallback(async () => {
     SoundEngine.dice();
     const id = await getRandomMediaId();
@@ -422,22 +458,67 @@ function CatalogPage() {
   }, [virtualItems, allItems.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <div className="dg-page-enter text-dg-text flex-1 font-body flex flex-col overflow-hidden">
-      <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 pt-3 pb-2 flex flex-col gap-2">
-        <SearchBar
-          ref={searchRef}
-          initialValue={q ?? ""}
-          onRandom={handleRandom}
-          onFocusChange={setSearchFocused}
-        />
-        <TypeFilterBar mediaType={mediaType} onTypeChange={handleTypeChange} />
+    <div className="text-dg-text flex-1 font-body flex flex-col overflow-hidden">
+      <div className="max-w-[1100px] mx-auto w-full px-2 sm:px-6 pt-2 sm:pt-3 pb-2 flex flex-col gap-2">
+        {/* Mobile-only header links */}
+        <div className="flex items-center justify-center gap-1.5 text-[0.7rem] text-dg-text-tertiary sm:hidden">
+          <Link
+            to="/blog"
+            className="no-underline text-dg-text-tertiary hover:text-dg-text-secondary transition-colors"
+          >
+            blog
+          </Link>
+          <span>&middot;</span>
+          <Link
+            to="/roadmap"
+            className="no-underline text-dg-text-tertiary hover:text-dg-text-secondary transition-colors"
+          >
+            roadmap
+          </Link>
+        </div>
+
+        {/* Search row with mobile filter toggle */}
+        <div className="relative" ref={filterDropdownRef}>
+          <SearchBar
+            ref={searchRef}
+            initialValue={q ?? ""}
+            onRandom={handleRandom}
+            onFocusChange={setSearchFocused}
+            mobileExtra={
+              <button
+                type="button"
+                title="Filters"
+                onClick={() => setFilterOpen((o) => !o)}
+                className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-50 active:scale-[0.97] active:opacity-80 sm:hidden"
+                style={{
+                  color: filterOpen ? "var(--color-dg-accent)" : undefined,
+                  borderColor: filterOpen ? "var(--color-dg-accent)" : undefined,
+                }}
+              >
+                <DotsThree size={20} weight="bold" />
+              </button>
+            }
+          />
+
+          {/* Mobile filter dropdown */}
+          {filterOpen && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-20 sm:hidden">
+              <TypeFilterBar mediaType={mediaType} onTypeChange={handleTypeChangeMobile} />
+            </div>
+          )}
+        </div>
+
+        {/* Desktop filter bar — always visible */}
+        <div className="hidden sm:block">
+          <TypeFilterBar mediaType={mediaType} onTypeChange={handleTypeChange} />
+        </div>
       </div>
 
       {!auth && (
-        <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 pb-2">
+        <div className="max-w-[1100px] mx-auto w-full px-2 sm:px-6 pb-2">
           <Link
             to="/"
-            className="block border border-dg-accent/20 bg-dg-accent-soft rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-150"
+            className="block border border-dg-accent/20 bg-dg-accent-soft rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-50"
           >
             You're seeing a limited catalog. <span className="text-dg-accent">Sign in</span> for the
             full version and to start tracking your media.
@@ -446,9 +527,9 @@ function CatalogPage() {
       )}
 
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-        <div className="max-w-[1100px] mx-auto w-full px-4 sm:px-6 pb-4 flex-1 flex flex-col min-h-0">
+        <div className="max-w-[1100px] mx-auto w-full px-2 sm:px-6 pb-4 flex-1 flex flex-col min-h-0">
           <div
-            className="flex-1 min-h-0 border border-dg-border rounded-md overflow-hidden flex flex-col transition-opacity duration-150 bg-dg-surface"
+            className="flex-1 min-h-0 border border-dg-border rounded-md overflow-hidden flex flex-col transition-opacity duration-50 bg-dg-surface"
             style={{ opacity: isPlaceholderData ? 0.5 : 1 }}
           >
             <div ref={parentRef} className="flex-1 min-h-0 overflow-auto">
@@ -491,11 +572,11 @@ function CatalogPage() {
                           STAMP_COLORS[displayMediaType(item.mediaType, item.animationOrigin)] ??
                           "var(--color-dg-accent)",
                         animationName: isNewData ? "fadeIn" : "none",
-                        animationDuration: "280ms",
+                        animationDuration: "50ms",
                         animationTimingFunction: "var(--ease-smooth)",
                         animationFillMode: "both",
                         animationDelay:
-                          isNewData && virtualRow.index < 20 ? `${virtualRow.index * 25}ms` : "0ms",
+                          isNewData && virtualRow.index < 20 ? `${virtualRow.index * 8}ms` : "0ms",
                       }}
                       onClick={() => SoundEngine.navForward()}
                       onMouseEnter={() => SoundEngine.tick()}
@@ -592,12 +673,12 @@ const MediaRow = memo(function MediaRow({
       onTouchEnd={handleTouchEnd}
     >
       <div
-        className="absolute left-0 top-0 bottom-0 w-[2.5px] opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+        className="absolute left-0 top-0 bottom-0 w-[2.5px] opacity-0 group-hover:opacity-100 transition-opacity duration-50"
         style={{ backgroundColor: "var(--type-color)" }}
       />
 
       <div
-        className="grid items-center flex-1 min-w-0 gap-2 sm:gap-g2 py-1.5 px-3 sm:px-g3 group-hover:bg-dg-row-hover transition-colors duration-100"
+        className="grid items-center flex-1 min-w-0 gap-1.5 sm:gap-2 py-1.5 px-2 sm:px-3 group-hover:bg-dg-row-hover transition-colors duration-50"
         style={{ gridTemplateColumns: "36px auto 1fr auto" }}
       >
         <CoverThumb
@@ -646,7 +727,7 @@ const MediaRow = memo(function MediaRow({
 
       {showAdd && (
         <div
-          className={`shrink-0 overflow-hidden transition-[width] duration-150 h-full flex items-center ${panelOpen ? "w-10" : "w-0 group-hover:w-10"}`}
+          className={`shrink-0 overflow-hidden transition-[width] duration-50 h-full flex items-center ${panelOpen ? "w-10" : "w-0 group-hover:w-10"}`}
         >
           <div
             className="w-10 h-full flex items-center justify-center"
@@ -658,7 +739,7 @@ const MediaRow = memo(function MediaRow({
             <button
               type="button"
               onClick={handleQuickAddClick}
-              className="w-full h-full flex items-center justify-center bg-transparent border-none cursor-pointer transition-colors duration-100"
+              className="w-full h-full flex items-center justify-center bg-transparent border-none cursor-pointer transition-colors duration-50"
               style={{
                 color:
                   addState === "done" ? "var(--color-dg-stamped)" : "var(--color-dg-text-tertiary)",

@@ -59,7 +59,7 @@ function ProfilePage() {
             </p>
             <Link
               to="/catalog"
-              className="text-sm text-dg-accent no-underline border border-dg-accent/20 rounded-[3px] py-2 px-4 hover:border-dg-accent/50 transition-all duration-150 active:scale-[0.97] active:opacity-80"
+              className="text-sm text-dg-accent no-underline border border-dg-accent/20 rounded-[3px] py-2 px-4 hover:border-dg-accent/50 transition-all duration-50 active:scale-[0.97] active:opacity-80"
               onClick={() => SoundEngine.click()}
             >
               explore catalog
@@ -207,7 +207,7 @@ function StatsGrid({ stats, daysActive }: { stats: ProfileData["stats"]; daysAct
           key={cell.label}
           className="bg-dg-surface border border-dg-border-subtle rounded p-3 text-center"
           style={{
-            animation: `fadeIn 300ms ${80 * i}ms both`,
+            animation: `fadeIn 50ms ${15 * i}ms both`,
           }}
         >
           <div className="font-display text-[1.5rem] tabular-nums leading-tight">{cell.value}</div>
@@ -333,9 +333,9 @@ function RecentTrail({ entries }: { entries: ProfileData["recent"] }) {
               key={entry.mediaWikidataId}
               to="/catalog/$wikidataId"
               params={{ wikidataId: entry.mediaWikidataId }}
-              className="flex items-center gap-g1 px-2 py-1.5 rounded no-underline text-dg-text hover:bg-dg-row-hover transition-all duration-100 hover:translate-x-[3px]"
+              className="flex items-center gap-g1 px-2 py-1.5 rounded no-underline text-dg-text hover:bg-dg-row-hover transition-all duration-50 hover:translate-x-[3px]"
               style={{
-                animation: `fadeIn 200ms ${40 * i}ms both`,
+                animation: `fadeIn 50ms ${8 * i}ms both`,
               }}
               onClick={() => SoundEngine.navForward()}
             >

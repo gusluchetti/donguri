@@ -28,6 +28,7 @@ export const SHORTCUT_SECTIONS: ShortcutSection[] = [
       { keys: ["?"], description: "This help" },
       { keys: ["g h"], description: "Go Home" },
       { keys: ["g c"], description: "Go Catalog" },
+      { keys: ["g b"], description: "Go Blog" },
       { keys: ["g r"], description: "Go Roadmap" },
       { keys: ["g p"], description: "Go Profile" },
       { keys: ["."], description: "Toggle theme" },

@@ -125,6 +125,7 @@ function RootDocument({ children, theme }: { children: ReactNode; theme: string 
 
 const NAV_ITEMS: readonly { to: string; label: string; exact?: boolean }[] = [
   { to: "/catalog", label: "catalog", exact: false },
+  { to: "/blog", label: "blog", exact: false },
   { to: "/roadmap", label: "roadmap", exact: true },
 ];
 
@@ -199,7 +200,6 @@ function RootComponent() {
                 backdropFilter: "blur(16px) saturate(1.3)",
                 WebkitBackdropFilter: "blur(16px) saturate(1.3)",
                 borderBottom: "1px solid var(--color-dg-border-subtle)",
-                viewTransitionName: "nav",
               }}
             >
               <div className="max-w-[1100px] mx-auto px-3 sm:px-g3 flex items-center justify-between h-12">
@@ -246,7 +246,7 @@ function RootComponent() {
                       />
                       <button
                         type="button"
-                        className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-tertiary font-body cursor-pointer transition-all duration-150 hover:border-dg-border-strong hover:text-dg-text-secondary active:scale-[0.97] active:opacity-80"
+                        className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-tertiary font-body cursor-pointer transition-all duration-50 hover:border-dg-border-strong hover:text-dg-text-secondary active:scale-[0.97] active:opacity-80"
                         onClick={handleLogout}
                       >
                         logout
@@ -258,7 +258,7 @@ function RootComponent() {
                       <ThemeToggle />
                       <Link
                         to="/login"
-                        className="hidden sm:inline text-xs text-dg-accent font-body no-underline border border-dg-accent/30 rounded-[3px] py-1 px-3 hover:border-dg-accent/60 transition-all duration-150 active:scale-[0.97] active:opacity-80"
+                        className="hidden sm:inline text-xs text-dg-accent font-body no-underline border border-dg-accent/30 rounded-[3px] py-1 px-3 hover:border-dg-accent/60 transition-all duration-50 active:scale-[0.97] active:opacity-80"
                         onClick={() => SoundEngine.click()}
                       >
                         sign in
@@ -371,6 +371,11 @@ function GlobalShortcuts({
         opts,
       ),
       mgr.register(
+        ["G", "B"],
+        guard(() => navRef.current({ to: "/blog" })),
+        opts,
+      ),
+      mgr.register(
         ["G", "R"],
         guard(() => navRef.current({ to: "/roadmap" })),
         opts,
@@ -413,13 +418,13 @@ function RootError({ error, reset }: ErrorComponentProps) {
               <button
                 type="button"
                 onClick={reset}
-                className="text-[0.85rem] text-dg-accent font-body bg-transparent py-2 px-4 border border-dg-accent/20 rounded-sm cursor-pointer transition-all duration-150"
+                className="text-[0.85rem] text-dg-accent font-body bg-transparent py-2 px-4 border border-dg-accent/20 rounded-sm cursor-pointer transition-all duration-50"
               >
                 Try again
               </button>
               <a
                 href="/"
-                className="text-[0.85rem] text-dg-text-secondary no-underline py-2 px-4 border border-dg-border-subtle rounded-sm transition-all duration-150"
+                className="text-[0.85rem] text-dg-text-secondary no-underline py-2 px-4 border border-dg-border-subtle rounded-sm transition-all duration-50"
               >
                 Go home
               </a>
@@ -440,7 +445,7 @@ function NotFound() {
         <p className="text-[0.9rem] text-dg-text-secondary mb-6">Page not found.</p>
         <Link
           to="/"
-          className="text-[0.85rem] text-dg-accent no-underline py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-150"
+          className="text-[0.85rem] text-dg-accent no-underline py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-50"
         >
           Go home
         </Link>
@@ -462,7 +467,7 @@ function NavButton({
     <Link
       to={to}
       activeOptions={{ exact }}
-      className="no-underline font-body text-xs tracking-[0.06em] uppercase rounded-[3px] py-[5px] px-2 sm:px-3 transition-all duration-150 border relative active:scale-[0.97] active:opacity-80"
+      className="no-underline font-body text-xs tracking-[0.06em] uppercase rounded-[3px] py-[5px] px-2 sm:px-3 transition-all duration-50 border relative active:scale-[0.97] active:opacity-80"
       activeProps={{
         className: "bg-dg-accent-soft border-dg-accent text-dg-accent font-semibold",
       }}
@@ -483,7 +488,7 @@ function ThemeToggle() {
     <button
       type="button"
       onClick={toggleTheme}
-      className="bg-transparent border border-dg-border rounded-[3px] py-1.5 px-2.5 sm:py-1 sm:px-2 text-xs text-dg-text-secondary cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center active:scale-[0.97] active:opacity-80"
+      className="bg-transparent border border-dg-border rounded-[3px] py-1.5 px-2.5 sm:py-1 sm:px-2 text-xs text-dg-text-secondary cursor-pointer transition-all duration-50 hover:border-dg-border-strong flex items-center active:scale-[0.97] active:opacity-80"
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
       title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
     >
@@ -495,7 +500,7 @@ function ThemeToggle() {
 function BottomNav() {
   const { auth } = Route.useRouteContext();
   const base =
-    "flex-1 flex flex-col items-center justify-center gap-0.5 no-underline py-2 transition-colors duration-150 active:scale-95 active:opacity-60";
+    "flex-1 flex flex-col items-center justify-center gap-0.5 no-underline py-2 transition-colors duration-50 active:scale-95 active:opacity-60";
   const active = { className: `${base} text-dg-accent` };
   const inactive = { className: `${base} text-dg-text-tertiary` };
 
@@ -564,7 +569,7 @@ function SoundToggle() {
         setOn(next);
         if (next) SoundEngine.toggleOn();
       }}
-      className="bg-transparent border border-dg-border rounded-[3px] py-1.5 px-2.5 sm:py-1 sm:px-2 text-xs cursor-pointer transition-all duration-150 hover:border-dg-border-strong flex items-center active:scale-[0.97] active:opacity-80"
+      className="bg-transparent border border-dg-border rounded-[3px] py-1.5 px-2.5 sm:py-1 sm:px-2 text-xs cursor-pointer transition-all duration-50 hover:border-dg-border-strong flex items-center active:scale-[0.97] active:opacity-80"
       style={{ color: on ? "var(--color-dg-text-secondary)" : "var(--color-dg-text-tertiary)" }}
       aria-label={on ? "Mute sounds" : "Unmute sounds"}
       title={on ? "Mute sounds" : "Unmute sounds"}

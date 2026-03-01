@@ -29,7 +29,6 @@ type CoverThumbProps = {
   title: string;
   size?: number;
   posterUrl?: string;
-  vtName?: string;
   loading?: "lazy" | "eager";
 };
 
@@ -70,7 +69,6 @@ export function CoverThumb({
   title,
   size = 36,
   posterUrl,
-  vtName,
   loading = "lazy",
 }: CoverThumbProps) {
   const { theme } = useTheme();
@@ -121,7 +119,6 @@ export function CoverThumb({
       <div
         className="w-full h-full rounded flex items-center justify-center relative overflow-hidden"
         style={{
-          ...(vtName ? { viewTransitionName: vtName } : {}),
           background: isLight
             ? `linear-gradient(160deg, hsl(${h},20%,82%) 0%, hsl(${h + 25},16%,74%) 100%)`
             : `linear-gradient(160deg, hsl(${h},22%,18%) 0%, hsl(${h + 25},18%,10%) 100%)`,
@@ -153,7 +150,7 @@ export function CoverThumb({
             loading={loading}
             onLoad={onImageLoad}
             className="absolute inset-0 w-full h-full object-cover rounded"
-            style={{ opacity: loaded ? 1 : 0, transition: "opacity 150ms ease-in" }}
+            style={{ opacity: loaded ? 1 : 0, transition: "opacity 50ms ease-in" }}
           />
         )}
       </div>
@@ -166,7 +163,6 @@ export function CoverThumb({
       style={{
         width: size,
         height: Math.round(size * 1.3),
-        ...(vtName ? { viewTransitionName: vtName } : {}),
         background: isLight
           ? `linear-gradient(135deg, hsl(${h},20%,80%) 0%, hsl(${h + 30},16%,72%) 100%)`
           : `linear-gradient(135deg, hsl(${h},22%,20%) 0%, hsl(${h + 30},18%,13%) 100%)`,
@@ -197,7 +193,7 @@ export function CoverThumb({
           loading={loading}
           onLoad={onImageLoad}
           className="absolute inset-0 w-full h-full object-cover rounded-[3px]"
-          style={{ opacity: loaded ? 1 : 0, transition: "opacity 150ms ease-in" }}
+          style={{ opacity: loaded ? 1 : 0, transition: "opacity 50ms ease-in" }}
         />
       )}
     </div>

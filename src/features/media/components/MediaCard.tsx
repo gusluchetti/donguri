@@ -14,7 +14,7 @@ export function MediaCard({ item, index = 0 }: { item: Media; index?: number }) 
       onClick={() => SoundEngine.navForward()}
     >
       <div className="w-full aspect-[2/3] rounded overflow-hidden relative">
-        <div className="w-full h-full transition-transform duration-200 ease-out group-hover:scale-[1.03]">
+        <div className="w-full h-full transition-transform duration-50 ease-out group-hover:scale-[1.03]">
           <CoverThumb
             title={item.title ?? "?"}
             mediaType={displayMediaType(item.mediaType, item.animationOrigin)}
