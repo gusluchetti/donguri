@@ -1,3 +1,4 @@
+import { broadcastQueryClient } from "@tanstack/query-broadcast-client-experimental";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 import { routerWithQueryClient } from "@tanstack/react-router-with-query";
 import { DefaultPendingComponent } from "~/components/DefaultPendingComponent";
@@ -6,6 +7,10 @@ import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
   const queryClient = createQueryClient();
+
+  if (typeof window !== "undefined") {
+    broadcastQueryClient({ queryClient, broadcastChannel: "donguri" });
+  }
 
   const router = routerWithQueryClient(
     createTanStackRouter({
