@@ -25,7 +25,6 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
-/** First non-empty paragraph from the markdown body, stripped of formatting. */
 function excerpt(body: string, maxLen = 180): string {
   const line = body
     .split("\n")
