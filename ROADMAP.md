@@ -10,29 +10,15 @@ Track what you've watched, what you're playing, and what's next.
 3. Social features exist to help you discover, not to manufacture engagement. No algorithmic feeds. No infinite scroll.
 4. Open protocols over closed platforms. Always. Even when it's harder.
 
-## Available now
-
-- **400,000+ titles** — movies, TV shows, anime, and games, all searchable
-- **Rich detail pages** — genres, platforms, links to IMDb, TMDB, MAL, AniList, IGDB
-- **Cover art** — posters on detail pages and catalog thumbnails
-- **Season and episode data** — per-season episode counts sourced from Wikidata, TVMaze, and anime-offline-database
-- **Track your collection** — status labels per media type, rate 0–100, mark favorites, count rewatches
-- **Sign in with Bluesky, Google, or GitHub** — Bluesky syncs to your PDS
-- **Genre tags** — hierarchical display with sub-genres grouped under parent categories
-- **Dark and light themes** — toggle or follow system preference
-- **Per-episode tracking** — mark individual episodes watched, season by season, with bulk "mark through" toggle
-- **Keyboard shortcuts** — j/k navigation, quick-add (a), search (/), open (l/→), back (h/←), filter sequences, help overlay (?)
-- **Fast and cached** — local cache first, background sync
-
 ## Next up
 
-- **Better episode tracking** — a full redesign of how you log episodes. Cleaner progress indicators, smarter bulk actions, and richer episode data. Design-first.
-- **The Ranger Pass** — support development and make donguri yours. Custom stamp ink colors, sound packs, extra themes, extended analytics, and a personalized Ranger Pass card on your profile. Free forever for core features — the Pass is about expression and delight.
-- **Custom stamp colors** — choose your ink. A curated palette of 16 colors across movies, TV, anime, and games.
-- **Extra themes** — Warm Paper, Midnight, Forest. Beyond light and dark.
-- **Sound packs** — alternate stamp sounds. Retro Console, Fountain Pen, Porcelain.
-- **Account linking** — connect Google, GitHub, and Bluesky to a single account. Sign up however you want, add the rest later.
-- **Account deletion** — full data removal, one confirmation. Your data, your call.
+- **Better episode tracking** — a full redesign of how you log episodes. Cleaner progress indicators, smarter bulk actions, and richer episode data. Design-first. [#44](https://github.com/gusluchetti/donguri/issues/44)
+- **The Ranger Pass** — support development and make donguri yours. Custom stamp ink colors, sound packs, extra themes, extended analytics, and a personalized Ranger Pass card on your profile. Free forever for core features — the Pass is about expression and delight. [#114](https://github.com/gusluchetti/donguri/issues/114) [#115](https://github.com/gusluchetti/donguri/issues/115) [#116](https://github.com/gusluchetti/donguri/issues/116) [#117](https://github.com/gusluchetti/donguri/issues/117) [#118](https://github.com/gusluchetti/donguri/issues/118)
+- **Custom stamp colors** — choose your ink. A curated palette of 16 colors across movies, TV, anime, and games. [#120](https://github.com/gusluchetti/donguri/issues/120)
+- **Extra themes** — Warm Paper, Midnight, Forest. Beyond light and dark. [#121](https://github.com/gusluchetti/donguri/issues/121)
+- **Sound packs** — alternate stamp sounds. Retro Console, Fountain Pen, Porcelain. [#122](https://github.com/gusluchetti/donguri/issues/122) [#123](https://github.com/gusluchetti/donguri/issues/123)
+- **Account linking** — connect Google, GitHub, and Bluesky to a single account. Sign up however you want, add the rest later. [#130](https://github.com/gusluchetti/donguri/issues/130)
+- **Account deletion** — full data removal, one confirmation. Your data, your call. [#131](https://github.com/gusluchetti/donguri/issues/131)
 
 <!-- #44: Episode tracking redesign — design-first. Per-episode checkboxes on detail page, "mark through episode X" bulk toggle, clear S2·E4/10 progress indicator. seasons table + watched_episodes JSONB already exist. Evaluate TMDB for richer episode metadata (air dates, descriptions) and AniList for anime coverage. -->
 <!-- #114–#118: Ranger Pass (monetization) — Sprint 1. subscriptions table (separate from users), subscriptionId FK on users. Lemon Squeezy MoR (handles tax/VAT). Checkout URL generation server-side with PPP region detection (cf-ipcountry → discount code). Webhook handler for subscription lifecycle. /ranger-pass upgrade page. RangerPassCard component on profile. -->
@@ -44,15 +30,15 @@ Track what you've watched, what you're playing, and what's next.
 
 ## Planned
 
-- **Filter improvements** — combine type, genre, year, rating, and status in a single query. Active filters shown as removable tags, shareable via URL.
-- **Public profiles** — your collection, stats, and Ranger Pass card at `/@yourhandle`. Full privacy controls per section.
-- **Notes** — add a personal note to any title. Like a private journal entry, attached to your catalog.
-- **Tags and status overhaul** — a curated tag layer alongside statuses: `liked`, `disliked`, `favorite`, `mastered`, `comfort`, `main`. Status simplified: `archived` replaces `dropped`, `paused` stays. Tags are emotional signals that complement ratings and will eventually feed recommendations.
-- **Import your collection** — bring in your anime list from MyAnimeList, films from Letterboxd, or shows from Trakt. Keep your history.
-- **Lists** — curate and share themed collections. Franchises, genre deep-dives, "watch these in order" guides.
-- **Extended analytics** — rating distribution, genre breakdowns, monthly heatmaps, completion trends, and a year-in-review summary.
-- **Achievements** — milestones that reflect how you actually use the app. Completionist streaks, genre explorer badges, franchise finisher stamps.
-- **FAQ** — common questions, plainly answered.
+- **Filter improvements** — combine type, genre, year, rating, and status in a single query. Active filters shown as removable tags, shareable via URL. [#42](https://github.com/gusluchetti/donguri/issues/42) [#133](https://github.com/gusluchetti/donguri/issues/133)
+- **Tags and status overhaul** — a curated tag layer alongside statuses: `liked`, `disliked`, `favorite`, `mastered`, `comfort`, `main`. Status simplified: `archived` replaces `dropped`, `paused` stays. Tags are emotional signals that complement ratings and will eventually feed recommendations. [#135](https://github.com/gusluchetti/donguri/issues/135)
+- **Public profiles** — your collection, stats, and Ranger Pass card at `/@yourhandle`. Full privacy controls per section. [#43](https://github.com/gusluchetti/donguri/issues/43)
+- **Notes** — add a personal note to any title. Like a private journal entry, attached to your catalog. [#132](https://github.com/gusluchetti/donguri/issues/132)
+- **Import your collection** — bring in your anime list from MyAnimeList, films from Letterboxd, or shows from Trakt. Keep your history. [#77](https://github.com/gusluchetti/donguri/issues/77)
+- **Lists** — curate and share themed collections. Franchises, genre deep-dives, "watch these in order" guides. [#66](https://github.com/gusluchetti/donguri/issues/66)
+- **Extended analytics** — rating distribution, genre breakdowns, monthly heatmaps, completion trends, and a year-in-review summary. [#128](https://github.com/gusluchetti/donguri/issues/128) [#129](https://github.com/gusluchetti/donguri/issues/129)
+- **Achievements** — milestones that reflect how you actually use the app. Completionist streaks, genre explorer badges, franchise finisher stamps. [#83](https://github.com/gusluchetti/donguri/issues/83) [#125](https://github.com/gusluchetti/donguri/issues/125) [#126](https://github.com/gusluchetti/donguri/issues/126) [#127](https://github.com/gusluchetti/donguri/issues/127)
+- **FAQ** — common questions, plainly answered. [#64](https://github.com/gusluchetti/donguri/issues/64)
 
 <!-- #133: Multi-filter — type + genre + year + rating + status combined query. Filter chips/tags UI, state in URL params. Needs genre filter wired first. Separate from #42 (watchlist filter parity) which is the UI side; this is the query layer. -->
 <!-- #43: Public profiles at /@handle. Privacy controls per section (public/private). Ranger Pass card as hero. Stats snapshot, achievements, favorite titles. Foundation for activity feeds + community ratings later. -->
@@ -76,8 +62,8 @@ Track what you've watched, what you're playing, and what's next.
 - **Where to watch** — streaming availability by region.
 - **Richer detail pages** — directors, cast, studios, awards.
 - **Gamification** — tracking streaks, seasonal events, discovery challenges, and opt-in leaderboards.
-- **AT Protocol publishing** — publish your reviews and tracking activity as native AT Protocol records on your PDS.
-- **Public API** — query your own data from external tools and scripts.
+- **AT Protocol publishing** — publish your reviews and tracking activity as native AT Protocol records on your PDS. [#63](https://github.com/gusluchetti/donguri/issues/63)
+- **Public API** — query your own data from external tools and scripts. [#45](https://github.com/gusluchetti/donguri/issues/45)
 
 <!-- Data export: JSON/CSV download of all catalog_entries. Non-negotiable eventually — users must be able to leave cleanly. -->
 <!-- Community: aggregate ratings from donguri users. Requires public profiles + meaningful user base first. -->

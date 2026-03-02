@@ -146,6 +146,17 @@ function RoadmapPage() {
       strong: ({ children }: { children?: React.ReactNode }) => (
         <span className="text-dg-text font-semibold">{children}</span>
       ),
+
+      a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-dg-text-tertiary hover:text-dg-text-secondary transition-colors text-[0.75rem] tabular-nums"
+        >
+          {children}
+        </a>
+      ),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
