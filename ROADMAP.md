@@ -26,56 +26,36 @@ Track what you've watched, what you're playing, and what's next.
 
 ## Next up
 
-- **Orphaned PDS record handling** — detect PDS records referencing media no longer in the database during sync, and surface them in-app for user-confirmed removal instead of auto-deleting
-- **Watchlist view modes** — per-category display density: fully collapsed (category + count only), normal collapsed (list items), fully expanded (thumbnail grid). Each category independently toggleable.
-- **Better Episode Tracking** - More data, and better usability
-- **Onboarding** — pick your media types and favorite genres on first login
-- **Import from MyAnimeList** — upload your MAL XML export to bring your anime list into donguri
-- **Anime catalog improvements** — better classification for anime titles and broader external ID coverage
-- **Filter by genre** — browse the catalog by genre, not just media type
-- **Account linking** — connect Google/GitHub accounts to Bluesky for data portability
-- **Achievements and badges** — unlock milestones like completing a franchise or exploring new genres
-
-<!-- P0: Orphan PDS handling — during reconcileUser(), detect PDS records whose mediaRef doesn't match any media.wikidataId. Surface in-app: "X tracked items reference media no longer in the database. Review and confirm removal?" User must explicitly approve before records are deleted from PDS. Never auto-delete user's PDS data. -->
-<!-- P0: Per-episode UI — checkboxes on detail page, "mark through episode X" bulk toggle. seasons table + watched_episodes JSONB already exist. -->
-<!-- Onboarding: first-login flow to pick media types + genres. Empty state design with smart suggestions. -->
-<!-- P0: MAL XML import — parse <myanimelist><anime> entries, match via malId column, map statuses (Watching/Completed/On-Hold/Dropped/Plan to Watch → donguri equivalents), map scores 1-10 → 0-100 ratings, import watched episode counts. UI: file upload on settings or dedicated import page. First in a series of import sources. -->
-<!-- P0: Anime misclassification — wrong Q-ID in _types.ts: ONA was Q1127759 (cognitive bias), correct is Q1047299 (original net animation). One-line fix. -->
-<!-- P0: Genre filter — add genre facet to catalog search. canonical_genres + genre_mappings tables ready. No Phase 2-3 normalization needed for basic filtering. -->
-<!-- Account linking: let Google/GitHub users connect Bluesky, bulk-push catalog_entries to PDS. Reverse (AT→Google/GitHub) just populates googleId/githubId. -->
-<!-- Achievements: derived from tracking data. Tiered bronze/silver/gold. Genre exploration badges, milestone markers (100 movies, first anime completed), completionist tracker. -->
+- **Better episode tracking** — a full redesign of how you log episodes. Cleaner progress indicators, smarter bulk actions, and richer episode data. Design-first.
+- **The Ranger Pass** — support development and make donguri yours. Custom stamp ink colors, sound packs, extra themes, extended analytics, and a personalized Ranger Pass card on your profile. Free forever for core features — the Pass is about expression and delight.
+- **Custom stamp colors** — choose your ink. A curated palette of 16 colors across movies, TV, anime, and games.
+- **Extra themes** — Warm Paper, Midnight, Forest. Beyond light and dark.
+- **Sound packs** — alternate stamp sounds. Retro Console, Fountain Pen, Porcelain.
+- **Account linking** — connect Google, GitHub, and Bluesky to a single account. Sign up however you want, add the rest later.
+- **Account deletion** — full data removal, one confirmation. Your data, your call.
 
 ## Planned
 
-- **Account deletion** — full data removal with one click
-- **Multi-filter search** — combine type, genre, year range, and rating in one query
-- **Notes** — add personal notes to any title in your collection
-- **Import from Letterboxd and Trakt** — expand import sources beyond MAL
-- **Monetization** — free and paid tiers to sustain development
-- **Public profiles** — show off your collection and stats, control what's visible
-
-<!-- Multi-filter: type + genre + year + rating combined query against catalog. Needs genre filter (above) first. -->
-<!-- Notes: new text column or table on catalog_entries. Simple textarea on detail page. -->
-<!-- Letterboxd: CSV export import. Trakt: API or CSV. Match via TMDB/IMDB IDs. -->
-<!-- Monetization: Lemon Squeezy (MoR, handles tax). Free vs paid tier candidates: stats, export, unlimited lists, themes, badges. subscription_tier column on users. USD/BRL regional pricing. -->
+- **Filter improvements** — combine type, genre, year, rating, and status into a single query. Active filters shown as tags, shareable via URL.
+- **Public profiles** — your collection, stats, and Ranger Pass card at `/@yourhandle`. Full privacy controls per section.
+- **Notes** — add a personal note to any title. Like a private journal entry, attached to your catalog.
+- **Import your collection** — bring in your anime list from MyAnimeList, films from Letterboxd, or shows from Trakt. Keep your history.
+- **Lists** — curate and share themed collections. Franchises, genre deep-dives, "watch these in order" guides.
+- **Extended analytics** — rating distribution, genre breakdowns, monthly heatmaps, completion trends, and a year-in-review summary.
+- **Achievements** — milestones that reflect how you actually use the app. Completionist streaks, genre explorer badges, franchise finisher stamps.
+- **FAQ** — common questions, plainly answered.
 
 ## On the horizon
 
-- **Stats and year-in-review** — genre breakdowns, average ratings, habits, and an annual summary
-- **Activity feed** — see what the people you follow are watching and rating
-- **Community ratings** — aggregate scores from donguri users alongside external ratings
-- **Lists and collections** — curate and share themed lists
-- **Recommendations** — discover titles based on your history and taste
-- **Data export** — download your entire collection as a file, anytime
-- **Gamification** — tracking streaks, leaderboards, seasonal events, and discovery challenges
-- **"Currently watching" shelf** — surface in-progress titles front and center on your homepage
-- **Franchise grouping** — link sequels, prequels, and spinoffs as a navigable tree
-- **Where to watch** — streaming availability by region
-- **Richer detail pages** — directors, cast, studios, awards
-
-<!-- Data safety: account deletion must cascade (user → catalog_entries → revoke AT tokens). Export as JSON/CSV. Non-negotiable before paid tier. -->
-<!-- Community: public profiles at /user/{handle}, privacy controls, AT Protocol identity display. Personal stats dashboard. In-app feedback → GitHub Issues API. -->
-<!-- Gamification detail: daily/weekly streaks, genre exploration badges, expertise tiers per genre ("Sci-Fi Scholar"), year-in-review Wrapped-style, curated quests ("Studio Ghibli Journey"), seasonal events (horror October, romance February), discovery roulette from backlog. Opt-in leaderboards among mutuals. -->
-<!-- Visual catalog remaining: directors/cast/studios from Wikidata, awards P166/P1411 (needs qualifier extraction + new awards table), inline external ratings. -->
-<!-- Franchise grouping: Wikidata P179 (part of series) + P155/P156 (follows/followed by). -->
-<!-- Where to watch: JustWatch API for streaming availability. -->
+- **Stats and year-in-review** — your watching habits visualized. An annual summary of where your time went.
+- **Activity feed** — see what the people you follow are watching and rating.
+- **Community ratings** — aggregate scores from donguri users alongside external ratings.
+- **Data export** — download your entire collection as a file, anytime.
+- **Recommendations** — discover titles based on your history and taste.
+- **"Currently watching" shelf** — surface in-progress titles front and center on your homepage.
+- **Franchise grouping** — link sequels, prequels, and spinoffs as a navigable tree.
+- **Where to watch** — streaming availability by region.
+- **Richer detail pages** — directors, cast, studios, awards.
+- **Gamification** — tracking streaks, seasonal events, discovery challenges, and opt-in leaderboards.
+- **AT Protocol publishing** — publish your reviews and tracking activity as native AT Protocol records on your PDS.
+- **Public API** — query your own data from external tools and scripts.
