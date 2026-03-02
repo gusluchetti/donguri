@@ -27,6 +27,7 @@ export function getDb() {
       idle_timeout: 20,
       connect_timeout: 30,
       ssl: isLocal ? undefined : "require",
+      prepare: false,
     });
     _db = drizzle(client, { schema });
   }
