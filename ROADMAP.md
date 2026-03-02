@@ -34,9 +34,17 @@ Track what you've watched, what you're playing, and what's next.
 - **Account linking** — connect Google, GitHub, and Bluesky to a single account. Sign up however you want, add the rest later.
 - **Account deletion** — full data removal, one confirmation. Your data, your call.
 
+<!-- #44: Episode tracking redesign — design-first. Per-episode checkboxes on detail page, "mark through episode X" bulk toggle, clear S2·E4/10 progress indicator. seasons table + watched_episodes JSONB already exist. Evaluate TMDB for richer episode metadata (air dates, descriptions) and AniList for anime coverage. -->
+<!-- #114–#118: Ranger Pass (monetization) — Sprint 1. subscriptions table (separate from users), subscriptionId FK on users. Lemon Squeezy MoR (handles tax/VAT). Checkout URL generation server-side with PPP region detection (cf-ipcountry → discount code). Webhook handler for subscription lifecycle. /ranger-pass upgrade page. RangerPassCard component on profile. -->
+<!-- #120: Stamp colors — stampColors JSONB on users { movie?, tv_series?, anime?, game? }. Curated 16-color palette in src/features/subscription/premium-stamps.ts. StampBadge accepts optional color override. Settings Stamp Ink section — grayed + lock for free users. -->
+<!-- #121: Theme variants — themeVariant column on users. Each theme = CSS custom property overrides. Warm Paper (cream/sepia/amber), Midnight (deep black/cool blue), Forest (dark green/earthy). Theme init script in <head> reads variant from cookie for flash-free load. -->
+<!-- #122–#123: Sound packs — soundPack column on users (default: "default"). src/features/catalog/sound-packs/ one file per pack exporting SOUNDS record (SoundDef type). Packs: Retro Console (8-bit triangle waves), Fountain Pen (scratchier noise, longer tails), Porcelain (high-freq sines, ceramic clink). SoundEngine.init() reads active pack. Settings selector with preview button. -->
+<!-- #130: Account linking — let Google/GitHub users connect Bluesky, bulk-push catalog_entries to PDS. Reverse (AT→Google/GitHub) populates googleId/githubId. Tricky part: merge flow — confirm identity across providers before linking. -->
+<!-- #131: Account deletion — cascade: user → catalog_entries → revoke AT tokens → cancel LS subscription if active. Settings page, typed confirmation phrase. Non-negotiable before paid tier is complete. -->
+
 ## Planned
 
-- **Filter improvements** — combine type, genre, year, rating, and status into a single query. Active filters shown as tags, shareable via URL.
+- **Filter improvements** — combine type, genre, year, rating, and status in a single query. Active filters shown as removable tags, shareable via URL.
 - **Public profiles** — your collection, stats, and Ranger Pass card at `/@yourhandle`. Full privacy controls per section.
 - **Notes** — add a personal note to any title. Like a private journal entry, attached to your catalog.
 - **Import your collection** — bring in your anime list from MyAnimeList, films from Letterboxd, or shows from Trakt. Keep your history.
@@ -44,6 +52,15 @@ Track what you've watched, what you're playing, and what's next.
 - **Extended analytics** — rating distribution, genre breakdowns, monthly heatmaps, completion trends, and a year-in-review summary.
 - **Achievements** — milestones that reflect how you actually use the app. Completionist streaks, genre explorer badges, franchise finisher stamps.
 - **FAQ** — common questions, plainly answered.
+
+<!-- #133: Multi-filter — type + genre + year + rating + status combined query. Filter chips/tags UI, state in URL params. Needs genre filter wired first. Separate from #42 (watchlist filter parity) which is the UI side; this is the query layer. -->
+<!-- #43: Public profiles at /@handle. Privacy controls per section (public/private). Ranger Pass card as hero. Stats snapshot, achievements, favorite titles. Foundation for activity feeds + community ratings later. -->
+<!-- #132: Notes — notes text column on catalog_entries. Simple textarea on detail page. Private by default, optionally surface on public profile later. -->
+<!-- #77: Import — MAL: parse <myanimelist><anime> XML, match via malId, map statuses + scores (1-10 → 0-100), import episode counts. Letterboxd: CSV. Trakt: API or CSV. Match via TMDB/IMDB IDs. -->
+<!-- #66: Lists — shareable curated collections. User-created, optionally public. Franchise grouping, genre deep-dives, watch-order guides. -->
+<!-- #128–#129: Extended analytics — recharts. Rating distribution histogram, genre radar chart, monthly heatmap (GitHub-style), completion rate trends, avg days to complete per type, Year in Review. Ranger Pass only. -->
+<!-- #125–#127: Achievements — user_achievements(id, userId, achievementKey, unlockedAt, tier). Registry in code. Check runs as background job post-mutation. Free: milestones (first entry, 10/50/100/500, first rating, type explorer, streaks). Ranger Pass: full-color ink, gold foil, exclusive achievements (genre master, binge tracker, decade traveler), showcase (pin 3 to profile). -->
+<!-- #64: FAQ page — common questions answered. Covers pricing, data ownership, AT Protocol, what stays free. -->
 
 ## On the horizon
 
@@ -59,3 +76,12 @@ Track what you've watched, what you're playing, and what's next.
 - **Gamification** — tracking streaks, seasonal events, discovery challenges, and opt-in leaderboards.
 - **AT Protocol publishing** — publish your reviews and tracking activity as native AT Protocol records on your PDS.
 - **Public API** — query your own data from external tools and scripts.
+
+<!-- Data export: JSON/CSV download of all catalog_entries. Non-negotiable eventually — users must be able to leave cleanly. -->
+<!-- Community: aggregate ratings from donguri users. Requires public profiles + meaningful user base first. -->
+<!-- Gamification detail: daily/weekly streaks, genre exploration badges, expertise tiers per genre ("Sci-Fi Scholar"), year-in-review Wrapped-style, curated quests ("Studio Ghibli Journey"), seasonal events (horror October, romance February), discovery roulette from backlog. Opt-in leaderboards among mutuals. -->
+<!-- Visual catalog remaining: directors/cast/studios from Wikidata, awards P166/P1411 (needs qualifier extraction + new awards table), inline external ratings. -->
+<!-- Franchise grouping: Wikidata P179 (part of series) + P155/P156 (follows/followed by). -->
+<!-- Where to watch: JustWatch API for streaming availability. -->
+<!-- #63: AT Protocol publishing — publish tracking/reviews as native AT Protocol records on user's PDS. Requires lexicon design. -->
+<!-- #45: Public API — query own data from external tools. Auth via API key or AT Protocol session. -->
