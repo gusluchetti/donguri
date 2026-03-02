@@ -213,13 +213,14 @@ const SearchBar = forwardRef<
     setValue(input);
     if (input.length > 0) SoundEngine.search();
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => flush(input), 150);
+    timeoutRef.current = setTimeout(() => flush(input), 350);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
       flush(value);
+      (e.target as HTMLInputElement).blur();
     }
   };
 
@@ -287,11 +288,12 @@ function CatalogPage() {
   const { q, type: mediaType } = Route.useSearch();
   const navigate = useNavigate({ from: "/catalog/" });
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isPlaceholderData } =
+  const { data, fetchNextPage, hasNextPage, isFetching, isFetchingNextPage, isPlaceholderData } =
     useInfiniteQuery({
       ...catalogInfiniteOptions(mediaType, q || undefined),
       placeholderData: keepPreviousData,
     });
+  const isSearching = isFetching && !isFetchingNextPage && isPlaceholderData;
   const allItems = data?.pages.flatMap((p) => p.items) ?? [];
 
   // Only animate items when data is genuinely new — not when returning with cached results
@@ -367,17 +369,7 @@ function CatalogPage() {
     }
   }, [allItems, selectedIndex, navigate]);
 
-  useHotkey(
-    "Enter",
-    () => {
-      if (document.activeElement === searchRef.current) {
-        searchRef.current?.blur();
-        return;
-      }
-      openSelected();
-    },
-    { ignoreInputs: false },
-  );
+  useHotkey("Enter", openSelected, { ignoreInputs: true });
 
   useHotkey("L", openSelected, { enabled: !searchFocused && selectedIndex >= 0 });
   useHotkey("ArrowRight", openSelected, { enabled: !searchFocused && selectedIndex >= 0 });
@@ -529,9 +521,19 @@ function CatalogPage() {
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
         <div className="max-w-[1100px] mx-auto w-full px-2 sm:px-6 pb-4 flex-1 flex flex-col min-h-0">
           <div
-            className="flex-1 min-h-0 border border-dg-border rounded-md overflow-hidden flex flex-col transition-opacity duration-50 bg-dg-surface"
-            style={{ opacity: isPlaceholderData ? 0.5 : 1 }}
+            className="relative flex-1 min-h-0 border border-dg-border rounded-md overflow-hidden flex flex-col transition-opacity duration-50 bg-dg-surface"
+            style={{ opacity: isPlaceholderData ? 0.6 : 1 }}
           >
+            {isSearching && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-sm bg-dg-elevated border border-dg-border shadow-md">
+                  <CircleNotch size={13} className="animate-spin text-dg-accent" />
+                  <span className="text-[0.75rem] text-dg-text-secondary font-body">
+                    Searching...
+                  </span>
+                </div>
+              </div>
+            )}
             <div ref={parentRef} className="flex-1 min-h-0 overflow-auto">
               <div
                 style={{ height: virtualizer.getTotalSize(), width: "100%", position: "relative" }}

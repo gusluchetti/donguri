@@ -43,6 +43,7 @@ export function catalogInfiniteOptions(
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: 10 * 60 * 1000,
+    enabled: !search || search.length >= 2,
   });
 }
 

@@ -28,6 +28,7 @@ export function getDb() {
       connect_timeout: 30,
       ssl: isLocal ? undefined : "require",
       prepare: false,
+      connection: { "pg_trgm.word_similarity_threshold": "0.3" },
     });
     _db = drizzle(client, { schema });
   }
