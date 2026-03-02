@@ -47,9 +47,9 @@ function BeliefItem({ children, num }: { children: React.ReactNode; num: string 
       <span className="text-[9px] text-dg-text-tertiary tabular-nums w-5 text-right shrink-0 mt-[5px]">
         {num}
       </span>
-      <p className="font-display text-[0.875rem] sm:text-[0.9rem] font-light text-dg-text leading-relaxed">
+      <span className="block font-display text-[0.875rem] sm:text-[0.9rem] font-light text-dg-text leading-relaxed">
         {children}
-      </p>
+      </span>
     </div>
   );
 }
