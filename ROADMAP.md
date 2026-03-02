@@ -47,6 +47,7 @@ Track what you've watched, what you're playing, and what's next.
 - **Filter improvements** — combine type, genre, year, rating, and status in a single query. Active filters shown as removable tags, shareable via URL.
 - **Public profiles** — your collection, stats, and Ranger Pass card at `/@yourhandle`. Full privacy controls per section.
 - **Notes** — add a personal note to any title. Like a private journal entry, attached to your catalog.
+- **Tags and status overhaul** — a curated tag layer alongside statuses: `liked`, `disliked`, `favorite`, `mastered`, `comfort`, `main`. Status simplified: `archived` replaces `dropped`, `paused` stays. Tags are emotional signals that complement ratings and will eventually feed recommendations.
 - **Import your collection** — bring in your anime list from MyAnimeList, films from Letterboxd, or shows from Trakt. Keep your history.
 - **Lists** — curate and share themed collections. Franchises, genre deep-dives, "watch these in order" guides.
 - **Extended analytics** — rating distribution, genre breakdowns, monthly heatmaps, completion trends, and a year-in-review summary.
@@ -56,6 +57,7 @@ Track what you've watched, what you're playing, and what's next.
 <!-- #133: Multi-filter — type + genre + year + rating + status combined query. Filter chips/tags UI, state in URL params. Needs genre filter wired first. Separate from #42 (watchlist filter parity) which is the UI side; this is the query layer. -->
 <!-- #43: Public profiles at /@handle. Privacy controls per section (public/private). Ranger Pass card as hero. Stats snapshot, achievements, favorite titles. Foundation for activity feeds + community ratings later. -->
 <!-- #132: Notes — notes text column on catalog_entries. Simple textarea on detail page. Private by default, optionally surface on public profile later. -->
+<!-- #135: Tags + status overhaul — tags text[] column on catalog_entries with CHECK constraint (allowed: favorite, liked, disliked, mastered, comfort, main). liked/disliked mutually exclusive. Migrate is_favorite boolean → tags array. Status enum: remove dropped, add archived; migrate existing dropped → archived. liked/disliked feed recommendations later. -->
 <!-- #77: Import — MAL: parse <myanimelist><anime> XML, match via malId, map statuses + scores (1-10 → 0-100), import episode counts. Letterboxd: CSV. Trakt: API or CSV. Match via TMDB/IMDB IDs. -->
 <!-- #66: Lists — shareable curated collections. User-created, optionally public. Franchise grouping, genre deep-dives, watch-order guides. -->
 <!-- #128–#129: Extended analytics — recharts. Rating distribution histogram, genre radar chart, monthly heatmap (GitHub-style), completion rate trends, avg days to complete per type, Year in Review. Ranger Pass only. -->
