@@ -123,19 +123,17 @@ class DbSource implements MediaSource {
     const db = getDb();
     const offset = cursor ? Number.parseInt(cursor, 10) : 0;
     const normalizedTerm = normalizeForSearch(searchTerm);
-    const ilikeTerm = `%${searchTerm.replace(/[%_\\]/g, "\\$&")}%`;
+    const escaped = searchTerm.replace(/[%_\\]/g, "\\$&");
+    const ilikeTerm = `%${escaped}%`;
     const normalizedIlike = `%${normalizedTerm.replace(/[%_\\]/g, "\\$&")}%`;
-    const aliasExact = `%|${searchTerm}|%`;
-    const aliasIlike = `%|${searchTerm}|%`;
-    const aliasLikeTerm = `%${searchTerm.replace(/[%_\\]/g, "\\$&")}%`;
+    const aliasPipe = `%|${searchTerm}|%`;
 
-    const exactTitle = `${searchTerm.replace(/[%_\\]/g, "\\$&")}`;
     const relevance = sql<number>`GREATEST(
-      CASE WHEN ${media.aliases} IS NOT NULL AND '|' || ${media.aliases} || '|' LIKE ${aliasExact} THEN 10.0 ELSE 0 END,
-      CASE WHEN ${media.aliases} IS NOT NULL AND '|' || ${media.aliases} || '|' ILIKE ${aliasIlike} THEN 8.0 ELSE 0 END,
-      CASE WHEN ${media.title} ILIKE ${exactTitle} THEN 5.0 ELSE 0 END,
-      CASE WHEN ${media.originalTitle} ILIKE ${exactTitle} THEN 4.5 ELSE 0 END,
-      CASE WHEN ${media.aliases} ILIKE ${aliasLikeTerm} THEN 3.0 ELSE 0 END,
+      CASE WHEN ${media.aliases} IS NOT NULL AND '|' || ${media.aliases} || '|' LIKE ${aliasPipe} THEN 10.0 ELSE 0 END,
+      CASE WHEN ${media.aliases} IS NOT NULL AND '|' || ${media.aliases} || '|' ILIKE ${aliasPipe} THEN 8.0 ELSE 0 END,
+      CASE WHEN ${media.title} ILIKE ${escaped} THEN 5.0 ELSE 0 END,
+      CASE WHEN ${media.originalTitle} ILIKE ${escaped} THEN 4.5 ELSE 0 END,
+      CASE WHEN ${media.aliases} ILIKE ${ilikeTerm} THEN 3.0 ELSE 0 END,
       word_similarity(${searchTerm}, ${media.title}),
       word_similarity(${searchTerm}, COALESCE(${media.originalTitle}, '')),
       word_similarity(${normalizedTerm}, COALESCE(${media.searchTitle}, ''))
@@ -148,27 +146,24 @@ class DbSource implements MediaSource {
       OR ${media.title} ILIKE ${ilikeTerm}
       OR ${media.originalTitle} ILIKE ${ilikeTerm}
       OR ${media.searchTitle} ILIKE ${normalizedIlike}
-      OR ${media.aliases} ILIKE ${aliasLikeTerm}
+      OR ${media.aliases} ILIKE ${ilikeTerm}
     )`;
 
     const conditions = [fuzzyCondition];
     if (mediaType) conditions.push(...typeConditions(mediaType));
 
-    const results = await db.transaction(async (tx) => {
-      await tx.execute(sql`SET LOCAL pg_trgm.word_similarity_threshold = 0.2`);
-      return tx
-        .select(getTableColumns(media))
-        .from(media)
-        .where(and(...conditions))
-        .orderBy(
-          desc(relevance),
-          sql`${media.popularityScore} ASC NULLS LAST`,
-          desc(media.sitelinksCount),
-          asc(media.id),
-        )
-        .limit(limit + 1)
-        .offset(offset);
-    });
+    const results = await db
+      .select(getTableColumns(media))
+      .from(media)
+      .where(and(...conditions))
+      .orderBy(
+        desc(relevance),
+        sql`${media.popularityScore} ASC NULLS LAST`,
+        desc(media.sitelinksCount),
+        asc(media.id),
+      )
+      .limit(limit + 1)
+      .offset(offset);
 
     const hasMore = results.length > limit;
     const page = hasMore ? results.slice(0, limit) : results;
