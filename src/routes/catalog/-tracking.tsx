@@ -256,9 +256,14 @@ type RatingKnobProps = {
   size?: number;
 };
 
+// Pixels of horizontal drag to traverse 0–100
+const DRAG_RANGE_PX = 400;
+
 function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: RatingKnobProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartValue = useRef(0);
   const lastValue = useRef<number>(-1);
   const [isDragging, setIsDragging] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -275,6 +280,8 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
   const thumbAngleRad = ((ARC_START + ARC_SWEEP * valueFrac) * Math.PI) / 180;
   const thumbX = size / 2 + r * Math.cos(thumbAngleRad);
   const thumbY = size / 2 + r * Math.sin(thumbAngleRad);
+
+  const isTouch = useRef(false);
 
   const getAngle = (e: { clientX: number; clientY: number }) => {
     const svg = svgRef.current;
@@ -299,20 +306,34 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
     if (isPending || editing) return;
     e.preventDefault();
     dragging.current = true;
+    isTouch.current = e.pointerType === "touch";
+    dragStartX.current = e.clientX;
+    dragStartValue.current = value ?? 0;
     lastValue.current = -1;
     setIsDragging(true);
     svgRef.current?.setPointerCapture(e.pointerId);
 
-    const v = angleToValue(getAngle(e));
-    onChange(v);
-    tick(v);
+    if (isTouch.current) {
+      const v = angleToValue(getAngle(e));
+      onChange(v);
+      tick(v);
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!dragging.current) return;
-    const v = angleToValue(getAngle(e));
-    onChange(v);
-    tick(v);
+    if (isTouch.current) {
+      const v = angleToValue(getAngle(e));
+      onChange(v);
+      tick(v);
+    } else {
+      const dx = e.clientX - dragStartX.current;
+      const v = Math.round(
+        Math.min(100, Math.max(0, dragStartValue.current + (dx / DRAG_RANGE_PX) * 100)),
+      );
+      onChange(v);
+      tick(v);
+    }
   };
 
   const handlePointerUp = () => {
@@ -447,6 +468,7 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
                 textAnchor="middle"
                 dominantBaseline="central"
                 fill="var(--color-dg-text-tertiary)"
+                className="font-body"
                 style={{ fontSize: size * 0.09, letterSpacing: "0.1em" }}
               >
                 RATING
