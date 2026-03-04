@@ -7,7 +7,12 @@ import { catalogEntries, media } from "~/db/schema";
 import { getAuthenticatedAgent, isSessionExpired } from "~/features/auth/auth.agent";
 import { clearSessionCookie, getSessionData, requireAuth } from "~/features/auth/auth.session";
 import { deleteCatalogEntry, putCatalogEntry } from "~/features/auth/auth.sync";
-import { countWatchedEpisodes, STATUS_ORDER } from "~/features/media/media-types";
+import {
+  countTotalAcrossRuns,
+  countWatchedEpisodes,
+  normalizeRuns,
+  STATUS_ORDER,
+} from "~/features/media/media-types";
 
 function throwIfSessionExpired(err: unknown): void {
   if (isSessionExpired(err)) {
@@ -103,7 +108,12 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
       episodeProgress: z.number().int().min(0).nullish(),
       isFavorite: z.boolean().nullish(),
       replayCount: z.number().int().min(0).nullish(),
-      watchedEpisodes: z.record(z.string(), z.record(z.string(), z.string())).nullish(),
+      watchedEpisodes: z
+        .union([
+          z.record(z.string(), z.record(z.string(), z.string())),
+          z.object({ runs: z.array(z.record(z.string(), z.record(z.string(), z.string()))) }),
+        ])
+        .nullish(),
       watchedAt: z.string().max(10).nullish(),
     }),
   )
@@ -167,7 +177,9 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
 
       // Auto-compute episodeProgress from watchedEpisodes
       const epProgress = data.watchedEpisodes
-        ? countWatchedEpisodes(data.watchedEpisodes)
+        ? "runs" in data.watchedEpisodes
+          ? countTotalAcrossRuns(normalizeRuns(data.watchedEpisodes))
+          : countWatchedEpisodes(data.watchedEpisodes)
         : data.episodeProgress;
 
       if (auth.authMethod === "atproto" && auth.did) {

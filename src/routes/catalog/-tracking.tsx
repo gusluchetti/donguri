@@ -15,7 +15,6 @@ import { SoundEngine } from "~/features/catalog/catalog.sound";
 import {
   availableStatuses,
   ratingColor,
-  replayCountLabel,
   STATUS_BUTTON_COLORS,
   type StatusValue,
   statusLabel,
@@ -32,8 +31,10 @@ export type TrackingPanelProps = {
   initialEntry?: CatalogEntry | null;
   statusState?: StatePair<string | null>;
   favoriteState?: StatePair<boolean>;
+  replayCountState?: StatePair<number>;
   watchedEpisodesState?: StatePair<WatchedEpisodes>;
   watchedAtState?: StatePair<string | null>;
+  onRewatch?: () => void;
   isMovie?: boolean;
   bare?: boolean;
   children?: React.ReactNode;
@@ -145,6 +146,7 @@ function useTrackingShortcuts({
 type StatusButtonsProps = {
   statuses: StatusValue[];
   localStatus: string | null;
+  localReplayCount: number;
   statusAnimating: boolean;
   isPending: boolean;
   mediaType?: string;
@@ -154,24 +156,26 @@ type StatusButtonsProps = {
 function StatusButtons({
   statuses,
   localStatus,
+  localReplayCount,
   statusAnimating,
   isPending,
   mediaType,
   onStatusChange,
 }: StatusButtonsProps) {
   return (
-    <div className="flex flex-nowrap overflow-x-auto sm:flex-wrap gap-1.5 mb-4 scrollbar-hide">
+    <div className="flex flex-nowrap overflow-x-auto sm:flex-wrap gap-1.5 scrollbar-hide">
       {statuses.map((s) => {
         const isActive = localStatus === s;
         const colorClass = STATUS_BUTTON_COLORS[s];
         const label = statusLabel(s, mediaType);
+        const showBadge = s === "completed" && localReplayCount > 0;
         return (
           <button
             key={s}
             type="button"
             onClick={() => onStatusChange(s)}
             disabled={isPending}
-            className={`text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-body cursor-pointer shrink-0 transition-all duration-50 disabled:opacity-50 active:scale-[0.97] active:opacity-80 ${
+            className={`relative text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-body cursor-pointer shrink-0 transition-all duration-50 disabled:opacity-50 active:scale-[0.97] active:opacity-80 ${
               isActive
                 ? colorClass
                 : "border-dg-border-subtle text-dg-text-secondary bg-transparent hover:border-dg-border"
@@ -182,6 +186,11 @@ function StatusButtons({
             }}
           >
             {label}
+            {showBadge && (
+              <span className="absolute -top-1.5 -right-1.5 text-[0.55rem] font-mono bg-dg-stamped text-dg-bg px-1 py-px rounded-full leading-none">
+                &times;{localReplayCount + 1}
+              </span>
+            )}
           </button>
         );
       })}
@@ -189,17 +198,158 @@ function StatusButtons({
   );
 }
 
-type RatingSectionProps = {
-  localRating: number | null;
+// ─── Rating Knob ──────────────────────────────────────────────────────────────
+
+const KNOB_SIZE = 72;
+const KNOB_STROKE = 5;
+const KNOB_R = (KNOB_SIZE - KNOB_STROKE) / 2;
+const ARC_START = 135; // 7 o'clock
+const ARC_SWEEP = 270; // total sweep
+
+function arcPath(cx: number, cy: number, r: number, startDeg: number, endDeg: number): string {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const x1 = cx + r * Math.cos(toRad(startDeg));
+  const y1 = cy + r * Math.sin(toRad(startDeg));
+  const x2 = cx + r * Math.cos(toRad(endDeg));
+  const y2 = cy + r * Math.sin(toRad(endDeg));
+  const large = endDeg - startDeg > 180 ? 1 : 0;
+  return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`;
+}
+
+// Full 270° arc path — rendered once, clipped via stroke-dasharray
+const FULL_ARC = arcPath(KNOB_SIZE / 2, KNOB_SIZE / 2, KNOB_R, ARC_START, ARC_START + ARC_SWEEP);
+const ARC_LENGTH = (ARC_SWEEP / 360) * 2 * Math.PI * KNOB_R;
+
+function angleToValue(angleDeg: number): number {
+  let rel = angleDeg - ARC_START;
+  if (rel < 0) rel += 360;
+  if (rel > ARC_SWEEP) {
+    return rel > ARC_SWEEP + (360 - ARC_SWEEP) / 2 ? 0 : 100;
+  }
+  return Math.round((rel / ARC_SWEEP) * 100);
+}
+
+type RatingKnobProps = {
+  value: number | null;
   isPending: boolean;
   ratingMode: boolean;
   onChange: (v: number | null) => void;
 };
 
-function RatingSection({ localRating, isPending, ratingMode, onChange }: RatingSectionProps) {
+function RatingKnob({ value, isPending, ratingMode, onChange }: RatingKnobProps) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const dragging = useRef(false);
+  const lastTick = useRef<number>(-1);
+  const dragStartX = useRef(0);
+  const dragStartValue = useRef(0);
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState("");
+  const editRef = useRef<HTMLInputElement>(null);
+
+  const color = ratingColor(value) ?? "var(--color-dg-text-tertiary)";
+  const valueFrac = (value ?? 0) / 100;
+  const dashVisible = valueFrac * ARC_LENGTH;
+  const dashHidden = ARC_LENGTH - dashVisible;
+
+  const getAngle = (e: { clientX: number; clientY: number }) => {
+    const svg = svgRef.current;
+    if (!svg) return 0;
+    const rect = svg.getBoundingClientRect();
+    const dx = e.clientX - (rect.left + rect.width / 2);
+    const dy = e.clientY - (rect.top + rect.height / 2);
+    let deg = (Math.atan2(dy, dx) * 180) / Math.PI;
+    if (deg < 0) deg += 360;
+    return deg;
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (isPending || editing) return;
+    e.preventDefault();
+    dragging.current = true;
+    lastTick.current = -1;
+    dragStartX.current = e.clientX;
+    dragStartValue.current = value ?? 0;
+    (e.target as Element).setPointerCapture(e.pointerId);
+
+    if (e.pointerType === "touch") {
+      const angle = getAngle(e);
+      const v = angleToValue(angle);
+      onChange(v);
+      checkTick(v);
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!dragging.current) return;
+
+    if (e.pointerType === "touch") {
+      const angle = getAngle(e);
+      const v = angleToValue(angle);
+      onChange(v);
+      checkTick(v);
+    } else {
+      const dx = e.clientX - dragStartX.current;
+      const v = Math.round(Math.min(100, Math.max(0, dragStartValue.current + dx / 2)));
+      onChange(v);
+      checkTick(v);
+    }
+  };
+
+  const handlePointerUp = () => {
+    dragging.current = false;
+  };
+
+  const checkTick = (v: number) => {
+    const tick = Math.floor(v / 5);
+    if (tick !== lastTick.current) {
+      lastTick.current = tick;
+      navigator.vibrate?.(4);
+    }
+  };
+
+  const startEditing = () => {
+    if (isPending) return;
+    setEditText(value != null ? String(value) : "");
+    setEditing(true);
+    queueMicrotask(() => editRef.current?.select());
+  };
+
+  const commitEdit = () => {
+    setEditing(false);
+    const trimmed = editText.trim();
+    if (trimmed === "") {
+      onChange(null);
+      return;
+    }
+    const parsed = Number.parseInt(trimmed, 10);
+    if (Number.isNaN(parsed)) return;
+    onChange(Math.min(100, Math.max(0, parsed)));
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isPending && value != null) {
+      onChange(null);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isPending) return;
+    const step = e.shiftKey ? 10 : 1;
+    if (e.key === "ArrowUp" || e.key === "ArrowRight") {
+      e.preventDefault();
+      onChange(Math.min(100, (value ?? 0) + step));
+    } else if (e.key === "ArrowDown" || e.key === "ArrowLeft") {
+      e.preventDefault();
+      onChange(Math.max(0, (value ?? 0) - step));
+    }
+  };
+
+  const glowColor = value != null ? color : "transparent";
+
   return (
-    <div>
-      <h4 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+    <div className="relative flex flex-col items-center gap-1">
+      <h4 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider">
         Rating
         {ratingMode && (
           <span className="ml-2 text-dg-accent normal-case tracking-normal">
@@ -207,64 +357,108 @@ function RatingSection({ localRating, isPending, ratingMode, onChange }: RatingS
           </span>
         )}
       </h4>
-      <div className="flex items-center gap-3">
-        <input
-          type="range"
-          min="0"
-          max="100"
-          step="1"
-          value={localRating ?? 0}
-          onChange={(e) => onChange(Number.parseInt(e.target.value, 10) || null)}
-          disabled={isPending}
-          className="dg-range flex-1"
-          style={{ "--rating-color": ratingColor(localRating) } as React.CSSProperties}
-        />
-        <RatingInput value={localRating} onChange={onChange} disabled={isPending} />
-        {localRating != null && (
+      <div
+        role="slider"
+        tabIndex={0}
+        aria-valuenow={value ?? undefined}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Rating"
+        className="outline-none"
+        onKeyDown={handleKeyDown}
+      >
+        <svg
+          ref={svgRef}
+          width={KNOB_SIZE}
+          height={KNOB_SIZE}
+          className="block cursor-pointer knob-drag"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          style={{
+            filter: value != null ? `drop-shadow(0 0 6px ${glowColor})` : undefined,
+            touchAction: "none",
+          }}
+        >
+          <title>Rating: {value ?? "not set"}</title>
+          {/* Background arc */}
+          <path
+            d={FULL_ARC}
+            fill="none"
+            stroke="var(--color-dg-elevated)"
+            strokeWidth={KNOB_STROKE}
+            strokeLinecap="round"
+          />
+          {/* Value arc — stroke-dasharray for smooth CSS transitions */}
+          <path
+            d={FULL_ARC}
+            fill="none"
+            stroke={value != null && value > 0 ? color : "transparent"}
+            strokeWidth={KNOB_STROKE}
+            strokeLinecap="round"
+            strokeDasharray={`${dashVisible} ${dashHidden}`}
+            style={{
+              transition: "stroke-dasharray 150ms ease-out, stroke 150ms ease-out",
+            }}
+          />
+        </svg>
+      </div>
+      {/* Center label — positioned over the SVG */}
+      <div
+        className="absolute flex items-center justify-center"
+        style={{
+          top: `calc(${KNOB_SIZE / 2}px + 0.65rem + 0.5rem)`,
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: KNOB_SIZE * 0.55,
+          height: KNOB_SIZE * 0.55,
+        }}
+      >
+        {editing ? (
+          <input
+            ref={editRef}
+            type="text"
+            inputMode="numeric"
+            value={editText}
+            maxLength={3}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+              if (/^\d{0,3}$/.test(e.target.value)) setEditText(e.target.value);
+            }}
+            onBlur={commitEdit}
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+              if (e.key === "Enter") commitEdit();
+              if (e.key === "Escape") setEditing(false);
+            }}
+            className="w-full text-center text-[0.85rem] tabular-nums bg-dg-bg border border-dg-border rounded-sm px-1 py-0 font-mono outline-none"
+            style={{ color, borderColor: color }}
+          />
+        ) : (
           <button
             type="button"
-            onClick={() => onChange(null)}
+            onClick={startEditing}
+            onDoubleClick={handleDoubleClick}
             disabled={isPending}
-            className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-2 -m-2 hover:text-dg-anime transition-colors duration-50 disabled:opacity-50"
-            title="Clear rating"
+            className="text-[0.95rem] tabular-nums font-mono bg-transparent border-none cursor-pointer p-0 transition-colors duration-50 hover:brightness-125 disabled:cursor-default"
+            style={{ color }}
+            title="Click to type, double-click to clear"
           >
-            <X size={14} />
+            {value != null ? value : "\u2014"}
           </button>
         )}
       </div>
-    </div>
-  );
-}
-
-type ReplaySectionProps = {
-  localReplayCount: number;
-  isPending: boolean;
-  mediaType?: string;
-  onChange: (count: number) => void;
-};
-
-function ReplaySection({ localReplayCount, isPending, mediaType, onChange }: ReplaySectionProps) {
-  return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={() => onChange(Math.max(0, localReplayCount - 1))}
-        disabled={isPending || localReplayCount <= 0}
-        className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30 active:scale-[0.97] active:opacity-80"
-      >
-        -
-      </button>
-      <span className="text-[0.75rem] text-dg-text-secondary min-w-[5rem] text-center">
-        {replayCountLabel(localReplayCount, mediaType) ?? "First time"}
-      </span>
-      <button
-        type="button"
-        onClick={() => onChange(localReplayCount + 1)}
-        disabled={isPending}
-        className="text-[0.8rem] bg-transparent border border-dg-border-subtle text-dg-text-secondary rounded-sm w-7 h-7 flex items-center justify-center cursor-pointer disabled:opacity-30 active:scale-[0.97] active:opacity-80"
-      >
-        +
-      </button>
+      {/* Clear button on hover */}
+      {value != null && !editing && (
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          disabled={isPending}
+          className="absolute -top-0.5 -right-0.5 text-dg-text-tertiary bg-dg-surface border border-dg-border-subtle rounded-full w-4 h-4 flex items-center justify-center cursor-pointer opacity-0 hover:opacity-100 transition-opacity duration-100 disabled:hidden"
+          style={{ fontSize: "0.55rem" }}
+          title="Clear rating"
+        >
+          <X size={8} />
+        </button>
+      )}
     </div>
   );
 }
@@ -349,83 +543,16 @@ function TrackingSaveBar({
   );
 }
 
-function RatingInput({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: number | null;
-  onChange: (v: number | null) => void;
-  disabled: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const color = ratingColor(value) ?? "var(--color-dg-accent)";
-
-  const startEditing = () => {
-    if (disabled) return;
-    setText(value != null ? String(value) : "");
-    setEditing(true);
-    queueMicrotask(() => inputRef.current?.select());
-  };
-
-  const commit = () => {
-    setEditing(false);
-    const trimmed = text.trim();
-    if (trimmed === "") {
-      onChange(null);
-      return;
-    }
-    const parsed = Number.parseInt(trimmed, 10);
-    if (Number.isNaN(parsed)) return;
-    onChange(Math.min(100, Math.max(0, parsed)));
-  };
-
-  if (editing) {
-    return (
-      <input
-        ref={inputRef}
-        type="text"
-        inputMode="numeric"
-        value={text}
-        maxLength={3}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-          if (/^\d{0,3}$/.test(e.target.value)) setText(e.target.value);
-        }}
-        onBlur={commit}
-        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-          if (e.key === "Enter") commit();
-          if (e.key === "Escape") setEditing(false);
-        }}
-        className="w-[4ch] text-[0.85rem] tabular-nums text-right bg-dg-bg border border-dg-border rounded-sm px-1 py-0 font-mono outline-none shrink-0"
-        style={{ color, borderColor: color }}
-      />
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={startEditing}
-      disabled={disabled}
-      className="text-[0.85rem] tabular-nums w-[4ch] text-right bg-transparent border-none font-mono cursor-text p-0 shrink-0 hover:underline disabled:cursor-default disabled:no-underline"
-      style={{ color, textDecorationColor: `${color}50` }}
-      title="Click to type a rating"
-    >
-      {value != null ? value : "\u2014"}
-    </button>
-  );
-}
-
 export function TrackingPanel({
   wikidataId,
   mediaType,
   initialEntry,
   statusState,
   favoriteState,
+  replayCountState,
   watchedEpisodesState,
   watchedAtState,
+  onRewatch,
   isMovie,
   bare,
   children,
@@ -446,20 +573,39 @@ export function TrackingPanel({
   const [fallbackFav, setFallbackFav] = useState(
     hasInitial ? (initialEntry?.isFavorite ?? false) : false,
   );
-  const [localReplayCount, setLocalReplayCount] = useState(
+  const [fallbackReplayCount, setFallbackReplayCount] = useState(
     hasInitial ? (initialEntry?.replayCount ?? 0) : 0,
   );
   const serverEntry = useRef<CatalogEntry | null>(hasInitial ? (initialEntry ?? null) : null);
 
-  // Controlled vs uncontrolled pattern for states owned by parent (MediaDetailPage)
   const localStatus = statusState ? statusState.value : fallbackStatus;
   const setLocalStatus = statusState ? statusState.set : setFallbackStatus;
   const localIsFavorite = favoriteState ? favoriteState.value : fallbackFav;
   const setLocalIsFavorite = favoriteState ? favoriteState.set : setFallbackFav;
+  const localReplayCount = replayCountState ? replayCountState.value : fallbackReplayCount;
+  const setLocalReplayCount = replayCountState ? replayCountState.set : setFallbackReplayCount;
   const localWatchedEpisodes = watchedEpisodesState?.value ?? {};
   const setLocalWatchedEpisodes = watchedEpisodesState?.set;
   const localWatchedAt = watchedAtState?.value ?? null;
   const setLocalWatchedAt = watchedAtState?.set;
+
+  const syncFromEntry = useCallback(
+    (e: CatalogEntry | null) => {
+      setLocalRating(e?.rating ?? null);
+      setLocalStatus(e?.status ?? null);
+      setLocalIsFavorite(e?.isFavorite ?? false);
+      setLocalReplayCount(e?.replayCount ?? 0);
+      setLocalWatchedEpisodes?.((e?.watchedEpisodes as WatchedEpisodes) ?? {});
+      setLocalWatchedAt?.(e?.watchedAt ?? null);
+    },
+    [
+      setLocalStatus,
+      setLocalIsFavorite,
+      setLocalReplayCount,
+      setLocalWatchedEpisodes,
+      setLocalWatchedAt,
+    ],
+  );
 
   const prevStatusRef = useRef(localStatus);
   const [statusAnimating, setStatusAnimating] = useState(false);
@@ -484,23 +630,10 @@ export function TrackingPanel({
     if (hasInitial || entryQuery.isPending) return;
     const e = entryQuery.data ?? null;
     setEntry(e);
-    setLocalRating(e?.rating ?? null);
-    setLocalStatus(e?.status ?? null);
-    setLocalIsFavorite(e?.isFavorite ?? false);
-    setLocalReplayCount(e?.replayCount ?? 0);
-    setLocalWatchedEpisodes?.((e?.watchedEpisodes as WatchedEpisodes) ?? {});
-    setLocalWatchedAt?.(e?.watchedAt ?? null);
+    syncFromEntry(e);
     serverEntry.current = e;
     setLoaded(true);
-  }, [
-    hasInitial,
-    entryQuery.isPending,
-    entryQuery.data,
-    setLocalIsFavorite,
-    setLocalStatus,
-    setLocalWatchedEpisodes,
-    setLocalWatchedAt,
-  ]);
+  }, [hasInitial, entryQuery.isPending, entryQuery.data, syncFromEntry]);
 
   const isDirty =
     localRating !== (serverEntry.current?.rating ?? null) ||
@@ -565,24 +698,13 @@ export function TrackingPanel({
         });
         const fresh = await getCatalogEntry({ data: { wikidataId } });
         setEntry(fresh);
-        setLocalRating(fresh?.rating ?? null);
-        setLocalStatus(fresh?.status ?? null);
-        setLocalIsFavorite(fresh?.isFavorite ?? false);
-        setLocalReplayCount(fresh?.replayCount ?? 0);
-        setLocalWatchedEpisodes?.((fresh?.watchedEpisodes as WatchedEpisodes) ?? {});
-        setLocalWatchedAt?.(fresh?.watchedAt ?? null);
+        syncFromEntry(fresh);
         serverEntry.current = fresh;
         queryClient.invalidateQueries({ queryKey: ["user"] });
         router.invalidate();
       } catch (err) {
-        // Rollback optimistic update on failure
         setEntry(prev);
-        setLocalRating(prev?.rating ?? null);
-        setLocalStatus(prev?.status ?? null);
-        setLocalIsFavorite(prev?.isFavorite ?? false);
-        setLocalReplayCount(prev?.replayCount ?? 0);
-        setLocalWatchedEpisodes?.((prev?.watchedEpisodes as WatchedEpisodes) ?? {});
-        setLocalWatchedAt?.(prev?.watchedAt ?? null);
+        syncFromEntry(prev);
         throw err;
       }
     });
@@ -598,10 +720,7 @@ export function TrackingPanel({
     router,
     queryClient,
     action,
-    setLocalIsFavorite,
-    setLocalStatus,
-    setLocalWatchedEpisodes,
-    setLocalWatchedAt,
+    syncFromEntry,
   ]);
 
   handleSaveRef.current = handleSave;
@@ -622,12 +741,28 @@ export function TrackingPanel({
     return () => clearTimeout(autoSaveTimer.current);
   }, [localWatchedEpisodes]);
 
-  const handleRemove = useCallback(async () => {
+  async function handleRemove() {
     await action.run(async () => {
       await removeCatalogEntry({ data: { wikidataId } });
       window.location.reload();
     });
-  }, [wikidataId, action]);
+  }
+
+  // Status change handler: click completed when already completed → rewatch
+  const handleStatusChange = useCallback(
+    (s: string) => {
+      if (s === "completed" && localStatus === "completed") {
+        setLocalReplayCount(localReplayCount + 1);
+        onRewatch?.();
+        setLocalStatus("in_progress");
+        SoundEngine.stamp();
+        navigator.vibrate?.(12);
+      } else {
+        setLocalStatus(s);
+      }
+    },
+    [localStatus, localReplayCount, setLocalStatus, setLocalReplayCount, onRewatch],
+  );
 
   const [ratingMode, setRatingMode] = useState(false);
   const notBusy = action.state !== "pending";
@@ -663,7 +798,6 @@ export function TrackingPanel({
 
   const showRating =
     localStatus === "in_progress" || localStatus === "completed" || localStatus === "mastered";
-  const showReplay = localStatus === "completed" || localStatus === "mastered";
 
   return (
     <div className={wrapperClass}>
@@ -683,44 +817,39 @@ export function TrackingPanel({
         )}
       </div>
 
-      <StatusButtons
-        statuses={statuses}
-        localStatus={localStatus}
-        statusAnimating={statusAnimating}
-        isPending={isPending}
-        mediaType={mediaType}
-        onStatusChange={setLocalStatus}
-      />
-
-      {(showRating || showReplay) && (
-        <div className="flex items-center gap-4 mb-4">
-          {showRating && (
-            <div className="flex-1 min-w-0">
-              <RatingSection
-                localRating={localRating}
-                isPending={isPending}
-                ratingMode={ratingMode}
-                onChange={setLocalRating}
-              />
-            </div>
-          )}
-          {showReplay && (
-            <ReplaySection
-              localReplayCount={localReplayCount}
-              isPending={isPending}
-              mediaType={mediaType}
-              onChange={setLocalReplayCount}
-            />
-          )}
+      {/* Two-column desktop: status left, knob right */}
+      <div className="flex flex-col sm:flex-row sm:gap-4">
+        <div className="flex-1 min-w-0">
+          <StatusButtons
+            statuses={statuses}
+            localStatus={localStatus}
+            localReplayCount={localReplayCount}
+            statusAnimating={statusAnimating}
+            isPending={isPending}
+            mediaType={mediaType}
+            onStatusChange={handleStatusChange}
+          />
         </div>
-      )}
+        {showRating && (
+          <div className="shrink-0 flex items-center justify-center mt-3 sm:mt-0">
+            <RatingKnob
+              value={localRating}
+              isPending={isPending}
+              ratingMode={ratingMode}
+              onChange={setLocalRating}
+            />
+          </div>
+        )}
+      </div>
 
       {isMovie && localStatus && setLocalWatchedAt && (
-        <WatchedAtSection
-          localWatchedAt={localWatchedAt}
-          isPending={isPending}
-          onChange={setLocalWatchedAt}
-        />
+        <div className="mt-4">
+          <WatchedAtSection
+            localWatchedAt={localWatchedAt}
+            isPending={isPending}
+            onChange={setLocalWatchedAt}
+          />
+        </div>
       )}
 
       {children && <div className="mt-5">{children}</div>}

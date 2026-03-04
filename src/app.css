@@ -375,69 +375,14 @@ img {
   border-radius: inherit;
 }
 
-/* ─── Range input styling ───────────────────────────────────────── */
+/* ─── Rating knob ──────────────────────────────────────────────── */
 
-input[type="range"].dg-range {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  cursor: pointer;
-  height: 1.5rem;
+.knob-drag {
+  user-select: none;
+  -webkit-user-select: none;
 }
-
-input[type="range"].dg-range::-webkit-slider-runnable-track {
-  height: 4px;
-  background: var(--color-dg-border);
-  border-radius: 2px;
-  border: 1px solid var(--color-dg-border-strong);
-}
-
-input[type="range"].dg-range::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 2px;
-  background: var(--rating-color, var(--color-dg-accent));
-  border: 1px solid var(--color-dg-border);
-  margin-top: -6px;
-}
-
-input[type="range"].dg-range::-moz-range-track {
-  height: 4px;
-  background: var(--color-dg-border);
-  border-radius: 2px;
-  border: 1px solid var(--color-dg-border-strong);
-}
-
-input[type="range"].dg-range::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 2px;
-  background: var(--rating-color, var(--color-dg-accent));
-  border: 1px solid var(--color-dg-border);
-}
-
-input[type="range"].dg-range:disabled {
-  opacity: 0.5;
-}
-
-@media (pointer: coarse) {
-  input[type="range"].dg-range::-webkit-slider-runnable-track {
-    height: 6px;
-  }
-  input[type="range"].dg-range::-webkit-slider-thumb {
-    width: 24px;
-    height: 24px;
-    margin-top: -10px;
-  }
-  input[type="range"].dg-range::-moz-range-track {
-    height: 6px;
-  }
-  input[type="range"].dg-range::-moz-range-thumb {
-    width: 24px;
-    height: 24px;
-  }
+.knob-drag:active {
+  cursor: grabbing;
 }
 
 /* Cursor highlight for keyboard navigation */

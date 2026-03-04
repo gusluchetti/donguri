@@ -3,7 +3,7 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link, useNavigate } from "@tanstack/react-router";
 import confetti from "canvas-confetti";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getMediaStub } from "~/features/catalog/catalog.functions";
 import { catalogEntryOptions, trackedIdsOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
@@ -14,8 +14,12 @@ import { getRandomMediaId } from "~/features/media/media.functions";
 import { mediaDetailOptions } from "~/features/media/media.queries";
 import {
   countWatchedEpisodes,
+  currentRunWatched,
   displayMediaType,
+  flattenForSave,
   mediaTypeLabel,
+  normalizeRuns,
+  type RunWatchedEpisodes,
   type WatchedEpisodes,
 } from "~/features/media/media-types";
 import { prefetchImage } from "~/lib/image-prefetch";
@@ -268,6 +272,49 @@ function MediaStubPage({
   );
 }
 
+/** Suppress standalone parents when any of their children are present. */
+function dedupHierarchy<T extends { id: string; parentId: string | null }>(items: T[]): T[] {
+  const childParentIds = new Set(items.flatMap((i) => (i.parentId ? [i.parentId] : [])));
+  return items.filter((i) => i.parentId || !childParentIds.has(i.id));
+}
+
+function buildExternalLinks(
+  data: NonNullable<Awaited<ReturnType<typeof getMedia>>>,
+): { label: string; url: string }[] {
+  const links: { label: string; url: string }[] = [];
+  const isAnime = data.animationOrigin === "anime";
+  const isGame = data.mediaType === "game";
+  const isTv = data.mediaType === "tv_series";
+
+  if (data.imdbId) links.push({ label: "IMDb", url: `https://www.imdb.com/title/${data.imdbId}` });
+  if (data.tmdbId && !isGame)
+    links.push({ label: "TMDB", url: `https://www.themoviedb.org/${data.tmdbId}` });
+  if (data.malId && isAnime)
+    links.push({ label: "MyAnimeList", url: `https://myanimelist.net/anime/${data.malId}` });
+  if (data.anilistId && isAnime)
+    links.push({ label: "AniList", url: `https://anilist.co/anime/${data.anilistId}` });
+  if (data.anidbId && isAnime)
+    links.push({ label: "AniDB", url: `https://anidb.net/anime/${data.anidbId}` });
+  if (data.annId && isAnime)
+    links.push({
+      label: "ANN",
+      url: `https://www.animenewsnetwork.com/encyclopedia/anime.php?id=${data.annId}`,
+    });
+  if (data.igdbId && isGame)
+    links.push({ label: "IGDB", url: `https://www.igdb.com/games/${data.igdbId}` });
+  if (data.tvdbId && isTv) {
+    const isNumeric = /^\d+$/.test(data.tvdbId);
+    links.push({
+      label: "TheTVDB",
+      url: isNumeric
+        ? `https://thetvdb.com/dereferrer/series/${data.tvdbId}`
+        : `https://thetvdb.com/series/${data.tvdbId}`,
+    });
+  }
+  links.push({ label: "Wikidata", url: `https://www.wikidata.org/wiki/${data.wikidataId}` });
+  return links;
+}
+
 function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
   const { data } = useSuspenseQuery(mediaDetailOptions(wikidataId));
   if (!data) throw new Error("Media not found");
@@ -276,7 +323,8 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
   const handleShuffle = useShuffleNav();
 
   const [localIsFavorite, setLocalIsFavorite] = useState(false);
-  const [localWatchedEpisodes, setLocalWatchedEpisodes] = useState<WatchedEpisodes>({});
+  const [localRunsData, setLocalRunsData] = useState<RunWatchedEpisodes>({ runs: [{}] });
+  const [localReplayCount, setLocalReplayCount] = useState(0);
   const [localWatchedAt, setLocalWatchedAt] = useState<string | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
 
@@ -287,8 +335,6 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
     enabled: !!auth && !!localStatus,
   });
 
-  const isAnime = data.animationOrigin === "anime";
-  const isGame = data.mediaType === "game";
   const isTv = data.mediaType === "tv_series";
   const totalEps =
     isTv && data.seasons && data.seasons.length > 0
@@ -299,18 +345,39 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
       : 0;
   const hasSeasons = isTv && data.seasons && data.seasons.length > 0;
 
+  const currentRunIndex = localReplayCount;
+  const currentRunWatchedEps = currentRunWatched(localRunsData, currentRunIndex);
+  const flattenedForSave = useMemo(() => flattenForSave(localRunsData), [localRunsData]);
+
   const handleWatchedEpisodesChange = useCallback(
     (newWatched: WatchedEpisodes) => {
-      setLocalWatchedEpisodes(newWatched);
+      setLocalRunsData((prev) => {
+        const runs = [...prev.runs];
+        while (runs.length <= currentRunIndex) runs.push({});
+        runs[currentRunIndex] = newWatched;
+        return { runs };
+      });
       if (!localStatus) setLocalStatus("in_progress");
     },
-    [localStatus],
+    [localStatus, currentRunIndex],
   );
 
-  // Auto-complete: when all episodes watched while in_progress
+  const handleRewatch = useCallback(() => {
+    setLocalRunsData((prev) => {
+      const runs = [...prev.runs];
+      runs.push({});
+      return { runs };
+    });
+  }, []);
+
+  const handleWatchedEpisodesSet = useCallback(
+    (w: WatchedEpisodes) => setLocalRunsData(normalizeRuns(w)),
+    [],
+  );
+
   useEffect(() => {
     if (localStatus === "in_progress" && totalEps > 0) {
-      if (countWatchedEpisodes(localWatchedEpisodes) >= totalEps) {
+      if (countWatchedEpisodes(currentRunWatchedEps) >= totalEps) {
         setLocalStatus("completed");
         confetti({
           particleCount: 80,
@@ -320,67 +387,10 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
         });
       }
     }
-  }, [localStatus, localWatchedEpisodes, totalEps]);
+  }, [localStatus, currentRunWatchedEps, totalEps]);
 
-  // Dedup genres: if a sub-genre is present, suppress its standalone parent
-  const subGenreParentIds = new Set(
-    data.genres.flatMap((g: { parentId: string | null }) => (g.parentId ? [g.parentId] : [])),
-  );
-  const visibleGenres = data.genres.filter((g: { id: string; parentId: string | null }) => {
-    if (g.parentId) return true;
-    return !subGenreParentIds.has(g.id);
-  });
-
-  const externalLinks: { label: string; url: string }[] = [];
-  if (data.imdbId)
-    externalLinks.push({
-      label: "IMDb",
-      url: `https://www.imdb.com/title/${data.imdbId}`,
-    });
-  if (data.tmdbId && !isGame) {
-    externalLinks.push({
-      label: "TMDB",
-      url: `https://www.themoviedb.org/${data.tmdbId}`,
-    });
-  }
-  if (data.malId && isAnime)
-    externalLinks.push({
-      label: "MyAnimeList",
-      url: `https://myanimelist.net/anime/${data.malId}`,
-    });
-  if (data.anilistId && isAnime)
-    externalLinks.push({
-      label: "AniList",
-      url: `https://anilist.co/anime/${data.anilistId}`,
-    });
-  if (data.anidbId && isAnime)
-    externalLinks.push({
-      label: "AniDB",
-      url: `https://anidb.net/anime/${data.anidbId}`,
-    });
-  if (data.annId && isAnime)
-    externalLinks.push({
-      label: "ANN",
-      url: `https://www.animenewsnetwork.com/encyclopedia/anime.php?id=${data.annId}`,
-    });
-  if (data.igdbId && isGame)
-    externalLinks.push({
-      label: "IGDB",
-      url: `https://www.igdb.com/games/${data.igdbId}`,
-    });
-  if (data.tvdbId && isTv) {
-    const isNumeric = /^\d+$/.test(data.tvdbId);
-    externalLinks.push({
-      label: "TheTVDB",
-      url: isNumeric
-        ? `https://thetvdb.com/dereferrer/series/${data.tvdbId}`
-        : `https://thetvdb.com/series/${data.tvdbId}`,
-    });
-  }
-  externalLinks.push({
-    label: "Wikidata",
-    url: `https://www.wikidata.org/wiki/${data.wikidataId}`,
-  });
+  const visibleGenres = dedupHierarchy(data.genres);
+  const externalLinks = buildExternalLinks(data);
 
   return (
     <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
@@ -528,18 +538,20 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               mediaType={data.mediaType}
               statusState={{ value: localStatus, set: setLocalStatus }}
               favoriteState={{ value: localIsFavorite, set: setLocalIsFavorite }}
+              replayCountState={{ value: localReplayCount, set: setLocalReplayCount }}
               watchedEpisodesState={{
-                value: localWatchedEpisodes,
-                set: setLocalWatchedEpisodes,
+                value: flattenedForSave as WatchedEpisodes,
+                set: handleWatchedEpisodesSet,
               }}
               watchedAtState={{ value: localWatchedAt, set: setLocalWatchedAt }}
+              onRewatch={handleRewatch}
               isMovie={data.mediaType === "movie"}
               bare
             >
               {hasSeasons && data.seasons ? (
                 <EpisodeTracker
                   seasons={data.seasons}
-                  watchedEpisodes={localWatchedEpisodes}
+                  watchedEpisodes={currentRunWatchedEps}
                   onWatchedChange={handleWatchedEpisodesChange}
                 />
               ) : isTv ? (
@@ -572,47 +584,32 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
           </div>
         )}
 
-        {data.platforms.length > 0 &&
-          (() => {
-            // Dedup platforms: hide parent family when specific children are present
-            const subPlatformParentIds = new Set(
-              data.platforms.flatMap((p: { parentId: string | null }) =>
-                p.parentId ? [p.parentId] : [],
-              ),
-            );
-            const visiblePlatforms = data.platforms.filter(
-              (p: { id: string; parentId: string | null }) => {
-                if (p.parentId) return true;
-                return !subPlatformParentIds.has(p.id);
-              },
-            );
-            return (
-              <div className="mb-g3 sm:mb-g4">
-                <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-                  Platforms
-                </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {visiblePlatforms.map(
-                    (p: { id: string; name: string; parentName?: string | null }) => (
-                      <span
-                        key={p.id}
-                        className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                      >
-                        {p.parentName ? (
-                          <>
-                            <span className="text-dg-text-tertiary">{p.parentName} &rsaquo; </span>
-                            {p.name}
-                          </>
-                        ) : (
-                          p.name
-                        )}
-                      </span>
-                    ),
-                  )}
-                </div>
-              </div>
-            );
-          })()}
+        {data.platforms.length > 0 && (
+          <div className="mb-g3 sm:mb-g4">
+            <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+              Platforms
+            </h3>
+            <div className="flex flex-wrap gap-1.5">
+              {dedupHierarchy(data.platforms).map(
+                (p: { id: string; name: string; parentName?: string | null }) => (
+                  <span
+                    key={p.id}
+                    className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                  >
+                    {p.parentName ? (
+                      <>
+                        <span className="text-dg-text-tertiary">{p.parentName} &rsaquo; </span>
+                        {p.name}
+                      </>
+                    ) : (
+                      p.name
+                    )}
+                  </span>
+                ),
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

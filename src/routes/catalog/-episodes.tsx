@@ -231,6 +231,35 @@ function EpisodePopover({
 
 type CellState = "unwatched" | "watched" | "complete" | "next";
 
+function cellStyles(state: CellState) {
+  switch (state) {
+    case "complete":
+      return {
+        bg: "color-mix(in srgb, var(--color-dg-tv) 20%, transparent)",
+        borderColor: "color-mix(in srgb, var(--color-dg-tv) 40%, transparent)",
+        textColor: "var(--color-dg-tv)",
+      };
+    case "watched":
+      return {
+        bg: "color-mix(in srgb, var(--color-dg-accent) 15%, transparent)",
+        borderColor: "color-mix(in srgb, var(--color-dg-accent) 30%, transparent)",
+        textColor: "var(--color-dg-accent)",
+      };
+    case "next":
+      return {
+        bg: "transparent",
+        borderColor: "var(--color-dg-accent)",
+        textColor: "var(--color-dg-accent)",
+      };
+    default:
+      return {
+        bg: "transparent",
+        borderColor: "var(--color-dg-border-subtle)",
+        textColor: "var(--color-dg-text-tertiary)",
+      };
+  }
+}
+
 function EpCell({
   epNumber,
   state,
@@ -256,28 +285,7 @@ function EpCell({
 }) {
   const isWatched = state === "watched" || state === "complete";
   const isNext = state === "next";
-
-  const bg = isWatched
-    ? state === "complete"
-      ? "color-mix(in srgb, var(--color-dg-tv) 20%, transparent)"
-      : "color-mix(in srgb, var(--color-dg-accent) 15%, transparent)"
-    : "transparent";
-
-  const borderColor = isNext
-    ? "var(--color-dg-accent)"
-    : isWatched
-      ? state === "complete"
-        ? "color-mix(in srgb, var(--color-dg-tv) 40%, transparent)"
-        : "color-mix(in srgb, var(--color-dg-accent) 30%, transparent)"
-      : "var(--color-dg-border-subtle)";
-
-  const textColor = isWatched
-    ? state === "complete"
-      ? "var(--color-dg-tv)"
-      : "var(--color-dg-accent)"
-    : isNext
-      ? "var(--color-dg-accent)"
-      : "var(--color-dg-text-tertiary)";
+  const { bg, borderColor, textColor } = cellStyles(state);
 
   return (
     <div className="relative">

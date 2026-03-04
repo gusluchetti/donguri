@@ -3,7 +3,12 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "~/db";
 import { catalogEntries } from "~/db/schema";
-import { countWatchedEpisodes, normalizeStatus } from "~/features/media/media-types";
+import {
+  countTotalAcrossRuns,
+  countWatchedEpisodes,
+  normalizeRuns,
+  normalizeStatus,
+} from "~/features/media/media-types";
 
 const COLLECTION = "app.donguri.catalog.entry";
 
@@ -15,7 +20,12 @@ const CatalogEntryRecordSchema = z.object({
   episodeProgress: z.number().optional(),
   isFavorite: z.boolean().optional(),
   replayCount: z.number().optional(),
-  watchedEpisodes: z.record(z.string(), z.record(z.string(), z.string())).optional(),
+  watchedEpisodes: z
+    .union([
+      z.record(z.string(), z.record(z.string(), z.string())),
+      z.object({ runs: z.array(z.record(z.string(), z.record(z.string(), z.string()))) }),
+    ])
+    .optional(),
   watchedAt: z.string().optional(),
   title: z.string().optional(),
   mediaType: z.string().optional(),
@@ -125,7 +135,9 @@ export async function upsertLocalMirror(
 
   // Auto-compute episodeProgress from watchedEpisodes
   const epProgress = normalized.watchedEpisodes
-    ? countWatchedEpisodes(normalized.watchedEpisodes)
+    ? "runs" in normalized.watchedEpisodes
+      ? countTotalAcrossRuns(normalizeRuns(normalized.watchedEpisodes))
+      : countWatchedEpisodes(normalized.watchedEpisodes)
     : (normalized.episodeProgress ?? null);
 
   if (rows.length > 0) {

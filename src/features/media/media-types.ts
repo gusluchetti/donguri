@@ -153,6 +153,44 @@ export const TYPE_HUES: Record<string, number> = {
 // ─── Watched Episodes Helpers ────────────────────────────────────────────────
 
 export type WatchedEpisodes = Record<string, Record<string, string>>;
+export type RunWatchedEpisodes = { runs: WatchedEpisodes[] };
+
+/** Normalize raw DB value into runs shape. Flat → single-run wrapper. */
+export function normalizeRuns(
+  raw: WatchedEpisodes | RunWatchedEpisodes | null | undefined,
+): RunWatchedEpisodes {
+  if (!raw) return { runs: [{}] };
+  if ("runs" in raw && Array.isArray((raw as RunWatchedEpisodes).runs))
+    return raw as RunWatchedEpisodes;
+  return { runs: [raw as WatchedEpisodes] };
+}
+
+/** Get watched data for a specific run index. */
+export function currentRunWatched(
+  normalized: RunWatchedEpisodes,
+  runIndex: number,
+): WatchedEpisodes {
+  return normalized.runs[runIndex] ?? {};
+}
+
+/** For saving: if only 1 run, return flat for backwards compat. Otherwise return runs shape. */
+export function flattenForSave(
+  normalized: RunWatchedEpisodes,
+): WatchedEpisodes | RunWatchedEpisodes {
+  if (normalized.runs.length <= 1) return normalized.runs[0] ?? {};
+  // Prune trailing empty runs
+  const pruned = [...normalized.runs];
+  while (pruned.length > 1 && Object.keys(pruned[pruned.length - 1]).length === 0) {
+    pruned.pop();
+  }
+  if (pruned.length <= 1) return pruned[0] ?? {};
+  return { runs: pruned };
+}
+
+/** Count total episodes watched across all runs. */
+export function countTotalAcrossRuns(normalized: RunWatchedEpisodes): number {
+  return normalized.runs.reduce((sum, run) => sum + countWatchedEpisodes(run), 0);
+}
 
 export function todayISO(): string {
   const d = new Date();

@@ -12,11 +12,14 @@ import { SectionHeader } from "~/features/media/components/SectionHeader";
 import { homepageSampleOptions } from "~/features/media/media.queries";
 import {
   displayMediaType,
+  normalizeRuns,
+  type RunWatchedEpisodes,
   ratingColor,
   replayCountLabel,
   STATUS_LABELS_GENERIC,
   STATUS_ORDER,
   type StatusValue,
+  type WatchedEpisodes,
 } from "~/features/media/media-types";
 import { OnboardingFlow } from "~/features/onboarding/OnboardingFlow";
 import { onboardingPicksOptions } from "~/features/onboarding/onboarding.queries";
@@ -37,7 +40,7 @@ type CatalogEntryRow = {
   mediaTitle: string | null;
   mediaType: string | null;
   animationOrigin: string | null;
-  watchedEpisodes: Record<string, Record<string, string>> | null;
+  watchedEpisodes: WatchedEpisodes | RunWatchedEpisodes | null;
   episodeCount: number | null;
   seasonCount: number | null;
   posterUrl: string | null;
@@ -50,8 +53,12 @@ function episodePosition(item: CatalogEntryRow): string | null {
   // Don't show position for completed entries
   if (item.status === "completed") return null;
 
+  // Normalize: if runs shape, use the last run; if flat, use as-is
+  const normalized = normalizeRuns(item.watchedEpisodes);
+  const flat = normalized.runs[normalized.runs.length - 1] ?? {};
+
   // Find the highest season with watched episodes
-  const seasons = Object.entries(item.watchedEpisodes)
+  const seasons = Object.entries(flat)
     .map(([s, eps]) => ({
       season: Number.parseInt(s, 10),
       maxEp: Math.max(...Object.keys(eps).map(Number)),

@@ -425,14 +425,6 @@ function CatalogPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, [filterOpen]);
 
-  const handleTypeChangeMobile = useCallback(
-    (type: FilterType) => {
-      handleTypeChange(type);
-      setFilterOpen(false);
-    },
-    [handleTypeChange],
-  );
-
   const handleRandom = useCallback(async () => {
     SoundEngine.dice();
     const id = await getRandomMediaId();
@@ -495,7 +487,13 @@ function CatalogPage() {
           {/* Mobile filter dropdown */}
           {filterOpen && (
             <div className="absolute left-0 right-0 top-full mt-1 z-20 sm:hidden">
-              <TypeFilterBar mediaType={mediaType} onTypeChange={handleTypeChangeMobile} />
+              <TypeFilterBar
+                mediaType={mediaType}
+                onTypeChange={(t) => {
+                  handleTypeChange(t);
+                  setFilterOpen(false);
+                }}
+              />
             </div>
           )}
         </div>
