@@ -256,9 +256,6 @@ type RatingKnobProps = {
   size?: number;
 };
 
-// Glow padding: extra SVG space so drop-shadow doesn't clip at element boundary
-const GLOW_PAD = 10;
-
 function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: RatingKnobProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
@@ -276,8 +273,8 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
   const dashHidden = arcLength - dashVisible;
 
   const thumbAngleRad = ((ARC_START + ARC_SWEEP * valueFrac) * Math.PI) / 180;
-  const thumbX = size / 2 + GLOW_PAD + r * Math.cos(thumbAngleRad);
-  const thumbY = size / 2 + GLOW_PAD + r * Math.sin(thumbAngleRad);
+  const thumbX = size / 2 + r * Math.cos(thumbAngleRad);
+  const thumbY = size / 2 + r * Math.sin(thumbAngleRad);
 
   const getAngle = (e: { clientX: number; clientY: number }) => {
     const svg = svgRef.current;
@@ -365,8 +362,7 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
     }
   };
 
-  const glowColor = value != null ? color : "transparent";
-  const svgFull = size + GLOW_PAD * 2;
+  const svgFull = size;
 
   // Disable transitions while dragging for immediate response
   const arcTransition = isDragging
@@ -376,8 +372,11 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
     ? "fill 150ms ease-out"
     : "cx 150ms ease-out, cy 150ms ease-out, fill 150ms ease-out";
 
+  const cx = size / 2;
+  const cy = size / 2;
+
   return (
-    <div className="relative flex flex-col items-center gap-1">
+    <div className="relative flex flex-col items-center">
       <div
         role="slider"
         tabIndex={0}
@@ -387,7 +386,6 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
         aria-label="Rating"
         className="outline-none"
         onKeyDown={handleKeyDown}
-        style={{ margin: -GLOW_PAD }}
       >
         <svg
           ref={svgRef}
@@ -398,31 +396,25 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          style={{
-            filter: value != null ? `drop-shadow(0 0 6px ${glowColor})` : undefined,
-            touchAction: "none",
-            overflow: "visible",
-          }}
+          style={{ touchAction: "none", overflow: "visible" }}
         >
           <title>Rating: {value ?? "not set"}</title>
-          <g transform={`translate(${GLOW_PAD}, ${GLOW_PAD})`}>
-            <path
-              d={fullArc}
-              fill="none"
-              stroke="var(--color-dg-elevated)"
-              strokeWidth={KNOB_STROKE}
-              strokeLinecap="round"
-            />
-            <path
-              d={fullArc}
-              fill="none"
-              stroke={value != null && value > 0 ? color : "transparent"}
-              strokeWidth={KNOB_STROKE}
-              strokeLinecap="round"
-              strokeDasharray={`${dashVisible} ${dashHidden}`}
-              style={{ transition: arcTransition }}
-            />
-          </g>
+          <path
+            d={fullArc}
+            fill="none"
+            stroke="var(--color-dg-elevated)"
+            strokeWidth={KNOB_STROKE}
+            strokeLinecap="round"
+          />
+          <path
+            d={fullArc}
+            fill="none"
+            stroke={value != null && value > 0 ? color : "transparent"}
+            strokeWidth={KNOB_STROKE}
+            strokeLinecap="round"
+            strokeDasharray={`${dashVisible} ${dashHidden}`}
+            style={{ transition: arcTransition }}
+          />
           {value != null && value > 0 && (
             <circle
               cx={thumbX}
@@ -432,75 +424,66 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
               style={{ transition: thumbTransition }}
             />
           )}
+          {/* Number + RATING label inside the knob */}
+          {!editing && (
+            <>
+              {/* biome-ignore lint/a11y/noStaticElementInteractions: SVG text can't be a <button> */}
+              <text
+                x={cx}
+                y={cy - 2}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fill={color}
+                className="font-mono tabular-nums"
+                style={{ fontSize: size * 0.3, cursor: "pointer", pointerEvents: "auto" }}
+                onClick={startEditing}
+                onDoubleClick={handleDoubleClick}
+              >
+                {value != null ? value : "\u2014"}
+              </text>
+              <text
+                x={cx}
+                y={cy + size * 0.18}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fill="var(--color-dg-text-tertiary)"
+                style={{ fontSize: size * 0.09, letterSpacing: "0.1em" }}
+              >
+                RATING
+              </text>
+            </>
+          )}
         </svg>
-      </div>
-      {/* Center label — positioned over the SVG */}
-      <div
-        className="absolute flex items-center justify-center pointer-events-none"
-        style={{
-          top: size / 2,
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: size * 0.55,
-          height: size * 0.55,
-        }}
-      >
-        {editing ? (
-          <input
-            ref={editRef}
-            type="text"
-            inputMode="numeric"
-            value={editText}
-            maxLength={3}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              if (/^\d{0,3}$/.test(e.target.value)) setEditText(e.target.value);
-            }}
-            onBlur={commitEdit}
-            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-              if (e.key === "Enter") commitEdit();
-              if (e.key === "Escape") setEditing(false);
-            }}
-            className="w-full text-center text-[0.85rem] tabular-nums bg-dg-bg border border-dg-border rounded-sm px-1 py-0 font-mono outline-none pointer-events-auto"
-            style={{ color, borderColor: color }}
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={startEditing}
-            onDoubleClick={handleDoubleClick}
-            disabled={isPending}
-            className="text-[0.95rem] tabular-nums font-mono bg-transparent border-none cursor-pointer p-0 transition-colors duration-50 hover:brightness-125 disabled:cursor-default pointer-events-auto"
-            style={{ color }}
-            title="Click to type, double-click to clear"
-          >
-            {value != null ? value : "\u2014"}
-          </button>
+        {editing && (
+          <div className="absolute flex items-center justify-center" style={{ inset: 0 }}>
+            <input
+              ref={editRef}
+              type="text"
+              inputMode="numeric"
+              value={editText}
+              maxLength={3}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                if (/^\d{0,3}$/.test(e.target.value)) setEditText(e.target.value);
+              }}
+              onBlur={commitEdit}
+              onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                if (e.key === "Enter") commitEdit();
+                if (e.key === "Escape") setEditing(false);
+              }}
+              className="w-12 text-center text-[1rem] tabular-nums bg-dg-bg border border-dg-border rounded-sm px-1 py-0 font-mono outline-none"
+              style={{ color, borderColor: color }}
+            />
+          </div>
         )}
       </div>
-      <h4 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider m-0">
-        Rating
-        {ratingMode && (
-          <span className="ml-2 text-dg-accent normal-case tracking-normal">
-            = <span className="animate-pulse">_</span>
-          </span>
-        )}
-      </h4>
-      <p className="text-[0.55rem] text-dg-text-tertiary m-0">
-        {value != null ? "click number to edit" : "drag or click to set"}
-      </p>
-      {/* Clear button on hover */}
-      {value != null && !editing && (
-        <button
-          type="button"
-          onClick={() => onChange(null)}
-          disabled={isPending}
-          className="absolute -top-0.5 -right-0.5 text-dg-text-tertiary bg-dg-surface border border-dg-border-subtle rounded-full w-4 h-4 flex items-center justify-center cursor-pointer opacity-0 hover:opacity-100 transition-opacity duration-100 disabled:hidden"
-          style={{ fontSize: "0.55rem" }}
-          title="Clear rating"
-        >
-          <X size={8} />
-        </button>
+      {ratingMode && (
+        <p className="text-[0.6rem] text-dg-accent m-0 mt-1">
+          = <span className="animate-pulse">_</span>
+        </p>
       )}
+      <p className="text-[0.5rem] text-dg-text-tertiary m-0 mt-1">
+        drag to rate &middot; double-click to type
+      </p>
     </div>
   );
 }
