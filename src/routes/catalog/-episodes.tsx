@@ -64,7 +64,7 @@ function SeriesBar({
   onSeasonClick?: (sn: number) => void;
 }) {
   const totalEps = seasons.reduce((s, sn) => s + (sn.episodeCount ?? 0), 0);
-  if (totalEps === 0) return null;
+  if (totalEps === 0 && seasons.every((s) => s.episodeCount == null)) return null;
 
   return (
     <div className="flex h-[6px] rounded-full overflow-hidden bg-dg-elevated gap-px">
@@ -324,7 +324,13 @@ function EpisodeGrid({
   onUnmarkFrom: (season: number, fromEp: number, toEp: number) => void;
 }) {
   const epCount = season.episodeCount ?? 0;
-  if (epCount === 0) return null;
+  if (epCount === 0) {
+    return (
+      <div className="text-[0.65rem] text-dg-text-tertiary font-body py-3 text-center">
+        S{String(season.seasonNumber).padStart(2, "0")} — episode count unknown
+      </div>
+    );
+  }
 
   const cols = pickCols(epCount);
   const sn = season.seasonNumber;
@@ -552,6 +558,7 @@ export function EpisodeTracker({
   const currentSeason = seasons.find((s) => s.seasonNumber === activeSeason) ?? seasons[0];
   const totalEps = seasons.reduce((sum, s) => sum + (s.episodeCount ?? 0), 0);
   const totalWatched = countWatchedEpisodes(watchedEpisodes);
+  const hasIncompleteData = seasons.some((s) => s.episodeCount == null);
 
   const undo = useUndo(latestWatchedRef.current);
 
@@ -611,6 +618,12 @@ export function EpisodeTracker({
           )}
         </div>
 
+        {hasIncompleteData && (
+          <div className="text-[0.6rem] text-dg-text-tertiary font-body mb-2">
+            some season data is incomplete
+          </div>
+        )}
+
         {isMultiSeason && (
           <SeriesBar seasons={seasons} watched={watchedEpisodes} activeSeason={activeSeason} />
         )}
@@ -664,6 +677,13 @@ export function EpisodeTracker({
           )}
         </span>
       </div>
+
+      {/* Incomplete data hint */}
+      {hasIncompleteData && (
+        <div className="text-[0.6rem] text-dg-text-tertiary font-body mb-2">
+          some season data is incomplete
+        </div>
+      )}
 
       {/* Series progress bar (multi-season) */}
       {isMultiSeason && (

@@ -20,7 +20,7 @@ import {
   Scripts,
   useNavigate,
 } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/router-devtools";
+import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { clear } from "idb-keyval";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import type { SessionData } from "~/features/auth/auth.functions";
@@ -64,17 +64,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/acorn.svg" },
-      { rel: "icon", href: "/favicon.ico" },
       { rel: "manifest", href: "/manifest.json" },
       { rel: "apple-touch-icon", href: "/icon-192.png" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       { rel: "preconnect", href: "https://image.tmdb.org", crossOrigin: "anonymous" },
       { rel: "preconnect", href: "https://s4.anilist.co", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap",
-      },
     ],
   }),
   beforeLoad: async ({ context }) => {

@@ -296,7 +296,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
           0,
         )
       : 0;
-  const hasSeasons = totalEps > 1;
+  const hasSeasons = isTv && data.seasons && data.seasons.length > 0;
 
   const handleWatchedEpisodesChange = useCallback(
     (newWatched: WatchedEpisodes) => {
@@ -529,13 +529,17 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               isMovie={data.mediaType === "movie"}
               bare
             >
-              {hasSeasons && data.seasons && (
+              {hasSeasons && data.seasons ? (
                 <EpisodeTracker
                   seasons={data.seasons}
                   watchedEpisodes={localWatchedEpisodes}
                   onWatchedChange={handleWatchedEpisodesChange}
                 />
-              )}
+              ) : isTv ? (
+                <div className="text-[0.7rem] text-dg-text-tertiary font-body py-2">
+                  no episode data available yet
+                </div>
+              ) : null}
             </TrackingPanel>
           </div>
         )}

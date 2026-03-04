@@ -1,4 +1,9 @@
 @import "tailwindcss";
+@import "@fontsource-variable/fraunces/full.css";
+@import "@fontsource-variable/dm-sans";
+@import "@fontsource/dm-mono/300.css";
+@import "@fontsource/dm-mono/400.css";
+@import "@fontsource/dm-mono/500.css";
 
 /* Mobile touch & scroll */
 html {
@@ -23,7 +28,7 @@ img {
 @theme {
   --font-display: "Fraunces", Georgia, serif;
   --font-body: "DM Sans", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", "SF Mono", "Fira Code", monospace;
+  --font-mono: "DM Mono", "SF Mono", "Fira Code", monospace;
 
   /* Spacing — 8px grid */
   --spacing-g1: 8px;
