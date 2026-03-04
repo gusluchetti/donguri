@@ -2,6 +2,7 @@ import { Shuffle } from "@phosphor-icons/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link, useNavigate } from "@tanstack/react-router";
+import confetti from "canvas-confetti";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getMediaStub } from "~/features/catalog/catalog.functions";
 import { catalogEntryOptions, trackedIdsOptions } from "~/features/catalog/catalog.queries";
@@ -311,6 +312,12 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
     if (localStatus === "in_progress" && totalEps > 0) {
       if (countWatchedEpisodes(localWatchedEpisodes) >= totalEps) {
         setLocalStatus("completed");
+        confetti({
+          particleCount: 80,
+          spread: 60,
+          origin: { y: 0.7 },
+          colors: ["#d4a44a", "#e8702e", "#2aaba0"],
+        });
       }
     }
   }, [localStatus, localWatchedEpisodes, totalEps]);

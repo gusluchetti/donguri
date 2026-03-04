@@ -17,8 +17,6 @@ export type Season = {
   dataSource: string;
 };
 
-// ─── Local utilities ──────────────────────────────────────────────────────────
-
 function vibrate(ms = 8) {
   navigator.vibrate?.(ms);
 }
@@ -42,16 +40,6 @@ function fmtDate(iso: string): string {
   return `${months[Number(m) - 1]} ${Number(d)}, ${y}`;
 }
 
-function pickCols(epCount: number): number {
-  if (epCount <= 6) return epCount;
-  if (epCount <= 10) return 5;
-  if (epCount <= 16) return 6;
-  if (epCount <= 28) return 7;
-  return 8;
-}
-
-// ─── SeriesBar ────────────────────────────────────────────────────────────────
-
 function SeriesBar({
   seasons,
   watched,
@@ -67,7 +55,7 @@ function SeriesBar({
   if (totalEps === 0 && seasons.every((s) => s.episodeCount == null)) return null;
 
   return (
-    <div className="flex h-[6px] rounded-full overflow-hidden bg-dg-elevated gap-px">
+    <div className="flex h-2 rounded-full overflow-hidden bg-dg-elevated gap-px">
       {seasons.map((s) => {
         const epCount = s.episodeCount ?? 0;
         if (epCount === 0) return null;
@@ -101,8 +89,6 @@ function SeriesBar({
   );
 }
 
-// ─── SeasonCircle ─────────────────────────────────────────────────────────────
-
 function SeasonCircle({
   seasonNumber,
   watched,
@@ -116,8 +102,8 @@ function SeasonCircle({
   isActive: boolean;
   onClick: () => void;
 }) {
-  const size = 20;
-  const stroke = 2;
+  const size = 32;
+  const stroke = 2.5;
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const pct = total > 0 ? watched / total : 0;
@@ -128,13 +114,13 @@ function SeasonCircle({
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-col items-center gap-0.5 bg-transparent border-none cursor-pointer p-0 transition-opacity duration-100 ${isActive ? "opacity-100" : "opacity-40 hover:opacity-70"}`}
+      className={`bg-transparent border-none cursor-pointer p-0 transition-opacity duration-100 ${isActive ? "opacity-100" : "opacity-40 hover:opacity-70"}`}
       title={`S${String(seasonNumber).padStart(2, "0")} — ${watched}/${total}`}
     >
       <svg
         width={size}
         height={size}
-        className="block -rotate-90"
+        className="block"
         role="img"
         aria-label={`Season ${seasonNumber}: ${watched}/${total}`}
       >
@@ -145,6 +131,7 @@ function SeasonCircle({
           fill="none"
           stroke="var(--color-dg-elevated)"
           strokeWidth={stroke}
+          className="-rotate-90 origin-center"
         />
         <circle
           cx={size / 2}
@@ -155,29 +142,37 @@ function SeasonCircle({
           strokeWidth={stroke}
           strokeDasharray={`${pct * circ} ${circ}`}
           strokeLinecap="round"
-          className="transition-all duration-200"
+          className="transition-all duration-200 -rotate-90 origin-center"
         />
+        <text
+          x={size / 2}
+          y={size / 2}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="var(--color-dg-text-tertiary)"
+          fontSize="10"
+          fontFamily="var(--font-mono)"
+        >
+          {seasonNumber}
+        </text>
       </svg>
-      <span className="text-[0.55rem] tabular-nums font-mono text-dg-text-tertiary">
-        {seasonNumber}
-      </span>
     </button>
   );
 }
-
-// ─── EpisodePopover ───────────────────────────────────────────────────────────
 
 function EpisodePopover({
   epNumber,
   date,
   seasonEpCount,
-  onUnmark,
+  onUnmarkSingle,
+  onUnmarkToEnd,
   onClose,
 }: {
   epNumber: number;
   date: string;
   seasonEpCount: number;
-  onUnmark: () => void;
+  onUnmarkSingle: () => void;
+  onUnmarkToEnd: () => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -197,31 +192,42 @@ function EpisodePopover({
   return (
     <div
       ref={ref}
-      className="absolute bottom-full left-1/2 mb-1.5 z-50 w-[180px] p-2 rounded border border-dg-border-subtle bg-dg-surface text-[0.7rem] shadow-lg"
+      className="absolute bottom-full left-1/2 mb-1.5 z-50 w-[180px] p-2.5 rounded border border-dg-border-subtle bg-dg-surface text-[0.7rem] shadow-lg"
       style={{
         transform: "translateX(-50%)",
         animation: "popIn 120ms var(--ease-smooth) both",
       }}
     >
-      <div className="text-dg-text-secondary mb-1.5 font-mono tabular-nums">
+      <div className="text-dg-text-secondary mb-2 font-mono tabular-nums">
         ep {epNumber} &middot; {fmtDate(date)}
       </div>
       <button
         type="button"
         onClick={() => {
           vibrate();
-          onUnmark();
+          onUnmarkSingle();
           onClose();
         }}
-        className="w-full text-left text-[0.65rem] text-dg-anime bg-transparent border-none cursor-pointer p-0 hover:underline font-mono"
+        className="w-full text-left text-[0.7rem] text-dg-anime bg-transparent border-none cursor-pointer p-0 hover:underline font-mono"
       >
-        unmark {epNumber}&rarr;{seasonEpCount}
+        unmark ep {epNumber}
       </button>
+      {epNumber < seasonEpCount && (
+        <button
+          type="button"
+          onClick={() => {
+            vibrate();
+            onUnmarkToEnd();
+            onClose();
+          }}
+          className="w-full text-left text-[0.65rem] text-dg-text-tertiary bg-transparent border-none cursor-pointer p-0 hover:underline font-mono mt-1.5"
+        >
+          unmark {epNumber}&rarr;{seasonEpCount}
+        </button>
+      )}
     </div>
   );
 }
-
-// ─── EpCell ───────────────────────────────────────────────────────────────────
 
 type CellState = "unwatched" | "watched" | "complete" | "next";
 
@@ -233,7 +239,8 @@ function EpCell({
   popoverOpen,
   onClickUnwatched,
   onClickWatched,
-  onUnmark,
+  onUnmarkSingle,
+  onUnmarkToEnd,
   onClosePopover,
 }: {
   epNumber: number;
@@ -243,7 +250,8 @@ function EpCell({
   popoverOpen: boolean;
   onClickUnwatched: () => void;
   onClickWatched: () => void;
-  onUnmark: () => void;
+  onUnmarkSingle: () => void;
+  onUnmarkToEnd: () => void;
   onClosePopover: () => void;
 }) {
   const isWatched = state === "watched" || state === "complete";
@@ -280,7 +288,7 @@ function EpCell({
           if (isWatched) onClickWatched();
           else onClickUnwatched();
         }}
-        className={`ep-cell ${isWatched ? "ep-stamped" : ""} w-full aspect-square flex items-center justify-center rounded-sm border cursor-pointer font-mono text-[0.7rem] tabular-nums bg-transparent p-0`}
+        className={`ep-cell ${isWatched ? "ep-stamped" : ""} w-full aspect-square flex items-center justify-center rounded border cursor-pointer font-mono text-[0.7rem] sm:text-xs tabular-nums bg-transparent p-0`}
         style={{
           background: bg,
           borderColor,
@@ -296,15 +304,14 @@ function EpCell({
           epNumber={epNumber}
           date={date}
           seasonEpCount={seasonEpCount}
-          onUnmark={onUnmark}
+          onUnmarkSingle={onUnmarkSingle}
+          onUnmarkToEnd={onUnmarkToEnd}
           onClose={onClosePopover}
         />
       )}
     </div>
   );
 }
-
-// ─── EpisodeGrid ──────────────────────────────────────────────────────────────
 
 function EpisodeGrid({
   season,
@@ -332,7 +339,6 @@ function EpisodeGrid({
     );
   }
 
-  const cols = pickCols(epCount);
   const sn = season.seasonNumber;
   const seasonEps = watched?.[String(sn)] ?? {};
   const consecutive = highestConsecutiveEpisode(watched, sn);
@@ -354,43 +360,27 @@ function EpisodeGrid({
     return { ep, state, date };
   });
 
-  // Compute last row fill: if last row is incomplete, stretch those cells
-  const lastRowCount = epCount % cols || cols;
-  const totalRows = Math.ceil(epCount / cols);
-  const lastRowStart = (totalRows - 1) * cols;
-
   return (
-    <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
-      {cells.map(({ ep, state, date }) => {
-        const isLastRow = ep > lastRowStart;
-        return (
-          <div
-            key={ep}
-            style={
-              isLastRow && lastRowCount < cols
-                ? { gridColumn: `span 1`, justifySelf: "stretch" }
-                : undefined
-            }
-          >
-            <EpCell
-              epNumber={ep}
-              state={state}
-              date={date}
-              seasonEpCount={epCount}
-              popoverOpen={popoverEp === ep}
-              onClickUnwatched={() => onMarkThrough(sn, ep, episodeDate)}
-              onClickWatched={() => onSetPopover(popoverEp === ep ? null : ep)}
-              onUnmark={() => onUnmarkFrom(sn, ep, epCount)}
-              onClosePopover={() => onSetPopover(null)}
-            />
-          </div>
-        );
-      })}
+    <div className="flex flex-wrap gap-1.5 sm:gap-2">
+      {cells.map(({ ep, state, date }) => (
+        <div key={ep} className="ep-cell-wrap">
+          <EpCell
+            epNumber={ep}
+            state={state}
+            date={date}
+            seasonEpCount={epCount}
+            popoverOpen={popoverEp === ep}
+            onClickUnwatched={() => onMarkThrough(sn, ep, episodeDate)}
+            onClickWatched={() => onSetPopover(popoverEp === ep ? null : ep)}
+            onUnmarkSingle={() => onUnmarkFrom(sn, ep, ep)}
+            onUnmarkToEnd={() => onUnmarkFrom(sn, ep, epCount)}
+            onClosePopover={() => onSetPopover(null)}
+          />
+        </div>
+      ))}
     </div>
   );
 }
-
-// ─── SeasonCarousel (swipe navigation) ────────────────────────────────────────
 
 function SeasonCarousel({
   seasons,
@@ -441,7 +431,7 @@ function SeasonCarousel({
       ref={containerRef}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className="overflow-hidden"
+      className="overflow-x-hidden overflow-y-visible"
     >
       <div
         style={{
@@ -451,7 +441,6 @@ function SeasonCarousel({
         {children}
       </div>
 
-      {/* Season navigation arrows */}
       {seasons.length > 1 && (
         <div className="flex items-center justify-between mt-2">
           <button
@@ -463,28 +452,34 @@ function SeasonCarousel({
             &larr; prev
           </button>
 
-          {/* Dot indicators */}
-          <div className="flex gap-1">
-            {seasons.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => {
-                  if (s.seasonNumber !== activeSeason) {
-                    setSlideDir(s.seasonNumber > activeSeason ? "L" : "R");
-                    onSeasonChange(s.seasonNumber);
-                    setTimeout(() => setSlideDir(null), 200);
-                  }
-                }}
-                className="w-1.5 h-1.5 rounded-full border-none p-0 cursor-pointer transition-all duration-100"
-                style={{
-                  background:
-                    s.seasonNumber === activeSeason
-                      ? "var(--color-dg-accent)"
-                      : "var(--color-dg-border)",
-                }}
-              />
-            ))}
+          <div className="flex items-center gap-1.5">
+            {seasons.map((s) => {
+              const isActive = s.seasonNumber === activeSeason;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => {
+                    if (!isActive) {
+                      setSlideDir(s.seasonNumber > activeSeason ? "L" : "R");
+                      onSeasonChange(s.seasonNumber);
+                      setTimeout(() => setSlideDir(null), 200);
+                    }
+                  }}
+                  className={`rounded-full border-none p-0 cursor-pointer transition-all duration-150 ${isActive ? "h-2 w-5 flex items-center justify-center" : "w-2 h-2"}`}
+                  style={{
+                    background: isActive ? "var(--color-dg-accent)" : "var(--color-dg-border)",
+                  }}
+                  title={`Season ${s.seasonNumber}`}
+                >
+                  {isActive && (
+                    <span className="text-[0.45rem] font-mono text-dg-bg leading-none">
+                      {s.seasonNumber}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           <button
@@ -500,8 +495,6 @@ function SeasonCarousel({
     </div>
   );
 }
-
-// ─── Undo stack ───────────────────────────────────────────────────────────────
 
 type UndoSnapshot = WatchedEpisodes;
 const MAX_UNDO = 20;
@@ -521,8 +514,6 @@ function useUndo(current: WatchedEpisodes) {
 
   return { push, pop, canUndo };
 }
-
-// ─── EpisodeTracker (main export) ─────────────────────────────────────────────
 
 export function EpisodeTracker({
   seasons,
@@ -602,8 +593,6 @@ export function EpisodeTracker({
     setPopoverEp(null);
   }, []);
 
-  // ─── Read-only mode ─────────────────────────────────────────────────────────
-
   if (!interactive) {
     return (
       <div>
@@ -656,16 +645,13 @@ export function EpisodeTracker({
     );
   }
 
-  // ─── Interactive mode ───────────────────────────────────────────────────────
-
   const seasonWatched = countSeasonWatched(watchedEpisodes, currentSeason.seasonNumber);
   const seasonEpCount = currentSeason.episodeCount ?? 0;
 
   return (
     <div>
-      {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider m-0">
+        <h3 className="text-[0.7rem] text-dg-text-secondary uppercase tracking-wider m-0">
           Episodes
         </h3>
         <span className="text-[0.7rem] text-dg-text-secondary tabular-nums font-mono">
@@ -678,14 +664,12 @@ export function EpisodeTracker({
         </span>
       </div>
 
-      {/* Incomplete data hint */}
       {hasIncompleteData && (
         <div className="text-[0.6rem] text-dg-text-tertiary font-body mb-2">
           some season data is incomplete
         </div>
       )}
 
-      {/* Series progress bar (multi-season) */}
       {isMultiSeason && (
         <div className="mb-3">
           <SeriesBar
@@ -697,34 +681,30 @@ export function EpisodeTracker({
         </div>
       )}
 
-      {/* Season circles (multi-season) */}
       {isMultiSeason && (
-        <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-hide">
-          {seasons.map((s) => (
-            <SeasonCircle
-              key={s.id}
-              seasonNumber={s.seasonNumber}
-              watched={countSeasonWatched(watchedEpisodes, s.seasonNumber)}
-              total={s.episodeCount ?? 0}
-              isActive={s.seasonNumber === activeSeason}
-              onClick={() => handleSeasonChange(s.seasonNumber)}
-            />
-          ))}
+        <div className="flex items-center gap-2 mb-3 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-1.5 shrink-0">
+            {seasons.map((s) => (
+              <SeasonCircle
+                key={s.id}
+                seasonNumber={s.seasonNumber}
+                watched={countSeasonWatched(watchedEpisodes, s.seasonNumber)}
+                total={s.episodeCount ?? 0}
+                isActive={s.seasonNumber === activeSeason}
+                onClick={() => handleSeasonChange(s.seasonNumber)}
+              />
+            ))}
+          </div>
+          <div className="text-[0.7rem] text-dg-text-tertiary font-mono">
+            S{String(currentSeason.seasonNumber).padStart(2, "0")}
+            {currentSeason.title && (
+              <span className="text-dg-text-muted ml-1">&mdash; {currentSeason.title}</span>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Season label */}
-      {isMultiSeason && (
-        <div className="text-[0.65rem] text-dg-text-tertiary font-mono mb-2">
-          S{String(currentSeason.seasonNumber).padStart(2, "0")}
-          {currentSeason.title && (
-            <span className="text-dg-text-muted ml-1">&mdash; {currentSeason.title}</span>
-          )}
-        </div>
-      )}
-
-      {/* Episode grid with carousel */}
-      <div className="bg-dg-elevated/30 rounded-sm border border-dg-border-subtle p-2">
+      <div className="bg-dg-elevated/30 rounded border border-dg-border-subtle p-2.5 sm:p-3">
         {isMultiSeason ? (
           <SeasonCarousel
             seasons={seasons}
@@ -754,8 +734,7 @@ export function EpisodeTracker({
         )}
       </div>
 
-      {/* Bottom bar: date picker + today + undo */}
-      <div className="flex items-center gap-2 mt-3">
+      <div className="flex items-center gap-2 mt-3 border-t border-dg-border-subtle/50 pt-2">
         <input
           type="date"
           value={episodeDate}

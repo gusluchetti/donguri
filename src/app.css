@@ -1,9 +1,14 @@
 @import "tailwindcss";
 @import "@fontsource-variable/fraunces/full.css";
 @import "@fontsource-variable/dm-sans";
-@import "@fontsource/dm-mono/300.css";
-@import "@fontsource/dm-mono/400.css";
-@import "@fontsource/dm-mono/500.css";
+/* CMU Typewriter Text — only regular weight to keep bundle small */
+@font-face {
+  font-family: "CMU Typewriter Text";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("computer-modern/fonts/cmu-typewriter-text-500-roman.woff2") format("woff2");
+}
 
 /* Mobile touch & scroll */
 html {
@@ -28,7 +33,7 @@ img {
 @theme {
   --font-display: "Fraunces", Georgia, serif;
   --font-body: "DM Sans", system-ui, sans-serif;
-  --font-mono: "DM Mono", "SF Mono", "Fira Code", monospace;
+  --font-mono: "CMU Typewriter Text", "SF Mono", "Fira Code", monospace;
 
   /* Spacing — 8px grid */
   --spacing-g1: 8px;
@@ -269,17 +274,29 @@ img {
   }
 }
 
+/* Episode grid: flex items with grow so last row always fills */
+.ep-cell-wrap {
+  flex: 1 0 calc(12.5% - 0.375rem);
+  min-width: 1.75rem;
+  max-width: calc(14.28% - 0.375rem);
+}
+@media (min-width: 640px) {
+  .ep-cell-wrap {
+    max-width: calc(10% - 0.5rem);
+  }
+}
+
 .ep-cell {
   transition:
-    transform 80ms var(--ease-spring),
     background 120ms ease,
-    border-color 120ms ease;
+    border-color 120ms ease,
+    filter 80ms ease;
 }
 .ep-cell:hover {
-  transform: scale(1.06);
+  filter: brightness(1.25);
 }
 .ep-cell:active {
-  transform: scale(0.92);
+  filter: brightness(0.85);
 }
 
 .ep-stamped {
@@ -370,9 +387,9 @@ input[type="range"].dg-range {
 
 input[type="range"].dg-range::-webkit-slider-runnable-track {
   height: 4px;
-  background: var(--color-dg-elevated);
+  background: var(--color-dg-border);
   border-radius: 2px;
-  border: 1px solid var(--color-dg-border-subtle);
+  border: 1px solid var(--color-dg-border-strong);
 }
 
 input[type="range"].dg-range::-webkit-slider-thumb {
@@ -388,9 +405,9 @@ input[type="range"].dg-range::-webkit-slider-thumb {
 
 input[type="range"].dg-range::-moz-range-track {
   height: 4px;
-  background: var(--color-dg-elevated);
+  background: var(--color-dg-border);
   border-radius: 2px;
-  border: 1px solid var(--color-dg-border-subtle);
+  border: 1px solid var(--color-dg-border-strong);
 }
 
 input[type="range"].dg-range::-moz-range-thumb {

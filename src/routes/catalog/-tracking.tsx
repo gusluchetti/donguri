@@ -198,7 +198,7 @@ type RatingSectionProps = {
 
 function RatingSection({ localRating, isPending, ratingMode, onChange }: RatingSectionProps) {
   return (
-    <div className="mb-4">
+    <div>
       <h4 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
         Rating
         {ratingMode && (
@@ -245,7 +245,7 @@ type ReplaySectionProps = {
 
 function ReplaySection({ localReplayCount, isPending, mediaType, onChange }: ReplaySectionProps) {
   return (
-    <div className="flex items-center gap-2 mb-4">
+    <div className="flex items-center gap-2">
       <button
         type="button"
         onClick={() => onChange(Math.max(0, localReplayCount - 1))}
@@ -511,6 +511,8 @@ export function TrackingPanel({
       JSON.stringify((serverEntry.current?.watchedEpisodes as WatchedEpisodes) ?? {}) ||
     localWatchedAt !== (serverEntry.current?.watchedAt ?? null);
 
+  const handleSaveRef = useRef<(() => void) | undefined>(undefined);
+
   const handleSave = useCallback(async () => {
     const status = localStatus as NonNullable<CatalogEntry["status"]>;
     if (!status) return;
@@ -602,6 +604,24 @@ export function TrackingPanel({
     setLocalWatchedAt,
   ]);
 
+  handleSaveRef.current = handleSave;
+
+  // Autosave: debounce 300ms when watched episodes change
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: deliberately fire only on watched episodes change
+  useEffect(() => {
+    if (!localStatus) return;
+    const watchedChanged =
+      JSON.stringify(localWatchedEpisodes) !==
+      JSON.stringify((serverEntry.current?.watchedEpisodes as WatchedEpisodes) ?? {});
+    if (!watchedChanged) return;
+    clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      handleSaveRef.current?.();
+    }, 300);
+    return () => clearTimeout(autoSaveTimer.current);
+  }, [localWatchedEpisodes]);
+
   const handleRemove = useCallback(async () => {
     await action.run(async () => {
       await removeCatalogEntry({ data: { wikidataId } });
@@ -672,22 +692,27 @@ export function TrackingPanel({
         onStatusChange={setLocalStatus}
       />
 
-      {showRating && (
-        <RatingSection
-          localRating={localRating}
-          isPending={isPending}
-          ratingMode={ratingMode}
-          onChange={setLocalRating}
-        />
-      )}
-
-      {showReplay && (
-        <ReplaySection
-          localReplayCount={localReplayCount}
-          isPending={isPending}
-          mediaType={mediaType}
-          onChange={setLocalReplayCount}
-        />
+      {(showRating || showReplay) && (
+        <div className="flex items-center gap-4 mb-4">
+          {showRating && (
+            <div className="flex-1 min-w-0">
+              <RatingSection
+                localRating={localRating}
+                isPending={isPending}
+                ratingMode={ratingMode}
+                onChange={setLocalRating}
+              />
+            </div>
+          )}
+          {showReplay && (
+            <ReplaySection
+              localReplayCount={localReplayCount}
+              isPending={isPending}
+              mediaType={mediaType}
+              onChange={setLocalReplayCount}
+            />
+          )}
+        </div>
       )}
 
       {isMovie && localStatus && setLocalWatchedAt && (
