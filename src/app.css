@@ -219,6 +219,77 @@ img {
   }
 }
 
+/* ─── Episode grid ─────────────────────────────────────────────── */
+
+@keyframes slideL {
+  from {
+    transform: translateX(40%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideR {
+  from {
+    transform: translateX(-40%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes popIn {
+  from {
+    transform: translateY(4px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes epGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 6px 1px color-mix(in srgb, var(--color-dg-accent) 35%, transparent);
+  }
+}
+
+.ep-cell {
+  transition:
+    transform 80ms var(--ease-spring),
+    background 120ms ease,
+    border-color 120ms ease;
+}
+.ep-cell:hover {
+  transform: scale(1.06);
+}
+.ep-cell:active {
+  transform: scale(0.92);
+}
+
+.ep-stamped {
+  position: relative;
+}
+.ep-stamped::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.15'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
 /* ─── Background atmosphere layers ──────────────────────────────── */
 
 .bg-grid {
