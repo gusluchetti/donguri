@@ -1,7 +1,7 @@
 {
   "lexicon": 1,
   "id": "app.donguri.catalog.entry",
-  "description": "A user's record for a media item — status, rating, notes, and progress.",
+  "description": "A user's record for a media item — status, rating, and progress.",
   "defs": {
     "main": {
       "type": "record",
@@ -34,12 +34,6 @@
             "description": "User rating from 1 to 10.",
             "minimum": 1,
             "maximum": 10
-          },
-          "note": {
-            "type": "string",
-            "description": "Short review or note.",
-            "maxGraphemes": 1000,
-            "maxLength": 10000
           },
           "episodeProgress": {
             "type": "integer",

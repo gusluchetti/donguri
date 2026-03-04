@@ -129,6 +129,16 @@ export const STATUS_BUTTON_COLORS: Record<StatusValue, string> = {
   dropped: "border-dg-dropped text-dg-dropped bg-dg-dropped/10",
 };
 
+/** Subtle tinted border for inactive status buttons */
+export const STATUS_BUTTON_INACTIVE: Record<StatusValue, string> = {
+  planned: "border-dg-charted/25 hover:border-dg-charted/40",
+  in_progress: "border-dg-enroute/25 hover:border-dg-enroute/40",
+  on_hold: "border-dg-paused/25 hover:border-dg-paused/40",
+  completed: "border-dg-stamped/25 hover:border-dg-stamped/40",
+  mastered: "border-dg-sealed/25 hover:border-dg-sealed/40",
+  dropped: "border-dg-dropped/25 hover:border-dg-dropped/40",
+};
+
 /** Display type: animation origin when present, otherwise base type. Used for badges/colors/filters. */
 export function displayMediaType(mediaType: string, animationOrigin: string | null): string {
   return animationOrigin ?? mediaType;
@@ -150,7 +160,23 @@ export const TYPE_HUES: Record<string, number> = {
   game: 150, // #2a7a50 — green
 };
 
-// ─── Watched Episodes Helpers ────────────────────────────────────────────────
+// ─── Watched Episodes Schema + Helpers ───────────────────────────────────────
+
+import { z } from "zod";
+
+/** Flat or runs-based watched-episodes shape. Callers add .optional()/.nullish() as needed. */
+export const watchedEpisodesSchema = z.union([
+  z.record(z.string(), z.record(z.string(), z.string())),
+  z.object({ runs: z.array(z.record(z.string(), z.record(z.string(), z.string()))) }),
+]);
+
+/** Count episodes from any raw shape (flat or runs). */
+export function countEpisodesFromRaw(
+  raw: WatchedEpisodes | RunWatchedEpisodes | null | undefined,
+): number {
+  if (!raw) return 0;
+  return countTotalAcrossRuns(normalizeRuns(raw));
+}
 
 export type WatchedEpisodes = Record<string, Record<string, string>>;
 export type RunWatchedEpisodes = { runs: WatchedEpisodes[] };

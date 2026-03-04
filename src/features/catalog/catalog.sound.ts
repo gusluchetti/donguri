@@ -282,6 +282,38 @@ const SOUNDS: Record<string, SoundDef> = {
     },
   },
 
+  /** Ceramic detent tick — sine ping 800→600Hz + 6kHz noise burst, 35ms */
+  knobTick: {
+    duration: 0.05,
+    cooldownMs: 30,
+    cooldownKey: "knob",
+    build(ctx, noise) {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(800, 0);
+      o.frequency.exponentialRampToValueAtTime(600, 0.035);
+      g.gain.setValueAtTime(0.04, 0);
+      g.gain.exponentialRampToValueAtTime(0.001, 0.035);
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start(0);
+      o.stop(0.035);
+
+      const src = ctx.createBufferSource();
+      src.buffer = noise;
+      const bp = bandpassNode(ctx, 6000, 2);
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.02, 0);
+      ng.gain.exponentialRampToValueAtTime(0.001, 0.015);
+      src.connect(bp);
+      bp.connect(ng);
+      ng.connect(ctx.destination);
+      src.start(0);
+      src.stop(0.015);
+    },
+  },
+
   /** Search — drawer open: sine 500Hz, slow attack */
   search: {
     duration: 0.3,
@@ -457,6 +489,9 @@ function sealUnlock(): void {
 function dice(): void {
   play("dice");
 }
+function knobTick(): void {
+  play("knobTick");
+}
 function search(): void {
   play("search");
 }
@@ -480,6 +515,7 @@ export const SoundEngine = {
   stamp,
   sealUnlock,
   dice,
+  knobTick,
   search,
   toggleOn,
   toggleOff,
