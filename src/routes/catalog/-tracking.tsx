@@ -240,8 +240,6 @@ function RatingKnob({ value, isPending, ratingMode, onChange }: RatingKnobProps)
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
   const lastTick = useRef<number>(-1);
-  const dragStartX = useRef(0);
-  const dragStartValue = useRef(0);
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState("");
   const editRef = useRef<HTMLInputElement>(null);
@@ -250,6 +248,10 @@ function RatingKnob({ value, isPending, ratingMode, onChange }: RatingKnobProps)
   const valueFrac = (value ?? 0) / 100;
   const dashVisible = valueFrac * ARC_LENGTH;
   const dashHidden = ARC_LENGTH - dashVisible;
+
+  const thumbAngleRad = ((ARC_START + ARC_SWEEP * valueFrac) * Math.PI) / 180;
+  const thumbX = KNOB_SIZE / 2 + KNOB_R * Math.cos(thumbAngleRad);
+  const thumbY = KNOB_SIZE / 2 + KNOB_R * Math.sin(thumbAngleRad);
 
   const getAngle = (e: { clientX: number; clientY: number }) => {
     const svg = svgRef.current;
@@ -267,32 +269,20 @@ function RatingKnob({ value, isPending, ratingMode, onChange }: RatingKnobProps)
     e.preventDefault();
     dragging.current = true;
     lastTick.current = -1;
-    dragStartX.current = e.clientX;
-    dragStartValue.current = value ?? 0;
-    (e.target as Element).setPointerCapture(e.pointerId);
+    svgRef.current!.setPointerCapture(e.pointerId);
 
-    if (e.pointerType === "touch") {
-      const angle = getAngle(e);
-      const v = angleToValue(angle);
-      onChange(v);
-      checkTick(v);
-    }
+    const angle = getAngle(e);
+    const v = angleToValue(angle);
+    onChange(v);
+    checkTick(v);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!dragging.current) return;
-
-    if (e.pointerType === "touch") {
-      const angle = getAngle(e);
-      const v = angleToValue(angle);
-      onChange(v);
-      checkTick(v);
-    } else {
-      const dx = e.clientX - dragStartX.current;
-      const v = Math.round(Math.min(100, Math.max(0, dragStartValue.current + dx / 2)));
-      onChange(v);
-      checkTick(v);
-    }
+    const angle = getAngle(e);
+    const v = angleToValue(angle);
+    onChange(v);
+    checkTick(v);
   };
 
   const handlePointerUp = () => {
@@ -401,11 +391,20 @@ function RatingKnob({ value, isPending, ratingMode, onChange }: RatingKnobProps)
               transition: "stroke-dasharray 150ms ease-out, stroke 150ms ease-out",
             }}
           />
+          {value != null && value > 0 && (
+            <circle
+              cx={thumbX}
+              cy={thumbY}
+              r={KNOB_STROKE / 2 + 1.5}
+              fill={color}
+              style={{ transition: "cx 150ms ease-out, cy 150ms ease-out, fill 150ms ease-out" }}
+            />
+          )}
         </svg>
       </div>
       {/* Center label — positioned over the SVG */}
       <div
-        className="absolute flex items-center justify-center"
+        className="absolute flex items-center justify-center pointer-events-none"
         style={{
           top: `calc(${KNOB_SIZE / 2}px + 0.65rem + 0.5rem)`,
           left: "50%",
@@ -429,7 +428,7 @@ function RatingKnob({ value, isPending, ratingMode, onChange }: RatingKnobProps)
               if (e.key === "Enter") commitEdit();
               if (e.key === "Escape") setEditing(false);
             }}
-            className="w-full text-center text-[0.85rem] tabular-nums bg-dg-bg border border-dg-border rounded-sm px-1 py-0 font-mono outline-none"
+            className="w-full text-center text-[0.85rem] tabular-nums bg-dg-bg border border-dg-border rounded-sm px-1 py-0 font-mono outline-none pointer-events-auto"
             style={{ color, borderColor: color }}
           />
         ) : (
@@ -438,7 +437,7 @@ function RatingKnob({ value, isPending, ratingMode, onChange }: RatingKnobProps)
             onClick={startEditing}
             onDoubleClick={handleDoubleClick}
             disabled={isPending}
-            className="text-[0.95rem] tabular-nums font-mono bg-transparent border-none cursor-pointer p-0 transition-colors duration-50 hover:brightness-125 disabled:cursor-default"
+            className="text-[0.95rem] tabular-nums font-mono bg-transparent border-none cursor-pointer p-0 transition-colors duration-50 hover:brightness-125 disabled:cursor-default pointer-events-auto"
             style={{ color }}
             title="Click to type, double-click to clear"
           >
