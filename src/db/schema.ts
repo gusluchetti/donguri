@@ -215,7 +215,7 @@ export const catalogEntries = pgTable(
       enum: ["planned", "in_progress", "on_hold", "completed", "dropped", "mastered"],
     }),
     rating: integer("rating"),
-    note: text("note"),
+
     episodeProgress: integer("episode_progress"),
     isFavorite: boolean("is_favorite").default(false).notNull(),
     replayCount: integer("replay_count").default(0).notNull(),

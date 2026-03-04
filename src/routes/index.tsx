@@ -1,6 +1,7 @@
 import { Star } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
+import { useMemo } from "react";
 import { trackedIdsOptions, watchlistOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
@@ -32,7 +33,7 @@ type CatalogEntryRow = {
   mediaWikidataId: string;
   status: string | null;
   rating: number | null;
-  note: string | null;
+
   episodeProgress: number | null;
   isFavorite: boolean;
   replayCount: number;
@@ -363,19 +364,21 @@ function CarouselSection() {
 function LoggedInView() {
   const { entries } = Route.useLoaderData();
 
-  // Group by status, sort within sections by updatedAt desc then mediaType alpha
-  const grouped = new Map<string, CatalogEntryRow[]>();
-  for (const status of STATUS_ORDER) {
-    const items = entries
-      .filter((e) => e.status === status)
-      .sort((a, b) => {
-        const tA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-        const tB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-        if (tB !== tA) return tB - tA;
-        return (a.mediaType ?? "").localeCompare(b.mediaType ?? "");
-      });
-    if (items.length > 0) grouped.set(status, items);
-  }
+  const grouped = useMemo(() => {
+    const map = new Map<string, CatalogEntryRow[]>();
+    for (const status of STATUS_ORDER) {
+      const items = entries
+        .filter((e) => e.status === status)
+        .sort((a, b) => {
+          const tA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+          const tB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+          if (tB !== tA) return tB - tA;
+          return (a.mediaType ?? "").localeCompare(b.mediaType ?? "");
+        });
+      if (items.length > 0) map.set(status, items);
+    }
+    return map;
+  }, [entries]);
 
   return (
     <div>

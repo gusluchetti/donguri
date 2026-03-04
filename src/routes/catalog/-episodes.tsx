@@ -403,7 +403,6 @@ function SeasonCarousel({
 }) {
   const [slideDir, setSlideDir] = useState<"L" | "R" | null>(null);
   const touchStart = useRef<number | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const idx = seasons.findIndex((s) => s.seasonNumber === activeSeason);
   const canPrev = idx > 0;
@@ -436,7 +435,6 @@ function SeasonCarousel({
 
   return (
     <div
-      ref={containerRef}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       className="overflow-x-hidden overflow-y-visible"
@@ -509,16 +507,20 @@ const MAX_UNDO = 20;
 
 function useUndo(current: WatchedEpisodes) {
   const stack = useRef<UndoSnapshot[]>([]);
+  const [size, setSize] = useState(0);
 
   const push = useCallback(() => {
     stack.current = [...stack.current.slice(-(MAX_UNDO - 1)), structuredClone(current)];
+    setSize(stack.current.length);
   }, [current]);
 
   const pop = useCallback((): UndoSnapshot | undefined => {
-    return stack.current.pop();
+    const item = stack.current.pop();
+    setSize(stack.current.length);
+    return item;
   }, []);
 
-  const canUndo = stack.current.length > 0;
+  const canUndo = size > 0;
 
   return { push, pop, canUndo };
 }
@@ -551,7 +553,8 @@ export function EpisodeTracker({
     return seasons[0]?.seasonNumber ?? 1;
   });
 
-  const [episodeDate, setEpisodeDate] = useState(todayISO());
+  const today = todayISO();
+  const [episodeDate, setEpisodeDate] = useState(today);
   const [popoverEp, setPopoverEp] = useState<number | null>(null);
 
   const currentSeason = seasons.find((s) => s.seasonNumber === activeSeason) ?? seasons[0];
@@ -713,12 +716,8 @@ export function EpisodeTracker({
       )}
 
       <div className="bg-dg-elevated/30 rounded border border-dg-border-subtle p-2.5 sm:p-3">
-        {isMultiSeason ? (
-          <SeasonCarousel
-            seasons={seasons}
-            activeSeason={activeSeason}
-            onSeasonChange={handleSeasonChange}
-          >
+        {(() => {
+          const grid = (
             <EpisodeGrid
               season={currentSeason}
               watched={watchedEpisodes}
@@ -728,37 +727,38 @@ export function EpisodeTracker({
               onMarkThrough={handleMarkThrough}
               onUnmarkFrom={handleUnmarkFrom}
             />
-          </SeasonCarousel>
-        ) : (
-          <EpisodeGrid
-            season={currentSeason}
-            watched={watchedEpisodes}
-            episodeDate={episodeDate}
-            popoverEp={popoverEp}
-            onSetPopover={setPopoverEp}
-            onMarkThrough={handleMarkThrough}
-            onUnmarkFrom={handleUnmarkFrom}
-          />
-        )}
+          );
+          return isMultiSeason ? (
+            <SeasonCarousel
+              seasons={seasons}
+              activeSeason={activeSeason}
+              onSeasonChange={handleSeasonChange}
+            >
+              {grid}
+            </SeasonCarousel>
+          ) : (
+            grid
+          );
+        })()}
       </div>
 
       <div className="flex items-center gap-2 mt-3 border-t border-dg-border-subtle/50 pt-2">
         <input
           type="date"
           value={episodeDate}
-          max={todayISO()}
-          onChange={(e) => setEpisodeDate(e.target.value || todayISO())}
+          max={today}
+          onChange={(e) => setEpisodeDate(e.target.value || today)}
           className="text-[0.7rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none focus:border-dg-accent transition-colors"
         />
         <button
           type="button"
-          onClick={() => setEpisodeDate(todayISO())}
+          onClick={() => setEpisodeDate(today)}
           className={`text-[0.65rem] font-mono border rounded-sm px-2 py-1 cursor-pointer transition-all duration-50 active:scale-[0.97] ${
-            episodeDate === todayISO()
+            episodeDate === today
               ? "border-dg-border-subtle text-dg-text-tertiary bg-transparent opacity-40 cursor-default"
               : "border-dg-accent/30 text-dg-accent bg-transparent hover:bg-dg-accent/5"
           }`}
-          disabled={episodeDate === todayISO()}
+          disabled={episodeDate === today}
         >
           today
         </button>

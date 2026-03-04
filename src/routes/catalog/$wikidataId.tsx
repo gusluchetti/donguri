@@ -178,7 +178,7 @@ function MediaDetailSkeleton() {
   const handleBack = useNavBack();
   const handleShuffle = useShuffleNav();
   return (
-    <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
+    <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <NavButtons onBack={handleBack} onShuffle={handleShuffle} />
         <div className={INFO_CARD_CLASS} style={{ padding: INFO_CARD_PAD }}>
@@ -217,7 +217,7 @@ function MediaStubPage({
   const displayType = displayMediaType(stub.mediaType ?? "movie", stub.animationOrigin ?? null);
 
   return (
-    <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
+    <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <NavButtons onBack={handleBack} onShuffle={handleShuffle} />
 
@@ -504,12 +504,12 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
   }, [localStatus, currentRunWatchedEps, totalEps]);
 
   const mediaDisplayType = displayMediaType(data.mediaType, data.animationOrigin);
-  const visibleGenres = useMemo(() => dedupHierarchy(data.genres), [data]);
+  const visibleGenres = useMemo(() => dedupHierarchy(data.genres), [data.genres]);
   const externalLinks = useMemo(() => buildExternalLinks(data), [data]);
   const metaLine = useMemo(() => buildMetaLine(data), [data]);
 
   return (
-    <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
+    <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <NavButtons onBack={handleBack} onShuffle={handleShuffle} />
 
@@ -536,10 +536,12 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
                 {data.title}
               </h1>
               {data.originalTitle && (
-                <p className="text-[0.85rem] text-dg-text-secondary mt-1">{data.originalTitle}</p>
+                <p className="text-[0.85rem] text-dg-text-secondary font-body mt-1">
+                  {data.originalTitle}
+                </p>
               )}
               {metaLine && (
-                <p className="text-[0.8rem] text-dg-text-tertiary mt-2 m-0">{metaLine}</p>
+                <p className="text-[0.8rem] text-dg-text-tertiary font-mono mt-2 m-0">{metaLine}</p>
               )}
               {visibleGenres.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-3">
@@ -547,7 +549,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
                     (g: { id: string; name: string; parentName?: string | null }) => (
                       <span
                         key={g.id}
-                        className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                        className="text-xs font-mono py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
                       >
                         {g.parentName ? (
                           <>
@@ -563,7 +565,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
                 </div>
               )}
               {data.description && (
-                <p className="text-[0.8rem] text-dg-text-secondary m-0 leading-relaxed mt-3 line-clamp-3">
+                <p className="text-[0.8rem] text-dg-text-secondary font-body m-0 leading-relaxed mt-3 line-clamp-3">
                   {data.description}
                 </p>
               )}
@@ -574,7 +576,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-50"
+                    className="text-xs font-mono text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-50"
                   >
                     {link.label} {"\u2197"}
                   </a>
