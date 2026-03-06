@@ -1,8 +1,12 @@
 import { Shuffle } from "@phosphor-icons/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, getRouteApi, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "~/components/Button";
+import { IconButton } from "~/components/IconButton";
+import { LinkButton } from "~/components/LinkButton";
+import { Spinner } from "~/components/Spinner";
 import { getMediaStub } from "~/features/catalog/catalog.functions";
 import { catalogEntryOptions, trackedIdsOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
@@ -147,7 +151,7 @@ function MediaDetailRouter() {
   return <MediaDetailPage wikidataId={loaderData.media.wikidataId} />;
 }
 
-const INFO_CARD_CLASS = "rounded-[5px] border border-dg-border-subtle bg-dg-surface mb-g3 sm:mb-g4";
+const INFO_CARD_CLASS = "rounded border border-dg-border-subtle bg-dg-surface mb-g3 sm:mb-g4";
 const INFO_CARD_PAD = "clamp(8px, 2%, 16px)";
 const POSTER_COL_CLASS = "shrink-0 rounded overflow-hidden";
 const POSTER_COL_STYLE = { width: "clamp(88px, 22%, 160px)", aspectRatio: "2/3" } as const;
@@ -155,21 +159,17 @@ const POSTER_COL_STYLE = { width: "clamp(88px, 22%, 160px)", aspectRatio: "2/3" 
 function NavButtons({ onBack, onShuffle }: { onBack: () => void; onShuffle: () => void }) {
   return (
     <div className="flex items-center gap-1.5 mb-g2">
-      <button
-        type="button"
-        onClick={onBack}
-        className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-50 active:scale-[0.97] active:opacity-80"
-      >
+      <Button variant="secondary" size="compact" onClick={onBack} className="text-[0.8rem]">
         &larr; back
-      </button>
-      <button
-        type="button"
+      </Button>
+      <IconButton
+        variant="surface"
         title="Random title"
         onClick={onShuffle}
-        className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-50 active:scale-[0.97] active:opacity-80"
+        className="ml-auto self-stretch rounded"
       >
         <Shuffle size={17} weight="bold" />
-      </button>
+      </IconButton>
     </div>
   );
 }
@@ -187,12 +187,8 @@ function MediaDetailSkeleton() {
               className={`${POSTER_COL_CLASS} bg-dg-elevated animate-pulse`}
               style={POSTER_COL_STYLE}
             />
-            <div className="min-w-0 flex-1 space-y-3">
-              <div className="w-16 h-5 bg-dg-elevated rounded-sm animate-pulse" />
-              <div className="w-2/3 h-8 bg-dg-elevated rounded animate-pulse" />
-              <div className="w-1/2 h-4 bg-dg-elevated rounded animate-pulse" />
-              <div className="w-full h-4 bg-dg-elevated rounded animate-pulse" />
-              <div className="w-4/5 h-4 bg-dg-elevated rounded animate-pulse" />
+            <div className="min-w-0 flex-1 flex items-center justify-center">
+              <Spinner />
             </div>
           </div>
         </div>
@@ -632,13 +628,15 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
             }}
           >
             <p className="text-[0.85rem] sm:text-[0.9rem] text-dg-text-secondary m-0">
-              <Link
+              <LinkButton
                 to="/login"
+                variant="primary"
+                size="compact"
                 onClick={() => SoundEngine.click()}
-                className="inline-block bg-dg-accent text-white font-body text-[0.85rem] sm:text-[0.9rem] rounded-sm px-3 py-1 no-underline transition-all duration-50 hover:brightness-110 mr-1.5 active:scale-[0.97] active:opacity-80"
+                className="mr-1.5"
               >
                 Sign in
-              </Link>{" "}
+              </LinkButton>{" "}
               to track this title, rate it, and see detailed episode data.
             </p>
           </div>
