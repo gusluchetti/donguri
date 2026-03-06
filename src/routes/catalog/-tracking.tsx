@@ -5,11 +5,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CatalogEntry } from "~/db/schema";
-import {
-  getCatalogEntry,
-  removeCatalogEntry,
-  setCatalogEntry,
-} from "~/features/catalog/catalog.functions";
+import { getCatalogEntry, setCatalogEntry } from "~/features/catalog/catalog.functions";
+import { useRemoveCatalogEntry } from "~/features/catalog/catalog.mutations";
 import { catalogEntryOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import {
@@ -598,6 +595,7 @@ export function TrackingPanel({
   const queryClient = useQueryClient();
   const hasInitial = initialEntry !== undefined;
   const action = useAction();
+  const removeEntry = useRemoveCatalogEntry();
 
   const [entry, setEntry] = useState<CatalogEntry | null>(hasInitial ? initialEntry : null);
   const [loaded, setLoaded] = useState(hasInitial);
@@ -779,8 +777,8 @@ export function TrackingPanel({
 
   async function handleRemove() {
     await action.run(async () => {
-      await removeCatalogEntry({ data: { wikidataId } });
-      window.location.reload();
+      await removeEntry.mutateAsync({ wikidataId });
+      router.navigate({ to: "/" });
     });
   }
 
