@@ -753,9 +753,9 @@ export function EpisodeTracker({
         <button
           type="button"
           onClick={() => setEpisodeDate(today)}
-          className={`text-[0.65rem] font-mono border rounded-sm px-2 py-1 cursor-pointer transition-all duration-50 active:scale-[0.97] ${
+          className={`dg-press text-[0.65rem] font-mono border rounded-sm px-2 py-1 ${
             episodeDate === today
-              ? "border-dg-border-subtle text-dg-text-tertiary bg-transparent opacity-40 cursor-default"
+              ? "border-dg-border-subtle text-dg-text-tertiary bg-transparent opacity-40"
               : "border-dg-accent/30 text-dg-accent bg-transparent hover:bg-dg-accent/5"
           }`}
           disabled={episodeDate === today}

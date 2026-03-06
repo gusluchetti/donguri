@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { LinkButton } from "~/components/LinkButton";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { AcornIcon } from "~/features/media/components/AcornIcon";
 import { InfiniteCarousel } from "~/features/media/components/InfiniteCarousel";
@@ -81,20 +82,12 @@ export function LoggedOutView() {
           — your catalog, your data.
         </p>
         <div className="flex items-center justify-center gap-3 flex-wrap">
-          <Link
-            to="/login"
-            onClick={() => SoundEngine.click()}
-            className="bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-50 hover:brightness-110"
-          >
+          <LinkButton to="/login" variant="primary" onClick={() => SoundEngine.click()}>
             Get started
-          </Link>
-          <Link
-            to="/catalog"
-            onClick={() => SoundEngine.click()}
-            className="border border-dg-border text-dg-text-secondary font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-50 hover:border-dg-border-strong hover:text-dg-text"
-          >
+          </LinkButton>
+          <LinkButton to="/catalog" variant="secondary" onClick={() => SoundEngine.click()}>
             Browse catalog →
-          </Link>
+          </LinkButton>
         </div>
       </section>
 
@@ -187,13 +180,9 @@ export function LoggedOutView() {
           Ready to start tracking?
         </p>
         <p className="text-[0.8rem] text-dg-text-tertiary mb-4">Free and open source.</p>
-        <Link
-          to="/login"
-          onClick={() => SoundEngine.click()}
-          className="inline-block bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-50 hover:brightness-110"
-        >
+        <LinkButton to="/login" variant="primary" onClick={() => SoundEngine.click()}>
           Get started
-        </Link>
+        </LinkButton>
       </section>
     </div>
   );

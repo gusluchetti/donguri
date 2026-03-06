@@ -19,6 +19,7 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { forwardRef, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { z } from "zod";
+import { IconButton } from "~/components/IconButton";
 import type { Media } from "~/db/schema";
 import { useCatalogCursor } from "~/features/catalog/catalog.cursor";
 import { useSetCatalogEntry } from "~/features/catalog/catalog.mutations";
@@ -34,6 +35,7 @@ import {
   STATUS_BUTTON_COLORS,
   type StatusValue,
 } from "~/features/media/media-types";
+import { cn } from "~/lib/cn";
 import { ogTags, pageTitle } from "~/lib/og";
 
 const rootRoute = getRouteApi("__root__");
@@ -153,16 +155,17 @@ function TypeFilterBar({
             type="button"
             key={t.label}
             onClick={() => onTypeChange(t.value)}
-            className="py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 font-body text-xs cursor-pointer flex items-center gap-1.5 flex-1 justify-center transition-all duration-50 relative active:scale-[0.97] active:opacity-80"
-            style={{
-              background: isActive ? "var(--color-dg-elevated)" : "transparent",
-              color: isActive ? "var(--color-dg-accent)" : "var(--color-dg-text-tertiary)",
-              fontWeight: isActive ? 600 : 400,
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-              borderRight:
-                i < MEDIA_TYPES.length - 1 ? "1px solid var(--color-dg-border-subtle)" : "none",
-            }}
+            className={cn(
+              "dg-press py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 font-body text-xs flex items-center gap-1.5 flex-1 justify-center relative uppercase tracking-[0.04em]",
+              isActive
+                ? "bg-dg-elevated text-dg-accent font-semibold"
+                : "bg-transparent text-dg-text-tertiary font-normal",
+            )}
+            style={
+              i < MEDIA_TYPES.length - 1
+                ? { borderRight: "1px solid var(--color-dg-border-subtle)" }
+                : undefined
+            }
           >
             {t.label}
             {isActive && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-dg-accent" />}
@@ -253,7 +256,7 @@ const SearchBar = forwardRef<
             setFocused(false);
             onFocusChange?.(false);
           }}
-          className="w-full py-2 sm:py-2.5 pl-9 pr-8 bg-dg-surface border rounded text-dg-text font-body text-[0.85rem] sm:text-[0.85rem] outline-none box-border transition-all duration-50"
+          className="w-full py-2 sm:py-2.5 pl-9 pr-8 bg-dg-bg border rounded-sm text-dg-text font-body text-[0.85rem] sm:text-[0.85rem] outline-none box-border transition-all duration-50"
           style={{
             borderColor: focused ? "var(--color-dg-accent)" : "var(--color-dg-border)",
             boxShadow: focused ? "0 0 0 2px var(--color-dg-accent-glow)" : "none",
@@ -269,14 +272,14 @@ const SearchBar = forwardRef<
           </button>
         )}
       </div>
-      <button
-        type="button"
+      <IconButton
+        variant="surface"
         title="Random title"
         onClick={() => onRandom?.()}
-        className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-50 active:scale-[0.97] active:opacity-80"
+        className="self-stretch rounded"
       >
         <Shuffle size={17} weight="bold" />
-      </button>
+      </IconButton>
       {mobileExtra}
     </div>
   );
@@ -443,7 +446,7 @@ function CatalogPage() {
 
   return (
     <div className="text-dg-text flex-1 font-body flex flex-col overflow-hidden">
-      <div className="max-w-[1100px] mx-auto w-full px-2 sm:px-6 pt-2 sm:pt-3 pb-2 flex flex-col gap-2">
+      <div className="max-w-[1100px] mx-auto w-full px-g1 sm:px-g3 pt-2 sm:pt-3 pb-2 flex flex-col gap-2">
         {/* Mobile-only header links */}
         <div className="flex items-center justify-center gap-1.5 text-[0.7rem] text-dg-text-tertiary sm:hidden">
           <Link
@@ -469,18 +472,18 @@ function CatalogPage() {
             onRandom={handleRandom}
             onFocusChange={setSearchFocused}
             mobileExtra={
-              <button
-                type="button"
+              <IconButton
+                variant="surface"
                 title="Filters"
                 onClick={() => setFilterOpen((o) => !o)}
-                className="self-stretch w-[42px] flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-50 active:scale-[0.97] active:opacity-80 sm:hidden"
+                className="self-stretch rounded sm:hidden"
                 style={{
                   color: filterOpen ? "var(--color-dg-accent)" : undefined,
                   borderColor: filterOpen ? "var(--color-dg-accent)" : undefined,
                 }}
               >
                 <DotsThree size={20} weight="bold" />
-              </button>
+              </IconButton>
             }
           />
 
@@ -505,7 +508,7 @@ function CatalogPage() {
       </div>
 
       {!auth && (
-        <div className="max-w-[1100px] mx-auto w-full px-2 sm:px-6 pb-2">
+        <div className="max-w-[1100px] mx-auto w-full px-g1 sm:px-g3 pb-2">
           <Link
             to="/"
             className="block border border-dg-accent/20 bg-dg-accent-soft rounded px-4 py-3 text-[0.8rem] text-dg-text-secondary no-underline transition-colors duration-50"
@@ -517,7 +520,7 @@ function CatalogPage() {
       )}
 
       <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-        <div className="max-w-[1100px] mx-auto w-full px-2 sm:px-6 pb-4 flex-1 flex flex-col min-h-0">
+        <div className="max-w-[1100px] mx-auto w-full px-g1 sm:px-g3 pb-4 flex-1 flex flex-col min-h-0">
           <div
             className="relative flex-1 min-h-0 border border-dg-border rounded-md overflow-hidden flex flex-col transition-opacity duration-50 bg-dg-surface"
             style={{ opacity: isPlaceholderData ? 0.6 : 1 }}
@@ -699,7 +702,7 @@ const MediaRow = memo(function MediaRow({
             </span>
             {trackedStatus && (
               <span
-                className={`text-[0.58rem] font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none inline-flex items-center ${STATUS_BUTTON_COLORS[trackedStatus as StatusValue] ?? ""}`}
+                className={`text-[0.58rem] font-body font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none inline-flex items-center ${STATUS_BUTTON_COLORS[trackedStatus as StatusValue] ?? ""}`}
               >
                 <StatusIcon status={trackedStatus as StatusValue} size={9} />
               </span>

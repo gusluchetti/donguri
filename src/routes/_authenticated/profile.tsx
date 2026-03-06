@@ -3,6 +3,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { clear } from "idb-keyval";
 import { useCallback, useEffect, useState } from "react";
+import { LinkButton } from "~/components/LinkButton";
 import { logout } from "~/features/auth/auth.functions";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
@@ -57,13 +58,9 @@ function ProfilePage() {
             <p className="font-display text-[1.3rem] text-dg-text-secondary">
               nothing tracked yet.
             </p>
-            <Link
-              to="/catalog"
-              className="text-sm text-dg-accent no-underline border border-dg-accent/20 rounded-[3px] py-2 px-4 hover:border-dg-accent/50 transition-all duration-50 active:scale-[0.97] active:opacity-80"
-              onClick={() => SoundEngine.click()}
-            >
+            <LinkButton to="/catalog" variant="accent" onClick={() => SoundEngine.click()}>
               explore catalog
-            </Link>
+            </LinkButton>
           </div>
         </div>
       </div>
@@ -141,7 +138,7 @@ function ProfileHeader({
         <button
           type="button"
           onClick={onLogout}
-          className="bg-transparent border-none font-body text-[0.7rem] text-dg-accent/50 hover:text-dg-accent/80 cursor-pointer p-0 transition-colors active:opacity-80"
+          className="dg-press bg-transparent border-none font-body text-[0.7rem] text-dg-accent/50 hover:text-dg-accent/80 p-0"
         >
           logout
         </button>

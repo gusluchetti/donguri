@@ -2,6 +2,7 @@ import { Star } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
+import { LinkButton } from "~/components/LinkButton";
 import { trackedIdsOptions, watchlistOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
@@ -222,20 +223,12 @@ function LoggedOutView() {
           — your catalog, your data.
         </p>
         <div className="flex items-center justify-center gap-3 flex-wrap">
-          <Link
-            to="/login"
-            onClick={() => SoundEngine.click()}
-            className="bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-50 hover:brightness-110 active:scale-[0.97] active:opacity-80"
-          >
+          <LinkButton to="/login" variant="primary" onClick={() => SoundEngine.click()}>
             Get started
-          </Link>
-          <Link
-            to="/catalog"
-            onClick={() => SoundEngine.click()}
-            className="border border-dg-border text-dg-text-secondary font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-50 hover:border-dg-border-strong hover:text-dg-text active:scale-[0.97] active:opacity-80"
-          >
+          </LinkButton>
+          <LinkButton to="/catalog" variant="secondary" onClick={() => SoundEngine.click()}>
             Browse catalog →
-          </Link>
+          </LinkButton>
         </div>
       </section>
 
@@ -250,7 +243,7 @@ function LoggedOutView() {
               key={t.type}
               to="/catalog"
               search={{ type: t.type }}
-              className="border border-dg-border-subtle rounded bg-dg-surface p-4 text-center no-underline hover:border-dg-border-strong transition-all duration-50 active:scale-[0.97] active:opacity-80"
+              className="dg-press border border-dg-border-subtle rounded bg-dg-surface p-4 text-center no-underline hover:border-dg-border-strong"
               onClick={() => SoundEngine.click()}
             >
               <div className="text-[0.85rem] font-medium text-dg-text mb-1">{t.label}</div>
@@ -328,13 +321,9 @@ function LoggedOutView() {
           Ready to start tracking?
         </p>
         <p className="text-[0.8rem] text-dg-text-tertiary mb-4">Free and open source.</p>
-        <Link
-          to="/login"
-          onClick={() => SoundEngine.click()}
-          className="inline-block bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 no-underline transition-all duration-50 hover:brightness-110 active:scale-[0.97] active:opacity-80"
-        >
+        <LinkButton to="/login" variant="primary" onClick={() => SoundEngine.click()}>
           Get started
-        </Link>
+        </LinkButton>
       </section>
     </div>
   );
