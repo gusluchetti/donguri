@@ -288,7 +288,7 @@ const SOUNDS: Record<string, SoundDef> = {
   /** Ceramic detent tick — 4 round-robin variants with subtle freq shifts */
   knobTick: {
     duration: 0.05,
-    cooldownMs: 20,
+    cooldownMs: 75,
     cooldownKey: "knob",
     variants: 4,
     build(ctx, noise, variant = 0) {
