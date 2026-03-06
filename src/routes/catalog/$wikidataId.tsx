@@ -13,6 +13,7 @@ import { catalogEntryOptions, trackedIdsOptions } from "~/features/catalog/catal
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
+import { PlatformChips } from "~/features/media/components/PlatformChips";
 import type { getMedia } from "~/features/media/media.functions";
 import { getRandomMediaId } from "~/features/media/media.functions";
 import { mediaDetailOptions } from "~/features/media/media.queries";
@@ -535,7 +536,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               {metaParts.map((part, i) => (
                 <span key={part} className="flex items-center gap-2">
                   {i > 0 && (
-                    <span className="hidden min-[420px]:inline" aria-hidden>
+                    <span className="hidden sm:inline" aria-hidden>
                       &middot;
                     </span>
                   )}
@@ -568,7 +569,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               {data.description}
             </p>
           )}
-          <div className="flex flex-wrap gap-1.5 min-[420px]:mt-auto">
+          <div className="flex flex-wrap gap-1.5 sm:mt-auto">
             {externalLinks.map((link) => (
               <a
                 key={link.label}
@@ -581,32 +582,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               </a>
             ))}
           </div>
-          {data.platforms.length > 0 && (
-            <div>
-              <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-                Platforms
-              </h3>
-              <div className="flex flex-wrap gap-1.5">
-                {dedupHierarchy(data.platforms).map(
-                  (p: { id: string; name: string; parentName?: string | null }) => (
-                    <span
-                      key={p.id}
-                      className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                    >
-                      {p.parentName ? (
-                        <>
-                          <span className="text-dg-text-tertiary">{p.parentName} &rsaquo; </span>
-                          {p.name}
-                        </>
-                      ) : (
-                        p.name
-                      )}
-                    </span>
-                  ),
-                )}
-              </div>
-            </div>
-          )}
+          {data.platforms.length > 0 && <PlatformChips platforms={data.platforms} />}
         </InfoCard>
 
         {auth && (
