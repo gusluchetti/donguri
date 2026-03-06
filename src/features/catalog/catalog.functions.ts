@@ -152,7 +152,7 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
       let title = existing?.mediaTitle ?? undefined;
       let entryMediaType = existing?.mediaType ?? undefined;
       let entryAnimationOrigin = existing?.animationOrigin ?? undefined;
-      if (!title || !entryMediaType) {
+      if (!title || !entryMediaType || !entryAnimationOrigin) {
         const [mediaRow] = await db
           .select({
             title: media.title,
@@ -189,6 +189,7 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
           watchedAt: data.watchedAt ?? undefined,
           title,
           mediaType: entryMediaType,
+          animationOrigin: entryAnimationOrigin,
           createdAt: existing?.createdAt?.toISOString() ?? now,
           updatedAt: now,
         });
