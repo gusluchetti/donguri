@@ -47,9 +47,9 @@ function BeliefItem({ children, num }: { children: React.ReactNode; num: string 
       <span className="text-[9px] text-dg-text-tertiary tabular-nums w-5 text-right shrink-0 mt-[5px]">
         {num}
       </span>
-      <p className="font-display text-[0.875rem] sm:text-[0.9rem] font-light text-dg-text leading-relaxed">
+      <span className="block font-display text-[0.875rem] sm:text-[0.9rem] font-light text-dg-text leading-relaxed">
         {children}
-      </p>
+      </span>
     </div>
   );
 }
@@ -145,6 +145,17 @@ function RoadmapPage() {
 
       strong: ({ children }: { children?: React.ReactNode }) => (
         <span className="text-dg-text font-semibold">{children}</span>
+      ),
+
+      a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-dg-text-tertiary hover:text-dg-text-secondary transition-colors text-[0.75rem] tabular-nums"
+        >
+          {children}
+        </a>
       ),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps

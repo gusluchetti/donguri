@@ -2,7 +2,7 @@ import { ClockCounterClockwise, Gear } from "@phosphor-icons/react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { clear } from "idb-keyval";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { logout } from "~/features/auth/auth.functions";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
@@ -295,8 +295,7 @@ function StatusBreakdown({ statusCounts }: { statusCounts: Record<StatusValue, n
 
 // ─── Recent Trail ──────────────────────────────────────────────────────────
 
-function formatRelative(dateStr: string | null): string {
-  if (!dateStr) return "";
+function computeRelative(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60_000);
   if (mins < 1) return "now";
@@ -312,6 +311,14 @@ function formatRelative(dateStr: string | null): string {
   if (months < 12) return `${months}mo ago`;
   const years = Math.floor(days / 365);
   return `${years}y ago`;
+}
+
+function RelativeTime({ dateStr }: { dateStr: string | null }) {
+  const [text, setText] = useState("");
+  useEffect(() => {
+    if (dateStr) setText(computeRelative(dateStr));
+  }, [dateStr]);
+  return <>{text}</>;
 }
 
 function RecentTrail({ entries }: { entries: ProfileData["recent"] }) {
@@ -353,7 +360,7 @@ function RecentTrail({ entries }: { entries: ProfileData["recent"] }) {
                 <StatusIcon status={(entry.status as StatusValue) ?? "planned"} size={10} />
               </span>
               <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums font-mono shrink-0 w-14 text-right">
-                {formatRelative(entry.updatedAt)}
+                <RelativeTime dateStr={entry.updatedAt} />
               </span>
             </Link>
           );

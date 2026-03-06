@@ -129,6 +129,16 @@ export const STATUS_BUTTON_COLORS: Record<StatusValue, string> = {
   dropped: "border-dg-dropped text-dg-dropped bg-dg-dropped/10",
 };
 
+/** Subtle tinted border for inactive status buttons */
+export const STATUS_BUTTON_INACTIVE: Record<StatusValue, string> = {
+  planned: "border-dg-charted/25 hover:border-dg-charted/40",
+  in_progress: "border-dg-enroute/25 hover:border-dg-enroute/40",
+  on_hold: "border-dg-paused/25 hover:border-dg-paused/40",
+  completed: "border-dg-stamped/25 hover:border-dg-stamped/40",
+  mastered: "border-dg-sealed/25 hover:border-dg-sealed/40",
+  dropped: "border-dg-dropped/25 hover:border-dg-dropped/40",
+};
+
 /** Display type: animation origin when present, otherwise base type. Used for badges/colors/filters. */
 export function displayMediaType(mediaType: string, animationOrigin: string | null): string {
   return animationOrigin ?? mediaType;
@@ -150,9 +160,63 @@ export const TYPE_HUES: Record<string, number> = {
   game: 150, // #2a7a50 — green
 };
 
-// ─── Watched Episodes Helpers ────────────────────────────────────────────────
+// ─── Watched Episodes Schema + Helpers ───────────────────────────────────────
+
+import { z } from "zod";
+
+/** Flat or runs-based watched-episodes shape. Callers add .optional()/.nullish() as needed. */
+export const watchedEpisodesSchema = z.union([
+  z.record(z.string(), z.record(z.string(), z.string())),
+  z.object({ runs: z.array(z.record(z.string(), z.record(z.string(), z.string()))) }),
+]);
+
+/** Count episodes from any raw shape (flat or runs). */
+export function countEpisodesFromRaw(
+  raw: WatchedEpisodes | RunWatchedEpisodes | null | undefined,
+): number {
+  if (!raw) return 0;
+  return countTotalAcrossRuns(normalizeRuns(raw));
+}
 
 export type WatchedEpisodes = Record<string, Record<string, string>>;
+export type RunWatchedEpisodes = { runs: WatchedEpisodes[] };
+
+/** Normalize raw DB value into runs shape. Flat → single-run wrapper. */
+export function normalizeRuns(
+  raw: WatchedEpisodes | RunWatchedEpisodes | null | undefined,
+): RunWatchedEpisodes {
+  if (!raw) return { runs: [{}] };
+  if ("runs" in raw && Array.isArray((raw as RunWatchedEpisodes).runs))
+    return raw as RunWatchedEpisodes;
+  return { runs: [raw as WatchedEpisodes] };
+}
+
+/** Get watched data for a specific run index. */
+export function currentRunWatched(
+  normalized: RunWatchedEpisodes,
+  runIndex: number,
+): WatchedEpisodes {
+  return normalized.runs[runIndex] ?? {};
+}
+
+/** For saving: if only 1 run, return flat for backwards compat. Otherwise return runs shape. */
+export function flattenForSave(
+  normalized: RunWatchedEpisodes,
+): WatchedEpisodes | RunWatchedEpisodes {
+  if (normalized.runs.length <= 1) return normalized.runs[0] ?? {};
+  // Prune trailing empty runs
+  const pruned = [...normalized.runs];
+  while (pruned.length > 1 && Object.keys(pruned[pruned.length - 1]).length === 0) {
+    pruned.pop();
+  }
+  if (pruned.length <= 1) return pruned[0] ?? {};
+  return { runs: pruned };
+}
+
+/** Count total episodes watched across all runs. */
+export function countTotalAcrossRuns(normalized: RunWatchedEpisodes): number {
+  return normalized.runs.reduce((sum, run) => sum + countWatchedEpisodes(run), 0);
+}
 
 export function todayISO(): string {
   const d = new Date();

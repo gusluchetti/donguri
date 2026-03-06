@@ -14,10 +14,13 @@ const loadedUrls = new Set<string>();
  * Hue-based gradient placeholder with first-letter watermark,
  * or real poster when posterUrl is available.
  *
- * Two modes:
+ * Two sizes:
  * - **Small** (default, size <= 60): ~4:3 portrait thumbnail for list rows (36×47).
  * - **Large** (size > 60): 2/3 aspect card for cover grids, deeper gradient,
  *   bigger watermark letter, heavier inner shadow.
+ *
+ * Uses a single w342 TMDB size for all views — CSS object-cover downscales cleanly,
+ * and one URL per poster means one browser cache entry.
  *
  * The gradient placeholder is always rendered — the poster image fades in on top
  * once loaded, so there's never a blank flash.
@@ -31,11 +34,6 @@ type CoverThumbProps = {
   posterUrl?: string;
   loading?: "lazy" | "eager";
 };
-
-/** Swap TMDB image size variant in a URL. No-op for non-TMDB URLs. */
-function tmdbResize(url: string, size: string): string {
-  return url.replace(/\/t\/p\/\w+\//, `/t/p/${size}/`);
-}
 
 function buildInitials(title: string): string {
   return (
@@ -79,8 +77,7 @@ export function CoverThumb({
   const initials = buildInitials(title);
   const fontSize = initialsSize(initials.length, isLarge);
 
-  // Smaller TMDB variant for list thumbnails; keeps full size for detail view.
-  const imgSrc = posterUrl ? (isLarge ? posterUrl : tmdbResize(posterUrl, "w185")) : undefined;
+  const imgSrc = posterUrl;
 
   // Start with loaded=true if this URL was already seen in this session,
   // so we skip the fade-in flash on return visits / re-renders.

@@ -7,7 +7,11 @@ import { catalogEntries, media } from "~/db/schema";
 import { getAuthenticatedAgent, isSessionExpired } from "~/features/auth/auth.agent";
 import { clearSessionCookie, getSessionData, requireAuth } from "~/features/auth/auth.session";
 import { deleteCatalogEntry, putCatalogEntry } from "~/features/auth/auth.sync";
-import { countWatchedEpisodes, STATUS_ORDER } from "~/features/media/media-types";
+import {
+  countEpisodesFromRaw,
+  STATUS_ORDER,
+  watchedEpisodesSchema,
+} from "~/features/media/media-types";
 
 function throwIfSessionExpired(err: unknown): void {
   if (isSessionExpired(err)) {
@@ -53,7 +57,7 @@ export const getUserCatalogEntries = createServerFn({ method: "GET" }).handler(a
       mediaWikidataId: catalogEntries.mediaWikidataId,
       status: catalogEntries.status,
       rating: catalogEntries.rating,
-      note: catalogEntries.note,
+
       episodeProgress: catalogEntries.episodeProgress,
       isFavorite: catalogEntries.isFavorite,
       replayCount: catalogEntries.replayCount,
@@ -99,11 +103,11 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
       wikidataId: z.string(),
       status: StatusEnum,
       rating: z.number().int().min(0).max(100).nullish(),
-      note: z.string().max(10000).nullish(),
+
       episodeProgress: z.number().int().min(0).nullish(),
       isFavorite: z.boolean().nullish(),
       replayCount: z.number().int().min(0).nullish(),
-      watchedEpisodes: z.record(z.string(), z.record(z.string(), z.string())).nullish(),
+      watchedEpisodes: watchedEpisodesSchema.nullish(),
       watchedAt: z.string().max(10).nullish(),
     }),
   )
@@ -165,9 +169,8 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
         }
       }
 
-      // Auto-compute episodeProgress from watchedEpisodes
       const epProgress = data.watchedEpisodes
-        ? countWatchedEpisodes(data.watchedEpisodes)
+        ? countEpisodesFromRaw(data.watchedEpisodes)
         : data.episodeProgress;
 
       if (auth.authMethod === "atproto" && auth.did) {
@@ -178,7 +181,7 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
           mediaRef: data.wikidataId,
           status: data.status,
           rating: data.rating ?? undefined,
-          note: data.note ?? undefined,
+
           episodeProgress: epProgress ?? undefined,
           isFavorite: data.isFavorite ?? undefined,
           replayCount: data.replayCount ?? undefined,
@@ -206,7 +209,7 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
           animationOrigin: entryAnimationOrigin ?? null,
           status: data.status,
           rating: data.rating ?? null,
-          note: data.note ?? null,
+
           episodeProgress: epProgress ?? null,
           isFavorite: data.isFavorite ?? false,
           replayCount: data.replayCount ?? 0,
@@ -216,25 +219,13 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
           updatedAt: new Date(now),
         };
 
-        if (existing) {
-          await db
-            .update(catalogEntries)
-            .set(values)
-            .where(
-              and(
-                eq(catalogEntries.userId, userId),
-                eq(catalogEntries.mediaWikidataId, data.wikidataId),
-              ),
-            );
-        } else {
-          await db
-            .insert(catalogEntries)
-            .values(values)
-            .onConflictDoUpdate({
-              target: [catalogEntries.userId, catalogEntries.mediaWikidataId],
-              set: values,
-            });
-        }
+        await db
+          .insert(catalogEntries)
+          .values(values)
+          .onConflictDoUpdate({
+            target: [catalogEntries.userId, catalogEntries.mediaWikidataId],
+            set: values,
+          });
       }
 
       console.debug("[catalog] setCatalogEntry → ok");

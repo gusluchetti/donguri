@@ -20,6 +20,8 @@ let initPromise: Promise<void> | null = null;
 
 const buffers = new Map<string, AudioBuffer>();
 const cooldowns = new Map<string, number>();
+const lastPlayTime = new Map<string, number>();
+const rrIndexes = new Map<string, number>();
 
 // --- Settings (SSR-safe, unchanged) ---
 
@@ -84,7 +86,8 @@ type SoundDef = {
   duration: number;
   cooldownMs: number;
   cooldownKey?: string;
-  build: (ctx: OfflineAudioContext, noise: AudioBuffer) => void;
+  variants?: number;
+  build: (ctx: OfflineAudioContext, noise: AudioBuffer, variant?: number) => void;
 };
 
 const SOUNDS: Record<string, SoundDef> = {
@@ -282,6 +285,42 @@ const SOUNDS: Record<string, SoundDef> = {
     },
   },
 
+  /** Ceramic detent tick — 4 round-robin variants with subtle freq shifts */
+  knobTick: {
+    duration: 0.05,
+    cooldownMs: 20,
+    cooldownKey: "knob",
+    variants: 4,
+    build(ctx, noise, variant = 0) {
+      const freq = [790, 797, 803, 810][variant];
+      const noiseBand = [5850, 5950, 6050, 6150][variant];
+
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.setValueAtTime(freq, 0);
+      o.frequency.exponentialRampToValueAtTime(freq * 0.75, 0.035);
+      g.gain.setValueAtTime(0.02, 0);
+      g.gain.exponentialRampToValueAtTime(0.001, 0.025);
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start(0);
+      o.stop(0.035);
+
+      const src = ctx.createBufferSource();
+      src.buffer = noise;
+      const bp = bandpassNode(ctx, noiseBand, 2);
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.01, 0);
+      ng.gain.exponentialRampToValueAtTime(0.001, 0.01);
+      src.connect(bp);
+      bp.connect(ng);
+      ng.connect(ctx.destination);
+      src.start(0);
+      src.stop(0.01);
+    },
+  },
+
   /** Search — drawer open: sine 500Hz, slow attack */
   search: {
     duration: 0.3,
@@ -397,13 +436,20 @@ async function doInit(): Promise<void> {
   master.connect(ctx.destination);
 
   const sr = ctx.sampleRate;
-  const entries = Object.entries(SOUNDS);
-  const rendered = await Promise.all(
-    entries.map(([, def]) => renderToBuffer(sr, def.duration, def.build)),
-  );
-
-  for (let i = 0; i < entries.length; i++) {
-    buffers.set(entries[i][0], rendered[i]);
+  const jobs: { key: string; promise: Promise<AudioBuffer> }[] = [];
+  for (const [name, def] of Object.entries(SOUNDS)) {
+    const n = def.variants ?? 1;
+    for (let v = 0; v < n; v++) {
+      const variant = v;
+      jobs.push({
+        key: n > 1 ? `${name}:${v}` : name,
+        promise: renderToBuffer(sr, def.duration, (c, noise) => def.build(c, noise, variant)),
+      });
+    }
+  }
+  const rendered = await Promise.all(jobs.map((j) => j.promise));
+  for (let i = 0; i < jobs.length; i++) {
+    buffers.set(jobs[i].key, rendered[i]);
   }
 
   ready = true;
@@ -425,11 +471,40 @@ function play(name: string): void {
   const key = def.cooldownKey ?? name;
   if (!cooldown(key, def.cooldownMs)) return;
 
-  const buffer = buffers.get(name);
+  const variantCount = def.variants ?? 1;
+  let buffer: AudioBuffer | undefined;
+  if (variantCount > 1) {
+    const idx = ((rrIndexes.get(key) ?? -1) + 1) % variantCount;
+    rrIndexes.set(key, idx);
+    buffer = buffers.get(`${name}:${idx}`);
+  } else {
+    buffer = buffers.get(name);
+  }
   if (!buffer) return;
+
+  const now = performance.now();
+  const elapsed = now - (lastPlayTime.get(key) ?? 0);
+  lastPlayTime.set(key, now);
 
   const src = ctx.createBufferSource();
   src.buffer = buffer;
+
+  if (variantCount > 1) {
+    // Speed-correlated pitch: faster drag = subtly higher (ratchet physics)
+    const speed = Math.min(1, Math.max(0, 1 - elapsed / 80));
+    src.playbackRate.value = 1 + speed * 0.04;
+
+    // Gentle gain duck at extreme speed only (0.6–1.0 range)
+    if (elapsed < 25) {
+      const g = ctx.createGain();
+      g.gain.value = 0.6 + (elapsed / 25) * 0.4;
+      g.connect(master);
+      src.connect(g);
+      src.start();
+      return;
+    }
+  }
+
   src.connect(master);
   src.start();
 }
@@ -457,6 +532,9 @@ function sealUnlock(): void {
 function dice(): void {
   play("dice");
 }
+function knobTick(): void {
+  play("knobTick");
+}
 function search(): void {
   play("search");
 }
@@ -480,6 +558,7 @@ export const SoundEngine = {
   stamp,
   sealUnlock,
   dice,
+  knobTick,
   search,
   toggleOn,
   toggleOff,

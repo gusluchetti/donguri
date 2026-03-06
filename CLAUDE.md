@@ -180,7 +180,7 @@ TWITCH_CLIENT_SECRET=  # Twitch app client secret (for IGDB)
 ## Frontend Aesthetics
 
 Dark/light theme toggle with warm, earthy tones (donguri = acorn in Japanese).
-IBM Plex Mono for a technical, catalog-like feel.
+DM Mono for a technical, catalog-like feel (pairs with DM Sans body font).
 Amber/ochre accent (#d4a44a) on dark background (#0f0e0c).
 Type badges color-coded: movie (copper), TV (teal), anime (rose), game (sage).
 

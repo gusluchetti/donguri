@@ -1,8 +1,8 @@
 import { Shuffle } from "@phosphor-icons/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getMediaStub } from "~/features/catalog/catalog.functions";
 import { catalogEntryOptions, trackedIdsOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
@@ -13,8 +13,12 @@ import { getRandomMediaId } from "~/features/media/media.functions";
 import { mediaDetailOptions } from "~/features/media/media.queries";
 import {
   countWatchedEpisodes,
+  currentRunWatched,
   displayMediaType,
+  flattenForSave,
   mediaTypeLabel,
+  normalizeRuns,
+  type RunWatchedEpisodes,
   type WatchedEpisodes,
 } from "~/features/media/media-types";
 import { prefetchImage } from "~/lib/image-prefetch";
@@ -43,7 +47,6 @@ type LoaderData = FullLoaderData | StubLoaderData;
 
 export const Route = createFileRoute("/catalog/$wikidataId")({
   loader: async ({ params, context }): Promise<LoaderData> => {
-    // Non-blocking: warm tracking cache for logged-in users only
     if (context.auth) {
       context.queryClient.ensureQueryData(trackedIdsOptions()).then(
         () => {
@@ -53,7 +56,6 @@ export const Route = createFileRoute("/catalog/$wikidataId")({
       );
     }
 
-    // Blocking: media data is the page content
     const media = await context.queryClient.ensureQueryData(mediaDetailOptions(params.wikidataId));
 
     if (media?.posterUrl) {
@@ -145,45 +147,54 @@ function MediaDetailRouter() {
   return <MediaDetailPage wikidataId={loaderData.media.wikidataId} />;
 }
 
+const INFO_CARD_CLASS = "rounded-[5px] border border-dg-border-subtle bg-dg-surface mb-g3 sm:mb-g4";
+const INFO_CARD_PAD = "clamp(8px, 2%, 16px)";
+const POSTER_COL_CLASS = "shrink-0 rounded overflow-hidden";
+const POSTER_COL_STYLE = { width: "clamp(88px, 22%, 160px)", aspectRatio: "2/3" } as const;
+
+function NavButtons({ onBack, onShuffle }: { onBack: () => void; onShuffle: () => void }) {
+  return (
+    <div className="flex items-center gap-1.5 mb-g2">
+      <button
+        type="button"
+        onClick={onBack}
+        className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-50 active:scale-[0.97] active:opacity-80"
+      >
+        &larr; back
+      </button>
+      <button
+        type="button"
+        title="Random title"
+        onClick={onShuffle}
+        className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-50 active:scale-[0.97] active:opacity-80"
+      >
+        <Shuffle size={17} weight="bold" />
+      </button>
+    </div>
+  );
+}
+
 function MediaDetailSkeleton() {
   const handleBack = useNavBack();
   const handleShuffle = useShuffleNav();
   return (
-    <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
+    <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
-        <div className="flex items-center gap-1.5 mb-g2">
-          <button
-            type="button"
-            onClick={handleBack}
-            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm transition-all duration-50 active:scale-[0.97] active:opacity-80"
-          >
-            &larr; back
-          </button>
-          <button
-            type="button"
-            title="Random title"
-            onClick={handleShuffle}
-            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-50 active:scale-[0.97] active:opacity-80"
-          >
-            <Shuffle size={17} weight="bold" />
-          </button>
-        </div>
-        <div className="mb-g3">
-          <div className="w-16 h-5 bg-dg-surface rounded-sm mb-3 animate-pulse" />
-          <div className="w-2/3 h-8 bg-dg-surface rounded animate-pulse" />
-        </div>
-        <div className="flex flex-wrap gap-x-6 gap-y-3 mb-g3 p-g2 sm:p-g3 bg-dg-surface rounded border border-dg-border-subtle">
-          {[...Array(4)].map((_, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton items
-            <div key={i} className="flex flex-col gap-1">
-              <div className="w-12 h-3 bg-dg-elevated rounded animate-pulse" />
-              <div className="w-16 h-4 bg-dg-elevated rounded animate-pulse" />
+        <NavButtons onBack={handleBack} onShuffle={handleShuffle} />
+        <div className={INFO_CARD_CLASS} style={{ padding: INFO_CARD_PAD }}>
+          <div className="flex" style={{ gap: INFO_CARD_PAD }}>
+            <div
+              className={`${POSTER_COL_CLASS} bg-dg-elevated animate-pulse`}
+              style={POSTER_COL_STYLE}
+            />
+            <div className="min-w-0 flex-1 space-y-3">
+              <div className="w-16 h-5 bg-dg-elevated rounded-sm animate-pulse" />
+              <div className="w-2/3 h-8 bg-dg-elevated rounded animate-pulse" />
+              <div className="w-1/2 h-4 bg-dg-elevated rounded animate-pulse" />
+              <div className="w-full h-4 bg-dg-elevated rounded animate-pulse" />
+              <div className="w-4/5 h-4 bg-dg-elevated rounded animate-pulse" />
             </div>
-          ))}
-        </div>
-        <div className="space-y-2 mb-g4">
-          <div className="w-full h-4 bg-dg-surface rounded animate-pulse" />
-          <div className="w-4/5 h-4 bg-dg-surface rounded animate-pulse" />
+          </div>
         </div>
       </div>
     </div>
@@ -203,65 +214,206 @@ function MediaStubPage({
   const { auth } = rootRoute.useRouteContext();
   const handleBack = useNavBack();
   const handleShuffle = useShuffleNav();
+  const displayType = displayMediaType(stub.mediaType ?? "movie", stub.animationOrigin ?? null);
 
   return (
-    <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
+    <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
-        <div className="flex items-center gap-1.5 mb-g2">
-          <button
-            type="button"
-            onClick={handleBack}
-            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-50 active:scale-[0.97] active:opacity-80"
-          >
-            &larr; back
-          </button>
-          <button
-            type="button"
-            title="Random title"
-            onClick={handleShuffle}
-            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-50 active:scale-[0.97] active:opacity-80"
-          >
-            <Shuffle size={17} weight="bold" />
-          </button>
-        </div>
+        <NavButtons onBack={handleBack} onShuffle={handleShuffle} />
 
-        <div className="mb-g3">
-          {stub.mediaType && (
-            <div className="mb-2">
-              <StampBadge type={displayMediaType(stub.mediaType, stub.animationOrigin ?? null)} />
+        <div className={INFO_CARD_CLASS} style={{ padding: INFO_CARD_PAD }}>
+          <div className="flex" style={{ gap: INFO_CARD_PAD }}>
+            <div className={POSTER_COL_CLASS} style={POSTER_COL_STYLE}>
+              <CoverThumb title={stub.title} mediaType={displayType} size={160} loading="eager" />
             </div>
-          )}
-          <h1 className="font-display text-[1.6rem] sm:text-[2.25rem] font-normal m-0 leading-[1.15] tracking-[-0.03em]">
-            {stub.title}
-          </h1>
-        </div>
-
-        <div className="border border-dg-border-subtle rounded p-g2 sm:p-g3 bg-dg-surface mb-g3">
-          <p className="text-[0.8rem] text-dg-text-tertiary">
-            This title has not been imported into the catalog yet. Metadata will appear after the
-            next data import.
-          </p>
+            <div className="min-w-0 flex-1">
+              {stub.mediaType && (
+                <div className="mb-2">
+                  <StampBadge type={displayType} />
+                </div>
+              )}
+              <h1
+                className="font-display font-normal m-0 leading-[1.15] tracking-[-0.03em]"
+                style={{ fontSize: "clamp(1.4rem, 4vw, 2.25rem)" }}
+              >
+                {stub.title}
+              </h1>
+              <p className="text-[0.8rem] text-dg-text-tertiary mt-3">
+                This title has not been imported into the catalog yet. Metadata will appear after
+                the next data import.
+              </p>
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                <a
+                  href={`https://www.wikidata.org/wiki/${stub.wikidataId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-50"
+                >
+                  Wikidata {"\u2197"}
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
 
         {auth && (
           <TrackingPanel wikidataId={stub.wikidataId} mediaType={stub.mediaType ?? undefined} />
         )}
+      </div>
+    </div>
+  );
+}
 
-        <div className="mb-g3">
-          <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-            Links
-          </h3>
-          <div className="flex flex-wrap gap-1.5">
-            <a
-              href={`https://www.wikidata.org/wiki/${stub.wikidataId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-50"
-            >
-              Wikidata {"\u2197"}
-            </a>
-          </div>
-        </div>
+/** Suppress standalone parents when any of their children are present. */
+function dedupHierarchy<T extends { id: string; parentId: string | null }>(items: T[]): T[] {
+  const childParentIds = new Set(items.flatMap((i) => (i.parentId ? [i.parentId] : [])));
+  return items.filter((i) => i.parentId || !childParentIds.has(i.id));
+}
+
+function buildExternalLinks(
+  data: NonNullable<Awaited<ReturnType<typeof getMedia>>>,
+): { label: string; url: string }[] {
+  const links: { label: string; url: string }[] = [];
+  const isAnime = data.animationOrigin === "anime";
+  const isGame = data.mediaType === "game";
+  const isTv = data.mediaType === "tv_series";
+
+  if (data.imdbId) links.push({ label: "IMDb", url: `https://www.imdb.com/title/${data.imdbId}` });
+  if (data.tmdbId && !isGame)
+    links.push({ label: "TMDB", url: `https://www.themoviedb.org/${data.tmdbId}` });
+  if (data.malId && isAnime)
+    links.push({ label: "MyAnimeList", url: `https://myanimelist.net/anime/${data.malId}` });
+  if (data.anilistId && isAnime)
+    links.push({ label: "AniList", url: `https://anilist.co/anime/${data.anilistId}` });
+  if (data.anidbId && isAnime)
+    links.push({ label: "AniDB", url: `https://anidb.net/anime/${data.anidbId}` });
+  if (data.annId && isAnime)
+    links.push({
+      label: "ANN",
+      url: `https://www.animenewsnetwork.com/encyclopedia/anime.php?id=${data.annId}`,
+    });
+  if (data.igdbId && isGame)
+    links.push({ label: "IGDB", url: `https://www.igdb.com/games/${data.igdbId}` });
+  if (data.tvdbId && isTv) {
+    const isNumeric = /^\d+$/.test(data.tvdbId);
+    links.push({
+      label: "TheTVDB",
+      url: isNumeric
+        ? `https://thetvdb.com/dereferrer/series/${data.tvdbId}`
+        : `https://thetvdb.com/series/${data.tvdbId}`,
+    });
+  }
+  links.push({ label: "Wikidata", url: `https://www.wikidata.org/wiki/${data.wikidataId}` });
+  return links;
+}
+
+function buildMetaLine(data: NonNullable<Awaited<ReturnType<typeof getMedia>>>): string {
+  const parts: string[] = [];
+  if (data.startYear) {
+    parts.push(
+      data.endYear && data.endYear !== data.startYear
+        ? `${data.startYear}\u2013${data.endYear}`
+        : String(data.startYear),
+    );
+  }
+  if (data.countryOfOrigin) parts.push(data.countryOfOrigin);
+  if (data.runtimeMinutes && data.mediaType === "movie") parts.push(`${data.runtimeMinutes} min`);
+  if (data.seasonCount) parts.push(`${data.seasonCount} seasons`);
+  if (data.episodeCount && data.episodeCount > 1) parts.push(`${data.episodeCount} episodes`);
+  return parts.join(" \u00b7 ");
+}
+
+function buildActivityItems(
+  entry: { createdAt?: Date | null; watchedAt?: string | null },
+  watchedEpisodes?: WatchedEpisodes | null,
+  seasons?: { seasonNumber: number; episodeCount: number | null }[],
+): { date: string; label: string }[] {
+  const items: { date: string; label: string }[] = [];
+
+  if (watchedEpisodes && seasons) {
+    const dateGroups: Record<string, { season: number; eps: number[] }[]> = {};
+    for (const [sn, eps] of Object.entries(watchedEpisodes)) {
+      for (const [ep, date] of Object.entries(eps)) {
+        if (!dateGroups[date]) dateGroups[date] = [];
+        let group = dateGroups[date].find((g) => g.season === Number(sn));
+        if (!group) {
+          group = { season: Number(sn), eps: [] };
+          dateGroups[date].push(group);
+        }
+        group.eps.push(Number(ep));
+      }
+    }
+    for (const [date, groups] of Object.entries(dateGroups)) {
+      for (const g of groups) {
+        g.eps.sort((a, b) => a - b);
+        const epRange =
+          g.eps.length === 1
+            ? `E${String(g.eps[0]).padStart(2, "0")}`
+            : `E${String(g.eps[0]).padStart(2, "0")}\u2013E${String(g.eps[g.eps.length - 1]).padStart(2, "0")}`;
+        items.push({
+          date,
+          label: `Watched S${String(g.season).padStart(2, "0")}${epRange}`,
+        });
+      }
+    }
+  }
+
+  if (entry.watchedAt) {
+    items.push({ date: entry.watchedAt, label: "Watched" });
+  }
+
+  if (entry.createdAt) {
+    items.push({
+      date: new Date(entry.createdAt).toISOString().slice(0, 10),
+      label: "Added to list",
+    });
+  }
+
+  items.sort((a, b) => b.date.localeCompare(a.date));
+  return items.slice(0, 10);
+}
+
+function ActivityTimeline({
+  entry,
+  watchedEpisodes,
+  seasons,
+}: {
+  entry: { createdAt?: Date | null; watchedAt?: string | null };
+  watchedEpisodes?: WatchedEpisodes | null;
+  seasons?: { seasonNumber: number; episodeCount: number | null }[];
+}) {
+  const visible = useMemo(
+    () => buildActivityItems(entry, watchedEpisodes, seasons),
+    [entry, watchedEpisodes, seasons],
+  );
+
+  if (visible.length === 0) return null;
+
+  return (
+    <div className={INFO_CARD_CLASS} style={{ padding: INFO_CARD_PAD }}>
+      <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider m-0 mb-3">
+        Activity
+      </h3>
+      <div className="space-y-1.5">
+        {visible.map((item, i) => {
+          const dotColor = item.label.startsWith("Watched")
+            ? "bg-dg-enroute"
+            : item.label === "Added to list"
+              ? "bg-dg-charted"
+              : "bg-dg-stamped";
+          return (
+            // biome-ignore lint/suspicious/noArrayIndexKey: stable sorted list
+            <div key={i} className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} />
+                <span className="text-[0.75rem] text-dg-text-secondary">{item.label}</span>
+              </div>
+              <span className="text-[0.65rem] font-mono text-dg-text-tertiary tabular-nums shrink-0">
+                {item.date}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -275,9 +427,15 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
   const handleShuffle = useShuffleNav();
 
   const [localIsFavorite, setLocalIsFavorite] = useState(false);
-  const [localWatchedEpisodes, setLocalWatchedEpisodes] = useState<WatchedEpisodes>({});
+  const [localRunsData, setLocalRunsData] = useState<RunWatchedEpisodes>({ runs: [{}] });
+  const [localReplayCount, setLocalReplayCount] = useState(0);
   const [localWatchedAt, setLocalWatchedAt] = useState<string | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
+
+  const entryQuery = useQuery({
+    ...catalogEntryOptions(wikidataId),
+    enabled: !!auth,
+  });
 
   useHotkey("H", handleBack);
   useHotkey("ArrowLeft", handleBack);
@@ -286,8 +444,6 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
     enabled: !!auth && !!localStatus,
   });
 
-  const isAnime = data.animationOrigin === "anime";
-  const isGame = data.mediaType === "game";
   const isTv = data.mediaType === "tv_series";
   const totalEps =
     isTv && data.seasons && data.seasons.length > 0
@@ -296,248 +452,175 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
           0,
         )
       : 0;
-  const hasSeasons = totalEps > 1;
+  const hasSeasons = isTv && data.seasons && data.seasons.length > 0;
+
+  const currentRunIndex = localReplayCount;
+  const currentRunWatchedEps = useMemo(
+    () => currentRunWatched(localRunsData, currentRunIndex),
+    [localRunsData, currentRunIndex],
+  );
+  const flattenedForSave = useMemo(() => flattenForSave(localRunsData), [localRunsData]);
 
   const handleWatchedEpisodesChange = useCallback(
     (newWatched: WatchedEpisodes) => {
-      setLocalWatchedEpisodes(newWatched);
+      setLocalRunsData((prev) => {
+        const runs = [...prev.runs];
+        while (runs.length <= currentRunIndex) runs.push({});
+        runs[currentRunIndex] = newWatched;
+        return { runs };
+      });
       if (!localStatus) setLocalStatus("in_progress");
     },
-    [localStatus],
+    [localStatus, currentRunIndex],
   );
 
-  // Auto-complete: when all episodes watched while in_progress
+  const handleRewatch = useCallback(() => {
+    setLocalRunsData((prev) => {
+      const runs = [...prev.runs];
+      runs.push({});
+      return { runs };
+    });
+  }, []);
+
+  const handleWatchedEpisodesSet = useCallback(
+    (w: WatchedEpisodes) => setLocalRunsData(normalizeRuns(w)),
+    [],
+  );
+
   useEffect(() => {
     if (localStatus === "in_progress" && totalEps > 0) {
-      if (countWatchedEpisodes(localWatchedEpisodes) >= totalEps) {
+      if (countWatchedEpisodes(currentRunWatchedEps) >= totalEps) {
         setLocalStatus("completed");
+        import("canvas-confetti").then(({ default: confetti }) =>
+          confetti({
+            particleCount: 80,
+            spread: 60,
+            origin: { y: 0.7 },
+            colors: ["#d4a44a", "#e8702e", "#2aaba0"],
+          }),
+        );
       }
     }
-  }, [localStatus, localWatchedEpisodes, totalEps]);
+  }, [localStatus, currentRunWatchedEps, totalEps]);
 
-  // Dedup genres: if a sub-genre is present, suppress its standalone parent
-  const subGenreParentIds = new Set(
-    data.genres.flatMap((g: { parentId: string | null }) => (g.parentId ? [g.parentId] : [])),
-  );
-  const visibleGenres = data.genres.filter((g: { id: string; parentId: string | null }) => {
-    if (g.parentId) return true;
-    return !subGenreParentIds.has(g.id);
-  });
-
-  const externalLinks: { label: string; url: string }[] = [];
-  if (data.imdbId)
-    externalLinks.push({
-      label: "IMDb",
-      url: `https://www.imdb.com/title/${data.imdbId}`,
-    });
-  if (data.tmdbId && !isGame) {
-    externalLinks.push({
-      label: "TMDB",
-      url: `https://www.themoviedb.org/${data.tmdbId}`,
-    });
-  }
-  if (data.malId && isAnime)
-    externalLinks.push({
-      label: "MyAnimeList",
-      url: `https://myanimelist.net/anime/${data.malId}`,
-    });
-  if (data.anilistId && isAnime)
-    externalLinks.push({
-      label: "AniList",
-      url: `https://anilist.co/anime/${data.anilistId}`,
-    });
-  if (data.anidbId && isAnime)
-    externalLinks.push({
-      label: "AniDB",
-      url: `https://anidb.net/anime/${data.anidbId}`,
-    });
-  if (data.annId && isAnime)
-    externalLinks.push({
-      label: "ANN",
-      url: `https://www.animenewsnetwork.com/encyclopedia/anime.php?id=${data.annId}`,
-    });
-  if (data.igdbId && isGame)
-    externalLinks.push({
-      label: "IGDB",
-      url: `https://www.igdb.com/games/${data.igdbId}`,
-    });
-  if (data.tvdbId && isTv) {
-    const isNumeric = /^\d+$/.test(data.tvdbId);
-    externalLinks.push({
-      label: "TheTVDB",
-      url: isNumeric
-        ? `https://thetvdb.com/dereferrer/series/${data.tvdbId}`
-        : `https://thetvdb.com/series/${data.tvdbId}`,
-    });
-  }
-  externalLinks.push({
-    label: "Wikidata",
-    url: `https://www.wikidata.org/wiki/${data.wikidataId}`,
-  });
+  const mediaDisplayType = displayMediaType(data.mediaType, data.animationOrigin);
+  const visibleGenres = useMemo(() => dedupHierarchy(data.genres), [data.genres]);
+  const externalLinks = useMemo(() => buildExternalLinks(data), [data]);
+  const metaLine = useMemo(() => buildMetaLine(data), [data]);
 
   return (
-    <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden font-body">
+    <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
-        <div className="flex items-center gap-1.5 mb-g2">
-          <button
-            type="button"
-            onClick={handleBack}
-            className="text-dg-text-secondary text-[0.8rem] bg-dg-surface border border-dg-border font-body cursor-pointer py-1.5 px-3 inline-flex items-center gap-1.5 rounded-sm hover:border-dg-border-strong hover:text-dg-text transition-all duration-50 active:scale-[0.97] active:opacity-80"
-          >
-            &larr; back
-          </button>
-          <button
-            type="button"
-            title="Random title"
-            onClick={handleShuffle}
-            className="ml-auto w-[42px] self-stretch flex items-center justify-center bg-dg-surface border border-dg-border rounded cursor-pointer text-dg-text-tertiary hover:text-dg-accent hover:border-dg-accent transition-all duration-50 active:scale-[0.97] active:opacity-80"
-          >
-            <Shuffle size={17} weight="bold" />
-          </button>
-        </div>
+        <NavButtons onBack={handleBack} onShuffle={handleShuffle} />
 
-        <div className="flex flex-col sm:flex-row gap-g3 sm:gap-g4 mb-g3 sm:mb-g4">
-          {/* Mobile cover — centered above metadata */}
-          {data.posterUrl && (
-            <div className="sm:hidden flex justify-center">
-              <div className="w-[120px] aspect-[2/3] overflow-hidden rounded">
-                <CoverThumb
-                  title={data.title}
-                  mediaType={displayMediaType(data.mediaType, data.animationOrigin)}
-                  posterUrl={data.posterUrl ?? undefined}
-                  size={160}
-                  loading="eager"
-                />
-              </div>
-            </div>
-          )}
-          {/* Desktop poster — stretches to match right column */}
-          <div className="hidden sm:block sm:w-[210px] shrink-0">
-            <div className="aspect-[2/3] w-full sm:aspect-auto sm:h-full">
+        {/* Info card */}
+        <div className={INFO_CARD_CLASS} style={{ padding: INFO_CARD_PAD }}>
+          <div className="flex" style={{ gap: INFO_CARD_PAD }}>
+            <div className={POSTER_COL_CLASS} style={POSTER_COL_STYLE}>
               <CoverThumb
                 title={data.title}
-                mediaType={displayMediaType(data.mediaType, data.animationOrigin)}
+                mediaType={mediaDisplayType}
                 posterUrl={data.posterUrl ?? undefined}
-                size={210}
+                size={160}
                 loading="eager"
               />
             </div>
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="mb-2">
-              <StampBadge type={displayMediaType(data.mediaType, data.animationOrigin)} />
-            </div>
-            <h1 className="font-display text-[1.6rem] sm:text-[2.25rem] font-normal m-0 leading-[1.15] tracking-[-0.03em]">
-              {data.title}
-            </h1>
-            {data.originalTitle && (
-              <p className="text-[0.85rem] text-dg-text-secondary mt-1">{data.originalTitle}</p>
-            )}
-
-            <div className="mt-g2 p-g2 sm:p-g3 bg-dg-surface rounded border border-dg-border-subtle">
-              <div className="flex flex-wrap gap-x-6 gap-y-3">
-                {data.startYear && (
-                  <MetaItem
-                    label="Year"
-                    value={
-                      data.endYear && data.endYear !== data.startYear
-                        ? `${data.startYear}\u2013${data.endYear}`
-                        : String(data.startYear)
-                    }
-                  />
-                )}
-                {data.countryOfOrigin && <MetaItem label="Country" value={data.countryOfOrigin} />}
-                {data.runtimeMinutes && data.mediaType === "movie" && (
-                  <MetaItem label="Runtime" value={`${data.runtimeMinutes} min`} />
-                )}
-                {data.seasonCount && <MetaItem label="Seasons" value={String(data.seasonCount)} />}
-                {data.episodeCount && data.episodeCount > 1 && (
-                  <MetaItem label="Episodes" value={String(data.episodeCount)} />
-                )}
-                {data.popularityScore != null && (
-                  <PopularityMeta
-                    score={data.popularityScore}
-                    qrankPct={data.qrankPct}
-                    sitelinksPct={data.sitelinksPct}
-                  />
-                )}
+            <div className="min-w-0 flex-1">
+              <div className="mb-2">
+                <StampBadge type={mediaDisplayType} />
               </div>
+              <h1
+                className="font-display font-normal m-0 leading-[1.15] tracking-[-0.03em]"
+                style={{ fontSize: "clamp(1.4rem, 4vw, 2.25rem)" }}
+              >
+                {data.title}
+              </h1>
+              {data.originalTitle && (
+                <p className="text-[0.85rem] text-dg-text-secondary font-body mt-1">
+                  {data.originalTitle}
+                </p>
+              )}
+              {metaLine && (
+                <p className="text-[0.8rem] text-dg-text-tertiary font-mono mt-2 m-0">{metaLine}</p>
+              )}
               {visibleGenres.length > 0 && (
-                <div className="border-t border-dg-border-subtle mt-3 pt-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    {visibleGenres.map(
-                      (g: { id: string; name: string; parentName?: string | null }) => (
-                        <span
-                          key={g.id}
-                          className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                        >
-                          {g.parentName ? (
-                            <>
-                              <span className="text-dg-text-tertiary">
-                                {g.parentName} &rsaquo;{" "}
-                              </span>
-                              {g.name}
-                            </>
-                          ) : (
-                            g.name
-                          )}
-                        </span>
-                      ),
-                    )}
-                  </div>
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                  {visibleGenres.map(
+                    (g: { id: string; name: string; parentName?: string | null }) => (
+                      <span
+                        key={g.id}
+                        className="text-xs font-mono py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                      >
+                        {g.parentName ? (
+                          <>
+                            <span className="text-dg-text-tertiary">{g.parentName} &rsaquo; </span>
+                            {g.name}
+                          </>
+                        ) : (
+                          g.name
+                        )}
+                      </span>
+                    ),
+                  )}
                 </div>
               )}
               {data.description && (
-                <div className="border-t border-dg-border-subtle mt-3 pt-3">
-                  <p className="text-[0.8rem] text-dg-text-secondary m-0 leading-relaxed">
-                    {data.description}
-                  </p>
-                </div>
+                <p className="text-[0.8rem] text-dg-text-secondary font-body m-0 leading-relaxed mt-3 line-clamp-3">
+                  {data.description}
+                </p>
               )}
-
-              <div className="border-t border-dg-border-subtle mt-3 pt-3">
-                <div className="flex flex-wrap gap-1.5">
-                  {externalLinks.map((link) => (
-                    <a
-                      key={link.label}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-50"
-                    >
-                      {link.label} {"\u2197"}
-                    </a>
-                  ))}
-                </div>
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {externalLinks.map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-mono text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-50"
+                  >
+                    {link.label} {"\u2197"}
+                  </a>
+                ))}
               </div>
             </div>
           </div>
         </div>
 
         {auth && (
-          <div className="border border-dg-border-subtle rounded bg-dg-surface mb-g3 sm:mb-g4">
-            <TrackingPanel
-              wikidataId={data.wikidataId}
-              mediaType={data.mediaType}
-              statusState={{ value: localStatus, set: setLocalStatus }}
-              favoriteState={{ value: localIsFavorite, set: setLocalIsFavorite }}
-              watchedEpisodesState={{
-                value: localWatchedEpisodes,
-                set: setLocalWatchedEpisodes,
-              }}
-              watchedAtState={{ value: localWatchedAt, set: setLocalWatchedAt }}
-              isMovie={data.mediaType === "movie"}
-              bare
-            >
-              {hasSeasons && data.seasons && (
-                <EpisodeTracker
-                  seasons={data.seasons}
-                  watchedEpisodes={localWatchedEpisodes}
-                  onWatchedChange={handleWatchedEpisodesChange}
-                />
-              )}
-            </TrackingPanel>
-          </div>
+          <TrackingPanel
+            wikidataId={data.wikidataId}
+            mediaType={data.mediaType}
+            statusState={{ value: localStatus, set: setLocalStatus }}
+            favoriteState={{ value: localIsFavorite, set: setLocalIsFavorite }}
+            replayCountState={{ value: localReplayCount, set: setLocalReplayCount }}
+            watchedEpisodesState={{
+              value: flattenedForSave as WatchedEpisodes,
+              set: handleWatchedEpisodesSet,
+            }}
+            watchedAtState={{ value: localWatchedAt, set: setLocalWatchedAt }}
+            onRewatch={handleRewatch}
+            isMovie={data.mediaType === "movie"}
+          >
+            {hasSeasons && data.seasons ? (
+              <EpisodeTracker
+                seasons={data.seasons}
+                watchedEpisodes={currentRunWatchedEps}
+                onWatchedChange={handleWatchedEpisodesChange}
+              />
+            ) : isTv ? (
+              <div className="text-[0.7rem] text-dg-text-tertiary font-body py-2">
+                no episode data available yet
+              </div>
+            ) : null}
+          </TrackingPanel>
+        )}
+
+        {auth && localStatus && (
+          <ActivityTimeline
+            entry={entryQuery.data ?? {}}
+            watchedEpisodes={currentRunWatchedEps}
+            seasons={hasSeasons ? data.seasons : undefined}
+          />
         )}
 
         {!auth && (
@@ -561,132 +644,33 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
           </div>
         )}
 
-        {data.platforms.length > 0 &&
-          (() => {
-            // Dedup platforms: hide parent family when specific children are present
-            const subPlatformParentIds = new Set(
-              data.platforms.flatMap((p: { parentId: string | null }) =>
-                p.parentId ? [p.parentId] : [],
-              ),
-            );
-            const visiblePlatforms = data.platforms.filter(
-              (p: { id: string; parentId: string | null }) => {
-                if (p.parentId) return true;
-                return !subPlatformParentIds.has(p.id);
-              },
-            );
-            return (
-              <div className="mb-g3 sm:mb-g4">
-                <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-                  Platforms
-                </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {visiblePlatforms.map(
-                    (p: { id: string; name: string; parentName?: string | null }) => (
-                      <span
-                        key={p.id}
-                        className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                      >
-                        {p.parentName ? (
-                          <>
-                            <span className="text-dg-text-tertiary">{p.parentName} &rsaquo; </span>
-                            {p.name}
-                          </>
-                        ) : (
-                          p.name
-                        )}
-                      </span>
-                    ),
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-      </div>
-    </div>
-  );
-}
-
-function PopularityMeta({
-  score,
-  qrankPct,
-  sitelinksPct,
-}: {
-  score: string;
-  qrankPct: string | null;
-  sitelinksPct: string | null;
-}) {
-  const [visible, setVisible] = useState(false);
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  function show() {
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    setVisible(true);
-  }
-
-  // Small grace period so mouse can travel from label to tooltip without flicker
-  function hide() {
-    hideTimer.current = setTimeout(() => setVisible(false), 80);
-  }
-
-  const rounded = Number.parseFloat(score).toFixed(1);
-  const hasQrank = qrankPct != null;
-
-  return (
-    <div className="relative flex flex-col gap-0.5">
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: tooltip trigger */}
-      <span
-        className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider cursor-help underline decoration-dotted decoration-dg-border underline-offset-2 w-fit"
-        onMouseEnter={show}
-        onMouseLeave={hide}
-      >
-        Popularity
-      </span>
-      <span className="text-[0.85rem] text-dg-text">{rounded}</span>
-
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: tooltip body needs hover to stay open */}
-      <div
-        className="absolute bottom-full left-0 mb-1.5 z-50 w-[260px] p-2.5 rounded border border-dg-border-subtle bg-dg-surface text-[0.75rem] leading-relaxed text-dg-text-secondary shadow-lg transition-all duration-50"
-        style={{
-          opacity: visible ? 1 : 0,
-          transform: visible ? "translateY(0)" : "translateY(4px)",
-          pointerEvents: visible ? "auto" : "none",
-        }}
-        onMouseEnter={show}
-        onMouseLeave={hide}
-      >
-        {hasQrank ? (
-          <p className="m-0">
-            <span className="text-dg-text">score</span> = 0.6 &times; QRank ({qrankPct}) + 0.4
-            &times; Sitelinks ({sitelinksPct ?? "n/a"})
-          </p>
-        ) : (
-          <p className="m-0">
-            <span className="text-dg-text">score</span> = Sitelinks only (no QRank data)
-          </p>
+        {data.platforms.length > 0 && (
+          <div className="mb-g3 sm:mb-g4">
+            <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+              Platforms
+            </h3>
+            <div className="flex flex-wrap gap-1.5">
+              {dedupHierarchy(data.platforms).map(
+                (p: { id: string; name: string; parentName?: string | null }) => (
+                  <span
+                    key={p.id}
+                    className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                  >
+                    {p.parentName ? (
+                      <>
+                        <span className="text-dg-text-tertiary">{p.parentName} &rsaquo; </span>
+                        {p.name}
+                      </>
+                    ) : (
+                      p.name
+                    )}
+                  </span>
+                ),
+              )}
+            </div>
+          </div>
         )}
-        <div className="mt-1.5 flex items-center gap-1.5 text-[0.7rem] text-dg-text-tertiary">
-          <a
-            href="https://qrank.wmcloud.org/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-dg-accent/70 no-underline hover:text-dg-accent transition-colors"
-          >
-            QRank {"\u2197"}
-          </a>
-          <span>&middot;</span>
-          <span>Wikipedia sitelinks coverage</span>
-        </div>
       </div>
-    </div>
-  );
-}
-
-function MetaItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider">{label}</span>
-      <span className="text-[0.85rem] text-dg-text">{value}</span>
     </div>
   );
 }
