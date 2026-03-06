@@ -13,6 +13,7 @@ export type ProfileStats = {
   ratedCount: number;
   statusCounts: Record<StatusValue, number>;
   typeCounts: Record<string, number>;
+  completedTypeCounts: Record<string, number>;
 };
 
 export type RecentEntry = {
@@ -69,6 +70,11 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
           tvCount: sql<number>`count(*) FILTER (WHERE ${catalogEntries.mediaType} = 'tv_series' AND ${catalogEntries.animationOrigin} IS NULL)::int`,
           animeCount: sql<number>`count(*) FILTER (WHERE ${catalogEntries.animationOrigin} IS NOT NULL)::int`,
           gameCount: sql<number>`count(*) FILTER (WHERE ${catalogEntries.mediaType} = 'game')::int`,
+          // Completed (completed + mastered) by type
+          completedMovie: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} IN ('completed','mastered') AND ${catalogEntries.mediaType} = 'movie' AND ${catalogEntries.animationOrigin} IS NULL)::int`,
+          completedTv: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} IN ('completed','mastered') AND ${catalogEntries.mediaType} = 'tv_series' AND ${catalogEntries.animationOrigin} IS NULL)::int`,
+          completedAnime: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} IN ('completed','mastered') AND ${catalogEntries.animationOrigin} IS NOT NULL)::int`,
+          completedGame: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} IN ('completed','mastered') AND ${catalogEntries.mediaType} = 'game')::int`,
         })
         .from(catalogEntries)
         .where(eq(catalogEntries.userId, auth.userId)),
@@ -117,6 +123,13 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
       game: agg.gameCount,
     };
 
+    const completedTypeCounts: Record<string, number> = {
+      movie: agg.completedMovie,
+      tv_series: agg.completedTv,
+      anime: agg.completedAnime,
+      game: agg.completedGame,
+    };
+
     // Top territory = type with highest count
     let topTerritory: string | null = null;
     let maxCount = 0;
@@ -150,6 +163,7 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
           dropped: agg.dropped,
         },
         typeCounts,
+        completedTypeCounts,
       },
       recent,
       user: {
