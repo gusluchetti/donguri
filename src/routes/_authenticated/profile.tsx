@@ -72,7 +72,10 @@ function ProfilePage() {
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4 flex flex-col gap-g3">
         <ProfileHeader user={user} daysActive={daysActive} onLogout={handleLogout} />
         <StatsGrid stats={stats} daysActive={daysActive} />
-        <TerritoryBar typeCounts={stats.typeCounts} totalEntries={stats.totalEntries} />
+        <TerritoryBar
+          completedTypeCounts={stats.completedTypeCounts}
+          typeCounts={stats.typeCounts}
+        />
         <StatusBreakdown statusCounts={stats.statusCounts} />
         <RecentTrail entries={recent} />
       </div>
@@ -222,44 +225,57 @@ function StatsGrid({ stats, daysActive }: { stats: ProfileData["stats"]; daysAct
 const TERRITORY_TYPES = ["movie", "tv_series", "anime", "game"] as const;
 
 function TerritoryBar({
+  completedTypeCounts,
   typeCounts,
-  totalEntries,
 }: {
+  completedTypeCounts: Record<string, number>;
   typeCounts: Record<string, number>;
-  totalEntries: number;
 }) {
-  if (totalEntries === 0) return null;
+  const totalCompleted = TERRITORY_TYPES.reduce(
+    (sum, type) => sum + (completedTypeCounts[type] ?? 0),
+    0,
+  );
+  const totalAll = TERRITORY_TYPES.reduce((sum, type) => sum + (typeCounts[type] ?? 0), 0);
+  if (totalAll === 0) return null;
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex rounded overflow-hidden h-2">
+    <div className="flex flex-col gap-2 w-full">
+      <div className="flex rounded overflow-hidden h-5">
         {TERRITORY_TYPES.map((type) => {
-          const count = typeCounts[type] ?? 0;
+          const count = completedTypeCounts[type] ?? 0;
           if (count === 0) return null;
-          const pct = (count / totalEntries) * 100;
+          const pct = (count / totalCompleted) * 100;
           return (
             <div
               key={type}
+              className="relative flex items-center justify-center overflow-hidden"
               style={{
                 width: `${pct}%`,
                 background: STAMP_COLORS[type],
-                minWidth: count > 0 ? 4 : 0,
+                minWidth: count > 0 ? 24 : 0,
               }}
-            />
+            >
+              <span className="font-mono text-[0.6rem] font-bold text-white/90 mix-blend-difference tabular-nums">
+                {count}
+              </span>
+            </div>
           );
         })}
       </div>
       <div className="flex flex-wrap gap-3">
         {TERRITORY_TYPES.map((type, i) => {
-          const count = typeCounts[type] ?? 0;
+          const completed = completedTypeCounts[type] ?? 0;
+          const total = typeCounts[type] ?? 0;
           return (
             <div
               key={type}
               className="flex items-center gap-1.5"
-              style={{ opacity: count === 0 ? 0.3 : 1 }}
+              style={{ opacity: total === 0 ? 0.3 : 1 }}
             >
               <StampBadge type={type} index={i} />
-              <span className="text-[0.7rem] text-dg-text-secondary tabular-nums">{count}</span>
+              <span className="font-mono text-[0.7rem] text-dg-text-secondary tabular-nums">
+                {completed}/{total}
+              </span>
             </div>
           );
         })}
@@ -311,7 +327,8 @@ function computeRelative(dateStr: string): string {
 }
 
 function RelativeTime({ dateStr }: { dateStr: string | null }) {
-  const [text, setText] = useState("");
+  const initial = dateStr ? computeRelative(dateStr) : "";
+  const [text, setText] = useState(initial);
   useEffect(() => {
     if (dateStr) setText(computeRelative(dateStr));
   }, [dateStr]);

@@ -156,7 +156,7 @@ export function CoverThumb({
       className="rounded-[3px] border border-dg-border shrink-0 flex items-center justify-center relative overflow-hidden"
       style={{
         width: size,
-        height: Math.round(size * 1.3),
+        height: Math.round(size * 1.5),
         background: isLight
           ? `linear-gradient(135deg, hsl(${h},20%,80%) 0%, hsl(${h + 30},16%,72%) 100%)`
           : `linear-gradient(135deg, hsl(${h},22%,20%) 0%, hsl(${h + 30},18%,13%) 100%)`,
