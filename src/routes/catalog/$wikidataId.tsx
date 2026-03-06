@@ -5,6 +5,7 @@ import { createFileRoute, getRouteApi, useNavigate } from "@tanstack/react-route
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "~/components/Button";
 import { IconButton } from "~/components/IconButton";
+import { InfoCard } from "~/components/InfoCard";
 import { LinkButton } from "~/components/LinkButton";
 import { Spinner } from "~/components/Spinner";
 import { getMediaStub } from "~/features/catalog/catalog.functions";
@@ -153,8 +154,6 @@ function MediaDetailRouter() {
 
 const INFO_CARD_CLASS = "rounded border border-dg-border-subtle bg-dg-surface mb-g3 sm:mb-g4";
 const INFO_CARD_PAD = "clamp(8px, 2%, 16px)";
-const POSTER_COL_CLASS = "shrink-0 rounded overflow-hidden";
-const POSTER_COL_STYLE = { width: "clamp(88px, 22%, 160px)", aspectRatio: "2/3" } as const;
 
 function NavButtons({ onBack, onShuffle }: { onBack: () => void; onShuffle: () => void }) {
   return (
@@ -181,17 +180,11 @@ function MediaDetailSkeleton() {
     <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <NavButtons onBack={handleBack} onShuffle={handleShuffle} />
-        <div className={INFO_CARD_CLASS} style={{ padding: INFO_CARD_PAD }}>
-          <div className="flex" style={{ gap: INFO_CARD_PAD }}>
-            <div
-              className={`${POSTER_COL_CLASS} bg-dg-elevated animate-pulse`}
-              style={POSTER_COL_STYLE}
-            />
-            <div className="min-w-0 flex-1 flex items-center justify-center">
-              <Spinner />
-            </div>
+        <InfoCard posterSlot={<div className="w-full h-full bg-dg-elevated animate-pulse" />}>
+          <div className="flex items-center justify-center h-full">
+            <Spinner />
           </div>
-        </div>
+        </InfoCard>
       </div>
     </div>
   );
@@ -217,40 +210,37 @@ function MediaStubPage({
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <NavButtons onBack={handleBack} onShuffle={handleShuffle} />
 
-        <div className={INFO_CARD_CLASS} style={{ padding: INFO_CARD_PAD }}>
-          <div className="flex" style={{ gap: INFO_CARD_PAD }}>
-            <div className={POSTER_COL_CLASS} style={POSTER_COL_STYLE}>
-              <CoverThumb title={stub.title} mediaType={displayType} size={160} loading="eager" />
+        <InfoCard
+          posterSlot={
+            <CoverThumb title={stub.title} mediaType={displayType} size={160} loading="eager" />
+          }
+        >
+          {stub.mediaType && (
+            <div className="mb-2">
+              <StampBadge type={displayType} />
             </div>
-            <div className="min-w-0 flex-1">
-              {stub.mediaType && (
-                <div className="mb-2">
-                  <StampBadge type={displayType} />
-                </div>
-              )}
-              <h1
-                className="font-display font-normal m-0 leading-[1.15] tracking-[-0.03em]"
-                style={{ fontSize: "clamp(1.4rem, 4vw, 2.25rem)" }}
-              >
-                {stub.title}
-              </h1>
-              <p className="text-[0.8rem] text-dg-text-tertiary mt-3">
-                This title has not been imported into the catalog yet. Metadata will appear after
-                the next data import.
-              </p>
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                <a
-                  href={`https://www.wikidata.org/wiki/${stub.wikidataId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-50"
-                >
-                  Wikidata {"\u2197"}
-                </a>
-              </div>
-            </div>
+          )}
+          <h1
+            className="font-display font-normal m-0 leading-[1.15] tracking-[-0.03em]"
+            style={{ fontSize: "clamp(1.4rem, 4vw, 2.25rem)" }}
+          >
+            {stub.title}
+          </h1>
+          <p className="text-[0.8rem] text-dg-text-tertiary mt-3">
+            This title has not been imported into the catalog yet. Metadata will appear after the
+            next data import.
+          </p>
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            <a
+              href={`https://www.wikidata.org/wiki/${stub.wikidataId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-50"
+            >
+              Wikidata {"\u2197"}
+            </a>
           </div>
-        </div>
+        </InfoCard>
 
         {auth && (
           <TrackingPanel wikidataId={stub.wikidataId} mediaType={stub.mediaType ?? undefined} />
@@ -509,78 +499,98 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
         <NavButtons onBack={handleBack} onShuffle={handleShuffle} />
 
-        {/* Info card */}
-        <div className={INFO_CARD_CLASS} style={{ padding: INFO_CARD_PAD }}>
-          <div className="flex" style={{ gap: INFO_CARD_PAD }}>
-            <div className={POSTER_COL_CLASS} style={POSTER_COL_STYLE}>
-              <CoverThumb
-                title={data.title}
-                mediaType={mediaDisplayType}
-                posterUrl={data.posterUrl ?? undefined}
-                size={160}
-                loading="eager"
-              />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="mb-2">
-                <StampBadge type={mediaDisplayType} />
-              </div>
-              <h1
-                className="font-display font-normal m-0 leading-[1.15] tracking-[-0.03em]"
-                style={{ fontSize: "clamp(1.4rem, 4vw, 2.25rem)" }}
-              >
-                {data.title}
-              </h1>
-              {data.originalTitle && (
-                <p className="text-[0.85rem] text-dg-text-secondary font-body mt-1">
-                  {data.originalTitle}
-                </p>
-              )}
-              {metaLine && (
-                <p className="text-[0.8rem] text-dg-text-tertiary font-mono mt-2 m-0">{metaLine}</p>
-              )}
-              {visibleGenres.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-3">
-                  {visibleGenres.map(
-                    (g: { id: string; name: string; parentName?: string | null }) => (
-                      <span
-                        key={g.id}
-                        className="text-xs font-mono py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                      >
-                        {g.parentName ? (
-                          <>
-                            <span className="text-dg-text-tertiary">{g.parentName} &rsaquo; </span>
-                            {g.name}
-                          </>
-                        ) : (
-                          g.name
-                        )}
-                      </span>
-                    ),
-                  )}
-                </div>
-              )}
-              {data.description && (
-                <p className="text-[0.8rem] text-dg-text-secondary font-body m-0 leading-relaxed mt-3 line-clamp-3">
-                  {data.description}
-                </p>
-              )}
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {externalLinks.map((link) => (
-                  <a
-                    key={link.label}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs font-mono text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-50"
-                  >
-                    {link.label} {"\u2197"}
-                  </a>
-                ))}
-              </div>
-            </div>
+        <InfoCard
+          posterSlot={
+            <CoverThumb
+              title={data.title}
+              mediaType={mediaDisplayType}
+              posterUrl={data.posterUrl ?? undefined}
+              size={160}
+              loading="eager"
+            />
+          }
+        >
+          <div className="mb-2">
+            <StampBadge type={mediaDisplayType} />
           </div>
-        </div>
+          <h1
+            className="font-display font-normal m-0 leading-[1.15] tracking-[-0.03em]"
+            style={{ fontSize: "clamp(1.4rem, 4vw, 2.25rem)" }}
+          >
+            {data.title}
+          </h1>
+          {data.originalTitle && (
+            <p className="text-[0.85rem] text-dg-text-secondary font-body mt-1">
+              {data.originalTitle}
+            </p>
+          )}
+          {metaLine && (
+            <p className="text-[0.8rem] text-dg-text-tertiary font-mono mt-2 m-0">{metaLine}</p>
+          )}
+          {visibleGenres.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {visibleGenres.map((g: { id: string; name: string; parentName?: string | null }) => (
+                <span
+                  key={g.id}
+                  className="text-xs font-mono py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                >
+                  {g.parentName ? (
+                    <>
+                      <span className="text-dg-text-tertiary">{g.parentName} &rsaquo; </span>
+                      {g.name}
+                    </>
+                  ) : (
+                    g.name
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
+          {data.description && (
+            <p className="text-[0.8rem] text-dg-text-secondary font-body m-0 leading-relaxed mt-3 line-clamp-3">
+              {data.description}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {externalLinks.map((link) => (
+              <a
+                key={link.label}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-mono text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-50"
+              >
+                {link.label} {"\u2197"}
+              </a>
+            ))}
+          </div>
+          {data.platforms.length > 0 && (
+            <div className="mt-3">
+              <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
+                Platforms
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {dedupHierarchy(data.platforms).map(
+                  (p: { id: string; name: string; parentName?: string | null }) => (
+                    <span
+                      key={p.id}
+                      className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
+                    >
+                      {p.parentName ? (
+                        <>
+                          <span className="text-dg-text-tertiary">{p.parentName} &rsaquo; </span>
+                          {p.name}
+                        </>
+                      ) : (
+                        p.name
+                      )}
+                    </span>
+                  ),
+                )}
+              </div>
+            </div>
+          )}
+        </InfoCard>
 
         {auth && (
           <TrackingPanel
@@ -639,33 +649,6 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               </LinkButton>{" "}
               to track this title, rate it, and see detailed episode data.
             </p>
-          </div>
-        )}
-
-        {data.platforms.length > 0 && (
-          <div className="mb-g3 sm:mb-g4">
-            <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-              Platforms
-            </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {dedupHierarchy(data.platforms).map(
-                (p: { id: string; name: string; parentName?: string | null }) => (
-                  <span
-                    key={p.id}
-                    className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                  >
-                    {p.parentName ? (
-                      <>
-                        <span className="text-dg-text-tertiary">{p.parentName} &rsaquo; </span>
-                        {p.name}
-                      </>
-                    ) : (
-                      p.name
-                    )}
-                  </span>
-                ),
-              )}
-            </div>
           </div>
         )}
       </div>
