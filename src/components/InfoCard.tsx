@@ -19,20 +19,16 @@ export function InfoCard({
       style={{ padding: "clamp(8px, 2%, 16px)" }}
     >
       <div
-        className="flex flex-col sm:flex-row items-center sm:items-start"
+        className="flex flex-col min-[420px]:flex-row min-[420px]:items-start"
         style={{ gap: "clamp(8px, 2%, 16px)" }}
       >
         <div
-          className={cn(
-            "shrink-0 rounded overflow-hidden",
-            "w-[45%] max-w-[180px] mx-auto",
-            "sm:w-[clamp(88px,22%,160px)] sm:max-w-none sm:mx-0",
-          )}
+          className="shrink-0 rounded overflow-hidden w-[100px] sm:w-[clamp(88px,22%,160px)] mx-auto min-[420px]:mx-0"
           style={{ aspectRatio: "2/3" }}
         >
           {posterSlot}
         </div>
-        <div className="min-w-0 flex-1 w-full">{children}</div>
+        <div className="min-w-0 flex-1 flex flex-col gap-1.5">{children}</div>
       </div>
     </div>
   );

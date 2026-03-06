@@ -190,7 +190,7 @@ function StatusButtons({
             onClick={() => onStatusChange(s)}
             disabled={isPending}
             className={cn(
-              "dg-press relative flex items-center justify-center gap-1 text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-body flex-1 min-w-fit",
+              "dg-press relative flex items-center justify-center gap-1 text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-body flex-1 min-w-fit lowercase",
               isActive
                 ? colorClass
                 : `${STATUS_BUTTON_INACTIVE[s]} text-dg-text-secondary bg-transparent hover:brightness-110`,
@@ -496,9 +496,6 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
           = <span className="animate-pulse">_</span>
         </p>
       )}
-      <p className="text-[0.5rem] text-dg-text-tertiary m-0 mt-1">
-        drag to rate &middot; double-click to type
-      </p>
     </div>
   );
 }

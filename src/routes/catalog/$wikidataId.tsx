@@ -158,14 +158,20 @@ const INFO_CARD_PAD = "clamp(8px, 2%, 16px)";
 function NavButtons({ onBack, onShuffle }: { onBack: () => void; onShuffle: () => void }) {
   return (
     <div className="flex items-center gap-1.5 mb-g2">
-      <Button variant="secondary" size="compact" onClick={onBack} className="text-[0.8rem]">
+      <Button
+        variant="secondary"
+        size="compact"
+        onClick={onBack}
+        className="text-[0.8rem] h-[34px]"
+      >
         &larr; back
       </Button>
       <IconButton
         variant="surface"
+        size="compact"
         title="Random title"
         onClick={onShuffle}
-        className="ml-auto self-stretch rounded"
+        className="ml-auto rounded"
       >
         <Shuffle size={17} weight="bold" />
       </IconButton>
@@ -216,7 +222,7 @@ function MediaStubPage({
           }
         >
           {stub.mediaType && (
-            <div className="mb-2">
+            <div>
               <StampBadge type={displayType} />
             </div>
           )}
@@ -226,16 +232,16 @@ function MediaStubPage({
           >
             {stub.title}
           </h1>
-          <p className="text-[0.8rem] text-dg-text-tertiary mt-3">
+          <p className="text-[0.8rem] text-dg-text-tertiary m-0">
             This title has not been imported into the catalog yet. Metadata will appear after the
             next data import.
           </p>
-          <div className="flex flex-wrap gap-1.5 mt-3">
+          <div className="flex flex-wrap gap-1.5">
             <a
               href={`https://www.wikidata.org/wiki/${stub.wikidataId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-50"
+              className="text-xs text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-50 lowercase"
             >
               Wikidata {"\u2197"}
             </a>
@@ -293,7 +299,7 @@ function buildExternalLinks(
   return links;
 }
 
-function buildMetaLine(data: NonNullable<Awaited<ReturnType<typeof getMedia>>>): string {
+function buildMetaParts(data: NonNullable<Awaited<ReturnType<typeof getMedia>>>): string[] {
   const parts: string[] = [];
   if (data.startYear) {
     parts.push(
@@ -306,7 +312,7 @@ function buildMetaLine(data: NonNullable<Awaited<ReturnType<typeof getMedia>>>):
   if (data.runtimeMinutes && data.mediaType === "movie") parts.push(`${data.runtimeMinutes} min`);
   if (data.seasonCount) parts.push(`${data.seasonCount} seasons`);
   if (data.episodeCount && data.episodeCount > 1) parts.push(`${data.episodeCount} episodes`);
-  return parts.join(" \u00b7 ");
+  return parts;
 }
 
 function buildActivityItems(
@@ -492,7 +498,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
   const mediaDisplayType = displayMediaType(data.mediaType, data.animationOrigin);
   const visibleGenres = useMemo(() => dedupHierarchy(data.genres), [data.genres]);
   const externalLinks = useMemo(() => buildExternalLinks(data), [data]);
-  const metaLine = useMemo(() => buildMetaLine(data), [data]);
+  const metaParts = useMemo(() => buildMetaParts(data), [data]);
 
   return (
     <div className="text-dg-text flex-1 overflow-y-auto overflow-x-hidden">
@@ -510,7 +516,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
             />
           }
         >
-          <div className="mb-2">
+          <div>
             <StampBadge type={mediaDisplayType} />
           </div>
           <h1
@@ -520,15 +526,26 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
             {data.title}
           </h1>
           {data.originalTitle && (
-            <p className="text-[0.85rem] text-dg-text-secondary font-body mt-1">
+            <p className="text-[0.85rem] text-dg-text-secondary font-body m-0">
               {data.originalTitle}
             </p>
           )}
-          {metaLine && (
-            <p className="text-[0.8rem] text-dg-text-tertiary font-mono mt-2 m-0">{metaLine}</p>
+          {metaParts.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.8rem] text-dg-text-tertiary font-mono">
+              {metaParts.map((part, i) => (
+                <span key={part} className="flex items-center gap-2">
+                  {i > 0 && (
+                    <span className="hidden min-[420px]:inline" aria-hidden>
+                      &middot;
+                    </span>
+                  )}
+                  {part}
+                </span>
+              ))}
+            </div>
           )}
           {visibleGenres.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-3">
+            <div className="flex flex-wrap gap-1.5">
               {visibleGenres.map((g: { id: string; name: string; parentName?: string | null }) => (
                 <span
                   key={g.id}
@@ -547,25 +564,25 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
             </div>
           )}
           {data.description && (
-            <p className="text-[0.8rem] text-dg-text-secondary font-body m-0 leading-relaxed mt-3 line-clamp-3">
+            <p className="text-[0.8rem] text-dg-text-secondary font-body m-0 leading-relaxed line-clamp-3">
               {data.description}
             </p>
           )}
-          <div className="flex flex-wrap gap-1.5 mt-3">
+          <div className="flex flex-wrap gap-1.5">
             {externalLinks.map((link) => (
               <a
                 key={link.label}
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs font-mono text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-50"
+                className="text-xs font-mono text-dg-accent/70 no-underline py-1 px-2 border border-dg-accent/15 rounded-sm transition-all duration-50 lowercase"
               >
                 {link.label} {"\u2197"}
               </a>
             ))}
           </div>
           {data.platforms.length > 0 && (
-            <div className="mt-3">
+            <div>
               <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
                 Platforms
               </h3>
