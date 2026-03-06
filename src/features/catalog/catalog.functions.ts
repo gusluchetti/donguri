@@ -7,6 +7,7 @@ import { catalogEntries, media } from "~/db/schema";
 import { getAuthenticatedAgent, isSessionExpired } from "~/features/auth/auth.agent";
 import { clearSessionCookie, getSessionData, requireAuth } from "~/features/auth/auth.session";
 import { deleteCatalogEntry, putCatalogEntry } from "~/features/auth/auth.sync";
+import { resolveMediaPoster } from "~/features/media/media.functions";
 import {
   countEpisodesFromRaw,
   STATUS_ORDER,
@@ -76,7 +77,7 @@ export const getUserCatalogEntries = createServerFn({ method: "GET" }).handler(a
     .orderBy(desc(catalogEntries.updatedAt));
 
   console.debug("[catalog] getUserCatalogEntries → %d entries", entries.length);
-  return entries;
+  return entries.map((e) => resolveMediaPoster(e, "detail"));
 });
 
 export const getUserTrackedIds = createServerFn({ method: "GET" }).handler(async () => {

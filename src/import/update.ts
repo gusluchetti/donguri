@@ -1125,14 +1125,14 @@ async function fetchTmdbPoster(wikidataId: string, apiKey: string): Promise<Fetc
   const movie = data.movie_results?.[0];
   if (movie?.poster_path)
     return {
-      url: `https://image.tmdb.org/t/p/w342${movie.poster_path}`,
+      url: `https://image.tmdb.org/t/p/w92${movie.poster_path}`,
       resolvedTmdbId: `movie/${movie.id}`,
     };
 
   const tv = data.tv_results?.[0];
   if (tv?.poster_path)
     return {
-      url: `https://image.tmdb.org/t/p/w342${tv.poster_path}`,
+      url: `https://image.tmdb.org/t/p/w92${tv.poster_path}`,
       resolvedTmdbId: `tv/${tv.id}`,
     };
 
@@ -1140,7 +1140,7 @@ async function fetchTmdbPoster(wikidataId: string, apiKey: string): Promise<Fetc
 }
 
 async function fetchAniListCover(anilistId: string): Promise<FetchResult> {
-  const query = `query ($id: Int) { Media(id: $id, type: ANIME) { coverImage { large } } }`;
+  const query = `query ($id: Int) { Media(id: $id, type: ANIME) { coverImage { medium } } }`;
   const res = await fetch("https://graphql.anilist.co", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1151,7 +1151,7 @@ async function fetchAniListCover(anilistId: string): Promise<FetchResult> {
     return { url: null, status: res.status };
   }
   const data = await res.json();
-  return { url: data.data?.Media?.coverImage?.large ?? null };
+  return { url: data.data?.Media?.coverImage?.medium ?? null };
 }
 
 let twitchAccessToken: string | null = null;
@@ -1195,7 +1195,7 @@ async function fetchIgdbCover(igdbSlug: string): Promise<FetchResult> {
   const coverUrl = data[0]?.cover?.url;
   if (!coverUrl) return { url: null };
   return {
-    url: coverUrl.replace("t_thumb", "t_cover_big").replace(/^\/\//, "https://"),
+    url: coverUrl.replace("t_thumb", "t_cover_small").replace(/^\/\//, "https://"),
   };
 }
 

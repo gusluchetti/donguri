@@ -1,6 +1,7 @@
 import { ArrowLeft, Monitor, Moon, SpeakerHigh, SpeakerNone, Sun } from "@phosphor-icons/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { NavToggle } from "~/components/NavToggle";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { type ThemePreference, useTheme } from "~/lib/theme";
 
@@ -53,7 +54,7 @@ function SoundSection() {
           setOn(next);
           if (next) SoundEngine.toggleOn();
         }}
-        className="flex items-center gap-3 bg-transparent border border-dg-border-subtle rounded p-3 cursor-pointer transition-all duration-50 hover:border-dg-border-strong w-full text-left active:scale-[0.99] active:opacity-80"
+        className="dg-press flex items-center gap-3 bg-transparent border border-dg-border-subtle rounded p-3 hover:border-dg-border-strong w-full text-left"
       >
         {on ? (
           <SpeakerHigh size={20} weight="bold" className="text-dg-accent shrink-0" />
@@ -93,10 +94,10 @@ function SoundSection() {
 
 // ─── Theme ──────────────────────────────────────────────────────────────────
 
-const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
-  { value: "system", label: "System", icon: Monitor },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "light", label: "Light", icon: Sun },
+const THEME_OPTIONS: { value: ThemePreference; label: string; icon: React.ReactNode }[] = [
+  { value: "system", label: "System", icon: <Monitor size={14} weight="bold" /> },
+  { value: "dark", label: "Dark", icon: <Moon size={14} weight="bold" /> },
+  { value: "light", label: "Light", icon: <Sun size={14} weight="bold" /> },
 ];
 
 function ThemeSection() {
@@ -107,29 +108,14 @@ function ThemeSection() {
       <h2 className="text-[0.7rem] font-bold tracking-[0.12em] uppercase text-dg-text-tertiary m-0">
         theme
       </h2>
-      <div className="flex gap-1">
-        {THEME_OPTIONS.map(({ value, label, icon: Icon }) => {
-          const active = preference === value;
-          return (
-            <button
-              key={value}
-              type="button"
-              onClick={() => {
-                setThemePreference(value);
-                SoundEngine.click();
-              }}
-              className={`flex-1 flex items-center justify-center gap-1.5 no-underline font-body text-xs tracking-[0.06em] uppercase rounded-[3px] py-[7px] px-2 transition-all duration-50 border cursor-pointer active:scale-[0.97] active:opacity-80 ${
-                active
-                  ? "bg-dg-accent-soft border-dg-accent text-dg-accent font-semibold"
-                  : "bg-transparent border-dg-border text-dg-text-secondary hover:border-dg-border-strong"
-              }`}
-            >
-              <Icon size={14} weight="bold" />
-              {label}
-            </button>
-          );
-        })}
-      </div>
+      <NavToggle
+        options={THEME_OPTIONS}
+        value={preference}
+        onChange={(v) => {
+          setThemePreference(v);
+          SoundEngine.click();
+        }}
+      />
     </section>
   );
 }

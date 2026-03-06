@@ -1,5 +1,6 @@
 import { GithubLogo, GoogleLogo } from "@phosphor-icons/react";
 import { useState } from "react";
+import { Button } from "~/components/Button";
 import { initiateLogin, initiateOAuthLogin } from "~/features/auth/auth.functions";
 
 export function SignInSection() {
@@ -82,15 +83,16 @@ function BlueskyLoginForm() {
             onChange={(e) => setHandle(e.target.value)}
             placeholder="handle.bsky.social"
             disabled={loading}
-            className="flex-1 bg-dg-bg border border-dg-border rounded px-3 py-2.5 sm:py-2 text-base sm:text-[0.85rem] text-dg-text font-mono placeholder:text-dg-text-tertiary focus:outline-none focus:border-dg-accent/50 disabled:opacity-50"
+            className="flex-1 bg-dg-bg border border-dg-border rounded-sm px-3 py-2.5 sm:py-2 text-base sm:text-[0.85rem] text-dg-text font-mono placeholder:text-dg-text-tertiary focus:outline-none focus:border-dg-accent disabled:opacity-50"
           />
-          <button
+          <Button
             type="submit"
+            variant="accent"
             disabled={loading || !handle.trim()}
-            className="bg-transparent border border-dg-accent/30 text-dg-accent px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-body cursor-pointer transition-all duration-50 hover:border-dg-accent/60 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.97] active:opacity-80"
+            className="py-2.5 sm:py-2"
           >
             {loading ? <span className="dg-ellipsis">Signing in</span> : "Sign in"}
-          </button>
+          </Button>
         </div>
         {error && <p className="text-dg-movie text-[0.8rem] mt-2">{error}</p>}
       </form>
@@ -124,11 +126,11 @@ function OAuthButton({
   };
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="secondary"
       onClick={onClick}
       disabled={loading}
-      className="w-full bg-dg-surface border border-dg-border text-dg-text-secondary px-4 py-2.5 sm:py-2 rounded-sm text-[0.85rem] font-body cursor-pointer transition-all duration-50 hover:border-dg-border-strong hover:text-dg-text disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.97] active:opacity-80"
+      className="w-full py-2.5 sm:py-2"
     >
       {loading ? (
         <span className="dg-ellipsis">Redirecting</span>
@@ -138,6 +140,6 @@ function OAuthButton({
           {label}
         </>
       )}
-    </button>
+    </Button>
   );
 }

@@ -16,6 +16,30 @@ import { getSessionData } from "~/features/auth/auth.session";
 import { getMediaSource } from "./media-source";
 import { getCacheArrays } from "./popular-cache";
 
+export type PosterSize = "small" | "detail";
+
+export function resolveMediaPoster<T extends { posterUrl: string | null }>(
+  item: T,
+  size: PosterSize,
+): T {
+  const url = item.posterUrl;
+  if (!url || size === "small") return item;
+
+  // TMDB: w92 → w154 (minimum ≥ 152px)
+  if (url.includes("/t/p/w92/")) {
+    return { ...item, posterUrl: url.replace("/w92/", "/w154/") };
+  }
+  // AniList: medium → large
+  if (url.includes("/cover/medium/")) {
+    return { ...item, posterUrl: url.replace("/cover/medium/", "/cover/large/") };
+  }
+  // IGDB: t_cover_small → t_cover_big (no intermediate size exists)
+  if (url.includes("t_cover_small")) {
+    return { ...item, posterUrl: url.replace("t_cover_small", "t_cover_big") };
+  }
+  return item;
+}
+
 const parentGenres = alias(canonicalGenres, "parent_genres");
 const parentPlatforms = alias(canonicalPlatforms, "parent_platforms");
 
@@ -75,10 +99,10 @@ export const listMedia = createServerFn({ method: "GET" })
     const session = await getSessionData();
     const source = getMediaSource(session);
 
-    if (trimmedSearch) {
-      return source.search(trimmedSearch, { cursor, limit, mediaType });
-    }
-    return source.list({ cursor, limit, mediaType });
+    const result = trimmedSearch
+      ? await source.search(trimmedSearch, { cursor, limit, mediaType })
+      : await source.list({ cursor, limit, mediaType });
+    return { ...result, items: result.items.map((m) => resolveMediaPoster(m, "small")) };
   });
 
 /**
@@ -126,7 +150,7 @@ export const getSamplesForHomepage = createServerFn({ method: "GET" }).handler(a
     [samples[i], samples[j]] = [samples[j], samples[i]];
   }
 
-  return samples;
+  return samples.map((m) => resolveMediaPoster(m, "detail"));
 });
 
 // ─── Server-side media detail cache ──────────────────────────────────────────
@@ -209,7 +233,7 @@ export const getMedia = createServerFn({ method: "GET" })
       itemSeasons.length === 0 || itemSeasons.every((s, i) => s.seasonNumber === i + 1);
 
     const result: MediaDetail = {
-      ...items[0],
+      ...resolveMediaPoster(items[0], "detail"),
       genres: itemGenres.map((g) => ({
         id: g.id,
         slug: g.slug,

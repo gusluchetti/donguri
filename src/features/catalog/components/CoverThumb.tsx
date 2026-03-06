@@ -19,11 +19,8 @@ const loadedUrls = new Set<string>();
  * - **Large** (size > 60): 2/3 aspect card for cover grids, deeper gradient,
  *   bigger watermark letter, heavier inner shadow.
  *
- * Uses a single w342 TMDB size for all views — CSS object-cover downscales cleanly,
- * and one URL per poster means one browser cache entry.
- *
- * The gradient placeholder is always rendered — the poster image fades in on top
- * once loaded, so there's never a blank flash.
+ * Poster URLs are stored as full CDN URLs at smallest size (TMDB w92, AniList
+ * medium, IGDB cover_small). The server upsizes for detail contexts only.
  */
 
 type CoverThumbProps = {
@@ -147,7 +144,7 @@ export function CoverThumb({
             loading={loading}
             onLoad={onImageLoad}
             className="absolute inset-0 w-full h-full object-cover rounded"
-            style={{ opacity: loaded ? 1 : 0, transition: "opacity 50ms ease-in" }}
+            style={{ opacity: loaded ? 1 : 0, transition: "opacity 200ms ease-in" }}
           />
         )}
       </div>
@@ -190,7 +187,7 @@ export function CoverThumb({
           loading={loading}
           onLoad={onImageLoad}
           className="absolute inset-0 w-full h-full object-cover rounded-[3px]"
-          style={{ opacity: loaded ? 1 : 0, transition: "opacity 50ms ease-in" }}
+          style={{ opacity: loaded ? 1 : 0, transition: "opacity 200ms ease-in" }}
         />
       )}
     </div>

@@ -2,6 +2,7 @@ import { ArrowLeft, Check, Shuffle } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
+import { Button } from "~/components/Button";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
@@ -165,14 +166,14 @@ export function OnboardingFlow() {
             })}
           </div>
 
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={handleNext}
             disabled={selectedTypes.size === 0}
-            className="mt-8 w-full bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-3 transition-all duration-50 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            className="mt-8 w-full py-3"
           >
             Next
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -206,14 +207,15 @@ export function OnboardingFlow() {
               Stamp what you've seen
             </h2>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="compact"
             onClick={handleShuffle}
-            className="flex items-center gap-1.5 text-[0.75rem] text-dg-text-secondary bg-dg-surface border border-dg-border rounded-sm px-3 py-1.5 cursor-pointer hover:border-dg-border-strong transition-all duration-50 font-body shrink-0 mt-6"
+            className="shrink-0 mt-6"
           >
             <Shuffle size={14} weight="bold" />
             Shuffle
-          </button>
+          </Button>
         </div>
         <p className="text-[0.8rem] text-dg-text-secondary mb-5">
           Tap titles you've already watched or played. These will be added to your catalog.
@@ -287,18 +289,18 @@ export function OnboardingFlow() {
             <span className="text-[0.8rem] text-dg-text-secondary tabular-nums">
               {selectedIds.size} selected
             </span>
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={() => mutation.mutate()}
               disabled={selectedIds.size === 0 || isSaving}
-              className="bg-dg-accent text-white font-body text-[0.85rem] rounded-sm px-5 py-2.5 transition-all duration-50 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer min-w-[140px] text-center"
+              className="min-w-[140px] text-center"
             >
               {isSaving ? (
                 <span className="dg-ellipsis">Saving</span>
               ) : (
                 `Add ${selectedIds.size} title${selectedIds.size === 1 ? "" : "s"}`
               )}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

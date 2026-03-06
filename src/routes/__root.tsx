@@ -25,6 +25,9 @@ import { clear } from "idb-keyval";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import type { SessionData } from "~/features/auth/auth.functions";
 import "../app.css";
+import { Button } from "~/components/Button";
+import { IconButton } from "~/components/IconButton";
+import { LinkButton } from "~/components/LinkButton";
 import { NavProgress } from "~/components/NavProgress";
 import { logout } from "~/features/auth/auth.functions";
 import { authOptions, themeOptions } from "~/features/auth/auth.queries";
@@ -68,6 +71,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "apple-touch-icon", href: "/icon-192.png" },
       { rel: "preconnect", href: "https://image.tmdb.org", crossOrigin: "anonymous" },
       { rel: "preconnect", href: "https://s4.anilist.co", crossOrigin: "anonymous" },
+      { rel: "preconnect", href: "https://images.igdb.com", crossOrigin: "anonymous" },
     ],
   }),
   beforeLoad: async ({ context }) => {
@@ -107,7 +111,7 @@ function RootDocument({ children, theme }: { children: ReactNode; theme: string 
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
-      <body className="bg-dg-bg m-0 p-0">
+      <body className="font-body bg-dg-bg m-0 p-0">
         <BackgroundLayers />
         {children}
         <Scripts />
@@ -156,6 +160,10 @@ function RootComponent() {
     };
   }, []);
 
+  useEffect(() => {
+    if (import.meta.env.DEV) import("react-grab");
+  }, []);
+
   // Global error handler: stale deploys + expired AT Protocol sessions
   useEffect(() => {
     const onError = (e: PromiseRejectionEvent) => {
@@ -195,7 +203,7 @@ function RootComponent() {
                 borderBottom: "1px solid var(--color-dg-border-subtle)",
               }}
             >
-              <div className="max-w-[1100px] mx-auto px-3 sm:px-g3 flex items-center justify-between h-12">
+              <div className="max-w-[1100px] mx-auto px-g2 sm:px-g3 flex items-center justify-between h-12">
                 <div className="flex items-center gap-1 sm:gap-g1">
                   <Link
                     to="/"
@@ -224,52 +232,43 @@ function RootComponent() {
                     <>
                       <Link
                         to="/profile"
-                        className="text-xs text-dg-accent mr-2 no-underline hover:opacity-70 transition-opacity"
+                        className="text-xs text-dg-accent mr-2 no-underline hover:text-dg-accent transition-colors"
                         onClick={() => SoundEngine.click()}
                       >
                         {auth.authMethod === "atproto" ? `@${auth.handle}` : auth.handle}
                       </Link>
-                      <div
-                        className="mx-1"
-                        style={{
-                          width: 1,
-                          height: 16,
-                          background: "var(--color-dg-border)",
-                        }}
-                      />
-                      <button
-                        type="button"
-                        className="bg-transparent border border-dg-border rounded-[3px] py-1 px-2 text-xs text-dg-text-tertiary font-body cursor-pointer transition-all duration-50 hover:border-dg-border-strong hover:text-dg-text-secondary active:scale-[0.97] active:opacity-80"
-                        onClick={handleLogout}
-                      >
+                      <div className="mx-1 w-px h-4 bg-dg-border" />
+                      <Button variant="ghost" size="compact" onClick={handleLogout}>
                         logout
-                      </button>
+                      </Button>
                     </>
                   ) : (
                     <>
                       <SoundToggle />
                       <ThemeToggle />
-                      <Link
+                      <LinkButton
                         to="/login"
-                        className="hidden sm:inline text-xs text-dg-accent font-body no-underline border border-dg-accent/30 rounded-[3px] py-1 px-3 hover:border-dg-accent/60 transition-all duration-50 active:scale-[0.97] active:opacity-80"
+                        variant="accent"
+                        size="compact"
+                        className="hidden sm:inline-flex"
                         onClick={() => SoundEngine.click()}
                       >
                         sign in
-                      </Link>
+                      </LinkButton>
                     </>
                   )}
                 </div>
               </div>
             </nav>
             <Outlet />
-            <footer className="hidden sm:block border-t border-dg-border-subtle px-g3 py-3 font-body shrink-0">
+            <footer className="hidden sm:block border-t border-dg-border-subtle px-g3 py-g1 font-body shrink-0">
               <div className="max-w-[1100px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[0.7rem] text-dg-text-tertiary">
                 <span className="flex items-center gap-2">
                   <span>v2026.02.27</span>
                   <button
                     type="button"
                     onClick={() => setShowHelp(true)}
-                    className="text-dg-text-tertiary hover:text-dg-text-secondary bg-transparent border-none font-body cursor-pointer p-0 text-[0.7rem] transition-colors active:opacity-80"
+                    className="dg-press text-dg-text-tertiary hover:text-dg-text-secondary bg-transparent border-none font-body p-0 text-[0.7rem]"
                   >
                     shortcuts (?)
                   </button>
@@ -408,16 +407,12 @@ function RootError({ error, reset }: ErrorComponentProps) {
             <p className="font-display text-[2rem] font-normal text-dg-anime mb-2">error</p>
             <p className="text-[0.9rem] text-dg-text-secondary mb-6">Something went wrong.</p>
             <div className="flex items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={reset}
-                className="text-[0.85rem] text-dg-accent font-body bg-transparent py-2 px-4 border border-dg-accent/20 rounded-sm cursor-pointer transition-all duration-50"
-              >
+              <Button variant="accent" onClick={reset}>
                 Try again
-              </button>
+              </Button>
               <a
                 href="/"
-                className="text-[0.85rem] text-dg-text-secondary no-underline py-2 px-4 border border-dg-border-subtle rounded-sm transition-all duration-50"
+                className="dg-press inline-flex items-center justify-center font-body text-[0.85rem] text-dg-text-secondary no-underline py-2 px-4 border border-dg-border-subtle rounded-sm"
               >
                 Go home
               </a>
@@ -432,16 +427,13 @@ function RootError({ error, reset }: ErrorComponentProps) {
 
 function NotFound() {
   return (
-    <div className="text-dg-text flex-1 font-body flex items-center justify-center">
+    <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body flex items-center justify-center">
       <div className="text-center px-4 py-16">
         <p className="font-display text-[2rem] font-normal text-dg-accent mb-2">404</p>
         <p className="text-[0.9rem] text-dg-text-secondary mb-6">Page not found.</p>
-        <Link
-          to="/"
-          className="text-[0.85rem] text-dg-accent no-underline py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-50"
-        >
+        <LinkButton to="/" variant="accent">
           Go home
-        </Link>
+        </LinkButton>
       </div>
     </div>
   );
@@ -460,7 +452,7 @@ function NavButton({
     <Link
       to={to}
       activeOptions={{ exact }}
-      className="no-underline font-body text-xs tracking-[0.06em] uppercase rounded-[3px] py-[5px] px-2 sm:px-3 transition-all duration-50 border relative active:scale-[0.97] active:opacity-80"
+      className="dg-press no-underline font-body text-xs tracking-[0.06em] uppercase rounded-sm py-[5px] px-2 sm:px-3 border relative"
       activeProps={{
         className: "bg-dg-accent-soft border-dg-accent text-dg-accent font-semibold",
       }}
@@ -478,22 +470,22 @@ function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <button
-      type="button"
+    <IconButton
+      size="nav"
+      variant="ghost"
       onClick={toggleTheme}
-      className="bg-transparent border border-dg-border rounded-[3px] py-1.5 px-2.5 sm:py-1 sm:px-2 text-xs text-dg-text-secondary cursor-pointer transition-all duration-50 hover:border-dg-border-strong flex items-center active:scale-[0.97] active:opacity-80"
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
       title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
     >
       {theme === "dark" ? <Sun size={13} weight="bold" /> : <Moon size={13} weight="bold" />}
-    </button>
+    </IconButton>
   );
 }
 
 function BottomNav() {
   const { auth } = Route.useRouteContext();
   const base =
-    "flex-1 flex flex-col items-center justify-center gap-0.5 no-underline py-2 transition-colors duration-50 active:scale-95 active:opacity-60";
+    "flex-1 flex flex-col items-center justify-center gap-0.5 no-underline py-2 transition-colors duration-50 active:scale-95 active:opacity-80";
   const active = { className: `${base} text-dg-accent` };
   const inactive = { className: `${base} text-dg-text-tertiary` };
 
@@ -555,19 +547,19 @@ function SoundToggle() {
   }, []);
 
   return (
-    <button
-      type="button"
+    <IconButton
+      size="nav"
+      variant="ghost"
       onClick={() => {
         const next = SoundEngine.toggle();
         setOn(next);
         if (next) SoundEngine.toggleOn();
       }}
-      className="bg-transparent border border-dg-border rounded-[3px] py-1.5 px-2.5 sm:py-1 sm:px-2 text-xs cursor-pointer transition-all duration-50 hover:border-dg-border-strong flex items-center active:scale-[0.97] active:opacity-80"
       style={{ color: on ? "var(--color-dg-text-secondary)" : "var(--color-dg-text-tertiary)" }}
       aria-label={on ? "Mute sounds" : "Unmute sounds"}
       title={on ? "Mute sounds" : "Unmute sounds"}
     >
       {on ? <SpeakerHigh size={13} weight="bold" /> : <SpeakerNone size={13} weight="bold" />}
-    </button>
+    </IconButton>
   );
 }
