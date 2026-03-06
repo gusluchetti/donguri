@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "@fontsource-variable/fraunces/full.css";
-@import "@fontsource-variable/dm-sans";
+@import "@fontsource-variable/bricolage-grotesque";
 /* CMU Typewriter Text — only regular weight to keep bundle small */
 @font-face {
   font-family: "CMU Typewriter Text";
@@ -39,7 +39,7 @@ textarea {
 
 @theme {
   --font-display: "Fraunces", Georgia, serif;
-  --font-body: "DM Sans", system-ui, sans-serif;
+  --font-body: "Bricolage Grotesque Variable", "Bricolage Grotesque", sans-serif;
   --font-mono: "CMU Typewriter Text", "SF Mono", "Fira Code", monospace;
 
   /* Spacing — 8px grid */

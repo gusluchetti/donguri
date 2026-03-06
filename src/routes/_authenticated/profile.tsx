@@ -109,7 +109,7 @@ function ProfileHeader({
           <span className="font-display text-[1.5rem] leading-tight truncate">{user.handle}</span>
           <div className="flex items-center gap-2 flex-wrap">
             <span
-              className="inline-block font-body text-[8px] font-bold tracking-[0.12em] uppercase rounded-[1px] whitespace-nowrap"
+              className="inline-block font-mono text-[8px] font-bold tracking-[0.12em] uppercase rounded-[1px] whitespace-nowrap"
               style={{
                 color: "var(--color-dg-text-tertiary)",
                 border: "1px solid var(--color-dg-border)",

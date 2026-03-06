@@ -33,7 +33,7 @@ export function StatusBadge({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1 font-body font-bold tracking-[0.08em] uppercase rounded-[2px] whitespace-nowrap relative"
+      className="inline-flex items-center gap-1 font-mono font-bold tracking-[0.08em] uppercase rounded-[2px] whitespace-nowrap relative"
       style={{
         fontSize: compact ? "9px" : "0.6875rem",
         color,
