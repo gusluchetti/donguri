@@ -156,6 +156,10 @@ function RootComponent() {
     };
   }, []);
 
+  useEffect(() => {
+    if (import.meta.env.DEV) import("react-grab");
+  }, []);
+
   // Global error handler: stale deploys + expired AT Protocol sessions
   useEffect(() => {
     const onError = (e: PromiseRejectionEvent) => {
