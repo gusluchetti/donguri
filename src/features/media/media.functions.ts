@@ -16,9 +16,12 @@ import { getSessionData } from "~/features/auth/auth.session";
 import { getMediaSource } from "./media-source";
 import { getCacheArrays } from "./popular-cache";
 
-type PosterSize = "small" | "detail";
+export type PosterSize = "small" | "detail";
 
-function resolveMediaPoster<T extends { posterUrl: string | null }>(item: T, size: PosterSize): T {
+export function resolveMediaPoster<T extends { posterUrl: string | null }>(
+  item: T,
+  size: PosterSize,
+): T {
   const url = item.posterUrl;
   if (!url || size === "small") return item;
 

@@ -18,6 +18,7 @@ import {
   type RunWatchedEpisodes,
   ratingColor,
   replayCountLabel,
+  STAMP_COLORS,
   STATUS_LABELS_GENERIC,
   STATUS_ORDER,
   type StatusValue,
@@ -466,6 +467,9 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
 function WatchlistListItem({ item, index }: { item: CatalogEntryRow; index: number }) {
   const pos = episodePosition(item);
   const replay = replayCountLabel(item.replayCount, item.mediaType ?? undefined);
+  const typeColor =
+    STAMP_COLORS[displayMediaType(item.mediaType ?? "", item.animationOrigin)] ??
+    "var(--color-dg-accent)";
 
   return (
     <Link
@@ -475,11 +479,14 @@ function WatchlistListItem({ item, index }: { item: CatalogEntryRow; index: numb
       className="flex items-center gap-3 px-3 sm:px-g3 py-3 sm:py-2.5 no-underline text-inherit transition-all duration-50 relative group hover:bg-dg-row-hover hover:translate-x-[3px]"
       onClick={() => SoundEngine.navForward()}
       onMouseEnter={() => SoundEngine.tick()}
-      style={{
-        animation: `fadeIn 50ms var(--ease-smooth) both ${index * 8}ms`,
-      }}
+      style={
+        {
+          animation: `fadeIn 50ms var(--ease-smooth) both ${index * 8}ms`,
+          "--line-color": typeColor,
+        } as React.CSSProperties
+      }
     >
-      <div className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm bg-transparent group-hover:bg-dg-accent transition-all duration-50 group-hover:shadow-[0_0_8px_rgba(232,112,46,0.3)]" />
+      <div className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm bg-transparent group-hover:bg-[var(--line-color)] transition-all duration-50 group-hover:shadow-[0_0_8px_var(--line-color)]" />
       <StampBadge
         type={displayMediaType(item.mediaType ?? "", item.animationOrigin)}
         index={index}
