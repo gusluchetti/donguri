@@ -4,6 +4,7 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "~/components/Button";
 import { Spinner } from "~/components/Spinner";
 import type { CatalogEntry } from "~/db/schema";
 import { getCatalogEntry, setCatalogEntry } from "~/features/catalog/catalog.functions";
@@ -192,7 +193,7 @@ function StatusButtons({
               "dg-press relative flex items-center justify-center gap-1 text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-body flex-1 min-w-fit",
               isActive
                 ? colorClass
-                : `${STATUS_BUTTON_INACTIVE[s]} text-dg-text-secondary bg-transparent`,
+                : `${STATUS_BUTTON_INACTIVE[s]} text-dg-text-secondary bg-transparent hover:brightness-110`,
             )}
             style={{
               animation:
@@ -360,13 +361,6 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
     onChange(Math.min(100, Math.max(0, parsed)));
   };
 
-  const handleDoubleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!isPending && value != null) {
-      onChange(null);
-    }
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (isPending) return;
     const step = e.shiftKey ? 10 : 1;
@@ -457,8 +451,7 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
                 fill={color}
                 className="font-mono tabular-nums"
                 style={{ fontSize: size * 0.3, cursor: "pointer", pointerEvents: "auto" }}
-                onClick={startEditing}
-                onDoubleClick={handleDoubleClick}
+                onDoubleClick={startEditing}
               >
                 {value != null ? value : "\u2014"}
               </text>
@@ -549,34 +542,25 @@ function TrackingSaveBar({
 
   return (
     <div className="flex items-center justify-between pt-3 mt-4 border-t border-dg-border-subtle">
-      <button
-        type="button"
+      <Button
+        variant={isDirty ? "accent" : "secondary"}
+        size="compact"
         onClick={onSave}
         disabled={actionState === "pending" || !isDirty}
-        className={cn(
-          "dg-press text-[0.75rem] font-body rounded-sm border px-3 py-1 bg-transparent",
-          actionState === "pending"
-            ? "border-dg-accent/50 text-dg-accent/70"
-            : actionState === "error"
-              ? "border-dg-anime/40 text-dg-anime"
-              : isDirty
-                ? "border-dg-accent text-dg-accent bg-dg-accent/10"
-                : "border-dg-border-subtle text-dg-text-tertiary opacity-50",
-        )}
         title="Save changes"
       >
         {saveLabel}
-      </button>
+      </Button>
       {hasServerEntry && (
-        <button
-          type="button"
+        <Button
+          variant="danger"
+          size="compact"
           onClick={onRemove}
           disabled={actionState === "pending"}
-          className="dg-press text-[0.75rem] font-body rounded-sm border border-dg-border-subtle text-dg-text-tertiary bg-transparent px-3 py-1 hover:text-dg-anime hover:border-dg-anime/40"
           title="Remove from list"
         >
           delete
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -837,14 +821,25 @@ export function TrackingPanel({
     localStatus === "in_progress" || localStatus === "completed" || localStatus === "mastered";
 
   return (
-    <div className={wrapperClass}>
+    <div className={`${wrapperClass} relative`}>
+      {localStatus && (
+        <button
+          type="button"
+          onClick={() => setLocalIsFavorite(!localIsFavorite)}
+          className={cn(
+            "dg-press absolute top-[clamp(8px,2%,16px)] right-[clamp(8px,2%,16px)] z-10 flex items-center bg-transparent border-none p-1",
+            localIsFavorite
+              ? "text-dg-accent hover:text-dg-accent/80"
+              : "text-dg-text-tertiary hover:text-dg-accent/60",
+          )}
+          title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
+        >
+          <Star size={18} weight={localIsFavorite ? "fill" : "regular"} />
+        </button>
+      )}
       <div className="flex flex-wrap" style={{ gap: "clamp(8px, 2%, 16px)" }}>
         {/* Left column: controls */}
         <div style={{ flex: "1 1 280px", minWidth: 0 }}>
-          <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider m-0 mb-3">
-            Status
-          </h3>
-
           <StatusButtons
             statuses={statuses}
             localStatus={localStatus}
@@ -871,23 +866,10 @@ export function TrackingPanel({
                     max={today}
                     onChange={(e) => setLocalWatchedAt(e.target.value || null)}
                     disabled={isPending}
-                    className="text-[0.8rem] font-mono bg-dg-bg border border-dg-border rounded-sm px-2 py-1.5 text-dg-text outline-none focus:border-dg-accent transition-colors disabled:opacity-50"
+                    className="text-[0.8rem] font-mono bg-dg-bg border border-dg-border rounded-sm px-2 py-1.5 text-dg-text outline-none focus:border-dg-accent hover:border-dg-border-strong transition-colors disabled:opacity-50"
                   />
                 )}
                 <ReplayBadge replayCount={localReplayCount} mediaType={mediaType} />
-                <button
-                  type="button"
-                  onClick={() => setLocalIsFavorite(!localIsFavorite)}
-                  className={cn(
-                    "dg-press flex items-center bg-transparent border-none p-1",
-                    localIsFavorite
-                      ? "text-dg-accent"
-                      : "text-dg-text-tertiary hover:text-dg-accent/60",
-                  )}
-                  title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
-                >
-                  <Star size={16} weight={localIsFavorite ? "fill" : "regular"} />
-                </button>
               </div>
             </>
           )}

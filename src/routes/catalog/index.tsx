@@ -702,7 +702,7 @@ const MediaRow = memo(function MediaRow({
             </span>
             {trackedStatus && (
               <span
-                className={`text-[0.58rem] font-body font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none inline-flex items-center ${STATUS_BUTTON_COLORS[trackedStatus as StatusValue] ?? ""}`}
+                className={`text-[0.58rem] font-body font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none flex items-center justify-center ${STATUS_BUTTON_COLORS[trackedStatus as StatusValue] ?? ""}`}
               >
                 <StatusIcon status={trackedStatus as StatusValue} size={9} />
               </span>
@@ -730,7 +730,7 @@ const MediaRow = memo(function MediaRow({
 
       {showAdd && (
         <div
-          className={`shrink-0 overflow-hidden transition-[width] duration-50 h-full flex items-center ${panelOpen ? "w-10" : "w-0 group-hover:w-10"}`}
+          className={`shrink-0 overflow-hidden transition-[width] duration-150 ease-out h-full flex items-center ${panelOpen ? "w-10" : "w-0 group-hover:w-10"}`}
         >
           <div
             className="w-10 h-full flex items-center justify-center"

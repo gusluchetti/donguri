@@ -69,7 +69,7 @@ function SeriesBar({
           <button
             type="button"
             key={s.id}
-            className="h-full relative cursor-pointer border-none p-0 bg-transparent"
+            className="h-full relative cursor-pointer border-none p-0 bg-transparent hover:brightness-110"
             style={{ flex: epCount / totalEps }}
             onClick={() => onSeasonClick?.(s.seasonNumber)}
             title={`S${String(s.seasonNumber).padStart(2, "0")} — ${w}/${epCount}`}
@@ -472,7 +472,7 @@ function SeasonCarousel({
                       setTimeout(() => setSlideDir(null), 200);
                     }
                   }}
-                  className={`rounded-full border-none p-0 cursor-pointer transition-all duration-150 ${isActive ? "h-2 w-5 flex items-center justify-center" : "w-2 h-2"}`}
+                  className={`rounded-full border-none p-0 cursor-pointer transition-all duration-150 ${isActive ? "h-2 w-5 flex items-center justify-center" : "w-2 h-2 hover:opacity-80"}`}
                   style={{
                     background: isActive ? "var(--color-dg-accent)" : "var(--color-dg-border)",
                   }}

@@ -71,6 +71,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "apple-touch-icon", href: "/icon-192.png" },
       { rel: "preconnect", href: "https://image.tmdb.org", crossOrigin: "anonymous" },
       { rel: "preconnect", href: "https://s4.anilist.co", crossOrigin: "anonymous" },
+      { rel: "preconnect", href: "https://images.igdb.com", crossOrigin: "anonymous" },
     ],
   }),
   beforeLoad: async ({ context }) => {
@@ -110,7 +111,7 @@ function RootDocument({ children, theme }: { children: ReactNode; theme: string 
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
-      <body className="bg-dg-bg m-0 p-0">
+      <body className="font-body bg-dg-bg m-0 p-0">
         <BackgroundLayers />
         {children}
         <Scripts />
