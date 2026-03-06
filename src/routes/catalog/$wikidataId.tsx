@@ -568,7 +568,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               {data.description}
             </p>
           )}
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5 min-[420px]:mt-auto">
             {externalLinks.map((link) => (
               <a
                 key={link.label}

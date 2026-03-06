@@ -836,7 +836,7 @@ export function TrackingPanel({
       )}
       <div className="flex flex-wrap" style={{ gap: "clamp(8px, 2%, 16px)" }}>
         {/* Left column: controls */}
-        <div style={{ flex: "1 1 280px", minWidth: 0 }}>
+        <div style={{ flex: "1 1 280px", minWidth: 0 }} className={localStatus ? "pr-8" : ""}>
           <StatusButtons
             statuses={statuses}
             localStatus={localStatus}
