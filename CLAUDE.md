@@ -180,8 +180,8 @@ TWITCH_CLIENT_SECRET=  # Twitch app client secret (for IGDB)
 ## Frontend Aesthetics
 
 Dark/light theme toggle with warm, earthy tones (donguri = acorn in Japanese).
-DM Mono for a technical, catalog-like feel (pairs with DM Sans body font).
-Amber/ochre accent (#d4a44a) on dark background (#0f0e0c).
+Three font families: Fraunces (display serif for titles), Bricolage Grotesque (body sans-serif), CMU Typewriter Text (mono for data, badges, dates).
+Amber/ochre accent (#e8702e) on dark background (#060e13).
 Type badges color-coded: movie (copper), TV (teal), anime (rose), game (sage).
 
 Avoid generic AI design patterns. Be creative but restrained — this is a data-dense catalog, not a marketing page.

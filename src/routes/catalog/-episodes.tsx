@@ -69,7 +69,7 @@ function SeriesBar({
           <button
             type="button"
             key={s.id}
-            className="h-full relative cursor-pointer border-none p-0 bg-transparent"
+            className="h-full relative cursor-pointer border-none p-0 bg-transparent hover:brightness-110"
             style={{ flex: epCount / totalEps }}
             onClick={() => onSeasonClick?.(s.seasonNumber)}
             title={`S${String(s.seasonNumber).padStart(2, "0")} — ${w}/${epCount}`}
@@ -472,7 +472,7 @@ function SeasonCarousel({
                       setTimeout(() => setSlideDir(null), 200);
                     }
                   }}
-                  className={`rounded-full border-none p-0 cursor-pointer transition-all duration-150 ${isActive ? "h-2 w-5 flex items-center justify-center" : "w-2 h-2"}`}
+                  className={`rounded-full border-none p-0 cursor-pointer transition-all duration-150 ${isActive ? "h-2 w-5 flex items-center justify-center" : "w-2 h-2 hover:opacity-80"}`}
                   style={{
                     background: isActive ? "var(--color-dg-accent)" : "var(--color-dg-border)",
                   }}
@@ -753,9 +753,9 @@ export function EpisodeTracker({
         <button
           type="button"
           onClick={() => setEpisodeDate(today)}
-          className={`text-[0.65rem] font-mono border rounded-sm px-2 py-1 cursor-pointer transition-all duration-50 active:scale-[0.97] ${
+          className={`dg-press text-[0.65rem] font-mono border rounded-sm px-2 py-1 ${
             episodeDate === today
-              ? "border-dg-border-subtle text-dg-text-tertiary bg-transparent opacity-40 cursor-default"
+              ? "border-dg-border-subtle text-dg-text-tertiary bg-transparent opacity-40"
               : "border-dg-accent/30 text-dg-accent bg-transparent hover:bg-dg-accent/5"
           }`}
           disabled={episodeDate === today}

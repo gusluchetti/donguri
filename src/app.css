@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "@fontsource-variable/fraunces/full.css";
-@import "@fontsource-variable/dm-sans";
+@import "@fontsource-variable/bricolage-grotesque";
 /* CMU Typewriter Text — only regular weight to keep bundle small */
 @font-face {
   font-family: "CMU Typewriter Text";
@@ -22,6 +22,13 @@ img {
   filter: var(--img-filter);
 }
 
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
 .scrollbar-hide {
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -32,7 +39,7 @@ img {
 
 @theme {
   --font-display: "Fraunces", Georgia, serif;
-  --font-body: "DM Sans", system-ui, sans-serif;
+  --font-body: "Bricolage Grotesque Variable", "Bricolage Grotesque", sans-serif;
   --font-mono: "CMU Typewriter Text", "SF Mono", "Fira Code", monospace;
 
   /* Spacing — 8px grid */
@@ -99,7 +106,7 @@ img {
   :root {
     --topo-color: rgba(40, 185, 242, 0.07);
     --grid-color: rgba(40, 185, 242, 0.042);
-    --noise-opacity: 0.15;
+    --noise-opacity: 0.2;
     --grain-blend: soft-light;
     --nav-bg: rgba(6, 14, 19, 0.94);
     --stamp-bg: rgba(255, 255, 255, 0.02);
@@ -146,7 +153,7 @@ img {
 
     --topo-color: rgba(184, 78, 24, 0.05);
     --grid-color: rgba(184, 78, 24, 0.035);
-    --noise-opacity: 0.4;
+    --noise-opacity: 0.28;
     --grain-blend: multiply;
     --nav-bg: rgba(236, 232, 222, 0.92);
     --stamp-bg: rgba(0, 0, 0, 0.02);
@@ -155,6 +162,19 @@ img {
       transparent 30%,
       var(--color-dg-bg) 100%
     );
+  }
+
+  .dg-press {
+    cursor: pointer;
+    transition: all 50ms;
+    &:active:not(:disabled) {
+      transform: scale(0.97);
+      opacity: 0.8;
+    }
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
   }
 }
 
@@ -449,6 +469,12 @@ img {
   }
   100% {
     transform: scaleX(0.95);
+  }
+}
+
+@keyframes dg-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 

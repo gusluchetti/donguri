@@ -23,7 +23,7 @@ export function HelpOverlay({ open, onClose }: { open: boolean; onClose: () => v
           <button
             type="button"
             onClick={onClose}
-            className="text-dg-text-tertiary hover:text-dg-text-secondary bg-transparent border-none cursor-pointer text-lg p-2 -m-2 transition-colors"
+            className="dg-press text-dg-text-tertiary hover:text-dg-text-secondary bg-transparent border-none text-lg p-2 -m-2"
           >
             &times;
           </button>
