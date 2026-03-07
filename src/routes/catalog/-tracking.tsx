@@ -817,78 +817,78 @@ export function TrackingPanel({
   const showRating =
     localStatus === "in_progress" || localStatus === "completed" || localStatus === "mastered";
 
+  const showReplay = localStatus === "completed" || localStatus === "mastered";
+
   return (
-    <div className={`${wrapperClass} relative`}>
-      {localStatus && (
-        <button
-          type="button"
-          onClick={() => setLocalIsFavorite(!localIsFavorite)}
-          className={cn(
-            "dg-press absolute top-[clamp(8px,2%,16px)] right-[clamp(8px,2%,16px)] z-10 flex items-center bg-transparent border-none p-1",
-            localIsFavorite
-              ? "text-dg-accent hover:text-dg-accent/80"
-              : "text-dg-text-tertiary hover:text-dg-accent/60",
-          )}
-          title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
-        >
-          <Star size={18} weight={localIsFavorite ? "fill" : "regular"} />
-        </button>
-      )}
-      <div className="flex flex-wrap" style={{ gap: "clamp(8px, 2%, 16px)" }}>
-        {/* Left column: controls */}
-        <div style={{ flex: "1 1 280px", minWidth: 0 }} className={localStatus ? "pr-8" : ""}>
-          <StatusButtons
-            statuses={statuses}
-            localStatus={localStatus}
-            localReplayCount={localReplayCount}
-            statusAnimating={statusAnimating}
-            isPending={isPending}
-            mediaType={mediaType}
-            onStatusChange={handleStatusChange}
+    <div className={wrapperClass}>
+      <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider m-0 mb-2">
+        Status
+      </h3>
+      <StatusButtons
+        statuses={statuses}
+        localStatus={localStatus}
+        localReplayCount={localReplayCount}
+        statusAnimating={statusAnimating}
+        isPending={isPending}
+        mediaType={mediaType}
+        onStatusChange={handleStatusChange}
+      />
+
+      {localStatus && isMovie && setLocalWatchedAt && (
+        <div className="mt-4">
+          <p className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider m-0 mb-1.5">
+            Watched on
+          </p>
+          <input
+            type="date"
+            value={localWatchedAt ?? ""}
+            max={today}
+            onChange={(e) => setLocalWatchedAt(e.target.value || null)}
+            disabled={isPending}
+            className="text-[0.8rem] font-mono bg-dg-bg border border-dg-border rounded-sm px-2 py-1.5 text-dg-text outline-none focus:border-dg-accent hover:border-dg-border-strong transition-colors disabled:opacity-50"
           />
-
-          {localStatus && (
-            <>
-              <hr className="dg-separator" />
-              {isMovie && setLocalWatchedAt && (
-                <p className="text-[0.6rem] text-dg-text-tertiary uppercase tracking-wider m-0 mb-1.5">
-                  Watched on
-                </p>
-              )}
-              <div className="flex items-center gap-g1 flex-wrap">
-                {isMovie && setLocalWatchedAt && (
-                  <input
-                    type="date"
-                    value={localWatchedAt ?? ""}
-                    max={today}
-                    onChange={(e) => setLocalWatchedAt(e.target.value || null)}
-                    disabled={isPending}
-                    className="text-[0.8rem] font-mono bg-dg-bg border border-dg-border rounded-sm px-2 py-1.5 text-dg-text outline-none focus:border-dg-accent hover:border-dg-border-strong transition-colors disabled:opacity-50"
-                  />
-                )}
-                <ReplayBadge replayCount={localReplayCount} mediaType={mediaType} />
-              </div>
-            </>
-          )}
-
-          {children && <div className="mt-4">{children}</div>}
         </div>
+      )}
 
-        {/* Rating column: wraps below when narrow */}
-        {showRating && (
-          <div
-            style={{ flex: "0 0 160px" }}
-            className="flex items-center justify-center self-center mx-auto"
+      {localStatus && (
+        <div className="flex items-center gap-2 mt-4">
+          <span className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider">
+            Favorite
+          </span>
+          <button
+            type="button"
+            onClick={() => setLocalIsFavorite(!localIsFavorite)}
+            className={cn(
+              "dg-press flex items-center bg-transparent border-none p-1",
+              localIsFavorite
+                ? "text-dg-accent hover:text-dg-accent/80"
+                : "text-dg-text-tertiary hover:text-dg-accent/60",
+            )}
+            title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
           >
-            <RatingKnob
-              value={localRating}
-              isPending={isPending}
-              ratingMode={ratingMode}
-              onChange={setLocalRating}
-            />
-          </div>
-        )}
-      </div>
+            <Star size={18} weight={localIsFavorite ? "fill" : "regular"} />
+          </button>
+        </div>
+      )}
+
+      {showRating && (
+        <div className="flex justify-center mt-4">
+          <RatingKnob
+            value={localRating}
+            isPending={isPending}
+            ratingMode={ratingMode}
+            onChange={setLocalRating}
+          />
+        </div>
+      )}
+
+      {showReplay && (
+        <div className="mt-4">
+          <ReplayBadge replayCount={localReplayCount} mediaType={mediaType} />
+        </div>
+      )}
+
+      {children && <div className="mt-4">{children}</div>}
 
       {localStatus && (
         <TrackingSaveBar

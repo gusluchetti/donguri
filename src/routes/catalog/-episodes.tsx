@@ -608,7 +608,7 @@ export function EpisodeTracker({
     return (
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[0.65rem] text-dg-text-tertiary uppercase tracking-wider m-0">
+          <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider m-0">
             Episodes
           </h3>
           {totalEps > 0 && (
@@ -662,7 +662,7 @@ export function EpisodeTracker({
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[0.7rem] text-dg-text-secondary uppercase tracking-wider m-0">
+        <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider m-0">
           Episodes
         </h3>
         <span className="text-[0.7rem] text-dg-text-secondary tabular-nums font-mono">
