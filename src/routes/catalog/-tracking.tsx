@@ -1,10 +1,11 @@
-import { Check, Compass, Pause, Play, Seal, Star, X } from "@phosphor-icons/react";
+import { Check, Compass, Minus, Pause, Play, Seal, Star, X } from "@phosphor-icons/react";
 import type { Hotkey } from "@tanstack/hotkeys";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "~/components/Button";
+import { IconButton } from "~/components/IconButton";
 import { Spinner } from "~/components/Spinner";
 import type { CatalogEntry } from "~/db/schema";
 import { getCatalogEntry, setCatalogEntry } from "~/features/catalog/catalog.functions";
@@ -882,9 +883,17 @@ export function TrackingPanel({
         </div>
       )}
 
-      {showReplay && (
-        <div className="mt-4">
+      {showReplay && localReplayCount > 0 && (
+        <div className="flex items-center gap-2 mt-4">
           <ReplayBadge replayCount={localReplayCount} mediaType={mediaType} />
+          <IconButton
+            variant="ghost"
+            size="compact"
+            onClick={() => setLocalReplayCount(Math.max(0, localReplayCount - 1))}
+            title="Decrement replay count"
+          >
+            <Minus size={14} weight="bold" />
+          </IconButton>
         </div>
       )}
 

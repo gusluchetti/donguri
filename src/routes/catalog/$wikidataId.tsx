@@ -4,7 +4,6 @@ import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "~/components/Button";
-import { IconButton } from "~/components/IconButton";
 import { InfoCard } from "~/components/InfoCard";
 import { LinkButton } from "~/components/LinkButton";
 import { Spinner } from "~/components/Spinner";
@@ -13,6 +12,7 @@ import { catalogEntryOptions, trackedIdsOptions } from "~/features/catalog/catal
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
+import { GenreChips } from "~/features/media/components/GenreChips";
 import { PlatformChips } from "~/features/media/components/PlatformChips";
 import type { getMedia } from "~/features/media/media.functions";
 import { getRandomMediaId } from "~/features/media/media.functions";
@@ -167,15 +167,14 @@ function NavButtons({ onBack, onShuffle }: { onBack: () => void; onShuffle: () =
       >
         &larr; back
       </Button>
-      <IconButton
-        variant="surface"
+      <Button
+        variant="secondary"
         size="compact"
-        title="Random title"
         onClick={onShuffle}
-        className="ml-auto rounded"
+        className="ml-auto text-[0.8rem] h-[34px]"
       >
-        <Shuffle size={17} weight="bold" />
-      </IconButton>
+        <Shuffle size={14} weight="bold" /> shuffle
+      </Button>
     </div>
   );
 }
@@ -545,25 +544,8 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               ))}
             </div>
           )}
-          {visibleGenres.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {visibleGenres.map((g: { id: string; name: string; parentName?: string | null }) => (
-                <span
-                  key={g.id}
-                  className="text-xs font-mono py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                >
-                  {g.parentName ? (
-                    <>
-                      <span className="text-dg-text-tertiary">{g.parentName} &rsaquo; </span>
-                      {g.name}
-                    </>
-                  ) : (
-                    g.name
-                  )}
-                </span>
-              ))}
-            </div>
-          )}
+          {data.platforms.length > 0 && <PlatformChips platforms={data.platforms} />}
+          {visibleGenres.length > 0 && <GenreChips genres={visibleGenres} />}
           {data.description && (
             <p className="text-[0.8rem] text-dg-text-secondary font-body m-0 leading-relaxed line-clamp-3">
               {data.description}
@@ -582,7 +564,6 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               </a>
             ))}
           </div>
-          {data.platforms.length > 0 && <PlatformChips platforms={data.platforms} />}
         </InfoCard>
 
         {auth && (

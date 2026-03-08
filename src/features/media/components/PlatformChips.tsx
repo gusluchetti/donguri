@@ -41,7 +41,7 @@ function groupPlatforms(platforms: Platform[]): {
 }
 
 const CHIP =
-  "text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary";
+  "text-xs font-mono py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary";
 
 export function PlatformChips({ platforms }: { platforms: Platform[] }) {
   const { standalone, families } = groupPlatforms(platforms);
