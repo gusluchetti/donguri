@@ -6,7 +6,7 @@ import { ogTags, pageTitle } from "~/lib/og";
 
 const Markdown = lazy(() => import("react-markdown"));
 
-export const Route = createFileRoute("/blog/$slug")({
+export const Route = createFileRoute("/news/$slug")({
   loader: ({ params }) => {
     const post = getPostBySlug(params.slug);
     if (!post) throw notFound();
@@ -19,24 +19,24 @@ export const Route = createFileRoute("/blog/$slug")({
         { title: pageTitle(`${loaderData.title} — donguri`) },
         ...ogTags({
           title: `${loaderData.title} — donguri`,
-          description: `Blog post from ${formatDate(loaderData.date)}.`,
-          path: `/blog/${loaderData.slug}`,
+          description: `News post from ${formatDate(loaderData.date)}.`,
+          path: `/news/${loaderData.slug}`,
           type: "article",
         }),
       ],
     };
   },
-  component: BlogPost,
+  component: NewsPost,
   notFoundComponent: () => (
     <div className="text-dg-text flex-1 font-body flex items-center justify-center">
       <div className="text-center px-4 py-16">
         <p className="font-display text-[2rem] font-normal text-dg-accent mb-2">404</p>
         <p className="text-[0.9rem] text-dg-text-secondary mb-6">Post not found.</p>
         <Link
-          to="/blog"
+          to="/news"
           className="text-[0.85rem] text-dg-accent no-underline py-2 px-4 border border-dg-accent/20 rounded-sm transition-all duration-50"
         >
-          Back to blog
+          Back to news
         </Link>
       </div>
     </div>
@@ -48,14 +48,14 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
-function BlogPost() {
+function NewsPost() {
   const post = Route.useLoaderData();
 
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[700px] mx-auto px-4 py-4 sm:px-6 sm:py-8">
         <Link
-          to="/blog"
+          to="/news"
           className="inline-flex items-center gap-1.5 text-[0.75rem] text-dg-text-tertiary no-underline hover:text-dg-text-secondary transition-colors duration-50 mb-6"
         >
           <ArrowLeft size={12} weight="bold" />
@@ -147,7 +147,7 @@ function BlogPost() {
 
         <div className="mt-8 pt-4 border-t border-dg-border-subtle">
           <Link
-            to="/blog"
+            to="/news"
             className="text-[0.8rem] text-dg-text-tertiary hover:text-dg-accent no-underline transition-colors duration-50"
           >
             back to all posts

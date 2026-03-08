@@ -540,15 +540,6 @@ function TrackingSaveBar({
 
   return (
     <div className="flex items-center justify-between pt-3 mt-4 border-t border-dg-border-subtle">
-      <Button
-        variant={isDirty ? "accent" : "secondary"}
-        size="compact"
-        onClick={onSave}
-        disabled={actionState === "pending" || !isDirty}
-        title="Save changes"
-      >
-        {saveLabel}
-      </Button>
       {hasServerEntry && (
         <Button
           variant="danger"
@@ -560,6 +551,16 @@ function TrackingSaveBar({
           delete
         </Button>
       )}
+      <Button
+        variant={isDirty ? "accent" : "secondary"}
+        size="compact"
+        onClick={onSave}
+        disabled={actionState === "pending" || !isDirty}
+        title="Save changes"
+        className="ml-auto"
+      >
+        {saveLabel}
+      </Button>
     </div>
   );
 }
@@ -768,17 +769,20 @@ export function TrackingPanel({
     });
   }
 
+  const wasCompletedBeforePlaying = useRef(false);
+
   const handleStatusChange = useCallback(
     (s: string) => {
-      if (s === "completed" && localStatus === "completed") {
+      if (s === localStatus) return;
+      if (localStatus === "completed" && s === "in_progress") {
+        wasCompletedBeforePlaying.current = true;
+      }
+      if (s === "completed" && wasCompletedBeforePlaying.current) {
+        wasCompletedBeforePlaying.current = false;
         setLocalReplayCount(localReplayCount + 1);
         onRewatch?.();
-        setLocalStatus("in_progress");
-        SoundEngine.stamp();
-        navigator.vibrate?.(12);
-      } else {
-        setLocalStatus(s);
       }
+      setLocalStatus(s);
     },
     [localStatus, localReplayCount, setLocalStatus, setLocalReplayCount, onRewatch],
   );

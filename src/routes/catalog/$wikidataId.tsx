@@ -1,4 +1,4 @@
-import { Shuffle } from "@phosphor-icons/react";
+import { ArrowLeft, Shuffle } from "@phosphor-icons/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useNavigate } from "@tanstack/react-router";
@@ -165,7 +165,7 @@ function NavButtons({ onBack, onShuffle }: { onBack: () => void; onShuffle: () =
         onClick={onBack}
         className="text-[0.8rem] h-[34px]"
       >
-        &larr; back
+        <ArrowLeft size={14} weight="bold" /> back
       </Button>
       <Button
         variant="secondary"
