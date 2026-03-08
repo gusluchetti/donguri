@@ -14,6 +14,7 @@ const iconButtonVariants = cva(
       },
       size: {
         default: "w-[42px] h-[42px]",
+        compact: "w-[34px] h-[34px]",
         nav: "py-1.5 px-2.5 sm:py-1 sm:px-2",
       },
     },

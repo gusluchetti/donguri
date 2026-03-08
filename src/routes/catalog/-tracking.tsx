@@ -1,12 +1,14 @@
-import { Check, Compass, Pause, Play, Seal, Star, X } from "@phosphor-icons/react";
+import { Check, Compass, Minus, Pause, Play, Seal, Star, X } from "@phosphor-icons/react";
 import type { Hotkey } from "@tanstack/hotkeys";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "~/components/Button";
+import { IconButton } from "~/components/IconButton";
 import { Spinner } from "~/components/Spinner";
 import type { CatalogEntry } from "~/db/schema";
+import { onStatusTransition } from "~/features/catalog/catalog.effects";
 import { getCatalogEntry, setCatalogEntry } from "~/features/catalog/catalog.functions";
 import { useRemoveCatalogEntry } from "~/features/catalog/catalog.mutations";
 import { catalogEntryOptions } from "~/features/catalog/catalog.queries";
@@ -39,6 +41,7 @@ export type TrackingPanelProps = {
   watchedAtState?: StatePair<string | null>;
   onRewatch?: () => void;
   isMovie?: boolean;
+  totalEpisodes?: number;
   children?: React.ReactNode;
 };
 
@@ -161,8 +164,8 @@ type StatusButtonsProps = {
   localStatus: string | null;
   localReplayCount: number;
   statusAnimating: boolean;
-  isPending: boolean;
   mediaType?: string;
+  completedDisabled?: boolean;
   onStatusChange: (s: string) => void;
 };
 
@@ -171,8 +174,8 @@ function StatusButtons({
   localStatus,
   localReplayCount,
   statusAnimating,
-  isPending,
   mediaType,
+  completedDisabled,
   onStatusChange,
 }: StatusButtonsProps) {
   return (
@@ -183,14 +186,16 @@ function StatusButtons({
         const label = statusLabel(s, mediaType);
         const showBadge = s === "completed" && localReplayCount > 0;
         const Icon = STATUS_ICONS[s];
+        const disabled = s === "completed" && !isActive && !!completedDisabled;
         return (
           <button
             key={s}
             type="button"
-            onClick={() => onStatusChange(s)}
-            disabled={isPending}
+            onClick={() => !disabled && onStatusChange(s)}
+            disabled={disabled}
             className={cn(
               "dg-press relative flex items-center justify-center gap-1 text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-body flex-1 min-w-fit lowercase",
+              disabled && "opacity-40 cursor-not-allowed",
               isActive
                 ? colorClass
                 : `${STATUS_BUTTON_INACTIVE[s]} text-dg-text-secondary bg-transparent hover:brightness-110`,
@@ -251,7 +256,6 @@ function angleToValue(angleDeg: number): number {
 
 type RatingKnobProps = {
   value: number | null;
-  isPending: boolean;
   ratingMode: boolean;
   onChange: (v: number | null) => void;
   size?: number;
@@ -260,13 +264,14 @@ type RatingKnobProps = {
 // Pixels of horizontal drag to traverse 0–100
 const DRAG_RANGE_PX = 400;
 
-function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: RatingKnobProps) {
+function RatingKnob({ value, ratingMode, onChange, size = 110 }: RatingKnobProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
   const dragStartX = useRef(0);
   const dragStartValue = useRef(0);
   const lastValue = useRef<number>(-1);
   const [isDragging, setIsDragging] = useState(false);
+  const [isTouchDragging, setIsTouchDragging] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState("");
   const editRef = useRef<HTMLInputElement>(null);
@@ -304,7 +309,7 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
   }, []);
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (isPending || editing) return;
+    if (editing) return;
     e.preventDefault();
     dragging.current = true;
     isTouch.current = e.pointerType === "touch";
@@ -312,6 +317,7 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
     dragStartValue.current = value ?? 0;
     lastValue.current = -1;
     setIsDragging(true);
+    setIsTouchDragging(e.pointerType === "touch");
     svgRef.current?.setPointerCapture(e.pointerId);
 
     if (isTouch.current) {
@@ -340,10 +346,10 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
   const handlePointerUp = () => {
     dragging.current = false;
     setIsDragging(false);
+    setIsTouchDragging(false);
   };
 
   const startEditing = () => {
-    if (isPending) return;
     setEditText(value != null ? String(value) : "");
     setEditing(true);
     queueMicrotask(() => editRef.current?.select());
@@ -362,7 +368,6 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (isPending) return;
     const step = e.shiftKey ? 10 : 1;
     if (e.key === "ArrowUp" || e.key === "ArrowRight") {
       e.preventDefault();
@@ -439,34 +444,26 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
               style={{ transition: thumbTransition }}
             />
           )}
-          {/* Number + RATING label inside the knob */}
+          {/* Number inside the knob */}
           {!editing && (
-            <>
-              {/* biome-ignore lint/a11y/noStaticElementInteractions: SVG text can't be a <button> */}
-              <text
-                x={cx}
-                y={cy - 2}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fill={color}
-                className="font-mono tabular-nums"
-                style={{ fontSize: size * 0.3, cursor: "pointer", pointerEvents: "auto" }}
-                onDoubleClick={startEditing}
-              >
-                {value != null ? value : "\u2014"}
-              </text>
-              <text
-                x={cx}
-                y={cy + size * 0.18}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fill="var(--color-dg-text-tertiary)"
-                className="font-body"
-                style={{ fontSize: size * 0.09, letterSpacing: "0.1em" }}
-              >
-                RATING
-              </text>
-            </>
+            /* biome-ignore lint/a11y/noStaticElementInteractions: SVG text can't be a <button> */
+            <text
+              x={cx}
+              y={cy}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fill={color}
+              className="font-mono tabular-nums"
+              style={{
+                fontSize: isTouchDragging ? size * 0.45 : size * 0.3,
+                cursor: "pointer",
+                pointerEvents: "auto",
+                transition: "font-size 0.15s ease-out",
+              }}
+              onDoubleClick={startEditing}
+            >
+              {value != null ? value : "\u2014"}
+            </text>
           )}
         </svg>
         {editing && (
@@ -491,6 +488,7 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
           </div>
         )}
       </div>
+
       {ratingMode && (
         <p className="text-[0.6rem] text-dg-accent m-0 mt-1">
           = <span className="animate-pulse">_</span>
@@ -539,15 +537,6 @@ function TrackingSaveBar({
 
   return (
     <div className="flex items-center justify-between pt-3 mt-4 border-t border-dg-border-subtle">
-      <Button
-        variant={isDirty ? "accent" : "secondary"}
-        size="compact"
-        onClick={onSave}
-        disabled={actionState === "pending" || !isDirty}
-        title="Save changes"
-      >
-        {saveLabel}
-      </Button>
       {hasServerEntry && (
         <Button
           variant="danger"
@@ -559,6 +548,16 @@ function TrackingSaveBar({
           delete
         </Button>
       )}
+      <Button
+        variant={isDirty ? "accent" : "secondary"}
+        size="compact"
+        onClick={onSave}
+        disabled={actionState === "pending" || !isDirty}
+        title="Save changes"
+        className="ml-auto"
+      >
+        {saveLabel}
+      </Button>
     </div>
   );
 }
@@ -574,6 +573,7 @@ export function TrackingPanel({
   watchedAtState,
   onRewatch,
   isMovie,
+  totalEpisodes = 0,
   children,
 }: TrackingPanelProps) {
   const router = useRouter();
@@ -633,6 +633,7 @@ export function TrackingPanel({
   useEffect(() => {
     if (localStatus !== prevStatusRef.current && prevStatusRef.current !== null) {
       SoundEngine.stamp();
+      if (localStatus) onStatusTransition(prevStatusRef.current, localStatus);
       setStatusAnimating(true);
       const t = setTimeout(() => setStatusAnimating(false), 350);
       prevStatusRef.current = localStatus;
@@ -647,13 +648,13 @@ export function TrackingPanel({
   });
 
   useEffect(() => {
-    if (hasInitial || entryQuery.isPending) return;
+    if (hasInitial || entryQuery.isPending || loaded) return;
     const e = entryQuery.data ?? null;
     setEntry(e);
     syncFromEntry(e);
     serverEntry.current = e;
     setLoaded(true);
-  }, [hasInitial, entryQuery.isPending, entryQuery.data, syncFromEntry]);
+  }, [hasInitial, entryQuery.isPending, entryQuery.data, syncFromEntry, loaded]);
 
   const isDirty =
     localRating !== (serverEntry.current?.rating ?? null) ||
@@ -718,7 +719,6 @@ export function TrackingPanel({
         });
         const fresh = await getCatalogEntry({ data: { wikidataId } });
         setEntry(fresh);
-        syncFromEntry(fresh);
         serverEntry.current = fresh;
         queryClient.invalidateQueries({ queryKey: ["user"] });
         router.invalidate();
@@ -746,19 +746,23 @@ export function TrackingPanel({
   handleSaveRef.current = handleSave;
 
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: deliberately fire only on watched episodes change
+  // biome-ignore lint/correctness/useExhaustiveDependencies: unified auto-save watches all dirty fields
   useEffect(() => {
-    if (!localStatus) return;
-    const watchedChanged =
-      JSON.stringify(localWatchedEpisodes) !==
-      JSON.stringify((serverEntry.current?.watchedEpisodes as WatchedEpisodes) ?? {});
-    if (!watchedChanged) return;
+    if (!localStatus || !isDirty) return;
     clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
       handleSaveRef.current?.();
-    }, 300);
+    }, 1500);
     return () => clearTimeout(autoSaveTimer.current);
-  }, [localWatchedEpisodes]);
+  }, [
+    localStatus,
+    isDirty,
+    localRating,
+    localIsFavorite,
+    localReplayCount,
+    localWatchedEpisodes,
+    localWatchedAt,
+  ]);
 
   async function handleRemove() {
     await action.run(async () => {
@@ -767,19 +771,29 @@ export function TrackingPanel({
     });
   }
 
+  const wasCompletedBeforePlaying = useRef(false);
+
   const handleStatusChange = useCallback(
     (s: string) => {
-      if (s === "completed" && localStatus === "completed") {
+      if (s === "completed" && totalEpisodes > 0) return;
+      if (s === localStatus) {
+        if (s === "completed" || s === "mastered") {
+          setLocalReplayCount(localReplayCount + 1);
+          onRewatch?.();
+        }
+        return;
+      }
+      if (localStatus === "completed" && s === "in_progress") {
+        wasCompletedBeforePlaying.current = true;
+      }
+      if (s === "completed" && wasCompletedBeforePlaying.current) {
+        wasCompletedBeforePlaying.current = false;
         setLocalReplayCount(localReplayCount + 1);
         onRewatch?.();
-        setLocalStatus("in_progress");
-        SoundEngine.stamp();
-        navigator.vibrate?.(12);
-      } else {
-        setLocalStatus(s);
       }
+      setLocalStatus(s);
     },
-    [localStatus, localReplayCount, setLocalStatus, setLocalReplayCount, onRewatch],
+    [localStatus, localReplayCount, totalEpisodes, setLocalStatus, setLocalReplayCount, onRewatch],
   );
 
   const [ratingMode, setRatingMode] = useState(false);
@@ -801,10 +815,9 @@ export function TrackingPanel({
   });
 
   const statuses = availableStatuses(mediaType);
-  const isPending = action.state === "pending";
   const today = todayISO();
   const wrapperClass =
-    "rounded border border-dg-border-subtle bg-dg-surface p-[clamp(8px,2%,16px)]";
+    "rounded border border-dg-border-subtle bg-dg-surface p-[clamp(8px,2%,16px)] mb-g3 sm:mb-g4";
 
   if (!loaded) {
     return (
@@ -817,78 +830,74 @@ export function TrackingPanel({
   const showRating =
     localStatus === "in_progress" || localStatus === "completed" || localStatus === "mastered";
 
+  const showReplay = localStatus === "completed" || localStatus === "mastered";
+
   return (
-    <div className={`${wrapperClass} relative`}>
-      {localStatus && (
-        <button
-          type="button"
-          onClick={() => setLocalIsFavorite(!localIsFavorite)}
-          className={cn(
-            "dg-press absolute top-[clamp(8px,2%,16px)] right-[clamp(8px,2%,16px)] z-10 flex items-center bg-transparent border-none p-1",
-            localIsFavorite
-              ? "text-dg-accent hover:text-dg-accent/80"
-              : "text-dg-text-tertiary hover:text-dg-accent/60",
-          )}
-          title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
-        >
-          <Star size={18} weight={localIsFavorite ? "fill" : "regular"} />
-        </button>
-      )}
-      <div className="flex flex-wrap" style={{ gap: "clamp(8px, 2%, 16px)" }}>
-        {/* Left column: controls */}
-        <div style={{ flex: "1 1 280px", minWidth: 0 }} className={localStatus ? "pr-8" : ""}>
-          <StatusButtons
-            statuses={statuses}
-            localStatus={localStatus}
-            localReplayCount={localReplayCount}
-            statusAnimating={statusAnimating}
-            isPending={isPending}
-            mediaType={mediaType}
-            onStatusChange={handleStatusChange}
-          />
-
-          {localStatus && (
-            <>
-              <hr className="dg-separator" />
-              {isMovie && setLocalWatchedAt && (
-                <p className="text-[0.6rem] text-dg-text-tertiary uppercase tracking-wider m-0 mb-1.5">
-                  Watched on
-                </p>
-              )}
-              <div className="flex items-center gap-g1 flex-wrap">
-                {isMovie && setLocalWatchedAt && (
-                  <input
-                    type="date"
-                    value={localWatchedAt ?? ""}
-                    max={today}
-                    onChange={(e) => setLocalWatchedAt(e.target.value || null)}
-                    disabled={isPending}
-                    className="text-[0.8rem] font-mono bg-dg-bg border border-dg-border rounded-sm px-2 py-1.5 text-dg-text outline-none focus:border-dg-accent hover:border-dg-border-strong transition-colors disabled:opacity-50"
-                  />
-                )}
-                <ReplayBadge replayCount={localReplayCount} mediaType={mediaType} />
-              </div>
-            </>
-          )}
-
-          {children && <div className="mt-4">{children}</div>}
-        </div>
-
-        {/* Rating column: wraps below when narrow */}
-        {showRating && (
-          <div
-            style={{ flex: "0 0 160px" }}
-            className="flex items-center justify-center self-center mx-auto"
+    <div className={wrapperClass}>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider m-0">Status</h3>
+        {localStatus && (
+          <button
+            type="button"
+            onClick={() => setLocalIsFavorite(!localIsFavorite)}
+            className={cn(
+              "dg-press flex items-center bg-transparent border-none p-1",
+              localIsFavorite
+                ? "text-dg-accent hover:text-dg-accent/80"
+                : "text-dg-text-tertiary hover:text-dg-accent/60",
+            )}
+            title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
           >
-            <RatingKnob
-              value={localRating}
-              isPending={isPending}
-              ratingMode={ratingMode}
-              onChange={setLocalRating}
-            />
-          </div>
+            <Star size={22} weight={localIsFavorite ? "fill" : "regular"} />
+          </button>
         )}
       </div>
+      <StatusButtons
+        statuses={statuses}
+        localStatus={localStatus}
+        localReplayCount={localReplayCount}
+        statusAnimating={statusAnimating}
+        mediaType={mediaType}
+        completedDisabled={totalEpisodes > 0}
+        onStatusChange={handleStatusChange}
+      />
+
+      {localStatus && isMovie && setLocalWatchedAt && (
+        <div className="mt-4">
+          <p className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider m-0 mb-1.5">
+            Watched on
+          </p>
+          <input
+            type="date"
+            value={localWatchedAt ?? ""}
+            max={today}
+            onChange={(e) => setLocalWatchedAt(e.target.value || null)}
+            className="text-[0.8rem] font-mono bg-dg-bg border border-dg-border rounded-sm px-2 py-1.5 text-dg-text outline-none focus:border-dg-accent hover:border-dg-border-strong transition-colors"
+          />
+        </div>
+      )}
+
+      {showRating && (
+        <div className="flex justify-center mt-4">
+          <RatingKnob value={localRating} ratingMode={ratingMode} onChange={setLocalRating} />
+        </div>
+      )}
+
+      {showReplay && localReplayCount > 0 && (
+        <div className="flex items-center gap-2 mt-4">
+          <ReplayBadge replayCount={localReplayCount} mediaType={mediaType} />
+          <IconButton
+            variant="ghost"
+            size="compact"
+            onClick={() => setLocalReplayCount(Math.max(0, localReplayCount - 1))}
+            title="Decrement replay count"
+          >
+            <Minus size={14} weight="bold" />
+          </IconButton>
+        </div>
+      )}
+
+      {children && <div className="mt-4">{children}</div>}
 
       {localStatus && (
         <TrackingSaveBar
