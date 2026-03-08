@@ -1,10 +1,9 @@
-import { Shuffle } from "@phosphor-icons/react";
+import { ArrowLeft, Shuffle } from "@phosphor-icons/react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "~/components/Button";
-import { IconButton } from "~/components/IconButton";
 import { InfoCard } from "~/components/InfoCard";
 import { LinkButton } from "~/components/LinkButton";
 import { Spinner } from "~/components/Spinner";
@@ -13,6 +12,8 @@ import { catalogEntryOptions, trackedIdsOptions } from "~/features/catalog/catal
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
+import { GenreChips } from "~/features/media/components/GenreChips";
+import { PlatformChips } from "~/features/media/components/PlatformChips";
 import type { getMedia } from "~/features/media/media.functions";
 import { getRandomMediaId } from "~/features/media/media.functions";
 import { mediaDetailOptions } from "~/features/media/media.queries";
@@ -164,17 +165,16 @@ function NavButtons({ onBack, onShuffle }: { onBack: () => void; onShuffle: () =
         onClick={onBack}
         className="text-[0.8rem] h-[34px]"
       >
-        &larr; back
+        <ArrowLeft size={14} weight="bold" /> back
       </Button>
-      <IconButton
-        variant="surface"
+      <Button
+        variant="secondary"
         size="compact"
-        title="Random title"
         onClick={onShuffle}
-        className="ml-auto rounded"
+        className="ml-auto text-[0.8rem] h-[34px]"
       >
-        <Shuffle size={17} weight="bold" />
-      </IconButton>
+        <Shuffle size={14} weight="bold" /> shuffle
+      </Button>
     </div>
   );
 }
@@ -516,9 +516,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
             />
           }
         >
-          <div>
-            <StampBadge type={mediaDisplayType} />
-          </div>
+          <StampBadge type={mediaDisplayType} />
           <h1
             className="font-display font-normal m-0 leading-[1.15] tracking-[-0.03em]"
             style={{ fontSize: "clamp(1.4rem, 4vw, 2.25rem)" }}
@@ -535,7 +533,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               {metaParts.map((part, i) => (
                 <span key={part} className="flex items-center gap-2">
                   {i > 0 && (
-                    <span className="hidden min-[420px]:inline" aria-hidden>
+                    <span className="hidden sm:inline" aria-hidden>
                       &middot;
                     </span>
                   )}
@@ -544,31 +542,14 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               ))}
             </div>
           )}
-          {visibleGenres.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {visibleGenres.map((g: { id: string; name: string; parentName?: string | null }) => (
-                <span
-                  key={g.id}
-                  className="text-xs font-mono py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                >
-                  {g.parentName ? (
-                    <>
-                      <span className="text-dg-text-tertiary">{g.parentName} &rsaquo; </span>
-                      {g.name}
-                    </>
-                  ) : (
-                    g.name
-                  )}
-                </span>
-              ))}
-            </div>
-          )}
+          {data.platforms.length > 0 && <PlatformChips platforms={data.platforms} />}
+          {visibleGenres.length > 0 && <GenreChips genres={visibleGenres} />}
           {data.description && (
             <p className="text-[0.8rem] text-dg-text-secondary font-body m-0 leading-relaxed line-clamp-3">
               {data.description}
             </p>
           )}
-          <div className="flex flex-wrap gap-1.5 min-[420px]:mt-auto">
+          <div className="flex flex-wrap gap-1.5 sm:mt-auto">
             {externalLinks.map((link) => (
               <a
                 key={link.label}
@@ -581,32 +562,6 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               </a>
             ))}
           </div>
-          {data.platforms.length > 0 && (
-            <div>
-              <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider mb-2">
-                Platforms
-              </h3>
-              <div className="flex flex-wrap gap-1.5">
-                {dedupHierarchy(data.platforms).map(
-                  (p: { id: string; name: string; parentName?: string | null }) => (
-                    <span
-                      key={p.id}
-                      className="text-xs py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary"
-                    >
-                      {p.parentName ? (
-                        <>
-                          <span className="text-dg-text-tertiary">{p.parentName} &rsaquo; </span>
-                          {p.name}
-                        </>
-                      ) : (
-                        p.name
-                      )}
-                    </span>
-                  ),
-                )}
-              </div>
-            </div>
-          )}
         </InfoCard>
 
         {auth && (

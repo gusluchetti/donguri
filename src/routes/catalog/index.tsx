@@ -450,17 +450,10 @@ function CatalogPage() {
         {/* Mobile-only header links */}
         <div className="flex items-center justify-center gap-1.5 text-[0.7rem] text-dg-text-tertiary sm:hidden">
           <Link
-            to="/blog"
+            to="/news"
             className="no-underline text-dg-text-tertiary hover:text-dg-text-secondary transition-colors"
           >
-            blog
-          </Link>
-          <span>&middot;</span>
-          <Link
-            to="/roadmap"
-            className="no-underline text-dg-text-tertiary hover:text-dg-text-secondary transition-colors"
-          >
-            roadmap
+            news
           </Link>
         </div>
 
@@ -691,7 +684,7 @@ const MediaRow = memo(function MediaRow({
           posterUrl={item.posterUrl ?? undefined}
         />
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 self-center">
           <StampBadge type={displayType} index={index} />
         </div>
 

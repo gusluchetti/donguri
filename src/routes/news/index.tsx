@@ -2,22 +2,22 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { posts } from "~/lib/blog";
 import { ogTags, pageTitle } from "~/lib/og";
 
-export const Route = createFileRoute("/blog/")({
+export const Route = createFileRoute("/news/")({
   head: () => ({
     meta: [
-      { title: pageTitle("blog — donguri") },
+      { title: pageTitle("news — donguri") },
       {
         name: "description",
         content: "Updates, dev notes, and deploy logs from the donguri project.",
       },
       ...ogTags({
-        title: "Blog — donguri",
+        title: "News — donguri",
         description: "Updates, dev notes, and deploy logs from the donguri project.",
-        path: "/blog",
+        path: "/news",
       }),
     ],
   }),
-  component: BlogIndex,
+  component: NewsIndex,
 });
 
 function formatDate(iso: string): string {
@@ -35,12 +35,12 @@ function excerpt(body: string, maxLen = 180): string {
   return plain.length > maxLen ? `${plain.slice(0, maxLen)}...` : plain;
 }
 
-function BlogIndex() {
+function NewsIndex() {
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[700px] mx-auto px-4 py-4 sm:px-6 sm:py-8">
         <h1 className="font-display text-[1.8rem] sm:text-[2.25rem] font-normal tracking-[-0.03em] mb-6 sm:mb-8">
-          <span className="text-dg-accent">blog</span>
+          <span className="text-dg-accent">news</span>
         </h1>
 
         {posts.length === 0 ? (
@@ -50,7 +50,7 @@ function BlogIndex() {
             {posts.map((post) => (
               <Link
                 key={post.slug}
-                to="/blog/$slug"
+                to="/news/$slug"
                 params={{ slug: post.slug }}
                 className="group no-underline block border border-transparent hover:border-dg-border-subtle rounded-md px-4 py-4 -mx-4 transition-colors duration-50"
               >
