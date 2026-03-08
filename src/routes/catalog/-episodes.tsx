@@ -311,20 +311,19 @@ function EpisodeGrid({
   return (
     <div className="ep-grid">
       {cells.map(({ ep, state, date }) => (
-        <div key={ep} className="relative">
-          <EpCell
-            epNumber={ep}
-            state={state}
-            date={date}
-            seasonEpCount={epCount}
-            popoverOpen={popoverEp === ep}
-            onClickUnwatched={() => onMarkThrough(sn, ep, episodeDate)}
-            onClickWatched={() => onSetPopover(popoverEp === ep ? null : ep)}
-            onUnmarkSingle={() => onUnmarkFrom(sn, ep, ep)}
-            onUnmarkToEnd={() => onUnmarkFrom(sn, ep, epCount)}
-            onClosePopover={() => onSetPopover(null)}
-          />
-        </div>
+        <EpCell
+          key={ep}
+          epNumber={ep}
+          state={state}
+          date={date}
+          seasonEpCount={epCount}
+          popoverOpen={popoverEp === ep}
+          onClickUnwatched={() => onMarkThrough(sn, ep, episodeDate)}
+          onClickWatched={() => onSetPopover(popoverEp === ep ? null : ep)}
+          onUnmarkSingle={() => onUnmarkFrom(sn, ep, ep)}
+          onUnmarkToEnd={() => onUnmarkFrom(sn, ep, epCount)}
+          onClosePopover={() => onSetPopover(null)}
+        />
       ))}
     </div>
   );

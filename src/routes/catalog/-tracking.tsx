@@ -162,7 +162,6 @@ type StatusButtonsProps = {
   localStatus: string | null;
   localReplayCount: number;
   statusAnimating: boolean;
-  isPending: boolean;
   mediaType?: string;
   onStatusChange: (s: string) => void;
 };
@@ -172,7 +171,6 @@ function StatusButtons({
   localStatus,
   localReplayCount,
   statusAnimating,
-  isPending,
   mediaType,
   onStatusChange,
 }: StatusButtonsProps) {
@@ -189,7 +187,6 @@ function StatusButtons({
             key={s}
             type="button"
             onClick={() => onStatusChange(s)}
-            disabled={isPending}
             className={cn(
               "dg-press relative flex items-center justify-center gap-1 text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-body flex-1 min-w-fit lowercase",
               isActive
@@ -252,7 +249,6 @@ function angleToValue(angleDeg: number): number {
 
 type RatingKnobProps = {
   value: number | null;
-  isPending: boolean;
   ratingMode: boolean;
   onChange: (v: number | null) => void;
   size?: number;
@@ -261,7 +257,7 @@ type RatingKnobProps = {
 // Pixels of horizontal drag to traverse 0–100
 const DRAG_RANGE_PX = 400;
 
-function RatingKnob({ value, isPending, ratingMode, onChange, size = 110 }: RatingKnobProps) {
+function RatingKnob({ value, ratingMode, onChange, size = 110 }: RatingKnobProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
   const dragStartX = useRef(0);
@@ -306,7 +302,7 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 110 }: Rati
   }, []);
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    if (isPending || editing) return;
+    if (editing) return;
     e.preventDefault();
     dragging.current = true;
     isTouch.current = e.pointerType === "touch";
@@ -347,7 +343,6 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 110 }: Rati
   };
 
   const startEditing = () => {
-    if (isPending) return;
     setEditText(value != null ? String(value) : "");
     setEditing(true);
     queueMicrotask(() => editRef.current?.select());
@@ -366,7 +361,6 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 110 }: Rati
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (isPending) return;
     const step = e.shiftKey ? 10 : 1;
     if (e.key === "ArrowUp" || e.key === "ArrowRight") {
       e.preventDefault();
@@ -443,34 +437,26 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 110 }: Rati
               style={{ transition: thumbTransition }}
             />
           )}
-          {/* Number + RATING label inside the knob */}
-          {!editing && !isTouchDragging && (
-            <>
-              {/* biome-ignore lint/a11y/noStaticElementInteractions: SVG text can't be a <button> */}
-              <text
-                x={cx}
-                y={cy - 2}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fill={color}
-                className="font-mono tabular-nums"
-                style={{ fontSize: size * 0.3, cursor: "pointer", pointerEvents: "auto" }}
-                onDoubleClick={startEditing}
-              >
-                {value != null ? value : "\u2014"}
-              </text>
-              <text
-                x={cx}
-                y={cy + size * 0.18}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fill="var(--color-dg-text-tertiary)"
-                className="font-body"
-                style={{ fontSize: size * 0.09, letterSpacing: "0.1em" }}
-              >
-                RATING
-              </text>
-            </>
+          {/* Number inside the knob */}
+          {!editing && (
+            /* biome-ignore lint/a11y/noStaticElementInteractions: SVG text can't be a <button> */
+            <text
+              x={cx}
+              y={cy}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fill={color}
+              className="font-mono tabular-nums"
+              style={{
+                fontSize: isTouchDragging ? size * 0.45 : size * 0.3,
+                cursor: "pointer",
+                pointerEvents: "auto",
+                transition: "font-size 0.15s ease-out",
+              }}
+              onDoubleClick={startEditing}
+            >
+              {value != null ? value : "\u2014"}
+            </text>
           )}
         </svg>
         {editing && (
@@ -495,14 +481,7 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 110 }: Rati
           </div>
         )}
       </div>
-      {isTouchDragging && value != null && (
-        <div
-          className="absolute -top-8 left-1/2 -translate-x-1/2 font-mono tabular-nums text-lg pointer-events-none"
-          style={{ color }}
-        >
-          {value}
-        </div>
-      )}
+
       {ratingMode && (
         <p className="text-[0.6rem] text-dg-accent m-0 mt-1">
           = <span className="animate-pulse">_</span>
@@ -660,13 +639,13 @@ export function TrackingPanel({
   });
 
   useEffect(() => {
-    if (hasInitial || entryQuery.isPending) return;
+    if (hasInitial || entryQuery.isPending || loaded) return;
     const e = entryQuery.data ?? null;
     setEntry(e);
     syncFromEntry(e);
     serverEntry.current = e;
     setLoaded(true);
-  }, [hasInitial, entryQuery.isPending, entryQuery.data, syncFromEntry]);
+  }, [hasInitial, entryQuery.isPending, entryQuery.data, syncFromEntry, loaded]);
 
   const isDirty =
     localRating !== (serverEntry.current?.rating ?? null) ||
@@ -731,7 +710,6 @@ export function TrackingPanel({
         });
         const fresh = await getCatalogEntry({ data: { wikidataId } });
         setEntry(fresh);
-        syncFromEntry(fresh);
         serverEntry.current = fresh;
         queryClient.invalidateQueries({ queryKey: ["user"] });
         router.invalidate();
@@ -765,7 +743,7 @@ export function TrackingPanel({
     clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
       handleSaveRef.current?.();
-    }, 600);
+    }, 1500);
     return () => clearTimeout(autoSaveTimer.current);
   }, [
     localStatus,
@@ -788,7 +766,13 @@ export function TrackingPanel({
 
   const handleStatusChange = useCallback(
     (s: string) => {
-      if (s === localStatus) return;
+      if (s === localStatus) {
+        if (s === "completed" || s === "mastered") {
+          setLocalReplayCount(localReplayCount + 1);
+          onRewatch?.();
+        }
+        return;
+      }
       if (localStatus === "completed" && s === "in_progress") {
         wasCompletedBeforePlaying.current = true;
       }
@@ -821,10 +805,9 @@ export function TrackingPanel({
   });
 
   const statuses = availableStatuses(mediaType);
-  const isPending = action.state === "pending";
   const today = todayISO();
   const wrapperClass =
-    "rounded border border-dg-border-subtle bg-dg-surface p-[clamp(8px,2%,16px)]";
+    "rounded border border-dg-border-subtle bg-dg-surface p-[clamp(8px,2%,16px)] mb-g3 sm:mb-g4";
 
   if (!loaded) {
     return (
@@ -864,7 +847,6 @@ export function TrackingPanel({
         localStatus={localStatus}
         localReplayCount={localReplayCount}
         statusAnimating={statusAnimating}
-        isPending={isPending}
         mediaType={mediaType}
         onStatusChange={handleStatusChange}
       />
@@ -879,20 +861,14 @@ export function TrackingPanel({
             value={localWatchedAt ?? ""}
             max={today}
             onChange={(e) => setLocalWatchedAt(e.target.value || null)}
-            disabled={isPending}
-            className="text-[0.8rem] font-mono bg-dg-bg border border-dg-border rounded-sm px-2 py-1.5 text-dg-text outline-none focus:border-dg-accent hover:border-dg-border-strong transition-colors disabled:opacity-50"
+            className="text-[0.8rem] font-mono bg-dg-bg border border-dg-border rounded-sm px-2 py-1.5 text-dg-text outline-none focus:border-dg-accent hover:border-dg-border-strong transition-colors"
           />
         </div>
       )}
 
       {showRating && (
         <div className="flex justify-center mt-4">
-          <RatingKnob
-            value={localRating}
-            isPending={isPending}
-            ratingMode={ratingMode}
-            onChange={setLocalRating}
-          />
+          <RatingKnob value={localRating} ratingMode={ratingMode} onChange={setLocalRating} />
         </div>
       )}
 
