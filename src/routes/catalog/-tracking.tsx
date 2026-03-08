@@ -261,13 +261,14 @@ type RatingKnobProps = {
 // Pixels of horizontal drag to traverse 0–100
 const DRAG_RANGE_PX = 400;
 
-function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: RatingKnobProps) {
+function RatingKnob({ value, isPending, ratingMode, onChange, size = 110 }: RatingKnobProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
   const dragStartX = useRef(0);
   const dragStartValue = useRef(0);
   const lastValue = useRef<number>(-1);
   const [isDragging, setIsDragging] = useState(false);
+  const [isTouchDragging, setIsTouchDragging] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState("");
   const editRef = useRef<HTMLInputElement>(null);
@@ -313,6 +314,7 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
     dragStartValue.current = value ?? 0;
     lastValue.current = -1;
     setIsDragging(true);
+    setIsTouchDragging(e.pointerType === "touch");
     svgRef.current?.setPointerCapture(e.pointerId);
 
     if (isTouch.current) {
@@ -341,6 +343,7 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
   const handlePointerUp = () => {
     dragging.current = false;
     setIsDragging(false);
+    setIsTouchDragging(false);
   };
 
   const startEditing = () => {
@@ -441,7 +444,7 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
             />
           )}
           {/* Number + RATING label inside the knob */}
-          {!editing && (
+          {!editing && !isTouchDragging && (
             <>
               {/* biome-ignore lint/a11y/noStaticElementInteractions: SVG text can't be a <button> */}
               <text
@@ -492,6 +495,14 @@ function RatingKnob({ value, isPending, ratingMode, onChange, size = 100 }: Rati
           </div>
         )}
       </div>
+      {isTouchDragging && value != null && (
+        <div
+          className="absolute -top-8 left-1/2 -translate-x-1/2 font-mono tabular-nums text-lg pointer-events-none"
+          style={{ color }}
+        >
+          {value}
+        </div>
+      )}
       {ratingMode && (
         <p className="text-[0.6rem] text-dg-accent m-0 mt-1">
           = <span className="animate-pulse">_</span>
@@ -748,19 +759,23 @@ export function TrackingPanel({
   handleSaveRef.current = handleSave;
 
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: deliberately fire only on watched episodes change
+  // biome-ignore lint/correctness/useExhaustiveDependencies: unified auto-save watches all dirty fields
   useEffect(() => {
-    if (!localStatus) return;
-    const watchedChanged =
-      JSON.stringify(localWatchedEpisodes) !==
-      JSON.stringify((serverEntry.current?.watchedEpisodes as WatchedEpisodes) ?? {});
-    if (!watchedChanged) return;
+    if (!localStatus || !isDirty) return;
     clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
       handleSaveRef.current?.();
-    }, 300);
+    }, 600);
     return () => clearTimeout(autoSaveTimer.current);
-  }, [localWatchedEpisodes]);
+  }, [
+    localStatus,
+    isDirty,
+    localRating,
+    localIsFavorite,
+    localReplayCount,
+    localWatchedEpisodes,
+    localWatchedAt,
+  ]);
 
   async function handleRemove() {
     await action.run(async () => {
@@ -826,9 +841,24 @@ export function TrackingPanel({
 
   return (
     <div className={wrapperClass}>
-      <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider m-0 mb-2">
-        Status
-      </h3>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider m-0">Status</h3>
+        {localStatus && (
+          <button
+            type="button"
+            onClick={() => setLocalIsFavorite(!localIsFavorite)}
+            className={cn(
+              "dg-press flex items-center bg-transparent border-none p-1",
+              localIsFavorite
+                ? "text-dg-accent hover:text-dg-accent/80"
+                : "text-dg-text-tertiary hover:text-dg-accent/60",
+            )}
+            title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
+          >
+            <Star size={22} weight={localIsFavorite ? "fill" : "regular"} />
+          </button>
+        )}
+      </div>
       <StatusButtons
         statuses={statuses}
         localStatus={localStatus}
@@ -852,27 +882,6 @@ export function TrackingPanel({
             disabled={isPending}
             className="text-[0.8rem] font-mono bg-dg-bg border border-dg-border rounded-sm px-2 py-1.5 text-dg-text outline-none focus:border-dg-accent hover:border-dg-border-strong transition-colors disabled:opacity-50"
           />
-        </div>
-      )}
-
-      {localStatus && (
-        <div className="flex items-center gap-2 mt-4">
-          <span className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider">
-            Favorite
-          </span>
-          <button
-            type="button"
-            onClick={() => setLocalIsFavorite(!localIsFavorite)}
-            className={cn(
-              "dg-press flex items-center bg-transparent border-none p-1",
-              localIsFavorite
-                ? "text-dg-accent hover:text-dg-accent/80"
-                : "text-dg-text-tertiary hover:text-dg-accent/60",
-            )}
-            title={localIsFavorite ? "Remove from favorites" : "Mark as favorite"}
-          >
-            <Star size={18} weight={localIsFavorite ? "fill" : "regular"} />
-          </button>
         </div>
       )}
 

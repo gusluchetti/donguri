@@ -1,3 +1,4 @@
+import { ArrowCounterClockwise } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   clearSeasonFrom,
@@ -55,8 +56,8 @@ function SeriesBar({
   if (totalEps === 0 && seasons.every((s) => s.episodeCount == null)) return null;
 
   return (
-    <div className="flex h-2 rounded-full overflow-hidden bg-dg-elevated gap-px">
-      {seasons.map((s) => {
+    <div className="flex h-6 rounded-lg overflow-hidden bg-dg-elevated">
+      {seasons.map((s, i) => {
         const epCount = s.episodeCount ?? 0;
         if (epCount === 0) return null;
         const w = countSeasonWatched(watched, s.seasonNumber);
@@ -64,99 +65,38 @@ function SeriesBar({
         const isComplete = w >= epCount;
         const isActive = s.seasonNumber === activeSeason;
         const color = isComplete ? "var(--color-dg-tv)" : "var(--color-dg-accent)";
+        const isLast = i === seasons.length - 1;
 
         return (
           <button
             type="button"
             key={s.id}
-            className="h-full relative cursor-pointer border-none p-0 bg-transparent hover:brightness-110"
-            style={{ flex: epCount / totalEps }}
+            className="h-full relative cursor-pointer border-none p-0 bg-transparent hover:brightness-110 flex items-center justify-center"
+            style={{
+              flex: epCount / totalEps,
+              borderRight: isLast ? undefined : "1px solid var(--color-dg-border-subtle)",
+            }}
             onClick={() => onSeasonClick?.(s.seasonNumber)}
             title={`S${String(s.seasonNumber).padStart(2, "0")} — ${w}/${epCount}`}
           >
             <div
-              className="h-full rounded-full transition-all duration-150"
+              className="absolute inset-0 transition-all duration-150"
               style={{
                 width: `${Math.round(pct * 100)}%`,
                 background: color,
                 opacity: isActive ? 1 : 0.5,
               }}
             />
+            <span
+              className="relative text-[0.6rem] font-mono tabular-nums leading-none transition-opacity duration-100"
+              style={{ opacity: isActive ? 0.9 : 0.4 }}
+            >
+              S{String(s.seasonNumber).padStart(2, "0")}
+            </span>
           </button>
         );
       })}
     </div>
-  );
-}
-
-function SeasonCircle({
-  seasonNumber,
-  watched,
-  total,
-  isActive,
-  onClick,
-}: {
-  seasonNumber: number;
-  watched: number;
-  total: number;
-  isActive: boolean;
-  onClick: () => void;
-}) {
-  const size = 32;
-  const stroke = 2.5;
-  const r = (size - stroke) / 2;
-  const circ = 2 * Math.PI * r;
-  const pct = total > 0 ? watched / total : 0;
-  const isComplete = pct >= 1;
-  const color = isComplete ? "var(--color-dg-tv)" : "var(--color-dg-accent)";
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`bg-transparent border-none cursor-pointer p-0 transition-opacity duration-100 ${isActive ? "opacity-100" : "opacity-40 hover:opacity-70"}`}
-      title={`S${String(seasonNumber).padStart(2, "0")} — ${watched}/${total}`}
-    >
-      <svg
-        width={size}
-        height={size}
-        className="block"
-        role="img"
-        aria-label={`Season ${seasonNumber}: ${watched}/${total}`}
-      >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke="var(--color-dg-elevated)"
-          strokeWidth={stroke}
-          className="-rotate-90 origin-center"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth={stroke}
-          strokeDasharray={`${pct * circ} ${circ}`}
-          strokeLinecap="round"
-          className="transition-all duration-200 -rotate-90 origin-center"
-        />
-        <text
-          x={size / 2}
-          y={size / 2}
-          textAnchor="middle"
-          dominantBaseline="central"
-          fill="var(--color-dg-text-tertiary)"
-          fontSize="10"
-          fontFamily="var(--font-mono)"
-        >
-          {seasonNumber}
-        </text>
-      </svg>
-    </button>
   );
 }
 
@@ -192,7 +132,7 @@ function EpisodePopover({
   return (
     <div
       ref={ref}
-      className="absolute bottom-full left-1/2 mb-1.5 z-50 w-[180px] p-2.5 rounded border border-dg-border-subtle bg-dg-surface text-[0.7rem] shadow-lg"
+      className="absolute bottom-full left-1/2 mb-1.5 z-50 w-[180px] p-2.5 rounded border border-dg-border-subtle bg-dg-surface text-xs shadow-lg"
       style={{
         transform: "translateX(-50%)",
         animation: "popIn 120ms var(--ease-smooth) both",
@@ -208,7 +148,7 @@ function EpisodePopover({
           onUnmarkSingle();
           onClose();
         }}
-        className="w-full text-left text-[0.7rem] text-dg-anime bg-transparent border-none cursor-pointer p-0 hover:underline font-mono"
+        className="w-full text-left text-xs text-dg-anime bg-transparent border-none cursor-pointer p-0 hover:underline font-mono"
       >
         unmark ep {epNumber}
       </button>
@@ -220,7 +160,7 @@ function EpisodePopover({
             onUnmarkToEnd();
             onClose();
           }}
-          className="w-full text-left text-[0.65rem] text-dg-text-tertiary bg-transparent border-none cursor-pointer p-0 hover:underline font-mono mt-1.5"
+          className="w-full text-left text-[0.7rem] text-dg-text-tertiary bg-transparent border-none cursor-pointer p-0 hover:underline font-mono mt-1.5"
         >
           unmark {epNumber}&rarr;{seasonEpCount}
         </button>
@@ -296,7 +236,7 @@ function EpCell({
           if (isWatched) onClickWatched();
           else onClickUnwatched();
         }}
-        className={`ep-cell ${isWatched ? "ep-stamped" : ""} w-full aspect-square flex items-center justify-center rounded border cursor-pointer font-mono text-[0.7rem] sm:text-xs tabular-nums bg-transparent p-0`}
+        className={`ep-cell ${isWatched ? "ep-stamped" : ""} w-full aspect-square flex items-center justify-center rounded border cursor-pointer font-mono text-xs sm:text-sm tabular-nums bg-transparent p-0`}
         style={{
           background: bg,
           borderColor,
@@ -341,7 +281,7 @@ function EpisodeGrid({
   const epCount = season.episodeCount ?? 0;
   if (epCount === 0) {
     return (
-      <div className="text-[0.65rem] text-dg-text-tertiary font-body py-3 text-center">
+      <div className="text-xs text-dg-text-tertiary font-body py-3 text-center">
         S{String(season.seasonNumber).padStart(2, "0")} — episode count unknown
       </div>
     );
@@ -369,9 +309,9 @@ function EpisodeGrid({
   });
 
   return (
-    <div className="flex flex-wrap gap-1.5 sm:gap-2">
+    <div className="ep-grid">
       {cells.map(({ ep, state, date }) => (
-        <div key={ep} className="ep-cell-wrap">
+        <div key={ep} className="relative">
           <EpCell
             epNumber={ep}
             state={state}
@@ -448,54 +388,34 @@ function SeasonCarousel({
       </div>
 
       {seasons.length > 1 && (
-        <div className="flex items-center justify-between mt-2">
-          <button
-            type="button"
-            onClick={() => canPrev && navigate("R")}
-            disabled={!canPrev}
-            className="text-[0.7rem] text-dg-text-tertiary bg-transparent border-none cursor-pointer p-1 disabled:opacity-20 disabled:cursor-default hover:text-dg-text-secondary transition-colors font-mono"
-          >
-            &larr; prev
-          </button>
-
-          <div className="flex items-center gap-1.5">
-            {seasons.map((s) => {
-              const isActive = s.seasonNumber === activeSeason;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => {
-                    if (!isActive) {
-                      setSlideDir(s.seasonNumber > activeSeason ? "L" : "R");
-                      onSeasonChange(s.seasonNumber);
-                      setTimeout(() => setSlideDir(null), 200);
-                    }
-                  }}
-                  className={`rounded-full border-none p-0 cursor-pointer transition-all duration-150 ${isActive ? "h-2 w-5 flex items-center justify-center" : "w-2 h-2 hover:opacity-80"}`}
-                  style={{
-                    background: isActive ? "var(--color-dg-accent)" : "var(--color-dg-border)",
-                  }}
-                  title={`Season ${s.seasonNumber}`}
-                >
-                  {isActive && (
-                    <span className="text-[0.45rem] font-mono text-dg-bg leading-none">
-                      {s.seasonNumber}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => canNext && navigate("L")}
-            disabled={!canNext}
-            className="text-[0.7rem] text-dg-text-tertiary bg-transparent border-none cursor-pointer p-1 disabled:opacity-20 disabled:cursor-default hover:text-dg-text-secondary transition-colors font-mono"
-          >
-            next &rarr;
-          </button>
+        <div className="flex items-center justify-center gap-1.5 mt-2">
+          {seasons.map((s) => {
+            const isActive = s.seasonNumber === activeSeason;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  if (!isActive) {
+                    setSlideDir(s.seasonNumber > activeSeason ? "L" : "R");
+                    onSeasonChange(s.seasonNumber);
+                    setTimeout(() => setSlideDir(null), 200);
+                  }
+                }}
+                className={`rounded-full border-none p-0 cursor-pointer transition-all duration-150 ${isActive ? "h-2 w-5 flex items-center justify-center" : "w-2 h-2 hover:opacity-80"}`}
+                style={{
+                  background: isActive ? "var(--color-dg-accent)" : "var(--color-dg-border)",
+                }}
+                title={`Season ${s.seasonNumber}`}
+              >
+                {isActive && (
+                  <span className="text-[0.5rem] font-mono text-dg-bg leading-none">
+                    {s.seasonNumber}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -608,18 +528,16 @@ export function EpisodeTracker({
     return (
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider m-0">
-            Episodes
-          </h3>
+          <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider m-0">Episodes</h3>
           {totalEps > 0 && (
-            <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums font-mono">
+            <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums font-mono">
               {totalWatched}/{totalEps}
             </span>
           )}
         </div>
 
         {hasIncompleteData && (
-          <div className="text-[0.6rem] text-dg-text-tertiary font-body mb-2">
+          <div className="text-[0.65rem] text-dg-text-tertiary font-body mb-2">
             some season data is incomplete
           </div>
         )}
@@ -634,7 +552,7 @@ export function EpisodeTracker({
             const epCount = s.episodeCount ?? 0;
             return (
               <div key={s.id} className="flex items-center gap-2">
-                <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums w-6 shrink-0 font-mono">
+                <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums w-6 shrink-0 font-mono">
                   S{String(s.seasonNumber).padStart(2, "0")}
                 </span>
                 <div className="flex-1 h-[4px] bg-dg-elevated rounded-full overflow-hidden">
@@ -645,7 +563,7 @@ export function EpisodeTracker({
                     }}
                   />
                 </div>
-                <span className="text-[0.6rem] text-dg-text-tertiary tabular-nums shrink-0 font-mono">
+                <span className="text-[0.7rem] text-dg-text-tertiary tabular-nums shrink-0 font-mono">
                   {epCount > 0 ? `${epCount} ep` : "?"}
                 </span>
               </div>
@@ -662,10 +580,8 @@ export function EpisodeTracker({
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[0.7rem] text-dg-text-tertiary uppercase tracking-wider m-0">
-          Episodes
-        </h3>
-        <span className="text-[0.7rem] text-dg-text-secondary tabular-nums font-mono">
+        <h3 className="text-xs text-dg-text-tertiary uppercase tracking-wider m-0">Episodes</h3>
+        <span className="text-xs text-dg-text-secondary tabular-nums font-mono">
           {seasonWatched}/{seasonEpCount}
           {isMultiSeason && (
             <span className="text-dg-text-tertiary ml-1.5">
@@ -676,7 +592,7 @@ export function EpisodeTracker({
       </div>
 
       {hasIncompleteData && (
-        <div className="text-[0.6rem] text-dg-text-tertiary font-body mb-2">
+        <div className="text-[0.65rem] text-dg-text-tertiary font-body mb-2">
           some season data is incomplete
         </div>
       )}
@@ -689,58 +605,36 @@ export function EpisodeTracker({
             activeSeason={activeSeason}
             onSeasonClick={handleSeasonChange}
           />
+          {currentSeason.title && (
+            <div className="text-xs text-dg-text-muted font-mono mt-1.5">{currentSeason.title}</div>
+          )}
         </div>
       )}
 
-      {isMultiSeason && (
-        <div className="flex items-center gap-2 mb-3 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-1.5 shrink-0">
-            {seasons.map((s) => (
-              <SeasonCircle
-                key={s.id}
-                seasonNumber={s.seasonNumber}
-                watched={countSeasonWatched(watchedEpisodes, s.seasonNumber)}
-                total={s.episodeCount ?? 0}
-                isActive={s.seasonNumber === activeSeason}
-                onClick={() => handleSeasonChange(s.seasonNumber)}
-              />
-            ))}
-          </div>
-          <div className="text-[0.7rem] text-dg-text-tertiary font-mono">
-            S{String(currentSeason.seasonNumber).padStart(2, "0")}
-            {currentSeason.title && (
-              <span className="text-dg-text-muted ml-1">&mdash; {currentSeason.title}</span>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div className="bg-dg-elevated/30 rounded border border-dg-border-subtle p-2.5 sm:p-3">
-        {(() => {
-          const grid = (
-            <EpisodeGrid
-              season={currentSeason}
-              watched={watchedEpisodes}
-              episodeDate={episodeDate}
-              popoverEp={popoverEp}
-              onSetPopover={setPopoverEp}
-              onMarkThrough={handleMarkThrough}
-              onUnmarkFrom={handleUnmarkFrom}
-            />
-          );
-          return isMultiSeason ? (
-            <SeasonCarousel
-              seasons={seasons}
-              activeSeason={activeSeason}
-              onSeasonChange={handleSeasonChange}
-            >
-              {grid}
-            </SeasonCarousel>
-          ) : (
-            grid
-          );
-        })()}
-      </div>
+      {(() => {
+        const grid = (
+          <EpisodeGrid
+            season={currentSeason}
+            watched={watchedEpisodes}
+            episodeDate={episodeDate}
+            popoverEp={popoverEp}
+            onSetPopover={setPopoverEp}
+            onMarkThrough={handleMarkThrough}
+            onUnmarkFrom={handleUnmarkFrom}
+          />
+        );
+        return isMultiSeason ? (
+          <SeasonCarousel
+            seasons={seasons}
+            activeSeason={activeSeason}
+            onSeasonChange={handleSeasonChange}
+          >
+            {grid}
+          </SeasonCarousel>
+        ) : (
+          grid
+        );
+      })()}
 
       <div className="flex items-center gap-2 mt-3 border-t border-dg-border-subtle/50 pt-2">
         <input
@@ -748,12 +642,12 @@ export function EpisodeTracker({
           value={episodeDate}
           max={today}
           onChange={(e) => setEpisodeDate(e.target.value || today)}
-          className="text-[0.7rem] font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1 text-dg-text outline-none focus:border-dg-accent transition-colors"
+          className="text-xs font-mono bg-dg-bg border border-dg-border-subtle rounded-sm px-2 py-1.5 text-dg-text outline-none focus:border-dg-accent transition-colors"
         />
         <button
           type="button"
           onClick={() => setEpisodeDate(today)}
-          className={`dg-press text-[0.65rem] font-mono border rounded-sm px-2 py-1 ${
+          className={`dg-press text-xs font-mono border rounded-sm px-2 py-1.5 ${
             episodeDate === today
               ? "border-dg-border-subtle text-dg-text-tertiary bg-transparent opacity-40"
               : "border-dg-accent/30 text-dg-accent bg-transparent hover:bg-dg-accent/5"
@@ -769,10 +663,10 @@ export function EpisodeTracker({
           type="button"
           onClick={handleUndo}
           disabled={!undo.canUndo}
-          className="text-[0.75rem] text-dg-text-tertiary bg-transparent border-none cursor-pointer p-1 disabled:opacity-20 disabled:cursor-default hover:text-dg-text-secondary transition-colors font-mono"
+          className="text-dg-text-tertiary bg-transparent border-none cursor-pointer p-1 disabled:opacity-20 disabled:cursor-default hover:text-dg-text-secondary transition-colors"
           title="Undo last action"
         >
-          &#x21A9;
+          <ArrowCounterClockwise size={16} />
         </button>
       </div>
     </div>

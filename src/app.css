@@ -104,6 +104,7 @@ textarea {
 /* Atmosphere defaults are also here so light overrides can win (unlayered :root would beat @layer base) */
 @layer base {
   :root {
+    color-scheme: dark;
     --topo-color: rgba(40, 185, 242, 0.07);
     --grid-color: rgba(40, 185, 242, 0.042);
     --noise-opacity: 0.2;
@@ -114,6 +115,7 @@ textarea {
   }
 
   [data-theme="light"] {
+    color-scheme: light;
     --color-dg-bg: #ece8de;
     --color-dg-surface: #e3ded3;
     --color-dg-elevated: #d9d3c6;
@@ -294,15 +296,15 @@ textarea {
   }
 }
 
-/* Episode grid: flex items with grow so last row always fills */
-.ep-cell-wrap {
-  flex: 1 0 calc(12.5% - 0.375rem);
-  min-width: 1.75rem;
-  max-width: calc(14.28% - 0.375rem);
+.ep-grid {
+  display: grid;
+  gap: 0.375rem;
+  grid-template-columns: repeat(auto-fill, minmax(2rem, 1fr));
 }
 @media (min-width: 640px) {
-  .ep-cell-wrap {
-    max-width: calc(10% - 0.5rem);
+  .ep-grid {
+    gap: 0.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(2.25rem, 1fr));
   }
 }
 

@@ -516,9 +516,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
             />
           }
         >
-          <div>
-            <StampBadge type={mediaDisplayType} />
-          </div>
+          <StampBadge type={mediaDisplayType} />
           <h1
             className="font-display font-normal m-0 leading-[1.15] tracking-[-0.03em]"
             style={{ fontSize: "clamp(1.4rem, 4vw, 2.25rem)" }}
