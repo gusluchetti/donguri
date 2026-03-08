@@ -483,14 +483,6 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
     if (localStatus === "in_progress" && totalEps > 0) {
       if (countWatchedEpisodes(currentRunWatchedEps) >= totalEps) {
         setLocalStatus("completed");
-        import("canvas-confetti").then(({ default: confetti }) =>
-          confetti({
-            particleCount: 80,
-            spread: 60,
-            origin: { y: 0.7 },
-            colors: ["#d4a44a", "#e8702e", "#2aaba0"],
-          }),
-        );
       }
     }
   }, [localStatus, currentRunWatchedEps, totalEps]);
@@ -578,6 +570,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
             watchedAtState={{ value: localWatchedAt, set: setLocalWatchedAt }}
             onRewatch={handleRewatch}
             isMovie={data.mediaType === "movie"}
+            totalEpisodes={totalEps}
           >
             {hasSeasons && data.seasons ? (
               <EpisodeTracker

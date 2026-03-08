@@ -8,6 +8,7 @@ import { Button } from "~/components/Button";
 import { IconButton } from "~/components/IconButton";
 import { Spinner } from "~/components/Spinner";
 import type { CatalogEntry } from "~/db/schema";
+import { onStatusTransition } from "~/features/catalog/catalog.effects";
 import { getCatalogEntry, setCatalogEntry } from "~/features/catalog/catalog.functions";
 import { useRemoveCatalogEntry } from "~/features/catalog/catalog.mutations";
 import { catalogEntryOptions } from "~/features/catalog/catalog.queries";
@@ -40,6 +41,7 @@ export type TrackingPanelProps = {
   watchedAtState?: StatePair<string | null>;
   onRewatch?: () => void;
   isMovie?: boolean;
+  totalEpisodes?: number;
   children?: React.ReactNode;
 };
 
@@ -163,6 +165,7 @@ type StatusButtonsProps = {
   localReplayCount: number;
   statusAnimating: boolean;
   mediaType?: string;
+  completedDisabled?: boolean;
   onStatusChange: (s: string) => void;
 };
 
@@ -172,6 +175,7 @@ function StatusButtons({
   localReplayCount,
   statusAnimating,
   mediaType,
+  completedDisabled,
   onStatusChange,
 }: StatusButtonsProps) {
   return (
@@ -182,13 +186,16 @@ function StatusButtons({
         const label = statusLabel(s, mediaType);
         const showBadge = s === "completed" && localReplayCount > 0;
         const Icon = STATUS_ICONS[s];
+        const disabled = s === "completed" && !isActive && !!completedDisabled;
         return (
           <button
             key={s}
             type="button"
-            onClick={() => onStatusChange(s)}
+            onClick={() => !disabled && onStatusChange(s)}
+            disabled={disabled}
             className={cn(
               "dg-press relative flex items-center justify-center gap-1 text-[0.8rem] py-2 sm:py-1.5 px-3 min-h-[44px] sm:min-h-0 rounded-sm border font-body flex-1 min-w-fit lowercase",
+              disabled && "opacity-40 cursor-not-allowed",
               isActive
                 ? colorClass
                 : `${STATUS_BUTTON_INACTIVE[s]} text-dg-text-secondary bg-transparent hover:brightness-110`,
@@ -566,6 +573,7 @@ export function TrackingPanel({
   watchedAtState,
   onRewatch,
   isMovie,
+  totalEpisodes = 0,
   children,
 }: TrackingPanelProps) {
   const router = useRouter();
@@ -625,6 +633,7 @@ export function TrackingPanel({
   useEffect(() => {
     if (localStatus !== prevStatusRef.current && prevStatusRef.current !== null) {
       SoundEngine.stamp();
+      if (localStatus) onStatusTransition(prevStatusRef.current, localStatus);
       setStatusAnimating(true);
       const t = setTimeout(() => setStatusAnimating(false), 350);
       prevStatusRef.current = localStatus;
@@ -766,6 +775,7 @@ export function TrackingPanel({
 
   const handleStatusChange = useCallback(
     (s: string) => {
+      if (s === "completed" && totalEpisodes > 0) return;
       if (s === localStatus) {
         if (s === "completed" || s === "mastered") {
           setLocalReplayCount(localReplayCount + 1);
@@ -783,7 +793,7 @@ export function TrackingPanel({
       }
       setLocalStatus(s);
     },
-    [localStatus, localReplayCount, setLocalStatus, setLocalReplayCount, onRewatch],
+    [localStatus, localReplayCount, totalEpisodes, setLocalStatus, setLocalReplayCount, onRewatch],
   );
 
   const [ratingMode, setRatingMode] = useState(false);
@@ -848,6 +858,7 @@ export function TrackingPanel({
         localReplayCount={localReplayCount}
         statusAnimating={statusAnimating}
         mediaType={mediaType}
+        completedDisabled={totalEpisodes > 0}
         onStatusChange={handleStatusChange}
       />
 
