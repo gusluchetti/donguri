@@ -1,3 +1,6 @@
+import { Link } from "@tanstack/react-router";
+import { SoundEngine } from "~/features/catalog/catalog.sound";
+
 const PLAN_GRADIENTS: Record<string, string> = {
   monthly: "linear-gradient(135deg, #1a3a2a 0%, #0d2818 30%, #1a4030 60%, #0f3020 100%)",
   annual: "linear-gradient(135deg, #2a1a0a 0%, #3d2815 30%, #4a3018 60%, #2a1a0a 100%)",
@@ -10,79 +13,82 @@ const PLAN_ACCENT: Record<string, string> = {
   lifetime: "#c084fc",
 };
 
-export function RangerPassCard({
+export function RangerPassBanner({
   handle,
-  memberSince,
-  plan,
-  entriesCount,
-  dimmed,
+  subscription,
+  totalEntries,
 }: {
   handle: string;
-  memberSince: string | null;
+  subscription: { plan: string; status: string; createdAt: string | null } | null;
+  totalEntries: number;
+}) {
+  const hasActive =
+    subscription && ["active", "canceled", "past_due", "lifetime"].includes(subscription.status);
+
+  if (hasActive) {
+    return <RangerPassCard handle={handle} plan={subscription.plan} entriesCount={totalEntries} />;
+  }
+
+  return <UpsellBanner />;
+}
+
+export function RangerPassCard({
+  handle,
+  plan,
+  entriesCount,
+}: {
+  handle: string;
   plan: string;
   entriesCount: number;
-  dimmed?: boolean;
 }) {
   const gradient = PLAN_GRADIENTS[plan] ?? PLAN_GRADIENTS.monthly;
   const accent = PLAN_ACCENT[plan] ?? PLAN_ACCENT.monthly;
-  const year = memberSince ? new Date(memberSince).getFullYear() : new Date().getFullYear();
 
   return (
     <div
       className="relative overflow-hidden rounded-lg border select-none"
       style={{
-        aspectRatio: "85.6 / 53.98",
-        maxWidth: 360,
+        maxWidth: 280,
         width: "100%",
+        aspectRatio: "85.6 / 53.98",
         background: gradient,
-        borderColor: dimmed ? "var(--color-dg-border-subtle)" : `${accent}30`,
-        opacity: dimmed ? 0.5 : 1,
-        filter: dimmed ? "grayscale(0.6)" : "none",
-        transition: "opacity 200ms, filter 200ms",
+        borderColor: `${accent}30`,
       }}
     >
-      {/* Terrain lines */}
       <svg
         className="absolute inset-0 w-full h-full"
-        viewBox="0 0 360 228"
+        viewBox="0 0 280 178"
         preserveAspectRatio="none"
         style={{ opacity: 0.12 }}
         aria-hidden="true"
       >
         <path
-          d="M0 180 Q60 140 120 160 T240 145 T360 170 V228 H0Z"
+          d="M0 140 Q50 120 100 132 T200 122 T280 138 V178 H0Z"
           fill="none"
           stroke={accent}
-          strokeWidth="0.8"
+          strokeWidth="0.6"
         />
-        <path
-          d="M0 195 Q90 170 180 185 T360 175 V228 H0Z"
-          fill="none"
-          stroke={accent}
-          strokeWidth="0.5"
-        />
-        <path d="M0 210 Q80 195 160 200 T320 192 T360 205 V228 H0Z" fill={accent} opacity="0.15" />
+        <path d="M0 158 Q60 148 120 154 T240 148 T280 156 V178 H0Z" fill={accent} opacity="0.15" />
       </svg>
 
-      {/* Content */}
-      <div className="relative h-full flex flex-col justify-between p-4 sm:p-5">
+      <div className="relative h-full flex flex-col justify-between p-3.5">
         <div className="flex items-start justify-between">
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col">
             <span
-              className="font-mono text-[7px] tracking-[0.25em] uppercase"
+              className="font-mono text-[0.6rem] tracking-[0.2em] uppercase"
               style={{ color: `${accent}90` }}
             >
               donguri
             </span>
             <span
-              className="font-display text-[1rem] sm:text-[1.1rem] font-semibold tracking-wide"
+              className="font-display text-[0.85rem] font-semibold tracking-wide"
               style={{ color: accent }}
             >
               RANGER PASS
             </span>
           </div>
           <span
-            className="font-mono text-[8px] tracking-[0.15em] uppercase rounded-sm px-1.5 py-0.5 border"
+            className="font-mono text-[0.6rem] tracking-[0.12em] uppercase rounded-sm px-1.5 py-px border"
             style={{
               color: accent,
               borderColor: `${accent}40`,
@@ -94,33 +100,70 @@ export function RangerPassCard({
         </div>
 
         <div className="flex items-end justify-between">
-          <div className="flex flex-col gap-1">
-            <span
-              className="font-body text-[0.85rem] sm:text-[0.95rem] font-semibold truncate max-w-[200px]"
-              style={{ color: "rgba(255,255,255,0.9)" }}
-            >
-              {handle}
-            </span>
-            <div className="flex items-center gap-3">
-              <span
-                className="font-mono text-[8px] tabular-nums"
-                style={{ color: "rgba(255,255,255,0.4)" }}
-              >
-                {year}
-              </span>
-              <span
-                className="font-mono text-[8px] tabular-nums"
-                style={{ color: "rgba(255,255,255,0.4)" }}
-              >
-                {entriesCount} entries
-              </span>
-            </div>
-          </div>
-          <div className="font-mono text-[7px] tabular-nums" style={{ color: `${accent}50` }}>
+          <span
+            className="font-body text-[0.75rem] font-semibold truncate max-w-[160px]"
+            style={{ color: "rgba(255,255,255,0.9)" }}
+          >
+            {handle}
+          </span>
+          <span className="font-mono text-[0.6rem] tabular-nums" style={{ color: `${accent}50` }}>
             NO. {String(entriesCount).padStart(4, "0")}
-          </div>
+          </span>
         </div>
       </div>
     </div>
+  );
+}
+
+function UpsellBanner() {
+  const accent = PLAN_ACCENT.annual;
+  return (
+    <Link
+      to="/ranger-pass"
+      className="no-underline block group"
+      onClick={() => SoundEngine.navForward()}
+    >
+      <div
+        className="relative overflow-hidden rounded-lg border select-none transition-all duration-200 group-hover:border-dg-accent/40"
+        style={{
+          background: "linear-gradient(135deg, #1a1208 0%, #2a1a0a 40%, #1a1208 100%)",
+          borderColor: "var(--color-dg-border-subtle)",
+        }}
+      >
+        <svg
+          className="absolute inset-0 w-full h-full"
+          viewBox="0 0 800 56"
+          preserveAspectRatio="none"
+          style={{ opacity: 0.08 }}
+          aria-hidden="true"
+        >
+          <path
+            d="M0 42 Q100 30 200 38 T400 32 T600 38 T800 34 V56 H0Z"
+            fill={accent}
+            opacity="0.3"
+          />
+        </svg>
+
+        <div className="relative flex items-center justify-between px-4 py-2.5 gap-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="font-display text-[0.75rem] font-semibold tracking-wide opacity-50 group-hover:opacity-100 transition-opacity duration-200"
+              style={{ color: accent }}
+            >
+              RANGER PASS
+            </span>
+            <span className="font-body text-[0.75rem] text-dg-text-tertiary group-hover:text-dg-text-secondary transition-colors duration-200">
+              Unlock the full experience
+            </span>
+          </div>
+          <span
+            className="font-mono text-[0.7rem] font-semibold tracking-wide opacity-0 group-hover:opacity-100 transition-opacity duration-200 shrink-0"
+            style={{ color: accent }}
+          >
+            Learn more &rarr;
+          </span>
+        </div>
+      </div>
+    </Link>
   );
 }

@@ -88,7 +88,7 @@ function SeriesBar({
               }}
             />
             <span
-              className="relative text-[0.6rem] font-mono tabular-nums leading-none transition-opacity duration-100"
+              className="relative text-[0.625rem] font-mono tabular-nums leading-none transition-opacity duration-100"
               style={{ opacity: isActive ? 0.9 : 0.4 }}
             >
               S{String(s.seasonNumber).padStart(2, "0")}
@@ -408,7 +408,7 @@ function SeasonCarousel({
                 title={`Season ${s.seasonNumber}`}
               >
                 {isActive && (
-                  <span className="text-[0.5rem] font-mono text-dg-bg leading-none">
+                  <span className="text-[0.625rem] font-mono text-dg-bg leading-none">
                     {s.seasonNumber}
                   </span>
                 )}

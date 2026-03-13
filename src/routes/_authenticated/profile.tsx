@@ -1,4 +1,4 @@
-import { ClockCounterClockwise, Gear } from "@phosphor-icons/react";
+import { ClockCounterClockwise, Gear, SignOut } from "@phosphor-icons/react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { clear } from "idb-keyval";
@@ -19,7 +19,7 @@ import {
 } from "~/features/media/media-types";
 import type { ProfileData } from "~/features/profile/profile.functions";
 import { profileDataOptions } from "~/features/profile/profile.queries";
-import { RangerPassCard } from "~/features/subscription/components/RangerPassCard";
+import { RangerPassBanner } from "~/features/subscription/components/RangerPassCard";
 import { ogTags, pageTitle } from "~/lib/og";
 
 export const Route = createFileRoute("/_authenticated/profile")({
@@ -53,14 +53,9 @@ function ProfilePage() {
   if (stats.totalEntries === 0) {
     return (
       <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
-        <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
-          <ProfileHeader
-            user={user}
-            daysActive={daysActive}
-            onLogout={handleLogout}
-            subscription={subscription}
-            totalEntries={0}
-          />
+        <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4 flex flex-col gap-g3">
+          <RangerPassBanner handle={user.handle} subscription={subscription} totalEntries={0} />
+          <ProfileHeader user={user} daysActive={daysActive} onLogout={handleLogout} />
           <div className="flex flex-col items-center justify-center py-g8 gap-g2">
             <p className="font-display text-[1.3rem] text-dg-text-secondary">
               nothing tracked yet.
@@ -77,13 +72,12 @@ function ProfilePage() {
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4 flex flex-col gap-g3">
-        <ProfileHeader
-          user={user}
-          daysActive={daysActive}
-          onLogout={handleLogout}
+        <RangerPassBanner
+          handle={user.handle}
           subscription={subscription}
           totalEntries={stats.totalEntries}
         />
+        <ProfileHeader user={user} daysActive={daysActive} onLogout={handleLogout} />
         <StatsGrid stats={stats} daysActive={daysActive} />
         <TerritoryBar
           completedTypeCounts={stats.completedTypeCounts}
@@ -102,14 +96,10 @@ function ProfileHeader({
   user,
   daysActive,
   onLogout,
-  subscription,
-  totalEntries,
 }: {
   user: ProfileData["user"];
   daysActive: number;
   onLogout: () => void;
-  subscription: ProfileData["subscription"];
-  totalEntries: number;
 }) {
   const authLabel =
     user.authMethod === "atproto" ? "bsky" : user.authMethod === "google" ? "google" : "github";
@@ -122,73 +112,43 @@ function ProfileHeader({
     : null;
 
   return (
-    <div className="border border-dg-border-subtle rounded bg-dg-surface p-4 sm:p-5 flex flex-col gap-3">
-      <div className="flex items-center gap-g2">
-        <Avatar handle={user.handle} avatarUrl={user.avatarUrl} authMethod={user.authMethod} />
-        <div className="flex flex-col gap-0.5 min-w-0">
-          <span className="font-display text-[1.5rem] leading-tight truncate">{user.handle}</span>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className="inline-block font-mono text-[8px] font-bold tracking-[0.12em] uppercase rounded-[1px] whitespace-nowrap"
-              style={{
-                color: "var(--color-dg-text-tertiary)",
-                border: "1px solid var(--color-dg-border)",
-                padding: "0px 4px",
-                background: "var(--stamp-bg)",
-              }}
-            >
-              {authLabel}
+    <div className="border border-dg-border-subtle rounded bg-dg-surface p-4 sm:p-5 flex items-center gap-g2">
+      <Avatar handle={user.handle} avatarUrl={user.avatarUrl} authMethod={user.authMethod} />
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <span className="font-display text-[1.5rem] leading-tight truncate">{user.handle}</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span
+            className="inline-block font-mono text-[0.625rem] font-bold tracking-[0.12em] uppercase rounded-[1px] whitespace-nowrap"
+            style={{
+              color: "var(--color-dg-text-tertiary)",
+              border: "1px solid var(--color-dg-border)",
+              padding: "0px 4px",
+              background: "var(--stamp-bg)",
+            }}
+          >
+            {authLabel}
+          </span>
+          {memberSince && (
+            <span className="font-mono text-[0.7rem] text-dg-text-tertiary tabular-nums">
+              since {memberSince} · {daysActive}d
             </span>
-            {memberSince && (
-              <span className="font-mono text-[0.7rem] text-dg-text-tertiary tabular-nums">
-                since {memberSince} · {daysActive}d
-              </span>
-            )}
-          </div>
+          )}
         </div>
+      </div>
+      <div className="ml-auto flex items-center gap-2 shrink-0">
         <Link
           to="/settings"
-          className="ml-auto self-start text-dg-text-tertiary hover:text-dg-text-secondary transition-colors no-underline"
+          className="text-dg-text-tertiary hover:text-dg-text-secondary transition-colors no-underline"
           onClick={() => SoundEngine.navForward()}
         >
-          <Gear size={20} weight="bold" />
+          <Gear size={18} weight="bold" />
         </Link>
-      </div>
-      {/* Ranger Pass */}
-      {subscription &&
-      ["active", "canceled", "past_due", "lifetime"].includes(subscription.status) ? (
-        <RangerPassCard
-          handle={user.handle}
-          memberSince={subscription.createdAt}
-          plan={subscription.plan}
-          entriesCount={totalEntries}
-        />
-      ) : (
-        <Link
-          to="/ranger-pass"
-          className="no-underline block"
-          onClick={() => SoundEngine.navForward()}
-        >
-          <RangerPassCard
-            handle={user.handle}
-            memberSince={null}
-            plan="annual"
-            entriesCount={totalEntries}
-            dimmed
-          />
-          <span className="text-[0.7rem] text-dg-accent/60 mt-1 block text-center">
-            Get your Ranger Pass
-          </span>
-        </Link>
-      )}
-
-      <div className="flex justify-end">
         <button
           type="button"
           onClick={onLogout}
-          className="dg-press bg-transparent border-none font-body text-[0.7rem] text-dg-accent/50 hover:text-dg-accent/80 p-0"
+          className="dg-press bg-transparent border-none text-dg-text-tertiary hover:text-dg-accent/80 transition-colors p-0 flex items-center"
         >
-          logout
+          <SignOut size={18} weight="bold" />
         </button>
       </div>
     </div>
@@ -256,7 +216,7 @@ function StatsGrid({ stats, daysActive }: { stats: ProfileData["stats"]; daysAct
           }}
         >
           <div className="font-display text-[1.5rem] tabular-nums leading-tight">{cell.value}</div>
-          <div className="text-[0.6rem] uppercase tracking-wider text-dg-text-tertiary mt-0.5">
+          <div className="font-mono text-[0.625rem] uppercase tracking-wider text-dg-text-tertiary mt-0.5">
             {cell.label}
           </div>
         </div>
@@ -300,7 +260,7 @@ function TerritoryBar({
                 minWidth: count > 0 ? 24 : 0,
               }}
             >
-              <span className="font-mono text-[0.6rem] font-bold text-white/90 mix-blend-difference tabular-nums">
+              <span className="font-mono text-xs font-bold text-white/90 mix-blend-difference tabular-nums">
                 {count}
               </span>
             </div>
@@ -343,7 +303,9 @@ function StatusBreakdown({ statusCounts }: { statusCounts: Record<StatusValue, n
             style={{ opacity: count === 0 ? 0.3 : 1 }}
           >
             <StatusBadge status={status} compact />
-            <span className="text-[0.7rem] text-dg-text-secondary tabular-nums">{count}</span>
+            <span className="font-mono text-[0.7rem] text-dg-text-secondary tabular-nums">
+              {count}
+            </span>
           </div>
         );
       })}
@@ -394,17 +356,22 @@ function RecentTrail({ entries }: { entries: ProfileData["recent"] }) {
       <div className="flex flex-col">
         {entries.map((entry, i) => {
           const type = displayMediaType(entry.mediaType ?? "movie", entry.animationOrigin);
+          const typeColor = STAMP_COLORS[type] ?? "var(--color-dg-accent)";
           return (
             <Link
               key={entry.mediaWikidataId}
               to="/catalog/$wikidataId"
               params={{ wikidataId: entry.mediaWikidataId }}
-              className="flex items-center gap-g1 px-2 py-1.5 rounded no-underline text-dg-text hover:bg-dg-row-hover transition-all duration-50 hover:translate-x-[3px]"
-              style={{
-                animation: `fadeIn 50ms ${8 * i}ms both`,
-              }}
+              className="flex items-center gap-g1 px-2 py-1.5 no-underline text-dg-text hover:bg-dg-row-hover transition-all duration-50 hover:translate-x-[3px] relative group"
+              style={
+                {
+                  animation: `fadeIn 50ms ${8 * i}ms both`,
+                  "--line-color": typeColor,
+                } as React.CSSProperties
+              }
               onClick={() => SoundEngine.navForward()}
             >
+              <div className="absolute left-0 top-[15%] bottom-[15%] w-[2.5px] rounded-r-sm bg-transparent group-hover:bg-[var(--line-color)] transition-all duration-50 group-hover:shadow-[0_0_8px_var(--line-color)]" />
               <CoverThumb
                 mediaType={type}
                 title={entry.mediaTitle ?? ""}

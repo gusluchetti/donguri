@@ -490,7 +490,7 @@ function RatingKnob({ value, ratingMode, onChange, size = 110 }: RatingKnobProps
       </div>
 
       {ratingMode && (
-        <p className="text-[0.6rem] text-dg-accent m-0 mt-1">
+        <p className="text-[0.625rem] text-dg-accent m-0 mt-1">
           = <span className="animate-pulse">_</span>
         </p>
       )}

@@ -108,12 +108,7 @@ function RangerPassPage() {
       <div className="max-w-[700px] mx-auto px-g3 py-g4 sm:py-g6 flex flex-col gap-g6">
         {/* Hero */}
         <div className="flex flex-col items-center gap-g3 text-center">
-          <RangerPassCard
-            handle={auth?.handle ?? "ranger"}
-            memberSince={null}
-            plan={plan}
-            entriesCount={42}
-          />
+          <RangerPassCard handle={auth?.handle ?? "ranger"} plan={plan} entriesCount={42} />
           <div className="flex flex-col gap-1">
             <h1 className="font-display text-[2rem] sm:text-[2.5rem] font-light leading-tight">
               Ranger Pass
