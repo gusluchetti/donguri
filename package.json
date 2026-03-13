@@ -22,7 +22,8 @@
     "format": "biome format --fix .",
     "validate": "bun run format && bun run lint && bun run typecheck && bun run build",
     "import:update": "bun run src/import/update.ts",
-    "db:seed-platforms": "bun run src/db/seed-platforms.ts"
+    "db:seed-platforms": "bun run src/db/seed-platforms.ts",
+    "comp": "bun run scripts/comp-subscription.ts"
   },
   "dependencies": {
     "@atproto/api": "^0.18.20",
