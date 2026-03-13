@@ -2,12 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { cleanEnv, getDb } from "~/db";
-import { users } from "~/db/schema";
+import { subscriptions, users } from "~/db/schema";
 import { getAuthenticatedAgent } from "~/features/auth/auth.agent";
 import { getOAuthClient } from "~/features/auth/auth.client";
 import { getAuthUrl, handleProviderCallback, type Provider } from "~/features/auth/auth.providers";
 import { clearSessionCookie, getSessionData, setSessionCookie } from "~/features/auth/auth.session";
 import { reconcileUser } from "~/features/auth/auth.sync";
+import { getActiveTier } from "~/features/subscription/subscription.utils";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -151,7 +152,15 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
         }
       }
 
-      await setSessionCookie({ userId, handle, authMethod: "atproto", did });
+      // Look up active subscription tier
+      const [subRow] = await db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.userId, userId))
+        .limit(1);
+      const tier = getActiveTier(subRow ?? null);
+
+      await setSessionCookie({ userId, handle, authMethod: "atproto", did, tier });
       if (isDev) console.debug("[callback] session cookie set, login complete");
       return { did, handle };
     } catch (err) {

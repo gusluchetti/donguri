@@ -176,6 +176,32 @@ export const mediaPlatforms = pgTable(
   (table) => [primaryKey({ columns: [table.mediaId, table.canonicalPlatformId] })],
 );
 
+// ─── Subscriptions ────────────────────────────────────────────────────────
+
+export const subscriptions = pgTable("subscriptions", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => ulid()),
+  userId: text("user_id").notNull().unique(),
+  tier: text("tier", { enum: ["ranger_pass"] }).notNull(),
+  status: text("status", {
+    enum: ["active", "canceled", "past_due", "paused", "expired", "lifetime"],
+  }).notNull(),
+  provider: text("provider").notNull(),
+  providerCustomerId: text("provider_customer_id"),
+  providerSubscriptionId: text("provider_subscription_id"),
+  providerOrderId: text("provider_order_id"),
+  providerPriceId: text("provider_price_id"),
+  plan: text("plan", { enum: ["monthly", "annual", "lifetime"] }).notNull(),
+  currentPeriodStart: timestamp("current_period_start"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  canceledAt: timestamp("canceled_at"),
+  pppRegion: text("ppp_region"),
+  pppDiscountApplied: boolean("ppp_discount_applied").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // ─── Users ──────────────────────────────────────────────────────────────────
 
 export const users = pgTable("users", {
@@ -191,6 +217,7 @@ export const users = pgTable("users", {
   authMethod: text("auth_method", {
     enum: ["atproto", "google", "github"],
   }).notNull(),
+  subscriptionId: text("subscription_id").references(() => subscriptions.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -352,8 +379,16 @@ export const platformMappingsRelations = relations(platformMappings, ({ one }) =
   }),
 }));
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   catalogEntries: many(catalogEntries),
+  subscription: one(subscriptions, {
+    fields: [users.subscriptionId],
+    references: [subscriptions.id],
+  }),
+}));
+
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+  user: one(users, { fields: [subscriptions.userId], references: [users.id] }),
 }));
 
 export const catalogEntriesRelations = relations(catalogEntries, ({ one }) => ({
@@ -385,3 +420,5 @@ export type CanonicalGenre = typeof canonicalGenres.$inferSelect;
 export type GenreMapping = typeof genreMappings.$inferSelect;
 export type CanonicalPlatform = typeof canonicalPlatforms.$inferSelect;
 export type PlatformMapping = typeof platformMappings.$inferSelect;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type NewSubscription = typeof subscriptions.$inferInsert;

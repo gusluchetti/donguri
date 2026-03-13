@@ -1,6 +1,7 @@
 import { JoseKey } from "@atproto/jwk-jose";
 import { createStartHandler, defaultStreamHandler } from "@tanstack/react-start/server";
 import { cleanEnv } from "./db";
+import { handlePaymentWebhook } from "./features/subscription/subscription.webhook";
 
 const startHandler = createStartHandler(defaultStreamHandler);
 
@@ -35,6 +36,18 @@ const fetch = async (request: Request) => {
 
   if (url.pathname === "/api/health") {
     return Response.json({ status: "ok", timestamp: new Date().toISOString() });
+  }
+
+  if (url.pathname === "/api/webhooks/payment" && request.method === "POST") {
+    const rawBody = await request.text();
+    const signature = request.headers.get("x-signature") ?? "";
+    try {
+      await handlePaymentWebhook(rawBody, signature);
+      return Response.json({ ok: true });
+    } catch (e) {
+      console.error("[webhook:payment]", e);
+      return Response.json({ error: "webhook failed" }, { status: 400 });
+    }
   }
 
   // 301 redirect old /media/ paths to /catalog/

@@ -17,6 +17,7 @@ export type SessionData = {
   handle: string;
   authMethod: "atproto" | "google" | "github";
   did?: string;
+  tier?: string | null;
 };
 
 const COOKIE_NAME = "donguri-auth";
@@ -107,6 +108,10 @@ function ensureSweep() {
   }, SWEEP_INTERVAL);
   // Don't block process shutdown
   if (typeof sweepTimer === "object" && "unref" in sweepTimer) sweepTimer.unref();
+}
+
+export function invalidateUserCache(userId: string): void {
+  verifiedUsers.delete(userId);
 }
 
 export async function requireAuth(): Promise<SessionData> {

@@ -19,6 +19,7 @@ import {
 } from "~/features/media/media-types";
 import type { ProfileData } from "~/features/profile/profile.functions";
 import { profileDataOptions } from "~/features/profile/profile.queries";
+import { RangerPassCard } from "~/features/subscription/components/RangerPassCard";
 import { ogTags, pageTitle } from "~/lib/og";
 
 export const Route = createFileRoute("/_authenticated/profile")({
@@ -42,7 +43,7 @@ export const Route = createFileRoute("/_authenticated/profile")({
 
 function ProfilePage() {
   const { data } = useSuspenseQuery(profileDataOptions());
-  const { stats, recent, user, daysActive } = data;
+  const { stats, recent, user, daysActive, subscription } = data;
   const handleLogout = useCallback(async () => {
     await logout();
     clear();
@@ -53,7 +54,13 @@ function ProfilePage() {
     return (
       <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
         <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4">
-          <ProfileHeader user={user} daysActive={daysActive} onLogout={handleLogout} />
+          <ProfileHeader
+            user={user}
+            daysActive={daysActive}
+            onLogout={handleLogout}
+            subscription={subscription}
+            totalEntries={0}
+          />
           <div className="flex flex-col items-center justify-center py-g8 gap-g2">
             <p className="font-display text-[1.3rem] text-dg-text-secondary">
               nothing tracked yet.
@@ -70,7 +77,13 @@ function ProfilePage() {
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4 flex flex-col gap-g3">
-        <ProfileHeader user={user} daysActive={daysActive} onLogout={handleLogout} />
+        <ProfileHeader
+          user={user}
+          daysActive={daysActive}
+          onLogout={handleLogout}
+          subscription={subscription}
+          totalEntries={stats.totalEntries}
+        />
         <StatsGrid stats={stats} daysActive={daysActive} />
         <TerritoryBar
           completedTypeCounts={stats.completedTypeCounts}
@@ -89,10 +102,14 @@ function ProfileHeader({
   user,
   daysActive,
   onLogout,
+  subscription,
+  totalEntries,
 }: {
   user: ProfileData["user"];
   daysActive: number;
   onLogout: () => void;
+  subscription: ProfileData["subscription"];
+  totalEntries: number;
 }) {
   const authLabel =
     user.authMethod === "atproto" ? "bsky" : user.authMethod === "google" ? "google" : "github";
@@ -137,6 +154,34 @@ function ProfileHeader({
           <Gear size={20} weight="bold" />
         </Link>
       </div>
+      {/* Ranger Pass */}
+      {subscription &&
+      ["active", "canceled", "past_due", "lifetime"].includes(subscription.status) ? (
+        <RangerPassCard
+          handle={user.handle}
+          memberSince={subscription.createdAt}
+          plan={subscription.plan}
+          entriesCount={totalEntries}
+        />
+      ) : (
+        <Link
+          to="/ranger-pass"
+          className="no-underline block"
+          onClick={() => SoundEngine.navForward()}
+        >
+          <RangerPassCard
+            handle={user.handle}
+            memberSince={null}
+            plan="annual"
+            entriesCount={totalEntries}
+            dimmed
+          />
+          <span className="text-[0.7rem] text-dg-accent/60 mt-1 block text-center">
+            Get your Ranger Pass
+          </span>
+        </Link>
+      )}
+
       <div className="flex justify-end">
         <button
           type="button"

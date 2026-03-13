@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { desc, eq, sql } from "drizzle-orm";
 import { getDb } from "~/db";
-import { catalogEntries, media, users } from "~/db/schema";
+import { catalogEntries, media, subscriptions, users } from "~/db/schema";
 import { requireAuth } from "~/features/auth/auth.session";
 import type { StatusValue } from "~/features/media/media-types";
 
@@ -28,6 +28,13 @@ export type RecentEntry = {
   posterUrl: string | null;
 };
 
+export type ProfileSubscription = {
+  plan: string;
+  status: string;
+  tier: string;
+  createdAt: string | null;
+} | null;
+
 export type ProfileData = {
   stats: ProfileStats;
   recent: RecentEntry[];
@@ -39,6 +46,7 @@ export type ProfileData = {
   };
   topTerritory: string | null;
   daysActive: number;
+  subscription: ProfileSubscription;
 };
 
 export const getProfileData = createServerFn({ method: "GET" }).handler(
@@ -100,15 +108,20 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
         .orderBy(desc(catalogEntries.updatedAt))
         .limit(10),
 
-      // User row
+      // User row + subscription
       db
         .select({
           handle: users.handle,
           avatarUrl: users.avatarUrl,
           authMethod: users.authMethod,
           createdAt: sql<string | null>`${users.createdAt}::text`,
+          subPlan: subscriptions.plan,
+          subStatus: subscriptions.status,
+          subTier: subscriptions.tier,
+          subCreatedAt: sql<string | null>`${subscriptions.createdAt}::text`,
         })
         .from(users)
+        .leftJoin(subscriptions, eq(users.subscriptionId, subscriptions.id))
         .where(eq(users.id, auth.userId))
         .limit(1),
     ]);
@@ -147,6 +160,16 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
       Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)),
     );
 
+    const subscription: ProfileSubscription =
+      user?.subPlan && user.subStatus && user.subTier
+        ? {
+            plan: user.subPlan,
+            status: user.subStatus,
+            tier: user.subTier,
+            createdAt: user.subCreatedAt ?? null,
+          }
+        : null;
+
     return {
       stats: {
         totalEntries: agg.totalEntries,
@@ -174,6 +197,7 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
       },
       topTerritory,
       daysActive,
+      subscription,
     };
   },
 );
