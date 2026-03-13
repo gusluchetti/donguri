@@ -24,35 +24,30 @@ export function useCatalogCursor({
     prevCount.current = itemCount;
   }, [itemCount]);
 
-  // Scroll to selected index
   useEffect(() => {
     if (selectedIndex >= 0 && selectedIndex < itemCount) {
       virtualizer.scrollToIndex(selectedIndex, { align: "auto" });
     }
   }, [selectedIndex, itemCount, virtualizer]);
 
-  // Trigger load more when cursor nears end
   useEffect(() => {
     if (selectedIndex >= 0 && selectedIndex >= itemCount - 5 && hasNextPage) {
       fetchNextPage();
     }
   }, [selectedIndex, itemCount, hasNextPage, fetchNextPage]);
 
-  // j / ArrowDown — move down
   const moveDown = () => {
     setSelectedIndex((prev) => Math.min(prev + 1, itemCount - 1));
   };
   useHotkey("J", moveDown, { enabled: enabled && itemCount > 0 });
   useHotkey("ArrowDown", moveDown, { enabled: enabled && itemCount > 0 });
 
-  // k / ArrowUp — move up
   const moveUp = () => {
     setSelectedIndex((prev) => (prev <= 0 ? prev : prev - 1));
   };
   useHotkey("K", moveUp, { enabled: enabled && itemCount > 0 });
   useHotkey("ArrowUp", moveUp, { enabled: enabled && itemCount > 0 });
 
-  // G (shift+g) — jump to last loaded item
   useHotkey(
     "Shift+G",
     () => {
@@ -61,7 +56,6 @@ export function useCatalogCursor({
     { enabled },
   );
 
-  // gg — jump to first item
   useHotkeySequence(
     ["G", "G"],
     () => {

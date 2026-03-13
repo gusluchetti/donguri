@@ -387,15 +387,17 @@ function ActivityTimeline({
         Activity
       </h3>
       <div className="space-y-1.5">
-        {visible.map((item, i) => {
+        {visible.map((item) => {
           const dotColor = item.label.startsWith("Watched")
             ? "bg-dg-enroute"
             : item.label === "Added to list"
               ? "bg-dg-charted"
               : "bg-dg-stamped";
           return (
-            // biome-ignore lint/suspicious/noArrayIndexKey: stable sorted list
-            <div key={i} className="flex items-center justify-between gap-3">
+            <div
+              key={`${item.label}-${item.date}`}
+              className="flex items-center justify-between gap-3"
+            >
               <div className="flex items-center gap-2">
                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} />
                 <span className="text-[0.75rem] text-dg-text-secondary">{item.label}</span>

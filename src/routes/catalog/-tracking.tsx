@@ -444,7 +444,6 @@ function RatingKnob({ value, ratingMode, onChange, size = 110 }: RatingKnobProps
               style={{ transition: thumbTransition }}
             />
           )}
-          {/* Number inside the knob */}
           {!editing && (
             /* biome-ignore lint/a11y/noStaticElementInteractions: SVG text can't be a <button> */
             <text
