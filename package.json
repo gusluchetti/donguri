@@ -1,6 +1,6 @@
 {
   "name": "donguri",
-  "version": "2026.3.8-2",
+  "version": "2026.3.16",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -33,6 +33,7 @@
     "@phosphor-icons/react": "^2.1.10",
     "@tanstack/query-broadcast-client-experimental": "^5.90.20",
     "@tanstack/query-persist-client-core": "^5.91.19",
+    "@tanstack/react-form": "^1.28.5",
     "@tanstack/react-hotkeys": "^0.1.0",
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-router": "^1.159.5",

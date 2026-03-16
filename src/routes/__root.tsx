@@ -34,6 +34,7 @@ import { authOptions, themeOptions } from "~/features/auth/auth.queries";
 import { getCatalogFingerprint } from "~/features/catalog/catalog.functions";
 import { trackedIdsOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
+import { FeedbackDialog } from "~/features/feedback/FeedbackDialog";
 import { AcornIcon } from "~/features/media/components/AcornIcon";
 import { BackgroundLayers } from "~/features/media/components/BackgroundLayers";
 import { HelpOverlay } from "~/lib/hotkeys/HelpOverlay";
@@ -185,6 +186,7 @@ function RootComponent() {
   }, [queryClient]);
 
   const [showHelp, setShowHelp] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   return (
     <RootDocument theme={theme}>
@@ -223,6 +225,15 @@ function RootComponent() {
                         {item.label}
                       </NavButton>
                     ))}
+                    {auth && (
+                      <button
+                        type="button"
+                        onClick={() => setShowFeedback(true)}
+                        className="dg-press no-underline font-body text-xs tracking-[0.06em] uppercase rounded-sm py-[5px] px-2 sm:px-3 border bg-transparent border-transparent text-dg-text-secondary"
+                      >
+                        feedback
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -263,7 +274,7 @@ function RootComponent() {
             <footer className="hidden sm:block border-t border-dg-border-subtle px-g3 py-g1 font-body shrink-0">
               <div className="max-w-[1100px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[0.7rem] text-dg-text-tertiary">
                 <span className="flex items-center gap-2">
-                  <span>v2026.02.27</span>
+                  <span>v2026.3.16</span>
                   <button
                     type="button"
                     onClick={() => setShowHelp(true)}
@@ -315,6 +326,7 @@ function RootComponent() {
             <BottomNav />
           </div>
         </HotkeysProvider>
+        {auth && <FeedbackDialog open={showFeedback} onClose={() => setShowFeedback(false)} />}
       </ThemeProvider>
       {import.meta.env.DEV && (
         <>
