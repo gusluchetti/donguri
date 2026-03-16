@@ -480,6 +480,112 @@ textarea {
   }
 }
 
+/* ─── Card shine ───────────────────────────────────────────────────────────── */
+
+.dg-card-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.06) 40%,
+    rgba(255, 255, 255, 0.14) 50%,
+    rgba(255, 255, 255, 0.06) 60%,
+    transparent 70%
+  );
+  transform: translateX(-120%);
+  transition: none;
+  pointer-events: none;
+  z-index: 1;
+}
+.dg-card-shine:hover::after {
+  animation: cardShine 600ms ease-out forwards;
+}
+
+@keyframes cardShine {
+  to {
+    transform: translateX(120%);
+  }
+}
+
+/* ─── Range slider ─────────────────────────────────────────────────────────── */
+
+.dg-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-dg-border-subtle);
+  outline: none;
+  cursor: pointer;
+}
+.dg-range:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.dg-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-dg-accent);
+  border: 2px solid var(--color-dg-border-strong);
+  cursor: pointer;
+  transition: box-shadow 120ms ease;
+}
+.dg-range::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 0 3px var(--color-dg-accent-glow);
+}
+.dg-range:disabled::-webkit-slider-thumb {
+  background: var(--color-dg-text-muted);
+  cursor: not-allowed;
+}
+
+.dg-range::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-dg-border-subtle);
+}
+.dg-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-dg-accent);
+  border: 2px solid var(--color-dg-border-strong);
+  cursor: pointer;
+}
+.dg-range::-moz-range-thumb:hover {
+  box-shadow: 0 0 0 3px var(--color-dg-accent-glow);
+}
+.dg-range:disabled::-moz-range-thumb {
+  background: var(--color-dg-text-muted);
+  cursor: not-allowed;
+}
+
+/* ─── Custom scrollbar ─────────────────────────────────────────────────────── */
+
+.dg-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-dg-border-strong) transparent;
+}
+.dg-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.dg-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 2px 0;
+}
+.dg-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-dg-border-strong);
+  border-radius: 3px;
+}
+.dg-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-dg-text-muted);
+}
+
 /* ─── Reduced motion ───────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   /* Remove animations entirely so fill-mode: both doesn't hold opacity: 0 */

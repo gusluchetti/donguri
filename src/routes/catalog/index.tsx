@@ -523,7 +523,7 @@ function CatalogPage() {
                 </div>
               </div>
             )}
-            <div ref={parentRef} className="flex-1 min-h-0 overflow-auto">
+            <div ref={parentRef} className="flex-1 min-h-0 overflow-auto dg-scrollbar pr-1.5">
               <div
                 style={{ height: virtualizer.getTotalSize(), width: "100%", position: "relative" }}
               >
