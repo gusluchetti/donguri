@@ -19,7 +19,8 @@ import {
 } from "~/features/media/media-types";
 import type { ProfileData } from "~/features/profile/profile.functions";
 import { profileDataOptions } from "~/features/profile/profile.queries";
-import { RangerPassBanner } from "~/features/subscription/components/RangerPassCard";
+import { RangerPassCard, UpsellBanner } from "~/features/subscription/components/RangerPassCard";
+import { isSubscriptionActive } from "~/features/subscription/subscription.utils";
 import { ogTags, pageTitle } from "~/lib/og";
 
 export const Route = createFileRoute("/_authenticated/profile")({
@@ -50,12 +51,20 @@ function ProfilePage() {
     window.location.href = "/";
   }, []);
 
+  const hasActiveSub = isSubscriptionActive(subscription);
+
   if (stats.totalEntries === 0) {
     return (
       <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
         <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4 flex flex-col gap-g3">
-          <RangerPassBanner handle={user.handle} subscription={subscription} totalEntries={0} />
-          <ProfileHeader user={user} daysActive={daysActive} onLogout={handleLogout} />
+          {!hasActiveSub && <UpsellBanner />}
+          <ProfileHeader
+            user={user}
+            daysActive={daysActive}
+            onLogout={handleLogout}
+            subscription={hasActiveSub ? subscription : null}
+            totalEntries={0}
+          />
           <div className="flex flex-col items-center justify-center py-g8 gap-g2">
             <p className="font-display text-[1.3rem] text-dg-text-secondary">
               nothing tracked yet.
@@ -72,12 +81,14 @@ function ProfilePage() {
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4 flex flex-col gap-g3">
-        <RangerPassBanner
-          handle={user.handle}
-          subscription={subscription}
+        {!hasActiveSub && <UpsellBanner />}
+        <ProfileHeader
+          user={user}
+          daysActive={daysActive}
+          onLogout={handleLogout}
+          subscription={hasActiveSub ? subscription : null}
           totalEntries={stats.totalEntries}
         />
-        <ProfileHeader user={user} daysActive={daysActive} onLogout={handleLogout} />
         <StatsGrid stats={stats} daysActive={daysActive} />
         <TerritoryBar
           completedTypeCounts={stats.completedTypeCounts}
@@ -96,10 +107,14 @@ function ProfileHeader({
   user,
   daysActive,
   onLogout,
+  subscription,
+  totalEntries,
 }: {
   user: ProfileData["user"];
   daysActive: number;
   onLogout: () => void;
+  subscription: { plan: string; status: string; createdAt: string | null } | null;
+  totalEntries: number;
 }) {
   const authLabel =
     user.authMethod === "atproto" ? "bsky" : user.authMethod === "google" ? "google" : "github";
@@ -111,11 +126,13 @@ function ProfileHeader({
       })
     : null;
 
+  const displayHandle = user.handle.replace(/\.bsky\.social$/, "");
+
   return (
-    <div className="border border-dg-border-subtle rounded bg-dg-surface p-4 sm:p-5 flex items-center gap-g2">
+    <div className="border border-dg-border-subtle rounded bg-dg-surface p-3 sm:p-4 flex flex-wrap items-center gap-g2">
       <Avatar handle={user.handle} avatarUrl={user.avatarUrl} authMethod={user.authMethod} />
       <div className="flex flex-col gap-0.5 min-w-0">
-        <span className="font-display text-[1.5rem] leading-tight truncate">{user.handle}</span>
+        <span className="font-display text-[1.5rem] leading-tight truncate">{displayHandle}</span>
         <div className="flex items-center gap-2 flex-wrap">
           <span
             className="inline-block font-mono text-[0.625rem] font-bold tracking-[0.12em] uppercase rounded-[1px] whitespace-nowrap"
@@ -135,20 +152,33 @@ function ProfileHeader({
           )}
         </div>
       </div>
-      <div className="ml-auto flex items-center gap-2 shrink-0">
+      {subscription && (
+        <Link
+          to="/ranger-pass"
+          className="ml-auto mr-0 sm:ml-0 sm:mr-0 order-last sm:order-none sm:ml-auto scale-[0.7] origin-right no-underline"
+          onClick={() => SoundEngine.navForward()}
+        >
+          <RangerPassCard
+            handle={user.handle}
+            plan={subscription.plan}
+            entriesCount={totalEntries}
+          />
+        </Link>
+      )}
+      <div className={`${subscription ? "" : "ml-auto "}flex flex-col items-center gap-3 shrink-0`}>
         <Link
           to="/settings"
           className="text-dg-text-tertiary hover:text-dg-text-secondary transition-colors no-underline"
           onClick={() => SoundEngine.navForward()}
         >
-          <Gear size={18} weight="bold" />
+          <Gear size={24} weight="bold" />
         </Link>
         <button
           type="button"
           onClick={onLogout}
           className="dg-press bg-transparent border-none text-dg-text-tertiary hover:text-dg-accent/80 transition-colors p-0 flex items-center"
         >
-          <SignOut size={18} weight="bold" />
+          <SignOut size={24} weight="bold" />
         </button>
       </div>
     </div>

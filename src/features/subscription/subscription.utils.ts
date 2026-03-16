@@ -13,3 +13,10 @@ export function getActiveTier(sub: Subscription | null | undefined): Subscriptio
 export function hasPaidTier(sub: Subscription | null | undefined): boolean {
   return getActiveTier(sub) !== null;
 }
+
+export function isSubscriptionActive<T extends { status: string }>(
+  sub: T | null | undefined,
+): sub is T {
+  if (!sub) return false;
+  return ["active", "canceled", "past_due", "lifetime"].includes(sub.status);
+}

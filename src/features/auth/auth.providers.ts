@@ -237,6 +237,7 @@ export async function handleProviderCallback(
 
   let userId: string;
   let handle: string;
+  let isNewUser = false;
 
   if (byProviderId) {
     // Returning user — update profile
@@ -287,6 +288,7 @@ export async function handleProviderCallback(
         .returning({ id: users.id });
       userId = newUser.id;
       handle = profile.name;
+      isNewUser = true;
       if (isDev) console.debug("[oauth:%s] created new user: %s", provider, userId);
     }
   } else {
@@ -302,16 +304,19 @@ export async function handleProviderCallback(
       .returning({ id: users.id });
     userId = newUser.id;
     handle = profile.name;
+    isNewUser = true;
     if (isDev) console.debug("[oauth:%s] created new user (no email): %s", provider, userId);
   }
 
-  // Look up active subscription tier
-  const [subRow] = await db
-    .select()
-    .from(subscriptions)
-    .where(eq(subscriptions.userId, userId))
-    .limit(1);
-  const tier = getActiveTier(subRow ?? null);
+  let tier = null;
+  if (!isNewUser) {
+    const [subRow] = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId))
+      .limit(1);
+    tier = getActiveTier(subRow ?? null);
+  }
 
   const session: SessionData = { userId, handle, authMethod: provider, tier };
   await setSessionCookie(session);

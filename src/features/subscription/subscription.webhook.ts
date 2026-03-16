@@ -56,7 +56,7 @@ export async function handlePaymentWebhook(rawBody: string, signature: string): 
       break;
 
     case "subscription_updated": {
-      const set: Record<string, unknown> = { updatedAt: new Date() };
+      const set: Partial<typeof subscriptions.$inferInsert> = { updatedAt: new Date() };
       if (result.data.status) set.status = result.data.status;
       if (result.data.currentPeriodEnd !== undefined)
         set.currentPeriodEnd = result.data.currentPeriodEnd;
@@ -66,7 +66,7 @@ export async function handlePaymentWebhook(rawBody: string, signature: string): 
     }
 
     case "status_change": {
-      const statusSet: Record<string, unknown> = {
+      const statusSet: Partial<typeof subscriptions.$inferInsert> = {
         status: result.status,
         updatedAt: new Date(),
       };

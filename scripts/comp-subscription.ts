@@ -3,9 +3,9 @@ import { getDb } from "~/db";
 import { subscriptions, users } from "~/db/schema";
 
 const PROVIDER = "comped";
+const db = getDb();
 
 async function findUser(identifier: string) {
-  const db = getDb();
   const [user] = await db
     .select({ id: users.id, handle: users.handle, email: users.email, subscriptionId: users.subscriptionId })
     .from(users)
@@ -21,9 +21,6 @@ async function grant(identifier: string) {
     process.exit(1);
   }
 
-  const db = getDb();
-
-  // Check existing subscription
   const [existing] = await db
     .select()
     .from(subscriptions)
@@ -63,7 +60,6 @@ async function revoke(identifier: string) {
     process.exit(1);
   }
 
-  const db = getDb();
   const [sub] = await db
     .select()
     .from(subscriptions)
@@ -85,7 +81,6 @@ async function revoke(identifier: string) {
 }
 
 async function list() {
-  const db = getDb();
   const rows = await db
     .select({ handle: users.handle, email: users.email, createdAt: subscriptions.createdAt })
     .from(subscriptions)

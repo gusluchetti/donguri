@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
+import { isSubscriptionActive } from "~/features/subscription/subscription.utils";
 
 const PLAN_GRADIENTS: Record<string, string> = {
   monthly: "linear-gradient(135deg, #1a3a2a 0%, #0d2818 30%, #1a4030 60%, #0f3020 100%)",
@@ -22,10 +23,7 @@ export function RangerPassBanner({
   subscription: { plan: string; status: string; createdAt: string | null } | null;
   totalEntries: number;
 }) {
-  const hasActive =
-    subscription && ["active", "canceled", "past_due", "lifetime"].includes(subscription.status);
-
-  if (hasActive) {
+  if (isSubscriptionActive(subscription)) {
     return <RangerPassCard handle={handle} plan={subscription.plan} entriesCount={totalEntries} />;
   }
 
@@ -46,7 +44,7 @@ export function RangerPassCard({
 
   return (
     <div
-      className="relative overflow-hidden rounded-lg border select-none"
+      className="dg-card-shine relative overflow-hidden rounded-lg border select-none"
       style={{
         maxWidth: 280,
         width: "100%",
@@ -104,7 +102,7 @@ export function RangerPassCard({
             className="font-body text-[0.75rem] font-semibold truncate max-w-[160px]"
             style={{ color: "rgba(255,255,255,0.9)" }}
           >
-            {handle}
+            {handle.replace(/\.bsky\.social$/, "")}
           </span>
           <span className="font-mono text-[0.6rem] tabular-nums" style={{ color: `${accent}50` }}>
             NO. {String(entriesCount).padStart(4, "0")}
@@ -115,7 +113,7 @@ export function RangerPassCard({
   );
 }
 
-function UpsellBanner() {
+export function UpsellBanner() {
   const accent = PLAN_ACCENT.annual;
   return (
     <Link

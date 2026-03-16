@@ -1,4 +1,10 @@
-import { createCheckout, getCustomer, lemonSqueezySetup } from "@lemonsqueezy/lemonsqueezy.js";
+import {
+  cancelSubscription,
+  createCheckout,
+  getCustomer,
+  lemonSqueezySetup,
+  updateSubscription,
+} from "@lemonsqueezy/lemonsqueezy.js";
 import { cleanEnv } from "~/db";
 import type { Subscription } from "~/db/schema";
 
@@ -33,6 +39,8 @@ export interface PaymentProvider {
   name: string;
   createCheckoutUrl(opts: { userId: string; plan: Plan; discountCode?: string }): Promise<string>;
   getCustomerPortalUrl(providerCustomerId: string): Promise<string>;
+  cancelSubscription(providerSubscriptionId: string): Promise<void>;
+  updateSubscriptionPlan(providerSubscriptionId: string, newPlan: Plan): Promise<void>;
   handleWebhook(rawBody: string, signature: string): Promise<WebhookResult>;
 }
 
@@ -49,7 +57,9 @@ function resolvePlan(variantId: number): Plan {
   for (const [plan, envKey] of Object.entries(VARIANT_ENV_MAP)) {
     if (vid === cleanEnv(process.env[envKey])) return plan as Plan;
   }
-  return "monthly";
+  throw new Error(
+    `Unknown variant ID: ${variantId} — check LEMONSQUEEZY_RANGER_*_VARIANT_ID env vars`,
+  );
 }
 
 async function verifyLsSignature(rawBody: string, signature: string): Promise<boolean> {
@@ -132,6 +142,22 @@ export const lemonSqueezy: PaymentProvider = {
     const portalUrl = data.data.attributes.urls.customer_portal;
     if (!portalUrl) throw new Error("Customer has no portal URL");
     return portalUrl;
+  },
+
+  async cancelSubscription(providerSubscriptionId) {
+    ensureLsSetup();
+    const { error } = await cancelSubscription(providerSubscriptionId);
+    if (error) throw new Error("Failed to cancel subscription");
+  },
+
+  async updateSubscriptionPlan(providerSubscriptionId, newPlan) {
+    ensureLsSetup();
+    const variantId = cleanEnv(process.env[VARIANT_ENV_MAP[newPlan]]);
+    if (!variantId) throw new Error("Variant ID not configured for this plan");
+    const { error } = await updateSubscription(providerSubscriptionId, {
+      variantId: Number(variantId),
+    });
+    if (error) throw new Error("Failed to update subscription");
   },
 
   async handleWebhook(rawBody, signature): Promise<WebhookResult> {

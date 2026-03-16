@@ -7,15 +7,19 @@ import { requireAuth } from "~/features/auth/auth.session";
 import { getProvider } from "~/features/subscription/subscription.provider";
 import { getPppTier } from "~/features/subscription/subscription.regions";
 
-export const getSubscription = createServerFn({ method: "GET" }).handler(async () => {
-  const auth = await requireAuth();
+async function getUserSubscription(userId: string) {
   const db = getDb();
   const [row] = await db
     .select()
     .from(subscriptions)
-    .where(eq(subscriptions.userId, auth.userId))
+    .where(eq(subscriptions.userId, userId))
     .limit(1);
   return row ?? null;
+}
+
+export const getSubscription = createServerFn({ method: "GET" }).handler(async () => {
+  const auth = await requireAuth();
+  return getUserSubscription(auth.userId);
 });
 
 export const createCheckoutUrl = createServerFn({ method: "POST" })
@@ -58,3 +62,47 @@ export const getCustomerPortalUrl = createServerFn({ method: "GET" }).handler(as
   const url = await provider.getCustomerPortalUrl(sub.providerCustomerId);
   return { url };
 });
+
+export const cancelCurrentSubscription = createServerFn({ method: "POST" }).handler(async () => {
+  const auth = await requireAuth();
+  const sub = await getUserSubscription(auth.userId);
+
+  if (!sub) throw new Error("No subscription found");
+  if (!sub.providerSubscriptionId) throw new Error("No provider subscription ID");
+  if (sub.plan === "lifetime") throw new Error("Lifetime subscriptions cannot be canceled");
+  if (sub.status !== "active" && sub.status !== "past_due")
+    throw new Error("Subscription is not active");
+
+  const provider = getProvider();
+  await provider.cancelSubscription(sub.providerSubscriptionId);
+
+  await getDb()
+    .update(subscriptions)
+    .set({ status: "canceled", canceledAt: new Date(), updatedAt: new Date() })
+    .where(eq(subscriptions.userId, auth.userId));
+
+  return { success: true };
+});
+
+export const switchSubscriptionPlan = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ plan: z.enum(["monthly", "annual"]) }))
+  .handler(async ({ data }) => {
+    const auth = await requireAuth();
+    const sub = await getUserSubscription(auth.userId);
+
+    if (!sub) throw new Error("No subscription found");
+    if (!sub.providerSubscriptionId) throw new Error("No provider subscription ID");
+    if (sub.status !== "active") throw new Error("Subscription must be active to switch plans");
+    if (sub.plan === "lifetime") throw new Error("Lifetime subscriptions cannot be switched");
+    if (sub.plan === data.plan) throw new Error("Already on this plan");
+
+    const provider = getProvider();
+    await provider.updateSubscriptionPlan(sub.providerSubscriptionId, data.plan);
+
+    await getDb()
+      .update(subscriptions)
+      .set({ plan: data.plan, canceledAt: null, updatedAt: new Date() })
+      .where(eq(subscriptions.userId, auth.userId));
+
+    return { success: true, plan: data.plan };
+  });

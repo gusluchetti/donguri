@@ -152,13 +152,15 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
         }
       }
 
-      // Look up active subscription tier
-      const [subRow] = await db
-        .select()
-        .from(subscriptions)
-        .where(eq(subscriptions.userId, userId))
-        .limit(1);
-      const tier = getActiveTier(subRow ?? null);
+      let tier = null;
+      if (existing.length > 0) {
+        const [subRow] = await db
+          .select()
+          .from(subscriptions)
+          .where(eq(subscriptions.userId, userId))
+          .limit(1);
+        tier = getActiveTier(subRow ?? null);
+      }
 
       await setSessionCookie({ userId, handle, authMethod: "atproto", did, tier });
       if (isDev) console.debug("[callback] session cookie set, login complete");
