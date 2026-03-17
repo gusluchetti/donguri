@@ -4,7 +4,7 @@ import { z } from "zod";
 import { cleanEnv, getDb } from "~/db";
 import { subscriptions, users } from "~/db/schema";
 import { getAuthenticatedAgent } from "~/features/auth/auth.agent";
-import { getOAuthClient } from "~/features/auth/auth.client";
+import { getOAuthClient } from "~/features/auth/auth.oauth";
 import { getAuthUrl, handleProviderCallback, type Provider } from "~/features/auth/auth.providers";
 import { clearSessionCookie, getSessionData, setSessionCookie } from "~/features/auth/auth.session";
 import { reconcileUser } from "~/features/auth/auth.sync";
