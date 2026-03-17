@@ -53,7 +53,7 @@ function NewsPost() {
 
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
-      <div className="max-w-[700px] mx-auto px-4 py-4 sm:px-6 sm:py-8">
+      <div className="max-w-[900px] mx-auto px-4 py-4 sm:px-6 sm:py-8">
         <Link
           to="/news"
           className="inline-flex items-center gap-1.5 text-[0.75rem] text-dg-text-tertiary no-underline hover:text-dg-text-secondary transition-colors duration-50 mb-6"

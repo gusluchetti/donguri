@@ -10,7 +10,7 @@ export function StampBadge({ type, index = 0 }: { type: string; index?: number }
   return (
     <span
       data-stamp-idx={index}
-      className="inline-block font-mono text-[11px] font-bold tracking-[0.12em] uppercase leading-[1.4] rounded-[1px] whitespace-nowrap relative shrink-0 min-w-0 sm:min-w-[3rem] text-center"
+      className="inline-block font-mono text-[11px] font-bold tracking-[0.12em] uppercase leading-[1.4] rounded-[1px] whitespace-nowrap relative shrink-0 min-w-0 sm:min-w-[3rem] text-center w-fit"
       style={{
         color,
         opacity: inkOpacity,

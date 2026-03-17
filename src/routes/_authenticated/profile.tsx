@@ -93,8 +93,8 @@ function ProfilePage() {
         <TerritoryBar
           completedTypeCounts={stats.completedTypeCounts}
           typeCounts={stats.typeCounts}
+          statusCounts={stats.statusCounts}
         />
-        <StatusBreakdown statusCounts={stats.statusCounts} />
         <RecentTrail entries={recent} />
       </div>
     </div>
@@ -129,7 +129,7 @@ function ProfileHeader({
   const displayHandle = user.handle.replace(/\.bsky\.social$/, "");
 
   return (
-    <div className="border border-dg-border-subtle rounded bg-dg-surface p-3 sm:p-4 flex flex-wrap items-center gap-g2">
+    <div className="border border-dg-border-subtle rounded bg-dg-surface p-2 sm:p-3 flex flex-wrap items-center gap-g2">
       <Avatar handle={user.handle} avatarUrl={user.avatarUrl} authMethod={user.authMethod} />
       <div className="flex flex-col gap-0.5 min-w-0">
         <span className="font-display text-[1.5rem] leading-tight truncate">{displayHandle}</span>
@@ -245,7 +245,7 @@ function StatsGrid({ stats, daysActive }: { stats: ProfileData["stats"]; daysAct
             animation: `fadeIn 50ms ${15 * i}ms both`,
           }}
         >
-          <div className="font-display text-[1.5rem] tabular-nums leading-tight">{cell.value}</div>
+          <div className="font-mono text-[1.5rem] tabular-nums leading-tight">{cell.value}</div>
           <div className="font-mono text-[0.625rem] uppercase tracking-wider text-dg-text-tertiary mt-0.5">
             {cell.label}
           </div>
@@ -259,23 +259,35 @@ function StatsGrid({ stats, daysActive }: { stats: ProfileData["stats"]; daysAct
 
 const TERRITORY_TYPES = ["movie", "tv_series", "anime", "game"] as const;
 
+const STATUS_BAR_COLORS: Record<StatusValue, string> = {
+  planned: "var(--color-dg-charted)",
+  in_progress: "var(--color-dg-enroute)",
+  on_hold: "var(--color-dg-paused)",
+  completed: "var(--color-dg-stamped)",
+  mastered: "var(--color-dg-sealed)",
+  dropped: "var(--color-dg-dropped)",
+};
+
 function TerritoryBar({
   completedTypeCounts,
   typeCounts,
+  statusCounts,
 }: {
   completedTypeCounts: Record<string, number>;
   typeCounts: Record<string, number>;
+  statusCounts: Record<StatusValue, number>;
 }) {
   const totalCompleted = TERRITORY_TYPES.reduce(
     (sum, type) => sum + (completedTypeCounts[type] ?? 0),
     0,
   );
   const totalAll = TERRITORY_TYPES.reduce((sum, type) => sum + (typeCounts[type] ?? 0), 0);
+  const totalStatus = STATUS_ORDER.reduce((sum, s) => sum + (statusCounts[s] ?? 0), 0);
   if (totalAll === 0) return null;
 
   return (
     <div className="flex flex-col gap-2 w-full">
-      <div className="flex rounded overflow-hidden h-5">
+      <div className="flex rounded-t overflow-hidden h-5">
         {TERRITORY_TYPES.map((type) => {
           const count = completedTypeCounts[type] ?? 0;
           if (count === 0) return null;
@@ -290,13 +302,43 @@ function TerritoryBar({
                 minWidth: count > 0 ? 24 : 0,
               }}
             >
-              <span className="font-mono text-xs font-bold text-white/90 mix-blend-difference tabular-nums">
+              <span
+                className="font-mono text-xs font-bold text-white tabular-nums"
+                style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}
+              >
                 {count}
               </span>
             </div>
           );
         })}
       </div>
+      {totalStatus > 0 && (
+        <div className="flex rounded-b overflow-hidden h-5 -mt-2">
+          {STATUS_ORDER.map((status) => {
+            const count = statusCounts[status] ?? 0;
+            if (count === 0) return null;
+            const pct = (count / totalStatus) * 100;
+            return (
+              <div
+                key={status}
+                className="relative flex items-center justify-center overflow-hidden"
+                style={{
+                  width: `${pct}%`,
+                  background: STATUS_BAR_COLORS[status],
+                  minWidth: count > 0 ? 24 : 0,
+                }}
+              >
+                <span
+                  className="font-mono text-xs font-bold text-white tabular-nums"
+                  style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}
+                >
+                  {count}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <div className="flex flex-wrap gap-3">
         {TERRITORY_TYPES.map((type, i) => {
           const completed = completedTypeCounts[type] ?? 0;
@@ -315,30 +357,23 @@ function TerritoryBar({
           );
         })}
       </div>
-    </div>
-  );
-}
-
-// ─── Status Breakdown ──────────────────────────────────────────────────────
-
-function StatusBreakdown({ statusCounts }: { statusCounts: Record<StatusValue, number> }) {
-  return (
-    <div className="flex flex-wrap gap-3">
-      {STATUS_ORDER.map((status) => {
-        const count = statusCounts[status] ?? 0;
-        return (
-          <div
-            key={status}
-            className="flex items-center gap-1.5"
-            style={{ opacity: count === 0 ? 0.3 : 1 }}
-          >
-            <StatusBadge status={status} compact />
-            <span className="font-mono text-[0.7rem] text-dg-text-secondary tabular-nums">
-              {count}
-            </span>
-          </div>
-        );
-      })}
+      <div className="flex flex-wrap gap-3">
+        {STATUS_ORDER.map((status) => {
+          const count = statusCounts[status] ?? 0;
+          return (
+            <div
+              key={status}
+              className="flex items-center gap-1.5"
+              style={{ opacity: count === 0 ? 0.3 : 1 }}
+            >
+              <StatusBadge status={status} compact />
+              <span className="font-mono text-[0.7rem] text-dg-text-secondary tabular-nums">
+                {count}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -383,7 +418,7 @@ function RecentTrail({ entries }: { entries: ProfileData["recent"] }) {
         count={entries.length}
         icon={<ClockCounterClockwise size={12} weight="bold" />}
       />
-      <div className="flex flex-col">
+      <div className="flex flex-col border border-dg-border-subtle rounded bg-dg-surface">
         {entries.map((entry, i) => {
           const type = displayMediaType(entry.mediaType ?? "movie", entry.animationOrigin);
           const typeColor = STAMP_COLORS[type] ?? "var(--color-dg-accent)";
