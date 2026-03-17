@@ -6,6 +6,7 @@ import { subscriptions } from "~/db/schema";
 import { requireAuth } from "~/features/auth/auth.session";
 import { getProvider } from "~/features/subscription/subscription.provider";
 import { getPppTier } from "~/features/subscription/subscription.regions";
+import { getActiveTier } from "~/features/subscription/subscription.utils";
 
 async function getUserSubscription(userId: string) {
   const db = getDb();
@@ -15,6 +16,11 @@ async function getUserSubscription(userId: string) {
     .where(eq(subscriptions.userId, userId))
     .limit(1);
   return row ?? null;
+}
+
+export async function getUserSubscriptionTier(userId: string) {
+  const sub = await getUserSubscription(userId);
+  return getActiveTier(sub);
 }
 
 export const getSubscription = createServerFn({ method: "GET" }).handler(async () => {

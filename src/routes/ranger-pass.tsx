@@ -14,6 +14,7 @@ import {
 } from "~/features/subscription/subscription.functions";
 import type { SubscriptionStatus } from "~/features/subscription/subscription.provider";
 import { isSubscriptionActive } from "~/features/subscription/subscription.utils";
+import { formatDate } from "~/lib/date";
 import { ogTags, pageTitle } from "~/lib/og";
 
 type Plan = "monthly" | "annual" | "lifetime";
@@ -76,12 +77,6 @@ export const Route = createFileRoute("/ranger-pass")({
   }),
   component: RangerPassPage,
 });
-
-function formatDate(date: Date | string | null | undefined): string {
-  if (!date) return "";
-  const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 function RangerPassPage() {
   const { auth } = Route.useRouteContext();
@@ -385,12 +380,19 @@ function SubscriptionManagement({ subscription }: { subscription: Subscription }
             <Button
               variant="secondary"
               size="compact"
+              disabled={switchLoading !== null}
               onClick={async () => {
-                const { url } = await createCheckoutUrl({ data: { plan: "lifetime" } });
-                window.location.href = url;
+                setSwitchLoading("lifetime");
+                try {
+                  const { url } = await createCheckoutUrl({ data: { plan: "lifetime" } });
+                  window.location.href = url;
+                } catch (e) {
+                  console.error("[ranger-pass] lifetime checkout failed:", e);
+                  setSwitchLoading(null);
+                }
               }}
             >
-              Lifetime ($99)
+              {switchLoading === "lifetime" ? "Redirecting..." : "Lifetime ($99)"}
             </Button>
           </div>
         </div>

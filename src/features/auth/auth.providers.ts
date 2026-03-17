@@ -9,10 +9,10 @@
 import type { Column } from "drizzle-orm";
 import { eq } from "drizzle-orm";
 import { cleanEnv, getDb } from "~/db";
-import { subscriptions, users } from "~/db/schema";
+import { users } from "~/db/schema";
 import type { SessionData } from "~/features/auth/auth.session";
 import { setSessionCookie } from "~/features/auth/auth.session";
-import { getActiveTier } from "~/features/subscription/subscription.utils";
+import { getUserSubscriptionTier } from "~/features/subscription/subscription.functions";
 
 export type Provider = "google" | "github";
 
@@ -308,15 +308,7 @@ export async function handleProviderCallback(
     if (isDev) console.debug("[oauth:%s] created new user (no email): %s", provider, userId);
   }
 
-  let tier = null;
-  if (!isNewUser) {
-    const [subRow] = await db
-      .select()
-      .from(subscriptions)
-      .where(eq(subscriptions.userId, userId))
-      .limit(1);
-    tier = getActiveTier(subRow ?? null);
-  }
+  const tier = !isNewUser ? await getUserSubscriptionTier(userId) : null;
 
   const session: SessionData = { userId, handle, authMethod: provider, tier };
   await setSessionCookie(session);

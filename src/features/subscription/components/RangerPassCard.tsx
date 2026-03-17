@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
-import { isSubscriptionActive } from "~/features/subscription/subscription.utils";
 
 const PLAN_GRADIENTS: Record<string, string> = {
   monthly: "linear-gradient(135deg, #1a3a2a 0%, #0d2818 30%, #1a4030 60%, #0f3020 100%)",
@@ -13,22 +12,6 @@ const PLAN_ACCENT: Record<string, string> = {
   annual: "#e8702e",
   lifetime: "#c084fc",
 };
-
-export function RangerPassBanner({
-  handle,
-  subscription,
-  totalEntries,
-}: {
-  handle: string;
-  subscription: { plan: string; status: string; createdAt: string | null } | null;
-  totalEntries: number;
-}) {
-  if (isSubscriptionActive(subscription)) {
-    return <RangerPassCard handle={handle} plan={subscription.plan} entriesCount={totalEntries} />;
-  }
-
-  return <UpsellBanner />;
-}
 
 export function RangerPassCard({
   handle,

@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { posts } from "~/lib/blog";
+import { formatDate } from "~/lib/date";
 import { ogTags, pageTitle } from "~/lib/og";
 
 export const Route = createFileRoute("/news/")({
@@ -19,11 +20,6 @@ export const Route = createFileRoute("/news/")({
   }),
   component: NewsIndex,
 });
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-}
 
 function excerpt(body: string, maxLen = 180): string {
   const line = body

@@ -2,6 +2,7 @@ import { ArrowLeft } from "@phosphor-icons/react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
 import { getPostBySlug } from "~/lib/blog";
+import { formatDate } from "~/lib/date";
 import { ogTags, pageTitle } from "~/lib/og";
 
 const Markdown = lazy(() => import("react-markdown"));
@@ -42,11 +43,6 @@ export const Route = createFileRoute("/news/$slug")({
     </div>
   ),
 });
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-}
 
 function NewsPost() {
   const post = Route.useLoaderData();

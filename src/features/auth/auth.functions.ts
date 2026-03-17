@@ -2,13 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { cleanEnv, getDb } from "~/db";
-import { subscriptions, users } from "~/db/schema";
+import { users } from "~/db/schema";
 import { getAuthenticatedAgent } from "~/features/auth/auth.agent";
 import { getOAuthClient } from "~/features/auth/auth.oauth";
 import { getAuthUrl, handleProviderCallback, type Provider } from "~/features/auth/auth.providers";
 import { clearSessionCookie, getSessionData, setSessionCookie } from "~/features/auth/auth.session";
 import { reconcileUser } from "~/features/auth/auth.sync";
-import { getActiveTier } from "~/features/subscription/subscription.utils";
+import { getUserSubscriptionTier } from "~/features/subscription/subscription.functions";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -152,15 +152,7 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
         }
       }
 
-      let tier = null;
-      if (existing.length > 0) {
-        const [subRow] = await db
-          .select()
-          .from(subscriptions)
-          .where(eq(subscriptions.userId, userId))
-          .limit(1);
-        tier = getActiveTier(subRow ?? null);
-      }
+      const tier = existing.length > 0 ? await getUserSubscriptionTier(userId) : null;
 
       await setSessionCookie({ userId, handle, authMethod: "atproto", did, tier });
       if (isDev) console.debug("[callback] session cookie set, login complete");
