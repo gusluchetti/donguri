@@ -1,5 +1,5 @@
 import { Agent } from "@atproto/api";
-import { getOAuthClient } from "./auth.client";
+import { getOAuthClient } from "./auth.oauth";
 import { clearSessionCookie } from "./auth.session";
 
 /** Detect AT Protocol TokenRefreshError (session deleted/revoked on PDS). */

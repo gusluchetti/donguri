@@ -385,7 +385,7 @@ function GlobalShortcuts({
       ),
     ];
     return () => {
-      for (const u of unsubs) u();
+      for (const u of unsubs) u.unregister();
     };
   }, []);
 
