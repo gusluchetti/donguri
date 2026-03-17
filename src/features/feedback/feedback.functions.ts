@@ -14,7 +14,7 @@ const TITLE_PREFIX: Record<(typeof FEEDBACK_TYPES)[number], string> = {
   question: "[Question]",
 };
 
-// In-memory rate limiting: 5 submissions per 15 min per user
+// In-memory rate limiting: 3 submissions per 15 min per user
 const rateLimits = new Map<string, { count: number; windowStart: number }>();
 const RATE_LIMIT = 3;
 const RATE_WINDOW = 15 * 60 * 1000;
@@ -66,11 +66,18 @@ export const submitFeedback = createServerFn({ method: "POST" })
 
     const db = getDb();
 
-    const [user] = await db
-      .select({ createdAt: users.createdAt })
-      .from(users)
-      .where(eq(users.id, session.userId))
-      .limit(1);
+    const [[user], [{ total }]] = await Promise.all([
+      db
+        .select({ createdAt: users.createdAt })
+        .from(users)
+        .where(eq(users.id, session.userId))
+        .limit(1),
+      db
+        .select({ total: count() })
+        .from(catalogEntries)
+        .where(eq(catalogEntries.userId, session.userId)),
+    ]);
+
     if (user?.createdAt) {
       const ageDays = (Date.now() - user.createdAt.getTime()) / (1000 * 60 * 60 * 24);
       if (ageDays < 3) {
@@ -81,10 +88,6 @@ export const submitFeedback = createServerFn({ method: "POST" })
       }
     }
 
-    const [{ total }] = await db
-      .select({ total: count() })
-      .from(catalogEntries)
-      .where(eq(catalogEntries.userId, session.userId));
     if (total === 0) {
       throw new Error(
         "You must have at least one item in your catalog before submitting feedback.",

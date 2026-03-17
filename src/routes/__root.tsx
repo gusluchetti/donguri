@@ -326,7 +326,7 @@ function RootComponent() {
             <BottomNav />
           </div>
         </HotkeysProvider>
-        {auth && <FeedbackDialog open={showFeedback} onClose={() => setShowFeedback(false)} />}
+        {auth && showFeedback && <FeedbackDialog onClose={() => setShowFeedback(false)} />}
       </ThemeProvider>
       {import.meta.env.DEV && (
         <>

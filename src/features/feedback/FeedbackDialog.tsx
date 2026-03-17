@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "~/components/Button";
 import { submitFeedback } from "./feedback.functions";
 
@@ -13,8 +13,8 @@ const TYPES = [
 
 type FeedbackType = (typeof TYPES)[number]["value"];
 
-export function FeedbackDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  useHotkey("Escape", onClose, { enabled: open, conflictBehavior: "allow" });
+export function FeedbackDialog({ onClose }: { onClose: () => void }) {
+  useHotkey("Escape", onClose, { conflictBehavior: "allow" });
 
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -27,34 +27,13 @@ export function FeedbackDialog({ open, onClose }: { open: boolean; onClose: () =
       try {
         await submitFeedback({ data: value });
         setStatus("success");
+        setTimeout(onClose, 2000);
       } catch (err) {
         setStatus("error");
         setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
       }
     },
   });
-
-  // Auto-close on success
-  useEffect(() => {
-    if (status !== "success") return;
-    const t = setTimeout(() => {
-      onClose();
-      setStatus("idle");
-      form.reset();
-    }, 2000);
-    return () => clearTimeout(t);
-  }, [status, onClose, form]);
-
-  // Reset on open
-  useEffect(() => {
-    if (open) {
-      setStatus("idle");
-      setErrorMsg("");
-      form.reset();
-    }
-  }, [open, form]);
-
-  if (!open) return null;
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose();
@@ -118,10 +97,9 @@ export function FeedbackDialog({ open, onClose }: { open: boolean; onClose: () =
             <form.Field
               name="title"
               validators={{
+                onMount: ({ value }) => (value.length < 3 ? "Required" : undefined),
                 onChange: ({ value }) =>
-                  value.length > 0 && value.length < 3
-                    ? "Title must be at least 3 characters"
-                    : undefined,
+                  value.length < 3 ? "Title must be at least 3 characters" : undefined,
               }}
             >
               {(field) => (
@@ -135,7 +113,7 @@ export function FeedbackDialog({ open, onClose }: { open: boolean; onClose: () =
                     maxLength={200}
                     className="w-full bg-dg-bg border border-dg-border rounded-sm px-3 py-2.5 sm:py-2 text-base sm:text-[0.85rem] text-dg-text font-body placeholder:text-dg-text-tertiary focus:outline-none focus:border-dg-accent"
                   />
-                  {field.state.meta.errors.length > 0 && (
+                  {field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
                     <p className="text-dg-movie text-[0.75rem] mt-1">
                       {field.state.meta.errors[0]}
                     </p>
@@ -147,10 +125,9 @@ export function FeedbackDialog({ open, onClose }: { open: boolean; onClose: () =
             <form.Field
               name="description"
               validators={{
+                onMount: ({ value }) => (value.length < 10 ? "Required" : undefined),
                 onChange: ({ value }) =>
-                  value.length > 0 && value.length < 10
-                    ? "Description must be at least 10 characters"
-                    : undefined,
+                  value.length < 10 ? "Description must be at least 10 characters" : undefined,
               }}
             >
               {(field) => (
@@ -164,7 +141,7 @@ export function FeedbackDialog({ open, onClose }: { open: boolean; onClose: () =
                     maxLength={5000}
                     className="w-full bg-dg-bg border border-dg-border rounded-sm px-3 py-2.5 sm:py-2 text-base sm:text-[0.85rem] text-dg-text font-body placeholder:text-dg-text-tertiary focus:outline-none focus:border-dg-accent resize-y"
                   />
-                  {field.state.meta.errors.length > 0 && (
+                  {field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
                     <p className="text-dg-movie text-[0.75rem] mt-1">
                       {field.state.meta.errors[0]}
                     </p>
@@ -185,12 +162,7 @@ export function FeedbackDialog({ open, onClose }: { open: boolean; onClose: () =
                     type="submit"
                     variant="accent"
                     size="compact"
-                    disabled={
-                      !canSubmit ||
-                      (isSubmitting as boolean) ||
-                      form.state.values.title.length < 3 ||
-                      form.state.values.description.length < 10
-                    }
+                    disabled={!canSubmit || (isSubmitting as boolean)}
                   >
                     {isSubmitting ? <span className="dg-ellipsis">Sending</span> : "submit"}
                   </Button>
