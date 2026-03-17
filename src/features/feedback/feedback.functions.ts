@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
+import { count, eq } from "drizzle-orm";
 import { z } from "zod";
-import { cleanEnv } from "~/db";
+import { cleanEnv, getDb } from "~/db";
+import { catalogEntries, users } from "~/db/schema";
 import { requireAuth } from "~/features/auth/auth.session";
 
 const FEEDBACK_TYPES = ["bug", "enhancement", "documentation", "question"] as const;
@@ -14,7 +16,7 @@ const TITLE_PREFIX: Record<(typeof FEEDBACK_TYPES)[number], string> = {
 
 // In-memory rate limiting: 5 submissions per 15 min per user
 const rateLimits = new Map<string, { count: number; windowStart: number }>();
-const RATE_LIMIT = 5;
+const RATE_LIMIT = 3;
 const RATE_WINDOW = 15 * 60 * 1000;
 const SWEEP_INTERVAL = 10 * 60 * 1000;
 
@@ -61,6 +63,33 @@ export const submitFeedback = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const session = await requireAuth();
+
+    const db = getDb();
+
+    const [user] = await db
+      .select({ createdAt: users.createdAt })
+      .from(users)
+      .where(eq(users.id, session.userId))
+      .limit(1);
+    if (user?.createdAt) {
+      const ageDays = (Date.now() - user.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+      if (ageDays < 3) {
+        const remaining = Math.ceil(3 - ageDays);
+        throw new Error(
+          `Your account must be at least 3 days old to submit feedback. ${remaining} day${remaining === 1 ? "" : "s"} remaining.`,
+        );
+      }
+    }
+
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(catalogEntries)
+      .where(eq(catalogEntries.userId, session.userId));
+    if (total === 0) {
+      throw new Error(
+        "You must have at least one item in your catalog before submitting feedback.",
+      );
+    }
 
     checkRateLimit(session.userId);
 
