@@ -94,6 +94,7 @@ function ProfilePage() {
           completedTypeCounts={stats.completedTypeCounts}
           typeCounts={stats.typeCounts}
           statusCounts={stats.statusCounts}
+          statusByType={stats.statusByType}
         />
         <RecentTrail entries={recent} />
       </div>
@@ -272,26 +273,23 @@ function TerritoryBar({
   completedTypeCounts,
   typeCounts,
   statusCounts,
+  statusByType,
 }: {
   completedTypeCounts: Record<string, number>;
   typeCounts: Record<string, number>;
   statusCounts: Record<StatusValue, number>;
+  statusByType: Record<string, Record<string, number>>;
 }) {
-  const totalCompleted = TERRITORY_TYPES.reduce(
-    (sum, type) => sum + (completedTypeCounts[type] ?? 0),
-    0,
-  );
   const totalAll = TERRITORY_TYPES.reduce((sum, type) => sum + (typeCounts[type] ?? 0), 0);
-  const totalStatus = STATUS_ORDER.reduce((sum, s) => sum + (statusCounts[s] ?? 0), 0);
   if (totalAll === 0) return null;
 
   return (
-    <div className="flex flex-col gap-2 w-full">
+    <div className="flex flex-col gap-0.5 w-full">
       <div className="flex rounded-t overflow-hidden h-5">
         {TERRITORY_TYPES.map((type) => {
-          const count = completedTypeCounts[type] ?? 0;
+          const count = typeCounts[type] ?? 0;
           if (count === 0) return null;
-          const pct = (count / totalCompleted) * 100;
+          const pct = (count / totalAll) * 100;
           return (
             <div
               key={type}
@@ -299,7 +297,7 @@ function TerritoryBar({
               style={{
                 width: `${pct}%`,
                 background: STAMP_COLORS[type],
-                minWidth: count > 0 ? 24 : 0,
+                minWidth: 24,
               }}
             >
               <span
@@ -312,20 +310,20 @@ function TerritoryBar({
           );
         })}
       </div>
-      {totalStatus > 0 && (
-        <div className="flex rounded-b overflow-hidden h-5 -mt-2">
-          {STATUS_ORDER.map((status) => {
-            const count = statusCounts[status] ?? 0;
+      <div className="flex rounded-b overflow-hidden h-5">
+        {TERRITORY_TYPES.map((type) =>
+          STATUS_ORDER.map((status) => {
+            const count = statusByType[type]?.[status] ?? 0;
             if (count === 0) return null;
-            const pct = (count / totalStatus) * 100;
+            const pct = (count / totalAll) * 100;
             return (
               <div
-                key={status}
+                key={`${type}-${status}`}
                 className="relative flex items-center justify-center overflow-hidden"
                 style={{
                   width: `${pct}%`,
                   background: STATUS_BAR_COLORS[status],
-                  minWidth: count > 0 ? 24 : 0,
+                  minWidth: 24,
                 }}
               >
                 <span
@@ -336,9 +334,9 @@ function TerritoryBar({
                 </span>
               </div>
             );
-          })}
-        </div>
-      )}
+          }),
+        )}
+      </div>
       <div className="flex flex-wrap gap-3">
         {TERRITORY_TYPES.map((type, i) => {
           const completed = completedTypeCounts[type] ?? 0;

@@ -14,6 +14,7 @@ export type ProfileStats = {
   statusCounts: Record<StatusValue, number>;
   typeCounts: Record<string, number>;
   completedTypeCounts: Record<string, number>;
+  statusByType: Record<string, Record<string, number>>;
 };
 
 export type RecentEntry = {
@@ -54,7 +55,7 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
     const auth = await requireAuth();
     const db = getDb();
 
-    const [aggregates, recent, userRow] = await Promise.all([
+    const [aggregates, recent, userRow, statusByTypeRows] = await Promise.all([
       db
         .select({
           totalEntries: sql<number>`count(*)::int`,
@@ -117,6 +118,29 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
         .leftJoin(subscriptions, eq(users.subscriptionId, subscriptions.id))
         .where(eq(users.id, auth.userId))
         .limit(1),
+
+      db
+        .select({
+          resolvedType: sql<string>`CASE
+            WHEN ${catalogEntries.animationOrigin} IS NOT NULL THEN 'anime'
+            WHEN ${catalogEntries.mediaType} = 'game' THEN 'game'
+            WHEN ${catalogEntries.mediaType} = 'movie' THEN 'movie'
+            WHEN ${catalogEntries.mediaType} = 'tv_series' THEN 'tv_series'
+          END`,
+          status: sql<string>`${catalogEntries.status}`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(catalogEntries)
+        .where(eq(catalogEntries.userId, auth.userId))
+        .groupBy(
+          sql`CASE
+            WHEN ${catalogEntries.animationOrigin} IS NOT NULL THEN 'anime'
+            WHEN ${catalogEntries.mediaType} = 'game' THEN 'game'
+            WHEN ${catalogEntries.mediaType} = 'movie' THEN 'movie'
+            WHEN ${catalogEntries.mediaType} = 'tv_series' THEN 'tv_series'
+          END`,
+          catalogEntries.status,
+        ),
     ]);
 
     const agg = aggregates[0];
@@ -135,6 +159,13 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
       anime: agg.completedAnime,
       game: agg.completedGame,
     };
+
+    const statusByType: Record<string, Record<string, number>> = {};
+    for (const row of statusByTypeRows) {
+      if (!row.resolvedType || !row.status) continue;
+      statusByType[row.resolvedType] ??= {};
+      statusByType[row.resolvedType][row.status] = row.count;
+    }
 
     let topTerritory: string | null = null;
     let maxCount = 0;
@@ -178,6 +209,7 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
         },
         typeCounts,
         completedTypeCounts,
+        statusByType,
       },
       recent,
       user: {
