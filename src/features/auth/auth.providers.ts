@@ -8,11 +8,11 @@
  */
 import type { Column } from "drizzle-orm";
 import { eq } from "drizzle-orm";
-import { cleanEnv, getDb } from "~/db";
+import { getDb } from "~/db";
 import { users } from "~/db/schema";
 import type { SessionData } from "~/features/auth/auth.session";
 import { setSessionCookie } from "~/features/auth/auth.session";
-import { getUserSubscriptionTier } from "~/features/subscription/subscription.functions";
+import { cleanEnv } from "~/lib/env";
 
 export type Provider = "google" | "github";
 
@@ -308,6 +308,7 @@ export async function handleProviderCallback(
     if (isDev) console.debug("[oauth:%s] created new user (no email): %s", provider, userId);
   }
 
+  const { getUserSubscriptionTier } = await import("~/features/subscription/subscription.server");
   const tier = !isNewUser ? await getUserSubscriptionTier(userId) : null;
 
   const session: SessionData = { userId, handle, authMethod: provider, tier };

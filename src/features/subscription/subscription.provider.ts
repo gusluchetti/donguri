@@ -5,8 +5,8 @@ import {
   lemonSqueezySetup,
   updateSubscription,
 } from "@lemonsqueezy/lemonsqueezy.js";
-import { cleanEnv } from "~/db";
 import type { Subscription } from "~/db/schema";
+import { cleanEnv } from "~/lib/env";
 
 export type Plan = Subscription["plan"];
 export type SubscriptionStatus = Subscription["status"];

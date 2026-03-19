@@ -284,7 +284,7 @@ function TerritoryBar({
   if (totalAll === 0) return null;
 
   return (
-    <div className="flex flex-col gap-0.5 w-full">
+    <div className="flex flex-col w-full">
       <div className="flex rounded-t overflow-hidden h-5">
         {TERRITORY_TYPES.map((type) => {
           const count = typeCounts[type] ?? 0;
@@ -310,7 +310,7 @@ function TerritoryBar({
           );
         })}
       </div>
-      <div className="flex rounded-b overflow-hidden h-5">
+      <div className="flex rounded-b overflow-hidden h-3.5">
         {TERRITORY_TYPES.map((type) =>
           STATUS_ORDER.map((status) => {
             const count = statusByType[type]?.[status] ?? 0;
@@ -337,7 +337,7 @@ function TerritoryBar({
           }),
         )}
       </div>
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 mt-2">
         {TERRITORY_TYPES.map((type, i) => {
           const completed = completedTypeCounts[type] ?? 0;
           const total = typeCounts[type] ?? 0;

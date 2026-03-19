@@ -1,7 +1,7 @@
 import { JoseKey } from "@atproto/jwk-jose";
 import { createStartHandler, defaultStreamHandler } from "@tanstack/react-start/server";
-import { cleanEnv } from "./db";
 import { handlePaymentWebhook } from "./features/subscription/subscription.webhook";
+import { cleanEnv } from "./lib/env";
 
 const startHandler = createStartHandler(defaultStreamHandler);
 
