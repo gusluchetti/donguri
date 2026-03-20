@@ -1,6 +1,6 @@
 import { Binoculars, MusicNote, Palette, Sparkle, Star, TrendUp } from "@phosphor-icons/react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "~/components/Button";
 import { LinkButton } from "~/components/LinkButton";
 import type { Subscription } from "~/db/schema";
@@ -16,6 +16,8 @@ import type { SubscriptionStatus } from "~/features/subscription/subscription.pr
 import { isSubscriptionActive } from "~/features/subscription/subscription.utils";
 import { formatDate } from "~/lib/date";
 import { ogTags, pageTitle } from "~/lib/og";
+
+const RangerPassCard3D = lazy(() => import("~/features/subscription/components/RangerPassCard3D"));
 
 type Plan = "monthly" | "annual" | "lifetime";
 
@@ -59,7 +61,8 @@ export const Route = createFileRoute("/ranger-pass")({
         // Not authenticated or no subscription
       }
     }
-    return { subscription };
+    const checkoutEnabled = !!process.env.LEMONSQUEEZY_API_KEY;
+    return { subscription, checkoutEnabled };
   },
   head: () => ({
     meta: [
@@ -80,13 +83,14 @@ export const Route = createFileRoute("/ranger-pass")({
 
 function RangerPassPage() {
   const { auth } = Route.useRouteContext();
-  const { subscription } = Route.useLoaderData();
+  const { subscription, checkoutEnabled } = Route.useLoaderData();
   const [plan, setPlan] = useState<Plan>("annual");
   const [loading, setLoading] = useState(false);
 
   const isSubscribed = isSubscriptionActive(subscription);
 
   const handleCheckout = async () => {
+    if (!checkoutEnabled) return;
     setLoading(true);
     try {
       const { url } = await createCheckoutUrl({ data: { plan } });
@@ -97,16 +101,20 @@ function RangerPassPage() {
     }
   };
 
+  const cardProps = {
+    handle: auth?.handle ?? "ranger",
+    plan: isSubscribed ? (subscription?.plan ?? plan) : plan,
+    entriesCount: 42,
+  };
+
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[700px] mx-auto px-g3 py-g4 sm:py-g6 flex flex-col gap-g6">
         {/* Hero */}
         <div className="flex flex-col items-center gap-g3 text-center">
-          <RangerPassCard
-            handle={auth?.handle ?? "ranger"}
-            plan={isSubscribed ? (subscription?.plan ?? plan) : plan}
-            entriesCount={42}
-          />
+          <Suspense fallback={<RangerPassCard {...cardProps} />}>
+            <RangerPassCard3D {...cardProps} />
+          </Suspense>
           <div className="flex flex-col gap-1">
             <h1 className="font-display text-[2rem] sm:text-[2.5rem] font-light leading-tight">
               Ranger Pass
@@ -134,7 +142,10 @@ function RangerPassPage() {
 
         {/* Subscription Management or Pricing */}
         {isSubscribed ? (
-          <SubscriptionManagement subscription={subscription as Subscription} />
+          <SubscriptionManagement
+            subscription={subscription as Subscription}
+            checkoutEnabled={checkoutEnabled}
+          />
         ) : (
           <div className="flex flex-col items-center gap-g2">
             <div className="inline-flex rounded-sm border border-dg-border-subtle overflow-hidden">
@@ -172,10 +183,14 @@ function RangerPassPage() {
                 <Button
                   variant="primary"
                   onClick={handleCheckout}
-                  disabled={loading}
+                  disabled={!checkoutEnabled || loading}
                   className="w-full"
                 >
-                  {loading ? "Redirecting..." : "Get Ranger Pass"}
+                  {checkoutEnabled
+                    ? loading
+                      ? "Redirecting..."
+                      : "Get Ranger Pass"
+                    : "Coming soon"}
                 </Button>
               ) : (
                 <LinkButton to="/login" variant="accent" className="w-full text-center">
@@ -216,7 +231,13 @@ function RangerPassPage() {
 
 // ─── Subscription Management ──────────────────────────────────────────────────
 
-function SubscriptionManagement({ subscription }: { subscription: Subscription }) {
+function SubscriptionManagement({
+  subscription,
+  checkoutEnabled,
+}: {
+  subscription: Subscription;
+  checkoutEnabled: boolean;
+}) {
   const router = useRouter();
   const [switchLoading, setSwitchLoading] = useState<Plan | null>(null);
   const [cancelConfirm, setCancelConfirm] = useState(false);
@@ -275,7 +296,8 @@ function SubscriptionManagement({ subscription }: { subscription: Subscription }
     }
   };
 
-  const { status, plan, currentPeriodEnd } = subscription;
+  const { status, plan, currentPeriodEnd, createdAt, providerCustomerId } = subscription;
+  const isComped = subscription.provider === "comped";
   const isLifetime = plan === "lifetime" || status === "lifetime";
   const isActive = status === "active";
   const isCanceled = status === "canceled";
@@ -291,6 +313,8 @@ function SubscriptionManagement({ subscription }: { subscription: Subscription }
   };
 
   const statusInfo = STATUS_LABELS[status] ?? { label: status, className: "text-dg-text-tertiary" };
+  const statusLabel = isComped ? "Complimentary" : statusInfo.label;
+  const statusClass = isComped ? "text-dg-accent" : statusInfo.className;
 
   return (
     <div className="bg-dg-surface border border-dg-border-subtle rounded p-4 sm:p-5 flex flex-col gap-4">
@@ -300,12 +324,19 @@ function SubscriptionManagement({ subscription }: { subscription: Subscription }
           <span className="font-mono text-[0.65rem] tracking-wider uppercase text-dg-text-tertiary">
             Your Ranger Pass
           </span>
-          <span className={`font-semibold text-[0.9rem] ${statusInfo.className}`}>
-            {statusInfo.label}
-          </span>
+          <span className={`font-semibold text-[0.9rem] ${statusClass}`}>{statusLabel}</span>
+          {createdAt && (
+            <span className="font-mono text-[0.6rem] text-dg-text-tertiary mt-0.5">
+              Member since {formatDate(createdAt)}
+            </span>
+          )}
         </div>
         <div className="flex flex-col items-end gap-0.5">
-          {!isLifetime && currentPeriodEnd && (
+          {isComped ? (
+            <span className="font-mono text-[0.7rem] text-dg-accent">Complimentary</span>
+          ) : isLifetime ? (
+            <span className="font-mono text-[0.7rem] text-dg-accent">Forever yours</span>
+          ) : currentPeriodEnd ? (
             <>
               <span className="font-mono text-[0.65rem] tracking-wider uppercase text-dg-text-tertiary">
                 {isCanceled ? "Access until" : "Next billing"}
@@ -314,44 +345,50 @@ function SubscriptionManagement({ subscription }: { subscription: Subscription }
                 {formatDate(currentPeriodEnd)}
               </span>
             </>
-          )}
-          {isLifetime && (
-            <span className="font-mono text-[0.7rem] text-dg-accent">Forever yours</span>
-          )}
+          ) : null}
         </div>
       </div>
 
+      {/* Comped notice — stop here, no billing UI */}
+      {isComped && (
+        <div className="bg-dg-accent/8 border border-dg-accent/20 rounded p-3 text-[0.8rem] text-dg-text-secondary leading-relaxed">
+          Your Ranger Pass is complimentary — all features are unlocked with no billing required.
+        </div>
+      )}
+
       {/* Current plan */}
-      {!isLifetime && (
+      {!isComped && !isLifetime && (
         <div className="text-[0.8rem] text-dg-text-secondary">
           Plan:{" "}
           <span className="font-semibold text-dg-text">
-            {plan === "annual" ? "Annual" : "Monthly"} ({PRICES[plan].amount}
-            {PRICES[plan].period})
+            {plan === "annual" ? "Annual" : "Monthly"} ({PRICES[plan as Plan]?.amount}
+            {PRICES[plan as Plan]?.period})
           </span>
         </div>
       )}
 
       {/* Past due warning */}
-      {isPastDue && (
+      {!isComped && isPastDue && (
         <div className="bg-dg-anime/10 border border-dg-anime/20 rounded p-3 text-[0.8rem] text-dg-anime flex flex-col gap-2">
           <span>
             Your last payment failed. Update your payment method to keep your Ranger Pass.
           </span>
-          <Button
-            variant="accent"
-            size="compact"
-            onClick={handlePortal}
-            disabled={portalLoading}
-            className="self-start"
-          >
-            {portalLoading ? "Loading..." : "Update payment method"}
-          </Button>
+          {checkoutEnabled && (
+            <Button
+              variant="accent"
+              size="compact"
+              onClick={handlePortal}
+              disabled={portalLoading}
+              className="self-start"
+            >
+              {portalLoading ? "Loading..." : "Update payment method"}
+            </Button>
+          )}
         </div>
       )}
 
-      {/* Plan switching (active subs only, not lifetime) */}
-      {isActive && !isLifetime && (
+      {/* Plan switching (active subs only, not lifetime, not comped) */}
+      {!isComped && isActive && !isLifetime && checkoutEnabled && (
         <div className="flex flex-col gap-2">
           <span className="font-mono text-[0.65rem] tracking-wider uppercase text-dg-text-tertiary">
             Switch plan
@@ -399,7 +436,7 @@ function SubscriptionManagement({ subscription }: { subscription: Subscription }
       )}
 
       {/* Canceled state: access-until + resume via portal */}
-      {isCanceled && (
+      {!isComped && isCanceled && checkoutEnabled && (
         <div className="flex flex-col gap-2">
           <span className="text-[0.8rem] text-dg-text-secondary">
             Your subscription is canceled. You'll keep access until {formatDate(currentPeriodEnd)}.
@@ -416,8 +453,8 @@ function SubscriptionManagement({ subscription }: { subscription: Subscription }
         </div>
       )}
 
-      {/* Cancel button (active or past_due, not lifetime) */}
-      {(isActive || isPastDue) && !isLifetime && (
+      {/* Cancel button (active or past_due, not lifetime, not comped) */}
+      {!isComped && (isActive || isPastDue) && !isLifetime && checkoutEnabled && (
         <div className="border-t border-dg-border-subtle pt-3 flex flex-col gap-1.5">
           <Button
             variant="danger"
@@ -434,10 +471,24 @@ function SubscriptionManagement({ subscription }: { subscription: Subscription }
           </Button>
           {!cancelConfirm && (
             <span className="text-[0.65rem] text-dg-text-tertiary">
-              You'll keep access until your current period ends.
+              Canceling stops future charges. You keep full Ranger Pass access until{" "}
+              {currentPeriodEnd ? formatDate(currentPeriodEnd) : "your period ends"}. After that,
+              you return to the free tier. No tracking data is lost.
             </span>
           )}
         </div>
+      )}
+
+      {/* Manage billing link — always shown for paying subscribers with a customer ID */}
+      {!isComped && providerCustomerId && checkoutEnabled && (
+        <button
+          type="button"
+          onClick={handlePortal}
+          disabled={portalLoading}
+          className="self-start font-mono text-[0.65rem] text-dg-text-tertiary hover:text-dg-text-secondary transition-colors duration-150 border-none bg-transparent cursor-pointer"
+        >
+          {portalLoading ? "Loading..." : "Manage billing & invoices →"}
+        </button>
       )}
     </div>
   );
