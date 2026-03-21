@@ -2,18 +2,12 @@ import { Float, Html, RoundedBox } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { RangerPassCard } from "./RangerPassCard";
+import { PLAN_ACCENT, RangerPassCard } from "./RangerPassCard";
 
 const PLAN_COLOR: Record<string, string> = {
   monthly: "#1a3a2a",
   annual: "#2a1a0a",
   lifetime: "#1a1028",
-};
-
-const PLAN_ACCENT: Record<string, string> = {
-  monthly: "#4ade80",
-  annual: "#e8702e",
-  lifetime: "#c084fc",
 };
 
 // Card dimensions: 85.6:53.98 aspect ratio scaled to scene units

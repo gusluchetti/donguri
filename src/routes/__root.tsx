@@ -127,8 +127,7 @@ const NAV_ITEMS: readonly { to: string; label: string; exact?: boolean }[] = [
 ];
 
 function RootComponent() {
-  const { auth, theme } = Route.useRouteContext();
-  const { queryClient } = Route.useRouteContext();
+  const { auth, theme, queryClient } = Route.useRouteContext();
 
   const handleLogout = useCallback(async () => {
     await logout();

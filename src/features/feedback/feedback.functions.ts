@@ -65,6 +65,8 @@ export const submitFeedback = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const session = await requireAuth();
 
+    checkRateLimit(session.userId);
+
     const db = getDb();
 
     const [[user], [{ total }]] = await Promise.all([
@@ -94,8 +96,6 @@ export const submitFeedback = createServerFn({ method: "POST" })
         "You must have at least one item in your catalog before submitting feedback.",
       );
     }
-
-    checkRateLimit(session.userId);
 
     const token = cleanEnv(process.env.GITHUB_FEEDBACK_TOKEN);
     if (!token) throw new Error("Feedback is not configured on this server.");

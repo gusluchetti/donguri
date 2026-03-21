@@ -7,7 +7,7 @@ const PLAN_GRADIENTS: Record<string, string> = {
   lifetime: "linear-gradient(135deg, #1a1028 0%, #2a1838 30%, #3a2048 60%, #1a1028 100%)",
 };
 
-const PLAN_ACCENT: Record<string, string> = {
+export const PLAN_ACCENT: Record<string, string> = {
   monthly: "#4ade80",
   annual: "#e8702e",
   lifetime: "#c084fc",

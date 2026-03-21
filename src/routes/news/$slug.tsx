@@ -74,10 +74,9 @@ function NewsPost() {
                 className="w-5 h-5 border-2 border-dg-border-subtle rounded-full"
                 style={{
                   borderTopColor: "var(--color-dg-accent)",
-                  animation: "spin 0.6s linear infinite",
+                  animation: "dg-spin 0.6s linear infinite",
                 }}
               />
-              <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
             </div>
           }
         >

@@ -12,14 +12,12 @@ import {
   getSubscription,
   switchSubscriptionPlan,
 } from "~/features/subscription/subscription.functions";
-import type { SubscriptionStatus } from "~/features/subscription/subscription.provider";
+import type { Plan, SubscriptionStatus } from "~/features/subscription/subscription.provider";
 import { isSubscriptionActive } from "~/features/subscription/subscription.utils";
 import { formatDate } from "~/lib/date";
 import { ogTags, pageTitle } from "~/lib/og";
 
 const RangerPassCard3D = lazy(() => import("~/features/subscription/components/RangerPassCard3D"));
-
-type Plan = "monthly" | "annual" | "lifetime";
 
 const PRICES: Record<Plan, { amount: string; period: string; ppp60: string }> = {
   monthly: { amount: "$4", period: "/mo", ppp60: "$1.60" },
@@ -234,6 +232,15 @@ function RangerPassPage() {
 
 // ─── Subscription Management ──────────────────────────────────────────────────
 
+const STATUS_LABELS: Record<SubscriptionStatus, { label: string; className: string }> = {
+  active: { label: "Active", className: "text-dg-game" },
+  canceled: { label: "Canceled", className: "text-dg-anime" },
+  past_due: { label: "Payment failed", className: "text-dg-anime" },
+  lifetime: { label: "Lifetime", className: "text-dg-accent" },
+  expired: { label: "Expired", className: "text-dg-text-tertiary" },
+  paused: { label: "Paused", className: "text-dg-text-tertiary" },
+};
+
 function SubscriptionManagement({
   subscription,
   checkoutEnabled,
@@ -305,15 +312,6 @@ function SubscriptionManagement({
   const isActive = status === "active";
   const isCanceled = status === "canceled";
   const isPastDue = status === "past_due";
-
-  const STATUS_LABELS: Record<SubscriptionStatus, { label: string; className: string }> = {
-    active: { label: "Active", className: "text-dg-game" },
-    canceled: { label: "Canceled", className: "text-dg-anime" },
-    past_due: { label: "Payment failed", className: "text-dg-anime" },
-    lifetime: { label: "Lifetime", className: "text-dg-accent" },
-    expired: { label: "Expired", className: "text-dg-text-tertiary" },
-    paused: { label: "Paused", className: "text-dg-text-tertiary" },
-  };
 
   const statusInfo = STATUS_LABELS[status] ?? { label: status, className: "text-dg-text-tertiary" };
   const statusLabel = isComped ? "Complimentary" : statusInfo.label;
