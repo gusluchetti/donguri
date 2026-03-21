@@ -130,9 +130,12 @@ function RangerPassPage() {
           {FEATURES.map((feat, i) => (
             <div
               key={feat.title}
-              className="bg-dg-surface border border-dg-border-subtle rounded p-3 flex flex-col gap-2"
+              className="bg-dg-surface border border-dg-border-subtle rounded p-3 flex flex-col gap-2 relative overflow-hidden opacity-70"
               style={{ animation: `fadeIn 50ms ${20 * i}ms both` }}
             >
+              <span className="absolute top-2 right-2 font-mono text-[0.55rem] tracking-wider uppercase text-dg-text-tertiary border border-dg-border-subtle rounded-sm px-1 py-px">
+                soon
+              </span>
               <feat.icon size={20} weight="duotone" className="text-dg-accent" />
               <span className="text-[0.8rem] font-semibold">{feat.title}</span>
               <span className="text-[0.7rem] text-dg-text-tertiary leading-snug">{feat.desc}</span>
@@ -358,12 +361,19 @@ function SubscriptionManagement({
 
       {/* Current plan */}
       {!isComped && !isLifetime && (
-        <div className="text-[0.8rem] text-dg-text-secondary">
-          Plan:{" "}
-          <span className="font-semibold text-dg-text">
-            {plan === "annual" ? "Annual" : "Monthly"} ({PRICES[plan as Plan]?.amount}
-            {PRICES[plan as Plan]?.period})
-          </span>
+        <div className="flex flex-col gap-1">
+          <div className="text-[0.8rem] text-dg-text-secondary">
+            Plan:{" "}
+            <span className="font-semibold text-dg-text">
+              {plan === "annual" ? "Annual" : "Monthly"} ({PRICES[plan as Plan]?.amount}
+              {PRICES[plan as Plan]?.period})
+            </span>
+          </div>
+          {isActive && (
+            <span className="text-[0.7rem] text-dg-text-tertiary">
+              Renews automatically. You can cancel at any time before your next billing date.
+            </span>
+          )}
         </div>
       )}
 
@@ -474,6 +484,19 @@ function SubscriptionManagement({
               Canceling stops future charges. You keep full Ranger Pass access until{" "}
               {currentPeriodEnd ? formatDate(currentPeriodEnd) : "your period ends"}. After that,
               you return to the free tier. No tracking data is lost.
+            </span>
+          )}
+          {isActive && !cancelConfirm && (
+            <span className="text-[0.6rem] text-dg-text-tertiary/60 leading-relaxed">
+              Under EU Consumer Rights Directive 2011/83/EU, you have a 14-day right of withdrawal
+              from the date of purchase. To exercise this right, contact us at{" "}
+              <a
+                href="mailto:support@donguri.app"
+                className="underline hover:text-dg-text-tertiary transition-colors"
+              >
+                support@donguri.app
+              </a>
+              .
             </span>
           )}
         </div>
