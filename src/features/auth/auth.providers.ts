@@ -8,10 +8,11 @@
  */
 import type { Column } from "drizzle-orm";
 import { eq } from "drizzle-orm";
-import { cleanEnv, getDb } from "~/db";
+import { getDb } from "~/db";
 import { users } from "~/db/schema";
 import type { SessionData } from "~/features/auth/auth.session";
 import { setSessionCookie } from "~/features/auth/auth.session";
+import { cleanEnv } from "~/lib/env";
 
 export type Provider = "google" | "github";
 
@@ -236,6 +237,7 @@ export async function handleProviderCallback(
 
   let userId: string;
   let handle: string;
+  let isNewUser = false;
 
   if (byProviderId) {
     // Returning user — update profile
@@ -286,6 +288,7 @@ export async function handleProviderCallback(
         .returning({ id: users.id });
       userId = newUser.id;
       handle = profile.name;
+      isNewUser = true;
       if (isDev) console.debug("[oauth:%s] created new user: %s", provider, userId);
     }
   } else {
@@ -301,10 +304,14 @@ export async function handleProviderCallback(
       .returning({ id: users.id });
     userId = newUser.id;
     handle = profile.name;
+    isNewUser = true;
     if (isDev) console.debug("[oauth:%s] created new user (no email): %s", provider, userId);
   }
 
-  const session: SessionData = { userId, handle, authMethod: provider };
+  const { getUserSubscriptionTier } = await import("~/features/subscription/subscription.server");
+  const tier = !isNewUser ? await getUserSubscriptionTier(userId) : null;
+
+  const session: SessionData = { userId, handle, authMethod: provider, tier };
   await setSessionCookie(session);
   return session;
 }

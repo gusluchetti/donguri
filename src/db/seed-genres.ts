@@ -8,7 +8,6 @@ const db = getDb();
 async function seed() {
   console.log("Seeding canonical genres...");
 
-  // 1. Insert top-level genres (no parent)
   const topLevel = CANONICAL_GENRES.filter((g) => g.parentSlug === null);
   for (const g of topLevel) {
     await db
@@ -18,11 +17,9 @@ async function seed() {
   }
   console.log(`  ${topLevel.length} top-level genres`);
 
-  // 2. Fetch all top-level IDs to resolve parentSlug → parentId
   const allGenres = await db.select().from(canonicalGenres);
   const slugToId = new Map(allGenres.map((g) => [g.slug, g.id]));
 
-  // 3. Insert sub-genres
   const subGenres = CANONICAL_GENRES.filter((g) => g.parentSlug !== null);
   for (const g of subGenres) {
     if (!g.parentSlug) continue;
@@ -38,11 +35,9 @@ async function seed() {
   }
   console.log(`  ${subGenres.length} sub-genres`);
 
-  // 4. Re-fetch all genres (now includes sub-genres)
   const allGenresNow = await db.select().from(canonicalGenres);
   const slugToIdNow = new Map(allGenresNow.map((g) => [g.slug, g.id]));
 
-  // 5. Insert genre mappings
   let mapped = 0;
   let skipped = 0;
   for (const m of GENRE_MAPPINGS) {

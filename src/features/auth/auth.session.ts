@@ -9,14 +9,16 @@
  */
 import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server";
 import { eq } from "drizzle-orm";
-import { cleanEnv, getDb } from "~/db";
+import { getDb } from "~/db";
 import { users } from "~/db/schema";
+import { cleanEnv } from "~/lib/env";
 
 export type SessionData = {
   userId: string;
   handle: string;
   authMethod: "atproto" | "google" | "github";
   did?: string;
+  tier?: string | null;
 };
 
 const COOKIE_NAME = "donguri-auth";
@@ -107,6 +109,10 @@ function ensureSweep() {
   }, SWEEP_INTERVAL);
   // Don't block process shutdown
   if (typeof sweepTimer === "object" && "unref" in sweepTimer) sweepTimer.unref();
+}
+
+export function invalidateUserCache(userId: string): void {
+  verifiedUsers.delete(userId);
 }
 
 export async function requireAuth(): Promise<SessionData> {

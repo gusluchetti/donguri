@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { desc, eq, sql } from "drizzle-orm";
 import { getDb } from "~/db";
-import { catalogEntries, media, users } from "~/db/schema";
+import { catalogEntries, media, subscriptions, users } from "~/db/schema";
 import { requireAuth } from "~/features/auth/auth.session";
 import type { StatusValue } from "~/features/media/media-types";
 
@@ -14,6 +14,7 @@ export type ProfileStats = {
   statusCounts: Record<StatusValue, number>;
   typeCounts: Record<string, number>;
   completedTypeCounts: Record<string, number>;
+  statusByType: Record<string, Record<string, number>>;
 };
 
 export type RecentEntry = {
@@ -28,6 +29,13 @@ export type RecentEntry = {
   posterUrl: string | null;
 };
 
+export type ProfileSubscription = {
+  plan: string;
+  status: string;
+  tier: string;
+  createdAt: string | null;
+} | null;
+
 export type ProfileData = {
   stats: ProfileStats;
   recent: RecentEntry[];
@@ -39,6 +47,7 @@ export type ProfileData = {
   };
   topTerritory: string | null;
   daysActive: number;
+  subscription: ProfileSubscription;
 };
 
 export const getProfileData = createServerFn({ method: "GET" }).handler(
@@ -46,9 +55,7 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
     const auth = await requireAuth();
     const db = getDb();
 
-    // All three queries in parallel
-    const [aggregates, recent, userRow] = await Promise.all([
-      // Aggregate stats — single pass with FILTER
+    const [aggregates, recent, userRow, statusByTypeRows] = await Promise.all([
       db
         .select({
           totalEntries: sql<number>`count(*)::int`,
@@ -58,19 +65,16 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
             number | null
           >`avg(${catalogEntries.rating}) FILTER (WHERE ${catalogEntries.rating} IS NOT NULL)`,
           ratedCount: sql<number>`count(*) FILTER (WHERE ${catalogEntries.rating} IS NOT NULL)::int`,
-          // Status counts
           planned: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} = 'planned')::int`,
           in_progress: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} = 'in_progress')::int`,
           on_hold: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} = 'on_hold')::int`,
           completed: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} = 'completed')::int`,
           mastered: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} = 'mastered')::int`,
           dropped: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} = 'dropped')::int`,
-          // Type counts — anime = animationOrigin IS NOT NULL
           movieCount: sql<number>`count(*) FILTER (WHERE ${catalogEntries.mediaType} = 'movie' AND ${catalogEntries.animationOrigin} IS NULL)::int`,
           tvCount: sql<number>`count(*) FILTER (WHERE ${catalogEntries.mediaType} = 'tv_series' AND ${catalogEntries.animationOrigin} IS NULL)::int`,
           animeCount: sql<number>`count(*) FILTER (WHERE ${catalogEntries.animationOrigin} IS NOT NULL)::int`,
           gameCount: sql<number>`count(*) FILTER (WHERE ${catalogEntries.mediaType} = 'game')::int`,
-          // Completed (completed + mastered) by type
           completedMovie: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} IN ('completed','mastered') AND ${catalogEntries.mediaType} = 'movie' AND ${catalogEntries.animationOrigin} IS NULL)::int`,
           completedTv: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} IN ('completed','mastered') AND ${catalogEntries.mediaType} = 'tv_series' AND ${catalogEntries.animationOrigin} IS NULL)::int`,
           completedAnime: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} IN ('completed','mastered') AND ${catalogEntries.animationOrigin} IS NOT NULL)::int`,
@@ -79,7 +83,6 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
         .from(catalogEntries)
         .where(eq(catalogEntries.userId, auth.userId)),
 
-      // Recent activity — last 10 by updatedAt
       db
         .select({
           mediaWikidataId: catalogEntries.mediaWikidataId,
@@ -100,17 +103,44 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
         .orderBy(desc(catalogEntries.updatedAt))
         .limit(10),
 
-      // User row
       db
         .select({
           handle: users.handle,
           avatarUrl: users.avatarUrl,
           authMethod: users.authMethod,
           createdAt: sql<string | null>`${users.createdAt}::text`,
+          subPlan: subscriptions.plan,
+          subStatus: subscriptions.status,
+          subTier: subscriptions.tier,
+          subCreatedAt: sql<string | null>`${subscriptions.createdAt}::text`,
         })
         .from(users)
+        .leftJoin(subscriptions, eq(users.subscriptionId, subscriptions.id))
         .where(eq(users.id, auth.userId))
         .limit(1),
+
+      db
+        .select({
+          resolvedType: sql<string>`CASE
+            WHEN ${catalogEntries.animationOrigin} IS NOT NULL THEN 'anime'
+            WHEN ${catalogEntries.mediaType} = 'game' THEN 'game'
+            WHEN ${catalogEntries.mediaType} = 'movie' THEN 'movie'
+            WHEN ${catalogEntries.mediaType} = 'tv_series' THEN 'tv_series'
+          END`,
+          status: sql<string>`${catalogEntries.status}`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(catalogEntries)
+        .where(eq(catalogEntries.userId, auth.userId))
+        .groupBy(
+          sql`CASE
+            WHEN ${catalogEntries.animationOrigin} IS NOT NULL THEN 'anime'
+            WHEN ${catalogEntries.mediaType} = 'game' THEN 'game'
+            WHEN ${catalogEntries.mediaType} = 'movie' THEN 'movie'
+            WHEN ${catalogEntries.mediaType} = 'tv_series' THEN 'tv_series'
+          END`,
+          catalogEntries.status,
+        ),
     ]);
 
     const agg = aggregates[0];
@@ -130,7 +160,13 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
       game: agg.completedGame,
     };
 
-    // Top territory = type with highest count
+    const statusByType: Record<string, Record<string, number>> = {};
+    for (const row of statusByTypeRows) {
+      if (!row.resolvedType || !row.status) continue;
+      statusByType[row.resolvedType] ??= {};
+      statusByType[row.resolvedType][row.status] = row.count;
+    }
+
     let topTerritory: string | null = null;
     let maxCount = 0;
     for (const [type, count] of Object.entries(typeCounts)) {
@@ -140,12 +176,21 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
       }
     }
 
-    // Days active since account creation
     const createdDate = user?.createdAt ? new Date(user.createdAt) : new Date();
     const daysActive = Math.max(
       1,
       Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)),
     );
+
+    const subscription: ProfileSubscription =
+      user?.subPlan && user.subStatus && user.subTier
+        ? {
+            plan: user.subPlan,
+            status: user.subStatus,
+            tier: user.subTier,
+            createdAt: user.subCreatedAt ?? null,
+          }
+        : null;
 
     return {
       stats: {
@@ -164,6 +209,7 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
         },
         typeCounts,
         completedTypeCounts,
+        statusByType,
       },
       recent,
       user: {
@@ -174,6 +220,7 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
       },
       topTerritory,
       daysActive,
+      subscription,
     };
   },
 );

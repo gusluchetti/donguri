@@ -416,7 +416,6 @@ function CatalogPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on click-outside
   useEffect(() => {
     if (!filterOpen) return;
     const handler = (e: MouseEvent) => {
@@ -447,7 +446,6 @@ function CatalogPage() {
   return (
     <div className="text-dg-text flex-1 font-body flex flex-col overflow-hidden">
       <div className="max-w-[1100px] mx-auto w-full px-g1 sm:px-g3 pt-2 sm:pt-3 pb-2 flex flex-col gap-2">
-        {/* Mobile-only header links */}
         <div className="flex items-center justify-center gap-1.5 text-[0.7rem] text-dg-text-tertiary sm:hidden">
           <Link
             to="/news"
@@ -457,7 +455,6 @@ function CatalogPage() {
           </Link>
         </div>
 
-        {/* Search row with mobile filter toggle */}
         <div className="relative" ref={filterDropdownRef}>
           <SearchBar
             ref={searchRef}
@@ -480,7 +477,6 @@ function CatalogPage() {
             }
           />
 
-          {/* Mobile filter dropdown */}
           {filterOpen && (
             <div className="absolute left-0 right-0 top-full mt-1 z-20 sm:hidden">
               <TypeFilterBar
@@ -494,7 +490,6 @@ function CatalogPage() {
           )}
         </div>
 
-        {/* Desktop filter bar — always visible */}
         <div className="hidden sm:block">
           <TypeFilterBar mediaType={mediaType} onTypeChange={handleTypeChange} />
         </div>
@@ -528,7 +523,7 @@ function CatalogPage() {
                 </div>
               </div>
             )}
-            <div ref={parentRef} className="flex-1 min-h-0 overflow-auto">
+            <div ref={parentRef} className="flex-1 min-h-0 overflow-auto dg-scrollbar pr-1.5">
               <div
                 style={{ height: virtualizer.getTotalSize(), width: "100%", position: "relative" }}
               >

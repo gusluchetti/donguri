@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { posts } from "~/lib/blog";
+import { formatDate } from "~/lib/date";
 import { ogTags, pageTitle } from "~/lib/og";
 
 export const Route = createFileRoute("/news/")({
@@ -20,11 +21,6 @@ export const Route = createFileRoute("/news/")({
   component: NewsIndex,
 });
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-}
-
 function excerpt(body: string, maxLen = 180): string {
   const line = body
     .split("\n")
@@ -38,7 +34,7 @@ function excerpt(body: string, maxLen = 180): string {
 function NewsIndex() {
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
-      <div className="max-w-[700px] mx-auto px-4 py-4 sm:px-6 sm:py-8">
+      <div className="max-w-[900px] mx-auto px-4 py-4 sm:px-6 sm:py-8">
         <h1 className="font-display text-[1.8rem] sm:text-[2.25rem] font-normal tracking-[-0.03em] mb-6 sm:mb-8">
           <span className="text-dg-accent">news</span>
         </h1>

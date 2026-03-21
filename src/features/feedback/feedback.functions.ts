@@ -1,9 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { count, eq } from "drizzle-orm";
 import { z } from "zod";
-import { cleanEnv, getDb } from "~/db";
+import { getDb } from "~/db";
 import { catalogEntries, users } from "~/db/schema";
 import { requireAuth } from "~/features/auth/auth.session";
+import { cleanEnv } from "~/lib/env";
 
 const FEEDBACK_TYPES = ["bug", "enhancement", "documentation", "question"] as const;
 

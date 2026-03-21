@@ -444,7 +444,6 @@ function RatingKnob({ value, ratingMode, onChange, size = 110 }: RatingKnobProps
               style={{ transition: thumbTransition }}
             />
           )}
-          {/* Number inside the knob */}
           {!editing && (
             /* biome-ignore lint/a11y/noStaticElementInteractions: SVG text can't be a <button> */
             <text
@@ -490,7 +489,7 @@ function RatingKnob({ value, ratingMode, onChange, size = 110 }: RatingKnobProps
       </div>
 
       {ratingMode && (
-        <p className="text-[0.6rem] text-dg-accent m-0 mt-1">
+        <p className="text-[0.625rem] text-dg-accent m-0 mt-1">
           = <span className="animate-pulse">_</span>
         </p>
       )}

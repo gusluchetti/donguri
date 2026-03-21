@@ -19,7 +19,7 @@ import { format } from "node:util";
 import zlib from "node:zlib";
 import * as clack from "@clack/prompts";
 import { eq, inArray, sql } from "drizzle-orm";
-import { cleanEnv, getDb } from "~/db";
+import { getDb } from "~/db";
 import { TRGM_SETUP_SQL } from "~/db/fts";
 import { CANONICAL_GENRES, GENRE_MAPPINGS } from "~/db/genre-data";
 import { CANONICAL_PLATFORMS, PLATFORM_MAPPINGS } from "~/db/platform-data";
@@ -34,6 +34,7 @@ import {
   platformMappings,
   seasons,
 } from "~/db/schema";
+import { cleanEnv } from "~/lib/env";
 import { parseMediaEntity, shouldImportEntity } from "./_filters";
 import { formatDuration, withRetry } from "./_retry";
 import type { ParsedMedia, ParsedSeason, WikibaseEntityIdValue, WikidataEntity } from "./_types";

@@ -516,7 +516,7 @@ function BottomNav() {
           onClick={() => SoundEngine.click()}
         >
           <MagnifyingGlass size={22} weight="bold" />
-          <span className="text-[0.6rem] uppercase tracking-wider">catalog</span>
+          <span className="text-[0.625rem] uppercase tracking-wider">catalog</span>
         </Link>
 
         <Link
@@ -527,7 +527,7 @@ function BottomNav() {
           onClick={() => SoundEngine.click()}
         >
           <Bookmark size={22} weight="bold" />
-          <span className="text-[0.6rem] uppercase tracking-wider">watchlist</span>
+          <span className="text-[0.625rem] uppercase tracking-wider">watchlist</span>
         </Link>
 
         <Link
@@ -538,7 +538,7 @@ function BottomNav() {
           onClick={() => SoundEngine.click()}
         >
           <UserCircle size={22} weight="bold" />
-          <span className="text-[0.6rem] uppercase tracking-wider">profile</span>
+          <span className="text-[0.625rem] uppercase tracking-wider">profile</span>
         </Link>
       </div>
     </nav>
