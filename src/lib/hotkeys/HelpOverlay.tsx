@@ -41,7 +41,7 @@ export function HelpOverlay({ open, onClose }: { open: boolean; onClose: () => v
 function ShortcutGroup({ section }: { section: ShortcutSection }) {
   return (
     <div>
-      <h3 className="text-[0.6rem] text-dg-text-tertiary uppercase tracking-wider mb-1.5">
+      <h3 className="text-[0.625rem] text-dg-text-tertiary uppercase tracking-wider mb-1.5">
         {section.title}
       </h3>
       <div className="space-y-0.5">

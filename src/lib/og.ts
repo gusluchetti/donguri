@@ -1,13 +1,5 @@
-/**
- * Open Graph + Twitter Card meta tag helper.
- *
- * Returns an array of meta objects for TanStack Start's `head()`.
- * Reads PUBLIC_URL from process.env (safe — `head()` runs during SSR).
- */
-
 const IS_DEV = process.env.NODE_ENV === "development";
 
-/** Prepend (DEV) to page titles in development. Use in head() `{ title }` meta. */
 export function pageTitle(title: string): string {
   return IS_DEV ? `(DEV) ${title}` : title;
 }

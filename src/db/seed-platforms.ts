@@ -8,7 +8,6 @@ const db = getDb();
 async function seed() {
   console.log("Seeding canonical platforms...");
 
-  // 1. Insert top-level platforms (no parent)
   const topLevel = CANONICAL_PLATFORMS.filter((p) => p.parentSlug === null);
   for (const p of topLevel) {
     await db
@@ -18,11 +17,9 @@ async function seed() {
   }
   console.log(`  ${topLevel.length} top-level platforms`);
 
-  // 2. Fetch all top-level IDs to resolve parentSlug → parentId
   const allPlatforms = await db.select().from(canonicalPlatforms);
   const slugToId = new Map(allPlatforms.map((p) => [p.slug, p.id]));
 
-  // 3. Insert children with resolved parentId
   const children = CANONICAL_PLATFORMS.filter((p) => p.parentSlug !== null);
   for (const p of children) {
     if (!p.parentSlug) continue;
@@ -38,11 +35,9 @@ async function seed() {
   }
   console.log(`  ${children.length} child platforms`);
 
-  // 4. Re-fetch all platforms (now includes children)
   const allPlatformsNow = await db.select().from(canonicalPlatforms);
   const slugToIdNow = new Map(allPlatformsNow.map((p) => [p.slug, p.id]));
 
-  // 5. Insert platform mappings
   let mapped = 0;
   let skipped = 0;
   for (const m of PLATFORM_MAPPINGS) {

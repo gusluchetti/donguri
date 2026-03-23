@@ -8,10 +8,11 @@
  */
 import type { Column } from "drizzle-orm";
 import { eq } from "drizzle-orm";
-import { cleanEnv, getDb } from "~/db";
+import { getDb } from "~/db";
 import { users } from "~/db/schema";
 import type { SessionData } from "~/features/auth/auth.session";
 import { setSessionCookie } from "~/features/auth/auth.session";
+import { cleanEnv, getPublicUrl } from "~/lib/env";
 
 export type Provider = "google" | "github";
 
@@ -190,10 +191,7 @@ const PROVIDERS: Record<Provider, OAuthProviderConfig> = {
 
 export function getAuthUrl(provider: Provider, state: string): string {
   const config = PROVIDERS[provider];
-  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
-    /\/+$/,
-    "",
-  );
+  const publicUrl = getPublicUrl();
   const params = new URLSearchParams({
     client_id: cleanEnv(process.env[config.clientIdEnv]),
     redirect_uri: `${publicUrl}${config.callbackPath}`,
@@ -213,10 +211,7 @@ export async function handleProviderCallback(
   code: string,
 ): Promise<SessionData> {
   const config = PROVIDERS[provider];
-  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
-    /\/+$/,
-    "",
-  );
+  const publicUrl = getPublicUrl();
   const redirectUri = `${publicUrl}${config.callbackPath}`;
 
   const profile = await config.exchangeCode(code, redirectUri);
@@ -236,6 +231,7 @@ export async function handleProviderCallback(
 
   let userId: string;
   let handle: string;
+  let isNewUser = false;
 
   if (byProviderId) {
     // Returning user — update profile
@@ -286,6 +282,7 @@ export async function handleProviderCallback(
         .returning({ id: users.id });
       userId = newUser.id;
       handle = profile.name;
+      isNewUser = true;
       if (isDev) console.debug("[oauth:%s] created new user: %s", provider, userId);
     }
   } else {
@@ -301,10 +298,14 @@ export async function handleProviderCallback(
       .returning({ id: users.id });
     userId = newUser.id;
     handle = profile.name;
+    isNewUser = true;
     if (isDev) console.debug("[oauth:%s] created new user (no email): %s", provider, userId);
   }
 
-  const session: SessionData = { userId, handle, authMethod: provider };
+  const { getUserSubscriptionTier } = await import("~/features/subscription/subscription.server");
+  const tier = !isNewUser ? await getUserSubscriptionTier(userId) : null;
+
+  const session: SessionData = { userId, handle, authMethod: provider, tier };
   await setSessionCookie(session);
   return session;
 }

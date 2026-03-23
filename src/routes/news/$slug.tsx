@@ -1,7 +1,9 @@
 import { ArrowLeft } from "@phosphor-icons/react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
+import { Spinner } from "~/components/Spinner";
 import { getPostBySlug } from "~/lib/blog";
+import { formatDate } from "~/lib/date";
 import { ogTags, pageTitle } from "~/lib/og";
 
 const Markdown = lazy(() => import("react-markdown"));
@@ -43,17 +45,12 @@ export const Route = createFileRoute("/news/$slug")({
   ),
 });
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-}
-
 function NewsPost() {
   const post = Route.useLoaderData();
 
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
-      <div className="max-w-[700px] mx-auto px-4 py-4 sm:px-6 sm:py-8">
+      <div className="max-w-[900px] mx-auto px-4 py-4 sm:px-6 sm:py-8">
         <Link
           to="/news"
           className="inline-flex items-center gap-1.5 text-[0.75rem] text-dg-text-tertiary no-underline hover:text-dg-text-secondary transition-colors duration-50 mb-6"
@@ -74,14 +71,7 @@ function NewsPost() {
         <Suspense
           fallback={
             <div className="flex justify-center py-12">
-              <div
-                className="w-5 h-5 border-2 border-dg-border-subtle rounded-full"
-                style={{
-                  borderTopColor: "var(--color-dg-accent)",
-                  animation: "spin 0.6s linear infinite",
-                }}
-              />
-              <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+              <Spinner size={20} />
             </div>
           }
         >

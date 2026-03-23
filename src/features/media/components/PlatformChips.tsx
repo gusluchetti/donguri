@@ -92,7 +92,7 @@ export function PlatformChips({ platforms }: { platforms: Platform[] }) {
             )}
           >
             {f.familyName}
-            <span className="text-[0.6rem] font-mono opacity-60">{f.children.length}</span>
+            <span className="text-[0.625rem] font-mono opacity-60">{f.children.length}</span>
           </button>
           {expanded === f.familySlug && (
             <div className="absolute top-full left-0 mt-1 z-20 flex flex-col gap-1 bg-dg-surface border border-dg-border rounded-sm p-1.5 shadow-lg min-w-max">

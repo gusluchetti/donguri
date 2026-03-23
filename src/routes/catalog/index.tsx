@@ -33,6 +33,7 @@ import {
   displayMediaType,
   STAMP_COLORS,
   STATUS_BUTTON_COLORS,
+  STATUS_ORDER,
   type StatusValue,
 } from "~/features/media/media-types";
 import { cn } from "~/lib/cn";
@@ -214,7 +215,7 @@ const SearchBar = forwardRef<
 
   const handleChange = (input: string) => {
     setValue(input);
-    if (input.length > 0) SoundEngine.search();
+    if (input.length > 0) SoundEngine.keystroke();
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => flush(input), 350);
   };
@@ -416,7 +417,6 @@ function CatalogPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on click-outside
   useEffect(() => {
     if (!filterOpen) return;
     const handler = (e: MouseEvent) => {
@@ -447,7 +447,6 @@ function CatalogPage() {
   return (
     <div className="text-dg-text flex-1 font-body flex flex-col overflow-hidden">
       <div className="max-w-[1100px] mx-auto w-full px-g1 sm:px-g3 pt-2 sm:pt-3 pb-2 flex flex-col gap-2">
-        {/* Mobile-only header links */}
         <div className="flex items-center justify-center gap-1.5 text-[0.7rem] text-dg-text-tertiary sm:hidden">
           <Link
             to="/news"
@@ -457,7 +456,6 @@ function CatalogPage() {
           </Link>
         </div>
 
-        {/* Search row with mobile filter toggle */}
         <div className="relative" ref={filterDropdownRef}>
           <SearchBar
             ref={searchRef}
@@ -480,7 +478,6 @@ function CatalogPage() {
             }
           />
 
-          {/* Mobile filter dropdown */}
           {filterOpen && (
             <div className="absolute left-0 right-0 top-full mt-1 z-20 sm:hidden">
               <TypeFilterBar
@@ -494,7 +491,6 @@ function CatalogPage() {
           )}
         </div>
 
-        {/* Desktop filter bar — always visible */}
         <div className="hidden sm:block">
           <TypeFilterBar mediaType={mediaType} onTypeChange={handleTypeChange} />
         </div>
@@ -528,7 +524,7 @@ function CatalogPage() {
                 </div>
               </div>
             )}
-            <div ref={parentRef} className="flex-1 min-h-0 overflow-auto">
+            <div ref={parentRef} className="flex-1 min-h-0 overflow-auto dg-scrollbar pr-1.5">
               <div
                 style={{ height: virtualizer.getTotalSize(), width: "100%", position: "relative" }}
               >
@@ -632,6 +628,7 @@ const MediaRow = memo(function MediaRow({
 }) {
   const meta = formatMeta(item);
   const displayType = displayMediaType(item.mediaType, item.animationOrigin);
+  const validStatus: StatusValue | null = STATUS_ORDER.find((v) => v === trackedStatus) ?? null;
   const year = item.startYear
     ? `${item.startYear}${item.endYear && item.endYear !== item.startYear ? `\u2013${item.endYear}` : ""}`
     : "";
@@ -693,11 +690,11 @@ const MediaRow = memo(function MediaRow({
             <span className="text-[0.85rem] font-medium text-dg-text truncate flex-1 min-w-0">
               {item.title}
             </span>
-            {trackedStatus && (
+            {validStatus && (
               <span
-                className={`text-[0.58rem] font-mono font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none flex items-center justify-center ${STATUS_BUTTON_COLORS[trackedStatus as StatusValue] ?? ""}`}
+                className={`text-[0.58rem] font-mono font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none flex items-center justify-center ${STATUS_BUTTON_COLORS[validStatus]}`}
               >
-                <StatusIcon status={trackedStatus as StatusValue} size={9} />
+                <StatusIcon status={validStatus} size={9} />
               </span>
             )}
           </div>

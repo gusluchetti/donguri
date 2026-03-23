@@ -1,13 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { cleanEnv, getDb } from "~/db";
+import { getDb } from "~/db";
 import { users } from "~/db/schema";
 import { getAuthenticatedAgent } from "~/features/auth/auth.agent";
-import { getOAuthClient } from "~/features/auth/auth.client";
+import { getOAuthClient } from "~/features/auth/auth.oauth";
 import { getAuthUrl, handleProviderCallback, type Provider } from "~/features/auth/auth.providers";
 import { clearSessionCookie, getSessionData, setSessionCookie } from "~/features/auth/auth.session";
 import { reconcileUser } from "~/features/auth/auth.sync";
+import { cleanEnv } from "~/lib/env";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -151,7 +152,12 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
         }
       }
 
-      await setSessionCookie({ userId, handle, authMethod: "atproto", did });
+      const { getUserSubscriptionTier } = await import(
+        "~/features/subscription/subscription.server"
+      );
+      const tier = existing.length > 0 ? await getUserSubscriptionTier(userId) : null;
+
+      await setSessionCookie({ userId, handle, authMethod: "atproto", did, tier });
       if (isDev) console.debug("[callback] session cookie set, login complete");
       return { did, handle };
     } catch (err) {

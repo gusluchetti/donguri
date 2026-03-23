@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { cleanEnv } from "~/lib/env";
 import * as schema from "./schema";
 
 function getConnectionString() {
@@ -8,12 +9,6 @@ function getConnectionString() {
     throw new Error("DATABASE_URL environment variable is required");
   }
   return url;
-}
-
-/** Strip surrounding quotes that Docker --env-file keeps literal. */
-export function cleanEnv(value: string | undefined): string {
-  if (!value) return "";
-  return value.trim().replace(/^['"]/, "").replace(/['"]$/, "");
 }
 
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;

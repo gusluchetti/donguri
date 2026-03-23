@@ -85,6 +85,13 @@
       "when": 1771885156942,
       "tag": "0011_optimal_bloodaxe",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1773369129941,
+      "tag": "0012_loving_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }

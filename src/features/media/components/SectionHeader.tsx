@@ -18,7 +18,7 @@ export function SectionHeader({
       >
         {icon} {label}
       </span>
-      <span className="text-[9px] text-dg-text-tertiary tabular-nums">{count}</span>
+      <span className="font-mono text-[0.625rem] text-dg-text-tertiary tabular-nums">{count}</span>
       <div
         className="flex-1 h-px"
         style={{

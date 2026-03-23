@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { posts } from "~/lib/blog";
+import { formatDate } from "~/lib/date";
 import { ogTags, pageTitle } from "~/lib/og";
 
 export const Route = createFileRoute("/news/")({
@@ -20,11 +21,6 @@ export const Route = createFileRoute("/news/")({
   component: NewsIndex,
 });
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-}
-
 function excerpt(body: string, maxLen = 180): string {
   const line = body
     .split("\n")
@@ -38,7 +34,7 @@ function excerpt(body: string, maxLen = 180): string {
 function NewsIndex() {
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
-      <div className="max-w-[700px] mx-auto px-4 py-4 sm:px-6 sm:py-8">
+      <div className="max-w-[900px] mx-auto px-4 py-4 sm:px-6 sm:py-8">
         <h1 className="font-display text-[1.8rem] sm:text-[2.25rem] font-normal tracking-[-0.03em] mb-6 sm:mb-8">
           <span className="text-dg-accent">news</span>
         </h1>
@@ -47,28 +43,31 @@ function NewsIndex() {
           <p className="text-dg-text-secondary text-[0.9rem]">No posts yet.</p>
         ) : (
           <div className="flex flex-col gap-1">
-            {posts.map((post) => (
-              <Link
-                key={post.slug}
-                to="/news/$slug"
-                params={{ slug: post.slug }}
-                className="group no-underline block border border-transparent hover:border-dg-border-subtle rounded-md px-4 py-4 -mx-4 transition-colors duration-50"
-              >
-                <div className="flex items-baseline gap-3 mb-1">
-                  <time className="text-[0.7rem] text-dg-text-tertiary tabular-nums shrink-0">
-                    {formatDate(post.date)}
-                  </time>
-                  <h2 className="font-display text-[1.1rem] sm:text-[1.2rem] font-normal text-dg-text group-hover:text-dg-accent transition-colors duration-50">
-                    {post.title}
-                  </h2>
-                </div>
-                {excerpt(post.body) && (
-                  <p className="text-[0.8rem] text-dg-text-tertiary leading-relaxed line-clamp-2">
-                    {excerpt(post.body)}
-                  </p>
-                )}
-              </Link>
-            ))}
+            {posts.map((post) => {
+              const ex = excerpt(post.body);
+              return (
+                <Link
+                  key={post.slug}
+                  to="/news/$slug"
+                  params={{ slug: post.slug }}
+                  className="group no-underline block border border-transparent hover:border-dg-border-subtle rounded-md px-4 py-4 -mx-4 transition-colors duration-50"
+                >
+                  <div className="flex items-baseline gap-3 mb-1">
+                    <time className="text-[0.7rem] text-dg-text-tertiary tabular-nums shrink-0">
+                      {formatDate(post.date)}
+                    </time>
+                    <h2 className="font-display text-[1.1rem] sm:text-[1.2rem] font-normal text-dg-text group-hover:text-dg-accent transition-colors duration-50">
+                      {post.title}
+                    </h2>
+                  </div>
+                  {ex && (
+                    <p className="text-[0.8rem] text-dg-text-tertiary leading-relaxed line-clamp-2">
+                      {ex}
+                    </p>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>

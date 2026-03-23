@@ -371,6 +371,27 @@ const SOUNDS: Record<string, SoundDef> = {
     },
   },
 
+  /** Ultra-short bandpassed noise burst — key bottoming out */
+  keystroke: {
+    duration: 0.04,
+    cooldownMs: 30,
+    variants: 3,
+    build(ctx, noise, variant = 0) {
+      const freq = [4200, 4500, 4800][variant];
+      const src = ctx.createBufferSource();
+      src.buffer = noise;
+      const bp = bandpassNode(ctx, freq, 3);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.012, 0);
+      g.gain.exponentialRampToValueAtTime(0.001, 0.025);
+      src.connect(bp);
+      bp.connect(g);
+      g.connect(ctx.destination);
+      src.start(0);
+      src.stop(0.03);
+    },
+  },
+
   /** Toggle off — descending two-note: 660Hz -> 440Hz (quieter) */
   toggleOff: {
     duration: 0.15,
@@ -538,6 +559,9 @@ function knobTick(): void {
 function search(): void {
   play("search");
 }
+function keystroke(): void {
+  play("keystroke");
+}
 function toggleOn(): void {
   play("toggleOn");
 }
@@ -560,6 +584,7 @@ export const SoundEngine = {
   dice,
   knobTick,
   search,
+  keystroke,
   toggleOn,
   toggleOff,
 } as const;
