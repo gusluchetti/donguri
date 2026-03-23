@@ -3,18 +3,18 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
 import type { Mesh, PointLight } from "three";
 import { DoubleSide, MathUtils, Shape } from "three";
+import type { Plan } from "~/features/subscription/subscription.provider";
 import {
+  CardFaceContent,
   handleToSerial,
   PLAN_ACCENT,
   PLAN_GRADIENTS,
   PlanLandscape,
   RangerPassCard,
+  toPlan,
 } from "./RangerPassCard";
 
-const ACORN_PATH =
-  "M232,104a56.06,56.06,0,0,0-56-56H136a24,24,0,0,1,24-24,8,8,0,0,0,0-16,40,40,0,0,0-40,40H80a56.06,56.06,0,0,0-56,56,16,16,0,0,0,8,13.83V128c0,35.53,33.12,62.12,59.74,83.49C103.66,221.07,120,234.18,120,240a8,8,0,0,0,16,0c0-5.82,16.34-18.93,28.26-28.51C190.88,190.12,224,163.53,224,128V117.83A16,16,0,0,0,232,104ZM80,64h96a40.06,40.06,0,0,1,40,40H40A40,40,0,0,1,80,64Zm74.25,135c-10.62,8.52-20,16-26.25,23.37-6.25-7.32-15.63-14.85-26.25-23.37C77.8,179.79,48,155.86,48,128v-8H208v8C208,155.86,178.2,179.79,154.25,199Z";
-
-const PLAN_COLOR: Record<string, string> = {
+const PLAN_COLOR: Record<Plan, string> = {
   monthly: "#225a3a",
   annual: "#4d3418",
   lifetime: "#3a2050",
@@ -63,9 +63,10 @@ function CardMesh({
   const rotY = useRef(0);
   const { invalidate } = useThree();
 
-  const baseColor = PLAN_COLOR[plan] ?? PLAN_COLOR.monthly;
-  const accent = PLAN_ACCENT[plan] ?? PLAN_ACCENT.monthly;
-  const gradient = PLAN_GRADIENTS[plan] ?? PLAN_GRADIENTS.monthly;
+  const safePlan = toPlan(plan);
+  const baseColor = PLAN_COLOR[safePlan];
+  const accent = PLAN_ACCENT[safePlan];
+  const gradient = PLAN_GRADIENTS[safePlan];
   const serial = handleToSerial(handle);
 
   useFrame(() => {
@@ -124,99 +125,7 @@ function CardMesh({
           }}
         >
           <PlanLandscape plan={plan} accent={accent} />
-
-          <div
-            style={{
-              position: "relative",
-              height: "100%",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              padding: "14px",
-              fontFamily: "inherit",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                justifyContent: "space-between",
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: "var(--font-display, serif)",
-                  fontSize: "0.85rem",
-                  fontWeight: 600,
-                  letterSpacing: "0.05em",
-                  color: accent,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                }}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 256 256"
-                  width={13}
-                  height={13}
-                  fill={accent}
-                  aria-hidden="true"
-                >
-                  <path d={ACORN_PATH} />
-                </svg>
-                RANGER PASS
-              </span>
-              <span
-                style={{
-                  fontFamily: "var(--font-mono, monospace)",
-                  fontSize: "0.6rem",
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  borderRadius: 2,
-                  padding: "1px 6px",
-                  border: `1px solid ${accent}40`,
-                  background: `${accent}10`,
-                  color: accent,
-                }}
-              >
-                {plan}
-              </span>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "flex-end",
-                justifyContent: "space-between",
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: "var(--font-body, sans-serif)",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  color: "rgba(255,255,255,0.9)",
-                  maxWidth: 160,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {handle.replace(/\.bsky\.social$/, "")}
-              </span>
-              <span
-                style={{
-                  fontFamily: "var(--font-mono, monospace)",
-                  fontSize: "0.6rem",
-                  letterSpacing: "0.08em",
-                  color: `${accent}99`,
-                }}
-              >
-                {serial}
-              </span>
-            </div>
-          </div>
+          <CardFaceContent plan={plan} accent={accent} handle={handle} serial={serial} />
         </div>
       </Html>
 
@@ -239,7 +148,7 @@ function Scene({
   const [pointer, setPointer] = useState({ x: 0, y: 0 });
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const rect = e.currentTarget.getBoundingClientRect();
     setPointer({
       x: ((e.clientX - rect.left) / rect.width) * 2 - 1,
       y: -((e.clientY - rect.top) / rect.height) * 2 + 1,
@@ -249,7 +158,7 @@ function Scene({
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     const touch = e.touches[0];
     if (!touch) return;
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const rect = e.currentTarget.getBoundingClientRect();
     setPointer({
       x: ((touch.clientX - rect.left) / rect.width) * 2 - 1,
       y: -((touch.clientY - rect.top) / rect.height) * 2 + 1,

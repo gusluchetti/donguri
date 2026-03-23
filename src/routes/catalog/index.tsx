@@ -33,6 +33,7 @@ import {
   displayMediaType,
   STAMP_COLORS,
   STATUS_BUTTON_COLORS,
+  STATUS_ORDER,
   type StatusValue,
 } from "~/features/media/media-types";
 import { cn } from "~/lib/cn";
@@ -214,7 +215,7 @@ const SearchBar = forwardRef<
 
   const handleChange = (input: string) => {
     setValue(input);
-    if (input.length > 0) SoundEngine.search();
+    if (input.length > 0) SoundEngine.keystroke();
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => flush(input), 350);
   };
@@ -627,6 +628,7 @@ const MediaRow = memo(function MediaRow({
 }) {
   const meta = formatMeta(item);
   const displayType = displayMediaType(item.mediaType, item.animationOrigin);
+  const validStatus: StatusValue | null = STATUS_ORDER.find((v) => v === trackedStatus) ?? null;
   const year = item.startYear
     ? `${item.startYear}${item.endYear && item.endYear !== item.startYear ? `\u2013${item.endYear}` : ""}`
     : "";
@@ -688,11 +690,11 @@ const MediaRow = memo(function MediaRow({
             <span className="text-[0.85rem] font-medium text-dg-text truncate flex-1 min-w-0">
               {item.title}
             </span>
-            {trackedStatus && (
+            {validStatus && (
               <span
-                className={`text-[0.58rem] font-mono font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none flex items-center justify-center ${STATUS_BUTTON_COLORS[trackedStatus as StatusValue] ?? ""}`}
+                className={`text-[0.58rem] font-mono font-bold uppercase tracking-wider px-1.5 py-[2px] rounded-sm border shrink-0 leading-none flex items-center justify-center ${STATUS_BUTTON_COLORS[validStatus]}`}
               >
-                <StatusIcon status={trackedStatus as StatusValue} size={9} />
+                <StatusIcon status={validStatus} size={9} />
               </span>
             )}
           </div>

@@ -2,16 +2,16 @@ import { useForm } from "@tanstack/react-form";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useState } from "react";
 import { Button } from "~/components/Button";
-import { submitFeedback } from "./feedback.functions";
+import { FEEDBACK_TYPES, submitFeedback } from "./feedback.functions";
 
-const TYPES = [
-  { value: "bug", label: "Bug" },
-  { value: "enhancement", label: "Enhancement" },
-  { value: "documentation", label: "Docs" },
-  { value: "question", label: "Question" },
-] as const;
+const TYPE_LABELS: Record<(typeof FEEDBACK_TYPES)[number], string> = {
+  bug: "Bug",
+  enhancement: "Enhancement",
+  documentation: "Docs",
+  question: "Question",
+};
 
-type FeedbackType = (typeof TYPES)[number]["value"];
+type FeedbackType = (typeof FEEDBACK_TYPES)[number];
 
 export function FeedbackDialog({ onClose }: { onClose: () => void }) {
   useHotkey("Escape", onClose, { conflictBehavior: "allow" });
@@ -76,18 +76,18 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
             <form.Field name="type">
               {(field) => (
                 <div className="flex gap-1">
-                  {TYPES.map((t) => (
+                  {FEEDBACK_TYPES.map((t) => (
                     <button
-                      key={t.value}
+                      key={t}
                       type="button"
-                      onClick={() => field.handleChange(t.value)}
+                      onClick={() => field.handleChange(t)}
                       className={`dg-press flex-1 text-[0.7rem] uppercase tracking-wider py-1.5 px-1 rounded-sm border font-body transition-colors ${
-                        field.state.value === t.value
+                        field.state.value === t
                           ? "bg-dg-accent-soft border-dg-accent text-dg-accent font-semibold"
                           : "bg-transparent border-dg-border-subtle text-dg-text-tertiary hover:text-dg-text-secondary"
                       }`}
                     >
-                      {t.label}
+                      {TYPE_LABELS[t]}
                     </button>
                   ))}
                 </div>
@@ -156,16 +156,20 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
               <Button type="button" variant="ghost" size="compact" onClick={onClose}>
                 cancel
               </Button>
-              <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting]}>
-                {([canSubmit, isSubmitting]) => (
-                  <Button
-                    type="submit"
-                    variant="accent"
-                    size="compact"
-                    disabled={!canSubmit || (isSubmitting as boolean)}
-                  >
-                    {isSubmitting ? <span className="dg-ellipsis">Sending</span> : "submit"}
-                  </Button>
+              <form.Subscribe selector={(s) => s.canSubmit}>
+                {(canSubmit) => (
+                  <form.Subscribe selector={(s) => s.isSubmitting}>
+                    {(isSubmitting) => (
+                      <Button
+                        type="submit"
+                        variant="accent"
+                        size="compact"
+                        disabled={!canSubmit || isSubmitting}
+                      >
+                        {isSubmitting ? <span className="dg-ellipsis">Sending</span> : "submit"}
+                      </Button>
+                    )}
+                  </form.Subscribe>
                 )}
               </form.Subscribe>
             </div>

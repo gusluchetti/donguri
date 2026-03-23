@@ -6,7 +6,10 @@ import {
   updateSubscription,
 } from "@lemonsqueezy/lemonsqueezy.js";
 import type { Subscription } from "~/db/schema";
+import { subscriptions } from "~/db/schema";
 import { cleanEnv } from "~/lib/env";
+
+export class WebhookAuthError extends Error {}
 
 export type Plan = Subscription["plan"];
 export type SubscriptionStatus = Subscription["status"];
@@ -52,10 +55,16 @@ const VARIANT_ENV_MAP = {
   lifetime: "LEMONSQUEEZY_RANGER_LIFETIME_VARIANT_ID",
 } as const;
 
+function parseSubscriptionStatus(s: string): SubscriptionStatus {
+  const found = subscriptions.status.enumValues.find((v) => v === s);
+  if (!found) throw new Error(`Unknown subscription status: ${s}`);
+  return found;
+}
+
 function resolvePlan(variantId: number): Plan {
   const vid = String(variantId);
-  for (const [plan, envKey] of Object.entries(VARIANT_ENV_MAP)) {
-    if (vid === cleanEnv(process.env[envKey])) return plan as Plan;
+  for (const plan of subscriptions.plan.enumValues) {
+    if (vid === cleanEnv(process.env[VARIANT_ENV_MAP[plan]])) return plan;
   }
   throw new Error(
     `Unknown variant ID: ${variantId} — check LEMONSQUEEZY_RANGER_*_VARIANT_ID env vars`,
@@ -71,13 +80,12 @@ async function verifyLsSignature(rawBody: string, signature: string): Promise<bo
     new TextEncoder().encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"],
+    ["verify"],
   );
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
-  const expected = Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  return expected === signature;
+  const sigBytes = new Uint8Array(
+    (signature.match(/.{2}/g) ?? []).map((b) => Number.parseInt(b, 16)),
+  );
+  return crypto.subtle.verify("HMAC", key, sigBytes, new TextEncoder().encode(rawBody));
 }
 
 type LsWebhookEvent = {
@@ -162,7 +170,7 @@ export const lemonSqueezy: PaymentProvider = {
 
   async handleWebhook(rawBody, signature): Promise<WebhookResult> {
     const valid = await verifyLsSignature(rawBody, signature);
-    if (!valid) throw new Error("Invalid webhook signature");
+    if (!valid) throw new WebhookAuthError("Invalid webhook signature");
 
     const event = JSON.parse(rawBody) as LsWebhookEvent;
     const eventName = event.meta.event_name;
@@ -193,7 +201,7 @@ export const lemonSqueezy: PaymentProvider = {
           userId,
           action: "subscription_updated",
           data: {
-            status: attrs.status as SubscriptionStatus,
+            status: parseSubscriptionStatus(attrs.status),
             currentPeriodEnd: attrs.renews_at ? new Date(attrs.renews_at) : null,
           },
         };

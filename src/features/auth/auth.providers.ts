@@ -12,7 +12,7 @@ import { getDb } from "~/db";
 import { users } from "~/db/schema";
 import type { SessionData } from "~/features/auth/auth.session";
 import { setSessionCookie } from "~/features/auth/auth.session";
-import { cleanEnv } from "~/lib/env";
+import { cleanEnv, getPublicUrl } from "~/lib/env";
 
 export type Provider = "google" | "github";
 
@@ -191,10 +191,7 @@ const PROVIDERS: Record<Provider, OAuthProviderConfig> = {
 
 export function getAuthUrl(provider: Provider, state: string): string {
   const config = PROVIDERS[provider];
-  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
-    /\/+$/,
-    "",
-  );
+  const publicUrl = getPublicUrl();
   const params = new URLSearchParams({
     client_id: cleanEnv(process.env[config.clientIdEnv]),
     redirect_uri: `${publicUrl}${config.callbackPath}`,
@@ -214,10 +211,7 @@ export async function handleProviderCallback(
   code: string,
 ): Promise<SessionData> {
   const config = PROVIDERS[provider];
-  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
-    /\/+$/,
-    "",
-  );
+  const publicUrl = getPublicUrl();
   const redirectUri = `${publicUrl}${config.callbackPath}`;
 
   const profile = await config.exchangeCode(code, redirectUri);

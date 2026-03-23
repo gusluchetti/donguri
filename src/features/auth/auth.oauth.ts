@@ -1,6 +1,6 @@
 import { JoseKey } from "@atproto/jwk-jose";
 import { NodeOAuthClient, requestLocalLock } from "@atproto/oauth-client-node";
-import { cleanEnv } from "~/lib/env";
+import { cleanEnv, getPublicUrl } from "~/lib/env";
 import { PgSessionStore, PgStateStore } from "./auth.kv-stores";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -10,10 +10,7 @@ let _client: NodeOAuthClient | null = null;
 let _clientUrl: string | null = null;
 
 export async function getOAuthClient(): Promise<NodeOAuthClient> {
-  const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
-    /\/+$/,
-    "",
-  );
+  const publicUrl = getPublicUrl();
   const privateKeyJwk = cleanEnv(process.env.OAUTH_PRIVATE_KEY_JWK);
 
   // Return cached client if the URL hasn't changed (e.g. tunnel restart)

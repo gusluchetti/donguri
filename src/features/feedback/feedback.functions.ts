@@ -6,7 +6,7 @@ import { catalogEntries, users } from "~/db/schema";
 import { requireAuth } from "~/features/auth/auth.session";
 import { cleanEnv } from "~/lib/env";
 
-const FEEDBACK_TYPES = ["bug", "enhancement", "documentation", "question"] as const;
+export const FEEDBACK_TYPES = ["bug", "enhancement", "documentation", "question"] as const;
 
 const TITLE_PREFIX: Record<(typeof FEEDBACK_TYPES)[number], string> = {
   bug: "[Bug]",

@@ -56,30 +56,6 @@ function ProfilePage() {
 
   const hasActiveSub = isSubscriptionActive(subscription);
 
-  if (stats.totalEntries === 0) {
-    return (
-      <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
-        <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4 flex flex-col gap-g3">
-          {!hasActiveSub && <UpsellBanner />}
-          <ProfileHeader
-            user={user}
-            daysActive={daysActive}
-            onLogout={handleLogout}
-            subscription={hasActiveSub ? subscription : null}
-          />
-          <div className="flex flex-col items-center justify-center py-g8 gap-g2">
-            <p className="font-display text-[1.3rem] text-dg-text-secondary">
-              nothing tracked yet.
-            </p>
-            <LinkButton to="/catalog" variant="accent" onClick={() => SoundEngine.click()}>
-              explore catalog
-            </LinkButton>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[1100px] mx-auto px-g3 py-g3 sm:py-g4 flex flex-col gap-g3">
@@ -90,14 +66,27 @@ function ProfilePage() {
           onLogout={handleLogout}
           subscription={hasActiveSub ? subscription : null}
         />
-        <StatsGrid stats={stats} daysActive={daysActive} />
-        <TerritoryBar
-          completedTypeCounts={stats.completedTypeCounts}
-          typeCounts={stats.typeCounts}
-          statusCounts={stats.statusCounts}
-          statusByType={stats.statusByType}
-        />
-        <RecentTrail entries={recent} />
+        {stats.totalEntries === 0 ? (
+          <div className="flex flex-col items-center justify-center py-g8 gap-g2">
+            <p className="font-display text-[1.3rem] text-dg-text-secondary">
+              nothing tracked yet.
+            </p>
+            <LinkButton to="/catalog" variant="accent" onClick={() => SoundEngine.click()}>
+              explore catalog
+            </LinkButton>
+          </div>
+        ) : (
+          <>
+            <StatsGrid stats={stats} daysActive={daysActive} />
+            <TerritoryBar
+              completedTypeCounts={stats.completedTypeCounts}
+              typeCounts={stats.typeCounts}
+              statusCounts={stats.statusCounts}
+              statusByType={stats.statusByType}
+            />
+            <RecentTrail entries={recent} />
+          </>
+        )}
       </div>
     </div>
   );
@@ -402,10 +391,9 @@ function computeRelative(dateStr: string): string {
 }
 
 function RelativeTime({ dateStr }: { dateStr: string | null }) {
-  const initial = dateStr ? computeRelative(dateStr) : "";
-  const [text, setText] = useState(initial);
+  const [text, setText] = useState("");
   useEffect(() => {
-    if (dateStr) setText(computeRelative(dateStr));
+    setText(dateStr ? computeRelative(dateStr) : "");
   }, [dateStr]);
   return <>{text}</>;
 }
@@ -451,7 +439,7 @@ function RecentTrail({ entries }: { entries: ProfileData["recent"] }) {
               </span>
               <StampBadge type={type} index={i} />
               <span className="text-[10px] text-dg-text-tertiary w-4 text-center shrink-0 flex items-center justify-center">
-                <StatusIcon status={(entry.status as StatusValue) ?? "planned"} size={10} />
+                <StatusIcon status={entry.status ?? "planned"} size={10} />
               </span>
               <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums font-mono shrink-0 w-14 text-right">
                 <RelativeTime dateStr={entry.updatedAt} />

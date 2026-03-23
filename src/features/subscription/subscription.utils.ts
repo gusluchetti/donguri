@@ -4,10 +4,10 @@ export type SubscriptionTier = "ranger_pass";
 
 export function getActiveTier(sub: Subscription | null | undefined): SubscriptionTier | null {
   if (!sub) return null;
-  if (sub.status === "lifetime") return sub.tier as SubscriptionTier;
+  if (sub.status === "lifetime") return sub.tier;
   if (!["active", "canceled", "past_due"].includes(sub.status)) return null;
   if (sub.currentPeriodEnd && sub.currentPeriodEnd <= new Date()) return null;
-  return sub.tier as SubscriptionTier;
+  return sub.tier;
 }
 
 // Intentionally does NOT check currentPeriodEnd — use getActiveTier() to gate access.

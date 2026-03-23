@@ -1,7 +1,8 @@
 import { JoseKey } from "@atproto/jwk-jose";
 import { createStartHandler, defaultStreamHandler } from "@tanstack/react-start/server";
+import { WebhookAuthError } from "./features/subscription/subscription.provider";
 import { handlePaymentWebhook } from "./features/subscription/subscription.webhook";
-import { cleanEnv } from "./lib/env";
+import { cleanEnv, getPublicUrl } from "./lib/env";
 
 const startHandler = createStartHandler(defaultStreamHandler);
 
@@ -9,10 +10,7 @@ const fetch = async (request: Request) => {
   const url = new URL(request.url);
 
   if (url.pathname === "/.well-known/oauth-client-metadata.json") {
-    const publicUrl = (cleanEnv(process.env.PUBLIC_URL) || "https://dev.donguri.app").replace(
-      /\/+$/,
-      "",
-    );
+    const publicUrl = getPublicUrl();
     return Response.json(
       {
         client_id: `${publicUrl}/.well-known/oauth-client-metadata.json`,
@@ -46,7 +44,8 @@ const fetch = async (request: Request) => {
       return Response.json({ ok: true });
     } catch (e) {
       console.error("[webhook:payment]", e);
-      return Response.json({ error: "webhook failed" }, { status: 400 });
+      const status = e instanceof WebhookAuthError ? 400 : 500;
+      return Response.json({ error: "webhook failed" }, { status });
     }
   }
 

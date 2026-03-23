@@ -1,6 +1,7 @@
 import { ArrowLeft } from "@phosphor-icons/react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { lazy, Suspense } from "react";
+import { Spinner } from "~/components/Spinner";
 import { getPostBySlug } from "~/lib/blog";
 import { formatDate } from "~/lib/date";
 import { ogTags, pageTitle } from "~/lib/og";
@@ -70,13 +71,7 @@ function NewsPost() {
         <Suspense
           fallback={
             <div className="flex justify-center py-12">
-              <div
-                className="w-5 h-5 border-2 border-dg-border-subtle rounded-full"
-                style={{
-                  borderTopColor: "var(--color-dg-accent)",
-                  animation: "dg-spin 0.6s linear infinite",
-                }}
-              />
+              <Spinner size={20} />
             </div>
           }
         >

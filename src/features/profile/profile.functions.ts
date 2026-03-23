@@ -4,6 +4,7 @@ import { getDb } from "~/db";
 import { catalogEntries, media, subscriptions, users } from "~/db/schema";
 import { requireAuth } from "~/features/auth/auth.session";
 import type { StatusValue } from "~/features/media/media-types";
+import type { Plan } from "~/features/subscription/subscription.provider";
 
 export type ProfileStats = {
   totalEntries: number;
@@ -22,7 +23,7 @@ export type RecentEntry = {
   mediaTitle: string | null;
   mediaType: string | null;
   animationOrigin: string | null;
-  status: string | null;
+  status: StatusValue | null;
   rating: number | null;
   isFavorite: boolean;
   updatedAt: string | null;
@@ -30,7 +31,7 @@ export type RecentEntry = {
 };
 
 export type ProfileSubscription = {
-  plan: string;
+  plan: Plan;
   status: string;
   tier: string;
   createdAt: string | null;
@@ -45,7 +46,6 @@ export type ProfileData = {
     authMethod: string;
     createdAt: string | null;
   };
-  topTerritory: string | null;
   daysActive: number;
   subscription: ProfileSubscription;
 };
@@ -71,14 +71,6 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
           completed: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} = 'completed')::int`,
           mastered: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} = 'mastered')::int`,
           dropped: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} = 'dropped')::int`,
-          movieCount: sql<number>`count(*) FILTER (WHERE ${catalogEntries.mediaType} = 'movie' AND ${catalogEntries.animationOrigin} IS NULL)::int`,
-          tvCount: sql<number>`count(*) FILTER (WHERE ${catalogEntries.mediaType} = 'tv_series' AND ${catalogEntries.animationOrigin} IS NULL)::int`,
-          animeCount: sql<number>`count(*) FILTER (WHERE ${catalogEntries.animationOrigin} IS NOT NULL)::int`,
-          gameCount: sql<number>`count(*) FILTER (WHERE ${catalogEntries.mediaType} = 'game')::int`,
-          completedMovie: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} IN ('completed','mastered') AND ${catalogEntries.mediaType} = 'movie' AND ${catalogEntries.animationOrigin} IS NULL)::int`,
-          completedTv: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} IN ('completed','mastered') AND ${catalogEntries.mediaType} = 'tv_series' AND ${catalogEntries.animationOrigin} IS NULL)::int`,
-          completedAnime: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} IN ('completed','mastered') AND ${catalogEntries.animationOrigin} IS NOT NULL)::int`,
-          completedGame: sql<number>`count(*) FILTER (WHERE ${catalogEntries.status} IN ('completed','mastered') AND ${catalogEntries.mediaType} = 'game')::int`,
         })
         .from(catalogEntries)
         .where(eq(catalogEntries.userId, auth.userId)),
@@ -146,20 +138,6 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
     const agg = aggregates[0];
     const user = userRow[0];
 
-    const typeCounts: Record<string, number> = {
-      movie: agg.movieCount,
-      tv_series: agg.tvCount,
-      anime: agg.animeCount,
-      game: agg.gameCount,
-    };
-
-    const completedTypeCounts: Record<string, number> = {
-      movie: agg.completedMovie,
-      tv_series: agg.completedTv,
-      anime: agg.completedAnime,
-      game: agg.completedGame,
-    };
-
     const statusByType: Record<string, Record<string, number>> = {};
     for (const row of statusByTypeRows) {
       if (!row.resolvedType || !row.status) continue;
@@ -167,13 +145,11 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
       statusByType[row.resolvedType][row.status] = row.count;
     }
 
-    let topTerritory: string | null = null;
-    let maxCount = 0;
-    for (const [type, count] of Object.entries(typeCounts)) {
-      if (count > maxCount) {
-        maxCount = count;
-        topTerritory = type;
-      }
+    const typeCounts: Record<string, number> = {};
+    const completedTypeCounts: Record<string, number> = {};
+    for (const [type, statuses] of Object.entries(statusByType)) {
+      typeCounts[type] = Object.values(statuses).reduce((a, b) => a + b, 0);
+      completedTypeCounts[type] = (statuses.completed ?? 0) + (statuses.mastered ?? 0);
     }
 
     const createdDate = user?.createdAt ? new Date(user.createdAt) : new Date();
@@ -218,7 +194,6 @@ export const getProfileData = createServerFn({ method: "GET" }).handler(
         authMethod: user?.authMethod ?? auth.authMethod,
         createdAt: user?.createdAt ?? null,
       },
-      topTerritory,
       daysActive,
       subscription,
     };

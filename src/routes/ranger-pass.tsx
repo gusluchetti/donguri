@@ -109,7 +109,6 @@ function RangerPassPage() {
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
       <div className="max-w-[700px] mx-auto px-g3 py-g4 sm:py-g6 flex flex-col gap-g6">
-        {/* Hero */}
         <div className="flex flex-col items-center gap-g3 text-center">
           <Suspense fallback={<RangerPassCard {...cardProps} maxWidth={340} />}>
             <RangerPassCard3D {...cardProps} maxWidth={340} dpr={[2, 2]} />
@@ -124,7 +123,6 @@ function RangerPassPage() {
           </div>
         </div>
 
-        {/* Features */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {FEATURES.map((feat, i) => (
             <div
@@ -142,12 +140,8 @@ function RangerPassPage() {
           ))}
         </div>
 
-        {/* Subscription Management or Pricing */}
-        {isSubscribed ? (
-          <SubscriptionManagement
-            subscription={subscription as Subscription}
-            checkoutEnabled={checkoutEnabled}
-          />
+        {isSubscriptionActive(subscription) ? (
+          <SubscriptionManagement subscription={subscription} checkoutEnabled={checkoutEnabled} />
         ) : (
           <div className="flex flex-col items-center gap-g2">
             <div className="inline-flex rounded-sm border border-dg-border-subtle overflow-hidden">
@@ -203,7 +197,6 @@ function RangerPassPage() {
           </div>
         )}
 
-        {/* FAQ */}
         <div className="flex flex-col gap-g2">
           <h2 className="font-display text-[1.2rem] font-light text-center text-dg-text-secondary">
             Questions
@@ -221,7 +214,6 @@ function RangerPassPage() {
           </div>
         </div>
 
-        {/* Free tier reassurance */}
         <p className="text-center text-[0.7rem] text-dg-text-tertiary pb-g2">
           donguri is free to use. Ranger Pass is entirely optional — it supports development and
           unlocks extras.
@@ -320,7 +312,6 @@ function SubscriptionManagement({
 
   return (
     <div className="bg-dg-surface border border-dg-border-subtle rounded p-4 sm:p-5 flex flex-col gap-4">
-      {/* Status row */}
       <div className="flex items-baseline justify-between gap-4">
         <div className="flex flex-col gap-0.5">
           <span className="font-mono text-[0.65rem] tracking-wider uppercase text-dg-text-tertiary">
@@ -351,21 +342,19 @@ function SubscriptionManagement({
         </div>
       </div>
 
-      {/* Comped notice — stop here, no billing UI */}
       {isComped && (
         <div className="bg-dg-accent/8 border border-dg-accent/20 rounded p-3 text-[0.8rem] text-dg-text-secondary leading-relaxed">
           Your Ranger Pass is complimentary — all features are unlocked with no billing required.
         </div>
       )}
 
-      {/* Current plan */}
       {!isComped && !isLifetime && (
         <div className="flex flex-col gap-1">
           <div className="text-[0.8rem] text-dg-text-secondary">
             Plan:{" "}
             <span className="font-semibold text-dg-text">
-              {plan === "annual" ? "Annual" : "Monthly"} ({PRICES[plan as Plan]?.amount}
-              {PRICES[plan as Plan]?.period})
+              {plan === "annual" ? "Annual" : "Monthly"} ({PRICES[plan].amount}
+              {PRICES[plan].period})
             </span>
           </div>
           {isActive && (
@@ -376,7 +365,6 @@ function SubscriptionManagement({
         </div>
       )}
 
-      {/* Past due warning */}
       {!isComped && isPastDue && (
         <div className="bg-dg-anime/10 border border-dg-anime/20 rounded p-3 text-[0.8rem] text-dg-anime flex flex-col gap-2">
           <span>
@@ -396,7 +384,6 @@ function SubscriptionManagement({
         </div>
       )}
 
-      {/* Plan switching (active subs only, not lifetime, not comped) */}
       {!isComped && isActive && !isLifetime && checkoutEnabled && (
         <div className="flex flex-col gap-2">
           <span className="font-mono text-[0.65rem] tracking-wider uppercase text-dg-text-tertiary">
@@ -444,7 +431,6 @@ function SubscriptionManagement({
         </div>
       )}
 
-      {/* Canceled state: access-until + resume via portal */}
       {!isComped && isCanceled && checkoutEnabled && (
         <div className="flex flex-col gap-2">
           <span className="text-[0.8rem] text-dg-text-secondary">
@@ -462,7 +448,6 @@ function SubscriptionManagement({
         </div>
       )}
 
-      {/* Cancel button (active or past_due, not lifetime, not comped) */}
       {!isComped && (isActive || isPastDue) && !isLifetime && checkoutEnabled && (
         <div className="border-t border-dg-border-subtle pt-3 flex flex-col gap-1.5">
           <Button
@@ -501,7 +486,6 @@ function SubscriptionManagement({
         </div>
       )}
 
-      {/* Manage billing link — always shown for paying subscribers with a customer ID */}
       {!isComped && providerCustomerId && checkoutEnabled && (
         <button
           type="button"
