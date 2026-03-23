@@ -51,6 +51,8 @@ const FAQ = [
 
 export const Route = createFileRoute("/ranger-pass")({
   loader: async ({ context }) => {
+    // Kick off 3D card chunk download in parallel with data fetch
+    import("~/features/subscription/components/RangerPassCard3D").catch(() => {});
     let subscription = null;
     if (context.auth) {
       try {
@@ -110,8 +112,8 @@ function RangerPassPage() {
       <div className="max-w-[700px] mx-auto px-g3 py-g4 sm:py-g6 flex flex-col gap-g6">
         {/* Hero */}
         <div className="flex flex-col items-center gap-g3 text-center">
-          <Suspense fallback={<RangerPassCard {...cardProps} />}>
-            <RangerPassCard3D {...cardProps} />
+          <Suspense fallback={<RangerPassCard {...cardProps} maxWidth={340} />}>
+            <RangerPassCard3D {...cardProps} maxWidth={340} dpr={[2, 2]} />
           </Suspense>
           <div className="flex flex-col gap-1">
             <h1 className="font-display text-[2rem] sm:text-[2.5rem] font-light leading-tight">
@@ -170,8 +172,8 @@ function RangerPassPage() {
             </div>
 
             <div className="text-center">
-              <span className="font-display text-[2.5rem] font-light">{PRICES[plan].amount}</span>
-              <span className="text-dg-text-tertiary text-[0.85rem] ml-1">
+              <span className="font-mono text-[2.5rem] font-light">{PRICES[plan].amount}</span>
+              <span className="font-mono text-dg-text-tertiary text-[0.85rem] ml-1">
                 {PRICES[plan].period}
               </span>
               {plan === "annual" && (

@@ -2,7 +2,7 @@ import { ClockCounterClockwise, Gear, SignOut } from "@phosphor-icons/react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { clear } from "idb-keyval";
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { LinkButton } from "~/components/LinkButton";
 import { logout } from "~/features/auth/auth.functions";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
@@ -23,8 +23,11 @@ import { RangerPassCard, UpsellBanner } from "~/features/subscription/components
 import { isSubscriptionActive } from "~/features/subscription/subscription.utils";
 import { ogTags, pageTitle } from "~/lib/og";
 
+const RangerPassCard3D = lazy(() => import("~/features/subscription/components/RangerPassCard3D"));
+
 export const Route = createFileRoute("/_authenticated/profile")({
   loader: async ({ context }) => {
+    import("~/features/subscription/components/RangerPassCard3D").catch(() => {});
     await context.queryClient.prefetchQuery(profileDataOptions());
     return {};
   },
@@ -156,14 +159,27 @@ function ProfileHeader({
       {subscription && (
         <Link
           to="/ranger-pass"
-          className="ml-auto mr-0 sm:ml-0 sm:mr-0 order-last sm:order-none sm:ml-auto scale-[0.7] origin-right no-underline"
+          className="ml-auto mr-0 sm:ml-0 sm:mr-0 order-last sm:order-none sm:ml-auto no-underline"
           onClick={() => SoundEngine.navForward()}
         >
-          <RangerPassCard
-            handle={user.handle}
-            plan={subscription.plan}
-            entriesCount={totalEntries}
-          />
+          <Suspense
+            fallback={
+              <RangerPassCard
+                handle={user.handle}
+                plan={subscription.plan}
+                entriesCount={totalEntries}
+                maxWidth={180}
+              />
+            }
+          >
+            <RangerPassCard3D
+              handle={user.handle}
+              plan={subscription.plan}
+              entriesCount={totalEntries}
+              maxWidth={180}
+              dpr={[1, 1]}
+            />
+          </Suspense>
         </Link>
       )}
       <div className={`${subscription ? "" : "ml-auto "}flex flex-col items-center gap-3 shrink-0`}>

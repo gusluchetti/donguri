@@ -1,19 +1,28 @@
-import { Float, Html, RoundedBox } from "@react-three/drei";
+import { Html, RoundedBox } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
-import * as THREE from "three";
-import { PLAN_ACCENT, RangerPassCard } from "./RangerPassCard";
+import type { Mesh, PointLight } from "three";
+import { MathUtils } from "three";
+import { PLAN_ACCENT, PLAN_GRADIENTS, PlanLandscape, RangerPassCard } from "./RangerPassCard";
+
+const ACORN_PATH =
+  "M232,104a56.06,56.06,0,0,0-56-56H136a24,24,0,0,1,24-24,8,8,0,0,0,0-16,40,40,0,0,0-40,40H80a56.06,56.06,0,0,0-56,56,16,16,0,0,0,8,13.83V128c0,35.53,33.12,62.12,59.74,83.49C103.66,221.07,120,234.18,120,240a8,8,0,0,0,16,0c0-5.82,16.34-18.93,28.26-28.51C190.88,190.12,224,163.53,224,128V117.83A16,16,0,0,0,232,104ZM80,64h96a40.06,40.06,0,0,1,40,40H40A40,40,0,0,1,80,64Zm74.25,135c-10.62,8.52-20,16-26.25,23.37-6.25-7.32-15.63-14.85-26.25-23.37C77.8,179.79,48,155.86,48,128v-8H208v8C208,155.86,178.2,179.79,154.25,199Z";
 
 const PLAN_COLOR: Record<string, string> = {
-  monthly: "#1a3a2a",
-  annual: "#2a1a0a",
-  lifetime: "#1a1028",
+  monthly: "#225a3a",
+  annual: "#4d3418",
+  lifetime: "#3a2050",
 };
 
-// Card dimensions: 85.6:53.98 aspect ratio scaled to scene units
 const CARD_W = 2.8;
 const CARD_H = CARD_W * (53.98 / 85.6);
-const CARD_D = 0.04;
+const CARD_D = 0.01; // thin so edges don't show dark during tilt
+
+// distanceFactor=1.5 → 1 Three.js unit = 400/1.5 ≈ 266.67 CSS px
+const DISTANCE_FACTOR = 1.5;
+const pxW = CARD_W * (400 / DISTANCE_FACTOR);
+const pxH = CARD_H * (400 / DISTANCE_FACTOR);
+const designScale = pxW / 280;
 
 function CardMesh({
   plan,
@@ -26,97 +35,73 @@ function CardMesh({
   entriesCount: number;
   pointer: { x: number; y: number };
 }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const lightRef = useRef<THREE.PointLight>(null);
+  const meshRef = useRef<Mesh>(null);
+  const lightRef = useRef<PointLight>(null);
   const rotX = useRef(0);
   const rotY = useRef(0);
-  const { size } = useThree();
+  const { invalidate } = useThree();
 
   const baseColor = PLAN_COLOR[plan] ?? PLAN_COLOR.monthly;
   const accent = PLAN_ACCENT[plan] ?? PLAN_ACCENT.monthly;
+  const gradient = PLAN_GRADIENTS[plan] ?? PLAN_GRADIENTS.monthly;
 
   useFrame(() => {
     if (!meshRef.current) return;
-    const targetX = -pointer.y * 0.22;
-    const targetY = pointer.x * 0.22;
-    rotX.current = THREE.MathUtils.lerp(rotX.current, targetX, 0.08);
-    rotY.current = THREE.MathUtils.lerp(rotY.current, targetY, 0.08);
-    meshRef.current.rotation.x = rotX.current;
-    meshRef.current.rotation.y = rotY.current;
+    const targetX = -pointer.y * 0.2;
+    const targetY = pointer.x * 0.2;
+    const newRotX = MathUtils.lerp(rotX.current, targetX, 0.1);
+    const newRotY = MathUtils.lerp(rotY.current, targetY, 0.1);
 
-    if (lightRef.current) {
-      lightRef.current.position.x = THREE.MathUtils.lerp(
-        lightRef.current.position.x,
-        pointer.x * 3,
-        0.06,
-      );
-      lightRef.current.position.y = THREE.MathUtils.lerp(
-        lightRef.current.position.y,
-        pointer.y * 2,
-        0.06,
-      );
+    // Only dirty the frame if something actually changed
+    if (Math.abs(newRotX - rotX.current) > 0.0001 || Math.abs(newRotY - rotY.current) > 0.0001) {
+      rotX.current = newRotX;
+      rotY.current = newRotY;
+      meshRef.current.rotation.x = rotX.current;
+      meshRef.current.rotation.y = rotY.current;
+
+      if (lightRef.current) {
+        lightRef.current.position.x = MathUtils.lerp(
+          lightRef.current.position.x,
+          pointer.x * 1.5,
+          0.08,
+        );
+        lightRef.current.position.y = MathUtils.lerp(
+          lightRef.current.position.y,
+          pointer.y * 1.0,
+          0.08,
+        );
+      }
+      invalidate();
     }
   });
-
-  // pixel size of the card in screen space — used by Html to size its overlay
-  const pxW = (CARD_W / 3.5) * size.width;
-  const pxH = (CARD_H / 3.5) * size.height;
 
   return (
     <mesh ref={meshRef}>
       <RoundedBox args={[CARD_W, CARD_H, CARD_D]} radius={0.08} smoothness={4}>
-        <meshPhysicalMaterial
-          color={baseColor}
-          metalness={0.6}
-          roughness={0.3}
-          clearcoat={0.8}
-          clearcoatRoughness={0.15}
-          reflectivity={0.5}
-        />
+        <meshStandardMaterial color={baseColor} metalness={0.35} roughness={0.35} />
       </RoundedBox>
 
-      {/* Overlay: preserve flat card's typography exactly */}
       <Html
         transform
-        distanceFactor={1.5}
+        distanceFactor={DISTANCE_FACTOR}
         position={[0, 0, CARD_D / 2 + 0.001]}
-        style={{ width: pxW, height: pxH, pointerEvents: "none" }}
+        style={{ width: pxW, height: pxH, overflow: "hidden", pointerEvents: "none" }}
         zIndexRange={[0, 0]}
       >
         <div
           style={{
-            width: pxW,
-            height: pxH,
+            width: 280,
+            height: 178,
             position: "relative",
             overflow: "hidden",
             borderRadius: 8,
+            background: gradient,
+            transform: `scale(${designScale})`,
+            transformOrigin: "0 0",
+            backfaceVisibility: "hidden",
           }}
         >
-          {/* SVG waves from flat card */}
-          <svg
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              opacity: 0.12,
-            }}
-            viewBox="0 0 280 178"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-          >
-            <path
-              d="M0 140 Q50 120 100 132 T200 122 T280 138 V178 H0Z"
-              fill="none"
-              stroke={accent}
-              strokeWidth="0.6"
-            />
-            <path
-              d="M0 158 Q60 148 120 154 T240 148 T280 156 V178 H0Z"
-              fill={accent}
-              opacity="0.15"
-            />
-          </svg>
+          <PlanLandscape plan={plan} accent={accent} />
 
           <div
             style={{
@@ -130,32 +115,36 @@ function CardMesh({
             }}
           >
             <div
-              style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+              }}
             >
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono, monospace)",
-                    fontSize: "0.6rem",
-                    letterSpacing: "0.2em",
-                    textTransform: "uppercase",
-                    color: `${accent}90`,
-                  }}
+              <span
+                style={{
+                  fontFamily: "var(--font-display, serif)",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  letterSpacing: "0.05em",
+                  color: accent,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 256 256"
+                  width={13}
+                  height={13}
+                  fill={accent}
+                  aria-hidden="true"
                 >
-                  donguri
-                </span>
-                <span
-                  style={{
-                    fontFamily: "var(--font-display, serif)",
-                    fontSize: "0.85rem",
-                    fontWeight: 600,
-                    letterSpacing: "0.05em",
-                    color: accent,
-                  }}
-                >
-                  RANGER PASS
-                </span>
-              </div>
+                  <path d={ACORN_PATH} />
+                </svg>
+                RANGER PASS
+              </span>
               <span
                 style={{
                   fontFamily: "var(--font-mono, monospace)",
@@ -174,7 +163,11 @@ function CardMesh({
             </div>
 
             <div
-              style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}
+              style={{
+                display: "flex",
+                alignItems: "flex-end",
+                justifyContent: "space-between",
+              }}
             >
               <span
                 style={{
@@ -205,7 +198,7 @@ function CardMesh({
         </div>
       </Html>
 
-      <pointLight ref={lightRef} position={[0, 0, 3]} intensity={2} color={accent} distance={6} />
+      <pointLight ref={lightRef} position={[0, 0, 3]} intensity={1.2} color={accent} distance={5} />
     </mesh>
   );
 }
@@ -214,13 +207,16 @@ function Scene({
   plan,
   handle,
   entriesCount,
+  onReady,
+  dpr,
 }: {
   plan: string;
   handle: string;
   entriesCount: number;
+  onReady: () => void;
+  dpr: [number, number];
 }) {
   const [pointer, setPointer] = useState({ x: 0, y: 0 });
-  const canvasRef = useRef<HTMLDivElement>(null);
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -242,7 +238,6 @@ function Scene({
 
   return (
     <div
-      ref={canvasRef}
       onPointerMove={handlePointerMove}
       onPointerLeave={() => setPointer({ x: 0, y: 0 })}
       onTouchMove={handleTouchMove}
@@ -250,15 +245,16 @@ function Scene({
       style={{ width: "100%", height: "100%" }}
     >
       <Canvas
-        camera={{ position: [0, 0, 3.5], fov: 40 }}
+        camera={{ position: [0, 0, 2.5], fov: 40 }}
         gl={{ alpha: true, antialias: true }}
+        dpr={dpr}
+        frameloop="demand"
         style={{ background: "transparent" }}
+        onCreated={onReady}
       >
-        <ambientLight intensity={0.4} color="#ffe8cc" />
+        <ambientLight intensity={0.6} color="#ffe8cc" />
         <directionalLight position={[2, 3, 4]} intensity={0.6} color="#ffffff" />
-        <Float speed={1.5} rotationIntensity={0.3} floatIntensity={0.2}>
-          <CardMesh plan={plan} handle={handle} entriesCount={entriesCount} pointer={pointer} />
-        </Float>
+        <CardMesh plan={plan} handle={handle} entriesCount={entriesCount} pointer={pointer} />
       </Canvas>
     </div>
   );
@@ -268,32 +264,72 @@ export default function RangerPassCard3D({
   handle,
   plan,
   entriesCount,
+  maxWidth = 280,
+  dpr = [1, 2] as [number, number],
 }: {
   handle: string;
   plan: string;
   entriesCount: number;
+  maxWidth?: number;
+  dpr?: [number, number];
 }) {
   const [reducedMotion, setReducedMotion] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [canvasReady, setCanvasReady] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     setReducedMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   }, []);
 
-  if (!mounted || reducedMotion) {
-    return <RangerPassCard handle={handle} plan={plan} entriesCount={entriesCount} />;
-  }
+  // At small sizes 3D adds nothing and wastes GPU
+  const use3D = mounted && !reducedMotion && maxWidth >= 180;
 
   return (
     <div
       style={{
         width: "100%",
-        maxWidth: 280,
+        maxWidth,
         aspectRatio: "85.6 / 53.98",
+        position: "relative",
       }}
     >
-      <Scene plan={plan} handle={handle} entriesCount={entriesCount} />
+      {/* Flat card underneath — fades out when 3D canvas is ready */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          opacity: use3D && canvasReady ? 0 : 1,
+          transition: use3D ? "opacity 400ms ease" : "none",
+          pointerEvents: "none",
+        }}
+      >
+        <RangerPassCard
+          handle={handle}
+          plan={plan}
+          entriesCount={entriesCount}
+          maxWidth={maxWidth}
+        />
+      </div>
+
+      {use3D && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            opacity: canvasReady ? 1 : 0,
+            transition: "opacity 400ms ease",
+          }}
+        >
+          <Scene
+            plan={plan}
+            handle={handle}
+            entriesCount={entriesCount}
+            onReady={() => setCanvasReady(true)}
+            dpr={dpr}
+          />
+        </div>
+      )}
     </div>
   );
 }
