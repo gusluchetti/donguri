@@ -108,6 +108,31 @@ export function PlanLandscape({ plan, accent }: { plan: string; accent: string }
   );
 }
 
+// Deterministic alphanumeric serial from handle — 36^9 ≈ 101 trillion possibilities
+const SERIAL_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+export function handleToSerial(handle: string): string {
+  // Two-pass FNV-1a to get 64 bits of entropy (need ~46.5 bits for 36^9)
+  let a = 0x811c9dc5;
+  let b = 0xdeadbeef;
+  for (let i = 0; i < handle.length; i++) {
+    const c = handle.charCodeAt(i);
+    a = Math.imul(a ^ c, 0x01000193) >>> 0;
+    b = Math.imul(b ^ c, 0x1b873593) >>> 0;
+  }
+  let out = "";
+  let n = a;
+  for (let i = 0; i < 6; i++) {
+    out += SERIAL_CHARS[n % 36];
+    n = Math.floor(n / 36);
+  }
+  n = b;
+  for (let i = 0; i < 3; i++) {
+    out += SERIAL_CHARS[n % 36];
+    n = Math.floor(n / 36);
+  }
+  return `${out.slice(0, 3)}-${out.slice(3, 6)}-${out.slice(6, 9)}`;
+}
+
 // Base design dimensions — content is always authored at this size, then scaled to fill maxWidth
 const DESIGN_W = 280;
 const DESIGN_H = Math.round((DESIGN_W * 53.98) / 85.6); // 177
@@ -115,17 +140,16 @@ const DESIGN_H = Math.round((DESIGN_W * 53.98) / 85.6); // 177
 export function RangerPassCard({
   handle,
   plan,
-  entriesCount,
   maxWidth = 280,
 }: {
   handle: string;
   plan: string;
-  entriesCount: number;
   maxWidth?: number;
 }) {
   const gradient = PLAN_GRADIENTS[plan] ?? PLAN_GRADIENTS.monthly;
   const accent = PLAN_ACCENT[plan] ?? PLAN_ACCENT.monthly;
   const scale = maxWidth / DESIGN_W;
+  const serial = handleToSerial(handle);
 
   return (
     <div
@@ -218,11 +242,11 @@ export function RangerPassCard({
               style={{
                 fontFamily: "var(--font-mono, monospace)",
                 fontSize: "0.6rem",
-                fontVariantNumeric: "tabular-nums",
-                color: `${accent}50`,
+                letterSpacing: "0.08em",
+                color: `${accent}99`,
               }}
             >
-              NO. {String(entriesCount).padStart(4, "0")}
+              {serial}
             </span>
           </div>
         </div>

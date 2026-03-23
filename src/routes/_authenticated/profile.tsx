@@ -66,7 +66,6 @@ function ProfilePage() {
             daysActive={daysActive}
             onLogout={handleLogout}
             subscription={hasActiveSub ? subscription : null}
-            totalEntries={0}
           />
           <div className="flex flex-col items-center justify-center py-g8 gap-g2">
             <p className="font-display text-[1.3rem] text-dg-text-secondary">
@@ -90,7 +89,6 @@ function ProfilePage() {
           daysActive={daysActive}
           onLogout={handleLogout}
           subscription={hasActiveSub ? subscription : null}
-          totalEntries={stats.totalEntries}
         />
         <StatsGrid stats={stats} daysActive={daysActive} />
         <TerritoryBar
@@ -112,13 +110,11 @@ function ProfileHeader({
   daysActive,
   onLogout,
   subscription,
-  totalEntries,
 }: {
   user: ProfileData["user"];
   daysActive: number;
   onLogout: () => void;
   subscription: { plan: string; status: string; createdAt: string | null } | null;
-  totalEntries: number;
 }) {
   const authLabel =
     user.authMethod === "atproto" ? "bsky" : user.authMethod === "google" ? "google" : "github";
@@ -164,18 +160,12 @@ function ProfileHeader({
         >
           <Suspense
             fallback={
-              <RangerPassCard
-                handle={user.handle}
-                plan={subscription.plan}
-                entriesCount={totalEntries}
-                maxWidth={180}
-              />
+              <RangerPassCard handle={user.handle} plan={subscription.plan} maxWidth={180} />
             }
           >
             <RangerPassCard3D
               handle={user.handle}
               plan={subscription.plan}
-              entriesCount={totalEntries}
               maxWidth={180}
               dpr={[1, 1]}
             />
@@ -241,7 +231,7 @@ function Avatar({
 
 function StatsGrid({ stats, daysActive }: { stats: ProfileData["stats"]; daysActive: number }) {
   const finished = stats.statusCounts.completed + stats.statusCounts.mastered;
-  const avgDisplay = stats.avgRating != null ? (stats.avgRating / 10).toFixed(1) : "\u2014";
+  const avgDisplay = stats.avgRating != null ? Math.round(stats.avgRating) : "\u2014";
 
   const cells = [
     { value: stats.totalEntries, label: "Tracked" },

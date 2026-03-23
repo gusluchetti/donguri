@@ -104,7 +104,6 @@ function RangerPassPage() {
   const cardProps = {
     handle: auth?.handle ?? "ranger",
     plan: isSubscribed ? (subscription?.plan ?? plan) : plan,
-    entriesCount: 42,
   };
 
   return (

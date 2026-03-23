@@ -1,9 +1,15 @@
-import { Html, RoundedBox } from "@react-three/drei";
+import { Html } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
 import type { Mesh, PointLight } from "three";
-import { MathUtils } from "three";
-import { PLAN_ACCENT, PLAN_GRADIENTS, PlanLandscape, RangerPassCard } from "./RangerPassCard";
+import { DoubleSide, MathUtils, Shape } from "three";
+import {
+  handleToSerial,
+  PLAN_ACCENT,
+  PLAN_GRADIENTS,
+  PlanLandscape,
+  RangerPassCard,
+} from "./RangerPassCard";
 
 const ACORN_PATH =
   "M232,104a56.06,56.06,0,0,0-56-56H136a24,24,0,0,1,24-24,8,8,0,0,0,0-16,40,40,0,0,0-40,40H80a56.06,56.06,0,0,0-56,56,16,16,0,0,0,8,13.83V128c0,35.53,33.12,62.12,59.74,83.49C103.66,221.07,120,234.18,120,240a8,8,0,0,0,16,0c0-5.82,16.34-18.93,28.26-28.51C190.88,190.12,224,163.53,224,128V117.83A16,16,0,0,0,232,104ZM80,64h96a40.06,40.06,0,0,1,40,40H40A40,40,0,0,1,80,64Zm74.25,135c-10.62,8.52-20,16-26.25,23.37-6.25-7.32-15.63-14.85-26.25-23.37C77.8,179.79,48,155.86,48,128v-8H208v8C208,155.86,178.2,179.79,154.25,199Z";
@@ -16,7 +22,25 @@ const PLAN_COLOR: Record<string, string> = {
 
 const CARD_W = 2.8;
 const CARD_H = CARD_W * (53.98 / 85.6);
-const CARD_D = 0.01; // thin so edges don't show dark during tilt
+
+// Flat rounded-rectangle shape — no sides, no dark edges
+const CARD_RADIUS = 0.08;
+const cardShape = (() => {
+  const s = new Shape();
+  const hw = CARD_W / 2,
+    hh = CARD_H / 2,
+    r = CARD_RADIUS;
+  s.moveTo(-hw + r, -hh);
+  s.lineTo(hw - r, -hh);
+  s.quadraticCurveTo(hw, -hh, hw, -hh + r);
+  s.lineTo(hw, hh - r);
+  s.quadraticCurveTo(hw, hh, hw - r, hh);
+  s.lineTo(-hw + r, hh);
+  s.quadraticCurveTo(-hw, hh, -hw, hh - r);
+  s.lineTo(-hw, -hh + r);
+  s.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
+  return s;
+})();
 
 // distanceFactor=1.5 → 1 Three.js unit = 400/1.5 ≈ 266.67 CSS px
 const DISTANCE_FACTOR = 1.5;
@@ -27,12 +51,10 @@ const designScale = pxW / 280;
 function CardMesh({
   plan,
   handle,
-  entriesCount,
   pointer,
 }: {
   plan: string;
   handle: string;
-  entriesCount: number;
   pointer: { x: number; y: number };
 }) {
   const meshRef = useRef<Mesh>(null);
@@ -44,6 +66,7 @@ function CardMesh({
   const baseColor = PLAN_COLOR[plan] ?? PLAN_COLOR.monthly;
   const accent = PLAN_ACCENT[plan] ?? PLAN_ACCENT.monthly;
   const gradient = PLAN_GRADIENTS[plan] ?? PLAN_GRADIENTS.monthly;
+  const serial = handleToSerial(handle);
 
   useFrame(() => {
     if (!meshRef.current) return;
@@ -77,14 +100,13 @@ function CardMesh({
 
   return (
     <mesh ref={meshRef}>
-      <RoundedBox args={[CARD_W, CARD_H, CARD_D]} radius={0.08} smoothness={4}>
-        <meshStandardMaterial color={baseColor} metalness={0.35} roughness={0.35} />
-      </RoundedBox>
+      <shapeGeometry args={[cardShape]} />
+      <meshStandardMaterial color={baseColor} metalness={0.35} roughness={0.35} side={DoubleSide} />
 
       <Html
         transform
         distanceFactor={DISTANCE_FACTOR}
-        position={[0, 0, CARD_D / 2 + 0.001]}
+        position={[0, 0, 0.001]}
         style={{ width: pxW, height: pxH, overflow: "hidden", pointerEvents: "none" }}
         zIndexRange={[0, 0]}
       >
@@ -187,11 +209,11 @@ function CardMesh({
                 style={{
                   fontFamily: "var(--font-mono, monospace)",
                   fontSize: "0.6rem",
-                  fontVariantNumeric: "tabular-nums",
-                  color: `${accent}50`,
+                  letterSpacing: "0.08em",
+                  color: `${accent}99`,
                 }}
               >
-                NO. {String(entriesCount).padStart(4, "0")}
+                {serial}
               </span>
             </div>
           </div>
@@ -206,13 +228,11 @@ function CardMesh({
 function Scene({
   plan,
   handle,
-  entriesCount,
   onReady,
   dpr,
 }: {
   plan: string;
   handle: string;
-  entriesCount: number;
   onReady: () => void;
   dpr: [number, number];
 }) {
@@ -245,16 +265,23 @@ function Scene({
       style={{ width: "100%", height: "100%" }}
     >
       <Canvas
-        camera={{ position: [0, 0, 2.5], fov: 40 }}
+        camera={{ position: [0, 0, 3], fov: 40 }}
         gl={{ alpha: true, antialias: true }}
         dpr={dpr}
         frameloop="demand"
         style={{ background: "transparent" }}
-        onCreated={onReady}
+        onCreated={() => {
+          // Wait for the Html overlay to actually paint before crossfading
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              onReady();
+            });
+          });
+        }}
       >
         <ambientLight intensity={0.6} color="#ffe8cc" />
         <directionalLight position={[2, 3, 4]} intensity={0.6} color="#ffffff" />
-        <CardMesh plan={plan} handle={handle} entriesCount={entriesCount} pointer={pointer} />
+        <CardMesh plan={plan} handle={handle} pointer={pointer} />
       </Canvas>
     </div>
   );
@@ -263,13 +290,11 @@ function Scene({
 export default function RangerPassCard3D({
   handle,
   plan,
-  entriesCount,
   maxWidth = 280,
   dpr = [1, 2] as [number, number],
 }: {
   handle: string;
   plan: string;
-  entriesCount: number;
   maxWidth?: number;
   dpr?: [number, number];
 }) {
@@ -304,30 +329,20 @@ export default function RangerPassCard3D({
           pointerEvents: "none",
         }}
       >
-        <RangerPassCard
-          handle={handle}
-          plan={plan}
-          entriesCount={entriesCount}
-          maxWidth={maxWidth}
-        />
+        <RangerPassCard handle={handle} plan={plan} maxWidth={maxWidth} />
       </div>
 
       {use3D && (
         <div
           style={{
             position: "absolute",
-            inset: 0,
+            // Extended beyond card bounds so the tilted card never clips at canvas edges
+            inset: "-12%",
             opacity: canvasReady ? 1 : 0,
             transition: "opacity 400ms ease",
           }}
         >
-          <Scene
-            plan={plan}
-            handle={handle}
-            entriesCount={entriesCount}
-            onReady={() => setCanvasReady(true)}
-            dpr={dpr}
-          />
+          <Scene plan={plan} handle={handle} onReady={() => setCanvasReady(true)} dpr={dpr} />
         </div>
       )}
     </div>
