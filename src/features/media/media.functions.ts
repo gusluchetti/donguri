@@ -157,7 +157,29 @@ export const getSamplesForHomepage = createServerFn({ method: "GET" }).handler(a
 
 const mediaDetailCache = new Map<string, { data: MediaDetail; ts: number }>();
 const DETAIL_CACHE_TTL = 10 * 60 * 1000; // 10 min
-const DETAIL_CACHE_MAX = 5000;
+const DETAIL_CACHE_MAX = 200; // Reduced from 5000 to prevent memory buildup
+
+// Periodic sweep to remove expired entries and prevent unbounded growth
+const SWEEP_INTERVAL = 5 * 60 * 1000; // 5 minutes
+let sweepTimer: ReturnType<typeof setInterval> | null = null;
+
+function ensureSweep() {
+  if (sweepTimer) return;
+  sweepTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of mediaDetailCache) {
+      if (now - entry.ts > DETAIL_CACHE_TTL) {
+        mediaDetailCache.delete(key);
+      }
+    }
+    if (mediaDetailCache.size === 0 && sweepTimer) {
+      clearInterval(sweepTimer);
+      sweepTimer = null;
+    }
+  }, SWEEP_INTERVAL);
+  // Don't block process shutdown
+  if (typeof sweepTimer === "object" && "unref" in sweepTimer) sweepTimer.unref();
+}
 
 /**
  * Get a single media item by Wikidata ID, including genres and platforms.
@@ -168,14 +190,27 @@ export const getMedia = createServerFn({ method: "GET" })
     // Check server-side cache first
     const cached = mediaDetailCache.get(data.wikidataId);
     if (cached && Date.now() - cached.ts < DETAIL_CACHE_TTL) {
+      // Move accessed entry to end (LRU)
+      mediaDetailCache.delete(data.wikidataId);
+      mediaDetailCache.set(data.wikidataId, cached);
       return cached.data;
     }
 
     const db = getDb();
 
-    // All 4 queries in parallel — JOIN through media by wikidataId (unique/indexed)
-    const [items, itemGenres, itemPlatforms, itemSeasons] = await Promise.all([
-      db.select().from(media).where(eq(media.wikidataId, data.wikidataId)).limit(1),
+    // Step 1: fetch the media row to get its internal id
+    const items = await db
+      .select()
+      .from(media)
+      .where(eq(media.wikidataId, data.wikidataId))
+      .limit(1);
+
+    if (items.length === 0) return null;
+
+    // Step 2: use the resolved media.id for genres/platforms/seasons
+    // (no need to JOIN through media table — saves 3 DB connections)
+    const mediaId = items[0].id;
+    const [itemGenres, itemPlatforms, itemSeasons] = await Promise.all([
       db
         .select({
           id: canonicalGenres.id,
@@ -186,10 +221,9 @@ export const getMedia = createServerFn({ method: "GET" })
           parentName: parentGenres.name,
         })
         .from(mediaGenres)
-        .innerJoin(media, eq(mediaGenres.mediaId, media.id))
         .innerJoin(canonicalGenres, eq(mediaGenres.canonicalGenreId, canonicalGenres.id))
         .leftJoin(parentGenres, eq(canonicalGenres.parentId, parentGenres.id))
-        .where(eq(media.wikidataId, data.wikidataId))
+        .where(eq(mediaGenres.mediaId, mediaId))
         .orderBy(canonicalGenres.sortOrder),
       db
         .select({
@@ -201,13 +235,12 @@ export const getMedia = createServerFn({ method: "GET" })
           parentName: parentPlatforms.name,
         })
         .from(mediaPlatforms)
-        .innerJoin(media, eq(mediaPlatforms.mediaId, media.id))
         .innerJoin(
           canonicalPlatforms,
           eq(mediaPlatforms.canonicalPlatformId, canonicalPlatforms.id),
         )
         .leftJoin(parentPlatforms, eq(canonicalPlatforms.parentId, parentPlatforms.id))
-        .where(eq(media.wikidataId, data.wikidataId))
+        .where(eq(mediaPlatforms.mediaId, mediaId))
         .orderBy(
           sql`COALESCE(${parentPlatforms.sortOrder}, ${canonicalPlatforms.sortOrder})`,
           canonicalPlatforms.sortOrder,
@@ -221,12 +254,9 @@ export const getMedia = createServerFn({ method: "GET" })
           dataSource: seasons.dataSource,
         })
         .from(seasons)
-        .innerJoin(media, eq(seasons.mediaId, media.id))
-        .where(eq(media.wikidataId, data.wikidataId))
+        .where(eq(seasons.mediaId, mediaId))
         .orderBy(seasons.seasonNumber),
     ]);
-
-    if (items.length === 0) return null;
 
     // TEMP: hide episode tracking for non-consecutive seasons
     const isConsecutive =
@@ -253,12 +283,13 @@ export const getMedia = createServerFn({ method: "GET" })
       seasons: isConsecutive ? itemSeasons : [],
     };
 
-    // Populate cache (FIFO eviction at max size)
+    // Populate cache (LRU eviction at max size)
     if (mediaDetailCache.size >= DETAIL_CACHE_MAX) {
       const firstKey = mediaDetailCache.keys().next().value;
       if (firstKey) mediaDetailCache.delete(firstKey);
     }
     mediaDetailCache.set(data.wikidataId, { data: result, ts: Date.now() });
+    ensureSweep();
 
     return result;
   });
