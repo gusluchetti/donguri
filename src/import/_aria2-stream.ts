@@ -41,7 +41,7 @@ export class Aria2Streamer {
     const config = getConfig();
     this.rpcSecret = crypto.randomUUID().slice(0, 16);
     this.rpcPort = 6800;
-    this.tempDir = path.join(config.dataDir, "dl");
+    this.tempDir = config.dataDir;
     fs.mkdirSync(this.tempDir, { recursive: true });
 
     this.startAria2c();
@@ -120,9 +120,17 @@ export class Aria2Streamer {
   }
 
   async streamToSubset(dumpPath: string): Promise<void> {
+    console.error("[info] Starting stream to subset creation...");
+    console.error(
+      `[info] Decompressing: ${dumpPath} (${(fs.statSync(dumpPath).size / 1024 / 1024 / 1024).toFixed(1)} GB)`,
+    );
+
     return new Promise((resolve, reject) => {
+      console.error("[info] Spawning lbzip2 decompressor...");
       const lbzip2 = spawn("lbzip2", ["-dc", dumpPath]);
-      const subset = spawn("bun", ["run", "src/import/subset.ts"], {
+
+      console.error("[info] Spawning subset.ts filter...");
+      const subset = spawn("bun", ["run", "../src/import/subset.ts"], {
         cwd: path.dirname(dumpPath),
       });
 
@@ -132,10 +140,16 @@ export class Aria2Streamer {
         process.stderr.write(data);
       });
 
+      subset.stderr.on("data", (data) => {
+        process.stderr.write(data);
+      });
+
       subset.on("close", (code) => {
         if (code === 0) {
+          console.error("[info] Subset creation completed");
           resolve();
         } else {
+          console.error(`[error] subset.ts exited with code ${code}`);
           reject(new Error(`subset.ts exited with code ${code}`));
         }
       });
@@ -147,7 +161,11 @@ export class Aria2Streamer {
         }
         reject(new Error(`lbzip2 failed: ${err.message}`));
       });
-      subset.on("error", (err) => reject(new Error(`subset.ts failed: ${err.message}`)));
+
+      subset.on("error", (err) => {
+        console.error("[error] subset.ts failed:", err.message);
+        reject(new Error(`subset.ts failed: ${err.message}`));
+      });
     });
   }
 
