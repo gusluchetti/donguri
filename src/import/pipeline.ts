@@ -2,7 +2,7 @@
  * Full dump pipeline: download → subset → import
  */
 
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import readline from "node:readline";
 import { eq, sql } from "drizzle-orm";
@@ -329,33 +329,16 @@ async function createSubset(dumpPath: string, subsetPath: string): Promise<void>
 
   console.log(`[subset] Decompressing and filtering ${dumpPath}`);
 
-  const decompressor = spawn("lbzip2", ["-dc", dumpPath]);
-  const filter = spawn("bun", ["src/import/subset.ts"], { cwd: process.cwd() });
-  const output = fs.createWriteStream(subsetPath);
+  // Use shell pipeline to avoid Node.js buffering
+  // Limit lbzip2 to 2 threads to match consumer speed
+  const exitCode = spawnSync(
+    `lbzip2 -dc -n2 "${dumpPath}" | bun src/import/subset.ts > "${subsetPath}"`,
+    { shell: true, stdio: "inherit", cwd: process.cwd() },
+  ).status;
 
-  decompressor.stdout.pipe(filter.stdin);
-  filter.stdout.pipe(output);
-
-  filter.stderr.on("data", (data) => {
-    process.stderr.write(data);
-  });
-
-  decompressor.stderr.on("data", (data) => {
-    process.stderr.write(data);
-  });
-
-  await Promise.all([
-    new Promise<void>((resolve, reject) => {
-      filter.on("close", (code) => {
-        if (code === 0) resolve();
-        else reject(new Error(`filter exited with code ${code}`));
-      });
-    }),
-    new Promise<void>((resolve, reject) => {
-      output.on("finish", resolve);
-      output.on("error", reject);
-    }),
-  ]);
+  if (exitCode !== 0) {
+    throw new Error(`Subset creation failed with exit code ${exitCode}`);
+  }
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(0);
   console.log(`[subset] Completed in ${duration}s`);
