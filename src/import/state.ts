@@ -1,4 +1,4 @@
-import Database from "better-sqlite3";
+import { Database } from "bun:sqlite";
 import { getConfig } from "./config";
 
 const db = new Database(getConfig().stateDbPath);
