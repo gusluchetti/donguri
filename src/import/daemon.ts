@@ -1,6 +1,15 @@
 import { spawn } from "node:child_process";
-import { existsSync, renameSync, statSync, unlinkSync } from "node:fs";
-import fsPromises from "node:fs/promises";
+import {
+  closeSync,
+  createReadStream,
+  existsSync,
+  openSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeSync,
+} from "node:fs";
+import * as fsPromises from "node:fs/promises";
 import path from "node:path";
 import * as Resend from "resend";
 import { Aria2Streamer } from "./_aria2-stream";
@@ -145,9 +154,219 @@ function getNextRunDelay(schedule: string): number {
   return next.getTime() - now.getTime();
 }
 
+async function createSubsetFromDump(dumpPath: string): Promise<void> {
+  const config = getConfig();
+  const tempJsonPath = path.join(path.dirname(dumpPath), "temp-decompressed.json");
+  const subsetPath = path.join(config.dataDir, "subset.ndjson");
+
+  const dumpSizeBytes = statSync(dumpPath).size;
+  const dumpSizeGB = (dumpSizeBytes / 1024 / 1024 / 1024).toFixed(1);
+
+  console.error("=".repeat(60));
+  console.error("⚠️  STARTING SUBSET CREATION");
+  console.error("=".repeat(60));
+  console.error(`   Input dump: ${dumpPath} (${dumpSizeGB} GB)`);
+  console.error(`   Expected duration: 2-4+ hours`);
+  console.error(`   Output subset: ${subsetPath}`);
+  console.error(`   Process:
+      1. Decompress to temp file (lbzip2)
+      2. Filter to subset (bun subset.ts)
+      3. Cleanup temp file`);
+  console.error("=".repeat(60));
+  console.error("[info] Starting Stage 1: Decompression");
+  console.error("[info] Timestamp:", new Date().toISOString());
+
+  const decompStart = Date.now();
+  let decompProgressLogged = false;
+
+  try {
+    return new Promise<void>((resolve, reject) => {
+      const lbzip2 = spawn("lbzip2", ["-dc", dumpPath], {
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+
+      const tempFileWriter = openSync(tempJsonPath, "w");
+      let bytesWritten = 0;
+
+      lbzip2.stderr.on("data", (data) => {
+        process.stderr.write(data);
+      });
+
+      const progressInterval = setInterval(() => {
+        try {
+          const tempStats = statSync(tempJsonPath);
+          bytesWritten = tempStats.size;
+          const elapsed = (Date.now() - decompStart) / 1000;
+          const rate = (bytesWritten / 1024 / 1024 / elapsed).toFixed(1);
+          const pct = ((bytesWritten / dumpSizeBytes) * 100).toFixed(1);
+
+          if (bytesWritten > 0 && !decompProgressLogged) {
+            console.error(`[decompress] Writing to temp file: ${tempJsonPath}`);
+            decompProgressLogged = true;
+          }
+
+          console.error(
+            `[decompress] ${pct}% complete (${(bytesWritten / 1024 / 1024 / 1024).toFixed(1)} GB / ${dumpSizeGB} GB), ${rate} MB/s, elapsed: ${Math.floor(elapsed / 60)}m ${Math.floor(elapsed % 60)}s`,
+          );
+        } catch {}
+      }, 5000);
+
+      lbzip2.stdout.on("data", (data) => {
+        bytesWritten += data.length;
+        writeSync(tempFileWriter, data);
+      });
+
+      lbzip2.on("error", (err) => {
+        clearInterval(progressInterval);
+        closeSync(tempFileWriter);
+        console.error("[error] lbzip2 failed:", err.message);
+        if (err.message.includes("Executable not found") || err.message.includes("ENOENT")) {
+          console.error("[error] Please install lbzip2: sudo apt install lbzip2");
+        }
+        reject(new Error(`lbzip2 failed: ${err.message}`));
+      });
+
+      lbzip2.on("close", (code) => {
+        clearInterval(progressInterval);
+        closeSync(tempFileWriter);
+
+        if (code !== 0) {
+          console.error(`[error] lbzip2 exited with code ${code}`);
+          try {
+            unlinkSync(tempJsonPath);
+          } catch (err) {
+            console.error("[warning] Failed to clean up temp file:", err);
+          }
+          reject(new Error(`lbzip2 exited with code ${code}`));
+          return;
+        }
+
+        const decompDuration = ((Date.now() - decompStart) / 1000).toFixed(1);
+        const decompDurationNum = parseFloat(decompDuration);
+        console.error(
+          `[decompress] Completed in ${decompDuration}s (${Math.floor(decompDurationNum / 60)}m)`,
+        );
+        console.error("[info] Timestamp:", new Date().toISOString());
+
+        console.error("[info] Starting Stage 2: Filtering to subset");
+        console.error("[info] Timestamp:", new Date().toISOString());
+
+        const filterStart = Date.now();
+        let filterProgressLogged = false;
+
+        try {
+          const subset = spawn("bun", ["run", "src/import/subset.ts"], {
+            stdio: ["pipe", "pipe", "pipe"],
+            cwd: path.dirname(dumpPath),
+          });
+
+          const subsetFileWriter = openSync(subsetPath, "w");
+          let subsetLinesWritten = 0;
+
+          const filterProgressInterval = setInterval(() => {
+            if (subsetLinesWritten > 0 && !filterProgressLogged) {
+              console.error(`[filter] Writing to subset file: ${subsetPath}`);
+              filterProgressLogged = true;
+            }
+          }, 10000) as ReturnType<typeof setInterval>;
+
+          const tempReader = createReadStream(tempJsonPath, { encoding: "utf8" });
+
+          tempReader.pipe(subset.stdin);
+
+          subset.stderr.on("data", (data) => {
+            process.stderr.write(data);
+          });
+
+          subset.stdout.on("data", (data) => {
+            const line = data.toString();
+            const lines = line.split("\n");
+            subsetLinesWritten += lines.length - 1;
+            writeSync(subsetFileWriter, data);
+          });
+
+          subset.on("error", (err) => {
+            clearInterval(filterProgressInterval);
+            closeSync(subsetFileWriter);
+            console.error("[error] subset.ts failed:", err.message);
+            reject(new Error(`subset.ts failed: ${err.message}`));
+          });
+
+          subset.on("close", (code) => {
+            clearInterval(filterProgressInterval);
+            closeSync(subsetFileWriter);
+
+            if (code !== 0) {
+              console.error(`[error] subset.ts exited with code ${code}`);
+              try {
+                unlinkSync(tempJsonPath);
+              } catch (err) {
+                console.error("[warning] Failed to clean up temp file:", err);
+              }
+              reject(new Error(`subset.ts exited with code ${code}`));
+              return;
+            }
+
+            const filterDuration = ((Date.now() - filterStart) / 1000).toFixed(1);
+            const filterDurationNum = parseFloat(filterDuration);
+            console.error(
+              `[filter] Completed in ${filterDuration}s (${Math.floor(filterDurationNum / 60)}m)`,
+            );
+
+            console.error("[info] Cleaning up temp file...");
+            try {
+              unlinkSync(tempJsonPath);
+              console.error("[info] Temp file cleanup complete");
+            } catch (err) {
+              console.error("[warning] Failed to clean up temp file:", err);
+            }
+
+            const totalDuration = ((Date.now() - decompStart) / 1000).toFixed(1);
+            const totalDurationNum = parseFloat(totalDuration);
+            console.error("=".repeat(60));
+            console.error("✅ SUBSET CREATION COMPLETED");
+            console.error("=".repeat(60));
+            console.error(
+              `   Total duration: ${Math.floor(totalDurationNum / 60)}m ${Math.floor(totalDurationNum % 60)}s`,
+            );
+            console.error(`   Output location: ${subsetPath}`);
+            console.error("[info] Timestamp:", new Date().toISOString());
+            console.error("=".repeat(60));
+
+            resolve();
+          });
+        } catch (err) {
+          console.error("[error] Failed to start subset filtering:", err);
+          try {
+            unlinkSync(tempJsonPath);
+          } catch (err) {
+            console.error("[warning] Failed to clean up temp file:", err);
+          }
+          reject(err);
+        }
+      });
+    });
+  } catch (error) {
+    console.error("[error] Subset creation failed:", error);
+    throw error;
+  }
+}
+
 async function runFullDump(): Promise<void> {
   const startTime = Date.now();
   const config = getConfig();
+
+  console.error("=".repeat(60));
+  console.error("⚠️  STARTING FULL DUMP IMPORT");
+  console.error("=".repeat(60));
+  console.error(`   Expected duration: 4-8+ hours`);
+  console.error(`   Operations to perform:
+      1. Check/Download wikidata dump (varies)
+      2. Create subset from dump (2-4+ hours)
+      3. Import subset to database (2-4+ hours)`);
+  console.error(`   This operation cannot be paused`);
+  console.error(`   Logs will be saved to: ${config.logsDir}/import-daemon.log`);
+  console.error("=".repeat(60));
   console.error("[info] Starting full dump");
   console.error("[info] Timestamp:", new Date().toISOString());
 
@@ -191,17 +410,40 @@ async function runFullDump(): Promise<void> {
     console.error("[info] Starting stream to subset creation...");
     console.error("[info] Timestamp:", new Date().toISOString());
 
-    const streamer = aria2 || new Aria2Streamer();
-    await streamer.streamToSubset(dumpPath);
-    await aria2?.shutdown();
+    await createSubsetFromDump(dumpPath);
 
-    console.error("[info] Running import pipeline");
+    if (aria2) {
+      console.error("[info] Shutting down aria2 downloader...");
+      try {
+        await aria2.shutdown();
+        console.error("[info] aria2 downloader shut down successfully");
+      } catch (err) {
+        console.error("[warning] Failed to shutdown aria2 cleanly:", err);
+      }
+    }
+
+    console.error("=".repeat(60));
+    console.error("[info] Starting Stage 3: Import pipeline");
     console.error("[info] Timestamp:", new Date().toISOString());
+    console.error(`   This will import data from subset to the database`);
+    console.error(`   Expected duration: 2-4+ hours`);
+    console.error("=".repeat(60));
+
+    const importStart = Date.now();
+    let importProgressLogged = false;
 
     await new Promise<void>((resolve, reject) => {
       const child = spawn("bun", ["run", "src/import/update.ts", "--all"], {
         stdio: ["ignore", "pipe", "pipe"],
       });
+
+      const importProgressInterval = setInterval(() => {
+        if (!importProgressLogged) {
+          const elapsed = Math.floor((Date.now() - importStart) / 60);
+          console.error(`[import] Pipeline running for ${elapsed} minutes...`);
+          importProgressLogged = true;
+        }
+      }, 60000);
 
       child.stdout.on("data", (data) => {
         process.stdout.write(data);
@@ -212,16 +454,23 @@ async function runFullDump(): Promise<void> {
       });
 
       child.on("close", (code) => {
+        clearInterval(importProgressInterval);
+        const importDuration = Math.floor((Date.now() - importStart) / 60);
         if (code === 0) {
-          console.error("[info] Update pipeline completed successfully");
+          console.error(
+            `[import] Update pipeline completed successfully in ${importDuration} minutes`,
+          );
           resolve();
         } else {
-          console.error(`[error] update.ts exited with code ${code}`);
+          console.error(
+            `[error] update.ts exited with code ${code} after ${importDuration} minutes`,
+          );
           reject(new Error(`update.ts exited with code ${code}`));
         }
       });
 
       child.on("error", (err) => {
+        clearInterval(importProgressInterval);
         console.error(`[error] Failed to spawn update: ${err.message}`);
         reject(new Error(`Failed to spawn update: ${err.message}`));
       });
@@ -260,17 +509,35 @@ async function runFullDump(): Promise<void> {
     }
 
     const duration = Math.floor((Date.now() - startTime) / 1000);
-    console.error(
-      `[complete] Duration: ${duration}s, Total: ${stats.entitiesProcessed}, Errors: ${stats.errors}`,
-    );
+    console.error("=".repeat(60));
+    console.error("✅ FULL DUMP IMPORT COMPLETED SUCCESSFULLY");
+    console.error("=".repeat(60));
+    console.error(`   Total duration: ${Math.floor(duration / 60)}m ${duration % 60}s`);
+    console.error(`   Total processed: ${stats.entitiesProcessed}`);
+    console.error(`   Errors encountered: ${stats.errors}`);
     console.error("[info] Timestamp:", new Date().toISOString());
+    console.error("=".repeat(60));
   } catch (error) {
+    console.error("=".repeat(60));
+    console.error("❌ FULL DUMP IMPORT FAILED");
+    console.error("=".repeat(60));
     console.error(
       `[error] Full dump failed: ${error instanceof Error ? error.message : String(error)}`,
     );
     console.error(`[error] Stack: ${error instanceof Error ? error.stack : "No stack available"}`);
     console.error("[info] Timestamp:", new Date().toISOString());
-    await aria2?.shutdown();
+    console.error("=".repeat(60));
+
+    if (aria2) {
+      console.error("[info] Cleaning up aria2 downloader...");
+      try {
+        await aria2.shutdown();
+        console.error("[info] aria2 downloader shut down successfully");
+      } catch (err) {
+        console.error("[warning] Failed to shutdown aria2 clean: err:", err);
+      }
+    }
+
     throw error;
   }
 }
