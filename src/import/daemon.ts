@@ -340,5 +340,18 @@ export async function daemonRun(schedule: string): Promise<void> {
   }
 }
 
+export async function daemonRunOnce(schedule: string): Promise<void> {
+  try {
+    await importRun();
+  } catch (error) {
+    await sendNotification({
+      stats: { processed: 0, imported: 0, new: 0, updated: 0, errors: 1, duration: 0 },
+      type: "failure",
+      error: error as Error,
+    });
+    throw error;
+  }
+}
+
 export { Aria2Streamer };
 export type { SparqlBinding };
