@@ -149,6 +149,7 @@ async function runFullDump(): Promise<void> {
   const startTime = Date.now();
   const config = getConfig();
   console.error("[info] Starting full dump");
+  console.error("[info] Timestamp:", new Date().toISOString());
 
   let dumpPath: string;
   const needsDownload =
@@ -156,150 +157,199 @@ async function runFullDump(): Promise<void> {
 
   let aria2: Aria2Streamer | null = null;
 
-  if (config.dumpPath && !needsDownload) {
-    const stats = statSync(config.dumpPath);
-    const age = ((Date.now() - stats.mtimeMs) / (1000 * 60 * 60 * 24)).toFixed(1);
-    console.error(`[info] Using existing dump (${age} days old): ${config.dumpPath}`);
-    dumpPath = config.dumpPath;
-  } else {
-    if (config.dumpPath && needsDownload) {
-      console.error("[info] Dump file is too old, downloading fresh copy");
+  try {
+    if (config.dumpPath && !needsDownload) {
+      const stats = statSync(config.dumpPath);
+      const age = ((Date.now() - stats.mtimeMs) / (1000 * 60 * 60 * 24)).toFixed(1);
+      console.error(`[info] Using existing dump (${age} days old): ${config.dumpPath}`);
+      dumpPath = config.dumpPath;
     } else {
-      console.error("[info] No existing dump found, downloading");
-    }
-    console.error("[info] Downloading from:", config.dumpUrl);
-
-    aria2 = new Aria2Streamer();
-    dumpPath = await aria2.downloadDump(config.dumpUrl);
-
-    if (!dumpPath) {
-      throw new Error("Failed to download dump");
-    }
-
-    const finalPath = path.join(config.dataDir, "latest-all.json.bz2");
-
-    if (config.dumpPath && existsSync(config.dumpPath)) {
-      unlinkSync(config.dumpPath);
-    }
-
-    renameSync(dumpPath, finalPath);
-    dumpPath = finalPath;
-  }
-
-  const streamer = aria2 || new Aria2Streamer();
-  await streamer.streamToSubset(dumpPath);
-  await aria2?.shutdown();
-
-  console.error("[info] Running import pipeline");
-
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn("bun", ["run", "src/import/update.ts", "--all"], {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    child.stdout.on("data", (data) => {
-      process.stdout.write(data);
-    });
-
-    child.stderr.on("data", (data) => {
-      process.stderr.write(data);
-    });
-
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve();
+      if (config.dumpPath && needsDownload) {
+        console.error("[info] Dump file is too old, downloading fresh copy");
       } else {
-        reject(new Error(`update.ts exited with code ${code}`));
+        console.error("[info] No existing dump found, downloading");
       }
+      console.error("[info] Downloading from:", config.dumpUrl);
+
+      aria2 = new Aria2Streamer();
+      dumpPath = await aria2.downloadDump(config.dumpUrl);
+
+      if (!dumpPath) {
+        throw new Error(`Failed to download dump from ${config.dumpUrl}`);
+      }
+
+      const finalPath = path.join(config.dataDir, "latest-all.json.bz2");
+
+      if (config.dumpPath && existsSync(config.dumpPath)) {
+        unlinkSync(config.dumpPath);
+      }
+
+      renameSync(dumpPath, finalPath);
+      dumpPath = finalPath;
+    }
+
+    console.error("[info] Starting stream to subset creation...");
+    console.error("[info] Timestamp:", new Date().toISOString());
+
+    const streamer = aria2 || new Aria2Streamer();
+    await streamer.streamToSubset(dumpPath);
+    await aria2?.shutdown();
+
+    console.error("[info] Running import pipeline");
+    console.error("[info] Timestamp:", new Date().toISOString());
+
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn("bun", ["run", "src/import/update.ts", "--all"], {
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+
+      child.stdout.on("data", (data) => {
+        process.stdout.write(data);
+      });
+
+      child.stderr.on("data", (data) => {
+        process.stderr.write(data);
+      });
+
+      child.on("close", (code) => {
+        if (code === 0) {
+          console.error("[info] Update pipeline completed successfully");
+          resolve();
+        } else {
+          console.error(`[error] update.ts exited with code ${code}`);
+          reject(new Error(`update.ts exited with code ${code}`));
+        }
+      });
+
+      child.on("error", (err) => {
+        console.error(`[error] Failed to spawn update: ${err.message}`);
+        reject(new Error(`Failed to spawn update: ${err.message}`));
+      });
     });
 
-    child.on("error", (err) => {
-      reject(new Error(`Failed to spawn update: ${err.message}`));
-    });
-  });
+    setLastFullDumpAt(new Date());
 
-  setLastFullDumpAt(new Date());
+    const stats = {
+      entitiesProcessed: 0,
+      entitiesImported: 0,
+      entitiesNew: 0,
+      entitiesUpdated: 0,
+      errors: 0,
+      genresFound: 0,
+      platformsFound: 0,
+      byType: {},
+    };
 
-  const stats = {
-    entitiesProcessed: 0,
-    entitiesImported: 0,
-    entitiesNew: 0,
-    entitiesUpdated: 0,
-    errors: 0,
-    genresFound: 0,
-    platformsFound: 0,
-    byType: {},
-  };
+    try {
+      await sendNotification({
+        stats: {
+          processed: stats.entitiesProcessed,
+          imported: stats.entitiesImported,
+          new: stats.entitiesNew,
+          updated: stats.entitiesUpdated,
+          errors: stats.errors,
+          duration: Date.now() - startTime,
+        },
+        type: "success",
+      });
+    } catch (err) {
+      console.error(
+        "[warning] Failed to send notification:",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
 
-  await sendNotification({
-    stats: {
-      processed: stats.entitiesProcessed,
-      imported: stats.entitiesImported,
-      new: stats.entitiesNew,
-      updated: stats.entitiesUpdated,
-      errors: stats.errors,
-      duration: Date.now() - startTime,
-    },
-    type: "success",
-  });
-
-  console.error(
-    `[complete] Duration: ${Math.floor((Date.now() - startTime) / 1000)}s, Total: ${stats.entitiesProcessed}, Errors: ${stats.errors}`,
-  );
+    const duration = Math.floor((Date.now() - startTime) / 1000);
+    console.error(
+      `[complete] Duration: ${duration}s, Total: ${stats.entitiesProcessed}, Errors: ${stats.errors}`,
+    );
+    console.error("[info] Timestamp:", new Date().toISOString());
+  } catch (error) {
+    console.error(
+      `[error] Full dump failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    console.error(`[error] Stack: ${error instanceof Error ? error.stack : "No stack available"}`);
+    console.error("[info] Timestamp:", new Date().toISOString());
+    await aria2?.shutdown();
+    throw error;
+  }
 }
 
 async function runIncremental(): Promise<void> {
   const startTime = Date.now();
   console.error("[info] Starting incremental");
+  console.error("[info] Timestamp:", new Date().toISOString());
 
-  const lastInc = getLastIncrementalAt() || new Date("1970-01-01");
-  const changes = await fetchChangedEntities(lastInc);
+  try {
+    const lastInc = getLastIncrementalAt() || new Date("1970-01-01");
+    const changes = await fetchChangedEntities(lastInc);
 
-  if (changes.length === 0) {
-    console.error("[info] No changes detected");
-    return;
-  }
-
-  console.error(`[info] Processing ${changes.length} changed entities`);
-
-  const entitiesToProcess = changes.filter((c) => shouldUpdateEntity(c));
-  const stats = {
-    processed: entitiesToProcess.length,
-    imported: entitiesToProcess.length,
-    new: 0,
-    updated: entitiesToProcess.length,
-    errors: 0,
-    duration: Date.now() - startTime,
-    warnings: [],
-  };
-
-  for (const change of entitiesToProcess) {
-    try {
-      const entityHash = hashEntity(change.entity);
-      trackEntity(change.entity.id, change.revisionId, entityHash, change.changedProperties);
-    } catch {
-      stats.errors++;
+    if (changes.length === 0) {
+      console.error("[info] No changes detected");
+      console.error("[info] Timestamp:", new Date().toISOString());
+      return;
     }
+
+    console.error(`[info] Processing ${changes.length} changed entities`);
+
+    const entitiesToProcess = changes.filter((c) => shouldUpdateEntity(c));
+    const stats = {
+      processed: entitiesToProcess.length,
+      imported: entitiesToProcess.length,
+      new: 0,
+      updated: entitiesToProcess.length,
+      errors: 0,
+      duration: Date.now() - startTime,
+      warnings: [],
+    };
+
+    for (const change of entitiesToProcess) {
+      try {
+        const entityHash = hashEntity(change.entity);
+        trackEntity(change.entity.id, change.revisionId, entityHash, change.changedProperties);
+      } catch (err) {
+        console.error(
+          `[error] Failed to process entity ${change.entity.id}:`,
+          err instanceof Error ? err.message : String(err),
+        );
+        stats.errors++;
+      }
+    }
+
+    setLastIncrementalAt(new Date());
+
+    try {
+      await sendNotification({
+        stats: {
+          processed: stats.processed,
+          imported: stats.imported,
+          new: stats.new,
+          updated: stats.updated,
+          errors: stats.errors,
+          duration: stats.duration,
+        },
+        warnings: stats.warnings,
+        type: stats.errors > 0 ? "warning" : "success",
+      });
+    } catch (err) {
+      console.error(
+        "[warning] Failed to send notification:",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+
+    console.error(
+      `[complete] Duration: ${Math.floor(stats.duration / 1000)}s, Total: ${stats.processed}, Errors: ${stats.errors}`,
+    );
+    console.error("[info] Timestamp:", new Date().toISOString());
+  } catch (error) {
+    console.error(
+      `[error] Incremental import failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    console.error(`[error] Stack: ${error instanceof Error ? error.stack : "No stack available"}`);
+    console.error("[info] Timestamp:", new Date().toISOString());
+    throw error;
   }
-
-  setLastIncrementalAt(new Date());
-
-  await sendNotification({
-    stats: {
-      processed: stats.processed,
-      imported: stats.imported,
-      new: stats.new,
-      updated: stats.updated,
-      errors: stats.errors,
-      duration: stats.duration,
-    },
-    warnings: stats.warnings,
-    type: stats.errors > 0 ? "warning" : "success",
-  });
-
-  console.error(
-    `[complete] Duration: ${Math.floor(stats.duration / 1000)}s, Total: ${stats.processed}, Errors: ${stats.errors}`,
-  );
 }
 
 async function importRun(): Promise<void> {
@@ -340,7 +390,7 @@ export async function daemonRun(schedule: string): Promise<void> {
   }
 }
 
-export async function daemonRunOnce(schedule: string): Promise<void> {
+export async function daemonRunOnce(_schedule: string): Promise<void> {
   try {
     await importRun();
   } catch (error) {
