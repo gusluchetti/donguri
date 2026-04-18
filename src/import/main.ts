@@ -1,9 +1,42 @@
 #!/usr/bin/env bun
+import fs from "node:fs";
+import path from "node:path";
 import { getDb } from "~/db";
 import { getConfig } from "./config";
 import { getLastFullDumpAt } from "./state";
 
+/**
+ * Set up file logging: write all console.log/error to both stdout and a dated file.
+ */
+function setupFileLogging(): void {
+  const logsDir = "./logs";
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+  }
+
+  const date = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  const logFile = path.join(logsDir, `import-${date}.log`);
+  const stream = fs.createWriteStream(logFile, { flags: "a" });
+
+  const originalLog = console.log;
+  const originalError = console.error;
+
+  console.log = (...args: unknown[]) => {
+    const msg = args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+    originalLog(msg);
+    stream.write(`${msg}\n`);
+  };
+
+  console.error = (...args: unknown[]) => {
+    const msg = args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+    originalError(msg);
+    stream.write(`${msg}\n`);
+  };
+}
+
 async function main() {
+  setupFileLogging();
+
   const config = getConfig();
   const db = getDb();
 
