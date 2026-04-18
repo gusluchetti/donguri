@@ -1,8 +1,10 @@
 import { spawn } from "node:child_process";
+import { existsSync, renameSync, statSync, unlinkSync } from "node:fs";
 import fsPromises from "node:fs/promises";
+import path from "node:path";
 import * as Resend from "resend";
 import { Aria2Streamer } from "./_aria2-stream";
-import { getConfig } from "./config";
+import { getConfig, isDumpFreshEnough } from "./config";
 import type { SparqlBinding } from "./incremental";
 import { fetchChangedEntities, hashEntity, shouldUpdateEntity } from "./incremental";
 import {
@@ -145,20 +147,48 @@ function getNextRunDelay(schedule: string): number {
 
 async function runFullDump(): Promise<void> {
   const startTime = Date.now();
+  const config = getConfig();
   console.error("[info] Starting full dump");
 
-  const aria2 = new Aria2Streamer();
-  const url = "https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.json.bz2";
-  const dumpPath = await aria2.downloadDump(url);
+  let dumpPath: string;
+  const needsDownload =
+    !config.dumpPath || !isDumpFreshEnough(config.dumpPath, config.dumpMaxAgeDays);
 
-  if (!dumpPath) {
-    throw new Error("Failed to download dump");
+  let aria2: Aria2Streamer | null = null;
+
+  if (config.dumpPath && !needsDownload) {
+    const stats = statSync(config.dumpPath);
+    const age = ((Date.now() - stats.mtimeMs) / (1000 * 60 * 60 * 24)).toFixed(1);
+    console.error(`[info] Using existing dump (${age} days old): ${config.dumpPath}`);
+    dumpPath = config.dumpPath;
+  } else {
+    if (config.dumpPath && needsDownload) {
+      console.error("[info] Dump file is too old, downloading fresh copy");
+    } else {
+      console.error("[info] No existing dump found, downloading");
+    }
+    console.error("[info] Downloading from:", config.dumpUrl);
+
+    aria2 = new Aria2Streamer();
+    dumpPath = await aria2.downloadDump(config.dumpUrl);
+
+    if (!dumpPath) {
+      throw new Error("Failed to download dump");
+    }
+
+    const finalPath = path.join(config.dataDir, "latest-all.json.bz2");
+
+    if (config.dumpPath && existsSync(config.dumpPath)) {
+      unlinkSync(config.dumpPath);
+    }
+
+    renameSync(dumpPath, finalPath);
+    dumpPath = finalPath;
   }
 
-  const gid = dumpPath.split("/").pop();
-  if (!gid) throw new Error("Invalid dump path");
-  await aria2.waitForDownload(gid);
-  await aria2.streamToSubset(dumpPath);
+  const streamer = aria2 || new Aria2Streamer();
+  await streamer.streamToSubset(dumpPath);
+  await aria2?.shutdown();
 
   console.error("[info] Running import pipeline");
 
@@ -216,7 +246,6 @@ async function runFullDump(): Promise<void> {
   console.error(
     `[complete] Duration: ${Math.floor((Date.now() - startTime) / 1000)}s, Total: ${stats.entitiesProcessed}, Errors: ${stats.errors}`,
   );
-  await aria2.shutdown();
 }
 
 async function runIncremental(): Promise<void> {

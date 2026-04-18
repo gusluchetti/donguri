@@ -29,7 +29,12 @@ function isContainerized(): boolean {
   }
 }
 
+const WIKIDUMP_URL =
+  "https://dumps.wikimedia.your.org/pub/wikimedia/dumps/wikidatawiki/entities/latest-all.json.bz2";
+const DUMP_MAX_AGE_DAYS = process.env.DUMP_MAX_AGE_DAYS || "14";
+
 const AUTO_PATHS = {
+  dump: ["latest-all.json.bz2"],
   qrank: ["qrank.csv.gz", "qrank.csv"],
   animeOffline: ["anime-offline-database.jsonl"],
   subset: ["subset.ndjson"],
@@ -42,6 +47,14 @@ function autoDetect(candidates: string[]): string | null {
   }
   return null;
 }
+
+function isDumpFreshEnough(dumpPath: string, maxAgeDays: number): boolean {
+  const stats = fs.statSync(dumpPath);
+  const age = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60 * 24);
+  return age <= maxAgeDays;
+}
+
+export { isDumpFreshEnough };
 
 export interface ImportConfig {
   containerized: boolean;
@@ -65,6 +78,10 @@ export interface ImportConfig {
   subsetPath: string | null;
   qrankPath: string | null;
   animeOfflinePath: string | null;
+
+  dumpUrl: string;
+  dumpPath: string | null;
+  dumpMaxAgeDays: number;
 
   importJobId: string | null;
   lockFilePath: string;
@@ -113,6 +130,10 @@ export function getConfig(): ImportConfig {
     subsetPath: autoDetect(AUTO_PATHS.subset),
     qrankPath: autoDetect(AUTO_PATHS.qrank),
     animeOfflinePath: autoDetect(AUTO_PATHS.animeOffline),
+
+    dumpUrl: WIKIDUMP_URL,
+    dumpPath: autoDetect(AUTO_PATHS.dump),
+    dumpMaxAgeDays: Number.parseInt(DUMP_MAX_AGE_DAYS, 10),
 
     importJobId: IMPORT_JOB_ID || null,
     lockFilePath: LOCK_FILE_PATH || "/tmp/donguri-import.pid",

@@ -133,10 +133,6 @@ export class Aria2Streamer {
       });
 
       subset.on("close", (code) => {
-        try {
-          fs.unlinkSync(dumpPath);
-        } catch {}
-
         if (code === 0) {
           resolve();
         } else {
@@ -144,7 +140,13 @@ export class Aria2Streamer {
         }
       });
 
-      lbzip2.on("error", (err) => reject(new Error(`lbzip2 failed: ${err.message}`)));
+      lbzip2.on("error", (err) => {
+        console.error("[error] Failed to run lbzip2:", err.message);
+        if (err.message.includes("Executable not found") || err.message.includes("ENOENT")) {
+          console.error("[error] Please install lbzip2: sudo apt install lbzip2");
+        }
+        reject(new Error(`lbzip2 failed: ${err.message}`));
+      });
       subset.on("error", (err) => reject(new Error(`subset.ts failed: ${err.message}`)));
     });
   }
