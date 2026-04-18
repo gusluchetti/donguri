@@ -1,4 +1,4 @@
-import Database from "bun:sqlite";
+import Database from "better-sqlite3";
 import { getConfig } from "./config";
 
 const db = new Database(getConfig().stateDbPath);
@@ -32,14 +32,14 @@ interface EntityChangeRow {
 }
 
 export function get(key: string): string | null {
-  const row = db.query("SELECT value FROM import_state WHERE key = ?").get(key) as
+  const row = db.prepare("SELECT value FROM import_state WHERE key = ?").get(key) as
     | ImportStateRow
     | undefined;
   return row?.value || null;
 }
 
 export function set(key: string, value: string): void {
-  const stmt = db.query(`
+  const stmt = db.prepare(`
       INSERT INTO import_state (key, value) VALUES (?, ?)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
     `);
@@ -61,10 +61,10 @@ export function trackEntity(
   dataHash: string,
   properties: string[],
 ): void {
-  const stmt = db.query(`
+  const stmt = db.prepare(`
       INSERT INTO entity_changes (wikidata_id, last_imported_at, revision_id, properties, data_hash)
       VALUES (?, CURRENT_TIMESTAMP, ?, ?, ?)
-      ON CONFLICT(wikidata_id) DO UPDATE SET 
+      ON CONFLICT(wikidata_id) DO UPDATE SET
         last_imported_at = CURRENT_TIMESTAMP,
         revision_id = excluded.revision_id,
         properties = excluded.properties,
@@ -75,7 +75,7 @@ export function trackEntity(
 
 export function hasEntityChanged(wikidataId: string, newDataHash: string): boolean {
   const row = db
-    .query("SELECT data_hash FROM entity_changes WHERE wikidata_id = ?")
+    .prepare("SELECT data_hash FROM entity_changes WHERE wikidata_id = ?")
     .get(wikidataId) as EntityChangeRow | undefined;
   return !row || row.data_hash !== newDataHash;
 }

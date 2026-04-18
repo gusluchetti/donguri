@@ -19,9 +19,9 @@
     "typecheck": "tsc --noEmit",
     "validate": "biome check --write --unsafe . && biome format --fix .",
     "validate-build": "bun run validate && bun run build",
-    "import:update": "bun run src/import/update.ts",
-    "import:daemon": "bun run src/import/daemon-main.ts",
-    "import:daemon:once": "bun run src/import/daemon-main.ts --once",
+    "import:auto": "bun run src/import/main.ts",
+    "import:full": "bun run src/import/main.ts --full",
+    "import:incremental": "bun run src/import/main.ts --incremental",
     "db:seed-platforms": "bun run src/db/seed-platforms.ts",
     "comp": "bun run scripts/comp-subscription.ts"
   },

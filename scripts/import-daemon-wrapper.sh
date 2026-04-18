@@ -88,7 +88,7 @@ echo "[wrapper] Starting import daemon: $START_TIME" | tee -a logs/import-daemon
 # Run import daemon with explicit error handling
 # Node directly inherits signals, so tmux should work properly
 set +e  # Temporarily disable exit on error to capture bun exit code
-bun run src/import/daemon-main.ts --once 2>&1 | tee -a logs/import-daemon.log
+bun run src/import/main.ts 2>&1 | tee -a logs/import-daemon.log
 DAEMON_EXIT_CODE=${PIPESTATUS[0]}
 set -e  # Re-enable strict mode
 
