@@ -1,5 +1,5 @@
 /**
- * Incremental updates via SPARQL: fetch entities modified since last incremental run,
+ * Incremental updates via RecentChanges API: fetch entities edited since last incremental run,
  * then batch-load full Wikidata JSON and upsert.
  */
 
@@ -13,6 +13,7 @@ import {
   canonicalPlatforms,
   genreMappings,
   importProgress,
+  media,
   platformMappings,
 } from "~/db/schema";
 import { parseMediaEntity, shouldImportEntity } from "./_filters";
@@ -20,24 +21,9 @@ import { formatDuration, withRetry } from "./_retry";
 import type { ParsedMedia, WikidataEntity } from "./_types";
 import { type CanonicalLookup, type DbType, type ImportStats, processSuperBatch } from "./_upsert";
 import type { ImportConfig } from "./config";
-import { getLastIncrementalAt, setLastIncrementalAt } from "./state";
+import { getLastFullDumpAt, getLastIncrementalAt, setLastIncrementalAt } from "./state";
 
-const SPARQL_ENDPOINT = "https://query.wikidata.org/sparql";
 const WIKIDATA_API = "https://www.wikidata.org/w/api.php";
-
-// Our 10 media types
-const _MEDIA_TYPES = [
-  "Q11424", // film
-  "Q5398426", // TV series
-  "Q202866", // animated film
-  "Q506240", // TV film
-  "Q117467246", // animated TV series
-  "Q7889", // video game
-  "Q63952888", // anime TV series
-  "Q20650540", // anime film
-  "Q220898", // OVA
-  "Q1047299", // ONA
-];
 
 interface ParsedIncremental {
   parsed: ParsedMedia[];
@@ -114,81 +100,114 @@ async function seedCanonicalMappings(db: DbType): Promise<void> {
   console.log("[mappings] Completed");
 }
 
+interface RecentChangesResult {
+  qid: string;
+  modified: Date;
+}
+
 /**
- * Query SPARQL for Q-IDs of media type entities modified since `since`.
- * Paginated with LIMIT 500 OFFSET.
+ * Query recent changes API for all edits to items in the Wikidata namespace (0)
+ * since `since`. Returns only items that are already in our media table.
  */
-async function querySparqlForModified(since: Date): Promise<string[]> {
+async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChangesResult[]> {
   const sinceIso = since.toISOString();
-  const qids: string[] = [];
+  const results: RecentChangesResult[] = [];
 
-  console.log(`[sparql] Querying for entities modified since ${sinceIso}...`);
+  console.log(`[recentchanges] Querying for edits since ${sinceIso}...`);
 
-  let offset = 0;
+  // Load our existing Wikidata IDs into a Set for fast lookup
+  const existingRows = await db
+    .select({ wikidataId: media.wikidataId, updatedAt: media.updatedAt })
+    .from(media);
+  const existingQids = new Set<string>();
+  const updatedAtMap = new Map<string, Date>();
+  for (const row of existingRows) {
+    const qid = row.wikidataId.replace(/^Q/, "");
+    existingQids.add(qid);
+    updatedAtMap.set(qid, row.updatedAt);
+  }
+
+  console.log(`[recentchanges] Loaded ${existingQids.size} existing QIDs from DB`);
+
+  let continueCursor: string | null = null;
   let pageCount = 0;
+  let totalReturned = 0;
+  let totalMatched = 0;
+  let totalAlreadyUpdated = 0;
 
   while (true) {
     pageCount++;
-    console.log(`[sparql] Page ${pageCount} (offset ${offset})...`);
 
-    const query = `
-SELECT DISTINCT ?entity ?modified WHERE {
-  ?entity wdt:P31 ?type .
-  VALUES ?type { wd:Q11424 wd:Q5398426 wd:Q202866 wd:Q506240
-                 wd:Q117467246 wd:Q7889 wd:Q63952888 wd:Q20650540
-                 wd:Q220898 wd:Q1047299 }
-  ?entity schema:dateModified ?modified .
-  FILTER(?modified > "${sinceIso}"^^xsd:dateTime)
-}
-ORDER BY ?modified
-LIMIT 500
-OFFSET ${offset}
-    `;
-
-    const response = await withRetry(
-      () =>
-        fetch(SPARQL_ENDPOINT, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/sparql-query",
-            Accept: "application/json",
-          },
-          body: query,
-        }),
-      `SPARQL query page ${pageCount}`,
-    );
-
-    if (!response.ok) {
-      throw new Error(`SPARQL failed: HTTP ${response.status} ${response.statusText}`);
+    const params = new URLSearchParams({
+      action: "query",
+      list: "recentchanges",
+      rcstart: sinceIso,
+      rcdir: "newer",
+      rcnamespace: "0", // item namespace only
+      rctype: "edit|new",
+      rcprop: "title|timestamp",
+      rclimit: "500", // max per page
+      format: "json",
+    });
+    if (continueCursor) {
+      params.set("rccontinue", continueCursor);
     }
 
-    const data = (await response.json()) as {
-      results?: { bindings?: Array<{ entity?: { value?: string } }> };
-    };
+    const url = `${WIKIDATA_API}?${params}`;
+    console.log(`[recentchanges] Page ${pageCount}: ${url}`);
 
-    const bindings = data.results?.bindings ?? [];
-    console.log(`[sparql] Page ${pageCount}: ${bindings.length} results`);
-
-    for (const binding of bindings) {
-      const entityUrl = binding.entity?.value;
-      if (entityUrl) {
-        const qid = entityUrl.split("/").pop();
-        if (qid) qids.push(qid);
+    const data = await withRetry(async () => {
+      const response = await fetch(url, { headers: { "User-Agent": "donguri-import-bot/1.0" } });
+      if (!response.ok) {
+        throw new Error(`RecentChanges API failed: HTTP ${response.status} ${response.statusText}`);
       }
+      const json = (await response.json()) as {
+        query?: { recentchanges?: Array<{ title: string; timestamp: string }> };
+        continue?: { rccontinue?: string };
+        error?: unknown;
+      };
+      if (json.error) {
+        throw new Error(`RecentChanges API error: ${JSON.stringify(json.error)}`);
+      }
+      return json;
+    }, `RecentChanges page ${pageCount}`);
+
+    const changes = data.query?.recentchanges ?? [];
+    totalReturned += changes.length;
+    console.log(`[recentchanges] Page ${pageCount}: ${changes.length} edits`);
+
+    for (const rc of changes) {
+      const qid = rc.title.replace(/^Q/, "");
+      if (!existingQids.has(qid)) {
+        // Not in our DB — skip
+        continue;
+      }
+
+      const modified = new Date(rc.timestamp);
+      const ourUpdatedAt = updatedAtMap.get(qid);
+      if (ourUpdatedAt && modified <= ourUpdatedAt) {
+        // Wikidata's timestamp is not newer than our record — skip
+        totalAlreadyUpdated++;
+        continue;
+      }
+
+      results.push({ qid, modified });
+      totalMatched++;
     }
 
-    // End of results
-    if (bindings.length < 500) {
+    continueCursor = data.continue?.rccontinue ?? null;
+    if (!continueCursor) {
       break;
     }
 
-    offset += 500;
+    // Inter‑page delay to stay within rate limits
+    await new Promise((r) => setTimeout(r, 100));
   }
 
-  const uniqueQids = [...new Set(qids)];
-  console.log(`[sparql] Total unique Q-IDs: ${uniqueQids.length}`);
-
-  return uniqueQids;
+  console.log(
+    `[recentchanges] Total: ${totalReturned} edits, ${totalMatched} matched and need update, ${totalAlreadyUpdated} already up‑to‑date`,
+  );
+  return results;
 }
 
 /**
@@ -282,11 +301,20 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
   // Determine since date
   let since = getLastIncrementalAt();
   if (!since) {
-    // Never run incremental before — default to 30 days ago
-    since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    console.log(
-      `[incremental] No previous incremental record. Defaulting to 30 days ago: ${since.toISOString()}`,
-    );
+    // Never run incremental before — fall back to last full dump timestamp
+    // (which exists because we always do full before incremental)
+    since = getLastFullDumpAt();
+    if (!since) {
+      // Should never happen — but as final fallback, 24 hours ago
+      since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      console.log(
+        `[incremental] No incremental or full dump timestamps found. Defaulting to 24h ago: ${since.toISOString()}`,
+      );
+    } else {
+      console.log(
+        `[incremental] No previous incremental record. Using last full dump timestamp: ${since.toISOString()}`,
+      );
+    }
   }
 
   const daysSince = (Date.now() - since.getTime()) / (1000 * 60 * 60 * 24);
@@ -298,16 +326,17 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
     return true;
   }
 
-  // Fetch modified Q-IDs from SPARQL
-  const qids = await querySparqlForModified(since);
+  // Fetch modified Q-IDs via recentchanges API
+  const changes = await queryRecentChanges(db, since);
 
-  if (qids.length === 0) {
+  if (changes.length === 0) {
     console.log("[incremental] No changes found — skipping import");
     setLastIncrementalAt(new Date());
     return false;
   }
 
   // Fetch full entities
+  const qids = changes.map((c) => `Q${c.qid}`);
   const entities = await fetchEntitiesFromWikidata(qids);
   console.log(`[incremental] Fetched ${entities.length} full entities`);
 
@@ -325,7 +354,7 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
   const [progressRecord] = await db
     .insert(importProgress)
     .values({
-      sourceFile: "incremental-sparql",
+      sourceFile: "incremental-recentchanges",
       status: "running",
       startedAt: new Date(),
     })

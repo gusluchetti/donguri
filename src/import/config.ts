@@ -4,6 +4,7 @@ export interface ImportConfig {
   dumpMaxAgeDays: number;
   dumpUrl: string;
   requiredDiskSpaceGB: number;
+  supplementaryMaxAgeDays: number;
 }
 
 export function getConfig(): ImportConfig {
@@ -15,5 +16,6 @@ export function getConfig(): ImportConfig {
       process.env.DUMP_URL ||
       "https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.json.bz2",
     requiredDiskSpaceGB: Number.parseInt(process.env.REQUIRED_DISK_SPACE_GB || "100", 10),
+    supplementaryMaxAgeDays: Number.parseInt(process.env.SUPPLEMENTARY_MAX_AGE_DAYS || "7", 10),
   };
 }

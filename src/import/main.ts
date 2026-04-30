@@ -22,13 +22,13 @@ function setupFileLogging(): void {
   const originalError = console.error;
 
   console.log = (...args: unknown[]) => {
-    const msg = args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+    const msg = args.map((a) => (typeof a === "string" ? a : (a instanceof Error ? String(a) : JSON.stringify(a)))).join(" ");
     originalLog(msg);
     stream.write(`${msg}\n`);
   };
 
   console.error = (...args: unknown[]) => {
-    const msg = args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ");
+    const msg = args.map((a) => (typeof a === "string" ? a : (a instanceof Error ? String(a) : JSON.stringify(a)))).join(" ");
     originalError(msg);
     stream.write(`${msg}\n`);
   };
@@ -103,6 +103,22 @@ async function main() {
     }
 
     console.log("[main] Import completed successfully");
+
+    try {
+      console.log("");
+      const { runQrank } = await import("./qrank");
+      const { runAnimeOffline } = await import("./anime-offline");
+      const { runCovers } = await import("./covers");
+
+      await runQrank(db, config);
+      await runAnimeOffline(db, config);
+      await runCovers(db, config);
+    } catch (suppError) {
+      console.error("[main] Supplementary import step failed:", suppError);
+      // Continue rather than crashing, since main import succeeded
+    }
+
+    console.log("[main] Import pipeline fully complete");
     console.log("[main] Timestamp:", new Date().toISOString());
     process.exit(0);
   } catch (error) {
