@@ -1,6 +1,9 @@
 #!/bin/bash
 set -Eeuo pipefail
 
+# Ensure PATH includes bun (installed in ~/.bun/bin by default)
+export PATH="$HOME/.bun/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
+
 cd "$(dirname "$0")/.."
 
 # ==============================================================================

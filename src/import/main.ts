@@ -22,19 +22,24 @@ function setupFileLogging(): void {
   const originalError = console.error;
 
   console.log = (...args: unknown[]) => {
-    const msg = args.map((a) => (typeof a === "string" ? a : (a instanceof Error ? String(a) : JSON.stringify(a)))).join(" ");
+    const msg = args
+      .map((a) => (typeof a === "string" ? a : a instanceof Error ? String(a) : JSON.stringify(a)))
+      .join(" ");
     originalLog(msg);
     stream.write(`${msg}\n`);
   };
 
   console.error = (...args: unknown[]) => {
-    const msg = args.map((a) => (typeof a === "string" ? a : (a instanceof Error ? String(a) : JSON.stringify(a)))).join(" ");
+    const msg = args
+      .map((a) => (typeof a === "string" ? a : a instanceof Error ? String(a) : JSON.stringify(a)))
+      .join(" ");
     originalError(msg);
     stream.write(`${msg}\n`);
   };
 }
 
 async function main() {
+  const startTime = Date.now();
   setupFileLogging();
 
   const config = getConfig();
@@ -44,16 +49,17 @@ async function main() {
   console.log("[main] Timestamp:", new Date().toISOString());
 
   try {
+    let mode: "full" | "incremental" = "full";
     // Determine mode: --full, --incremental, or auto
-    let mode: "full" | "incremental" | "auto" = "auto";
+    let autoMode: "full" | "incremental" | "auto" = "auto";
 
     for (const arg of process.argv.slice(2)) {
-      if (arg === "--full") mode = "full";
-      else if (arg === "--incremental") mode = "incremental";
+      if (arg === "--full") autoMode = "full";
+      else if (arg === "--incremental") autoMode = "incremental";
     }
 
     // Auto-decide if not explicitly set
-    if (mode === "auto") {
+    if (autoMode === "auto") {
       // eslint-disable-line @typescript-eslint/no-unnecessary-condition
       const { sql } = await import("drizzle-orm");
       const { media } = await import("~/db/schema");
@@ -84,6 +90,8 @@ async function main() {
           }
         }
       }
+    } else {
+      mode = autoMode;
     }
 
     console.log(`[main] Mode: ${mode}`);
@@ -115,15 +123,21 @@ async function main() {
       await runCovers(db, config);
     } catch (suppError) {
       console.error("[main] Supplementary import step failed:", suppError);
+      const { notifyWarning } = await import("./notify");
+      await notifyWarning("supplementary step failed", suppError);
       // Continue rather than crashing, since main import succeeded
     }
 
     console.log("[main] Import pipeline fully complete");
     console.log("[main] Timestamp:", new Date().toISOString());
+    const { notifySuccess } = await import("./notify");
+    await notifySuccess(mode, Date.now() - startTime);
     process.exit(0);
   } catch (error) {
     console.error("[main] Import failed:", error);
     console.error("[main] Timestamp:", new Date().toISOString());
+    const { notifyFailure } = await import("./notify");
+    await notifyFailure(error);
     process.exit(1);
   }
 }

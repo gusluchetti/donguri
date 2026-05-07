@@ -5,6 +5,12 @@ export interface ImportConfig {
   dumpUrl: string;
   requiredDiskSpaceGB: number;
   supplementaryMaxAgeDays: number;
+  resendApiKey: string | null;
+  emailFrom: string;
+  emailTo: string;
+  emailOnSuccess: boolean;
+  emailOnFailure: boolean;
+  emailOnWarning: boolean;
 }
 
 export function getConfig(): ImportConfig {
@@ -17,5 +23,11 @@ export function getConfig(): ImportConfig {
       "https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.json.bz2",
     requiredDiskSpaceGB: Number.parseInt(process.env.REQUIRED_DISK_SPACE_GB || "100", 10),
     supplementaryMaxAgeDays: Number.parseInt(process.env.SUPPLEMENTARY_MAX_AGE_DAYS || "7", 10),
+    resendApiKey: process.env.RESEND_API_KEY || null,
+    emailFrom: process.env.EMAIL_FROM || "gustavo@luchetti.dev",
+    emailTo: process.env.EMAIL_TO || "gustavo@luchetti.dev",
+    emailOnSuccess: process.env.EMAIL_ON_SUCCESS !== "false",
+    emailOnFailure: process.env.EMAIL_ON_FAILURE !== "false",
+    emailOnWarning: process.env.EMAIL_ON_WARNING !== "false",
   };
 }

@@ -1,6 +1,12 @@
 /**
- * Incremental updates via RecentChanges API: fetch entities edited since last incremental run,
- * then batch-load full Wikidata JSON and upsert.
+ * Incremental updates via RecentChanges API.
+ *
+ * Process page‑by‑page: fetch a page of recent changes, load any matching items,
+ * upsert them, and advance the last‑incremental timestamp to the newest timestamp
+ * seen in that page (even if none of those items are in our DB).
+ *
+ * This ensures each run moves the time window forward, preventing repeated 429s
+ * for the same page on retry.
  */
 
 import { eq, sql } from "drizzle-orm";
@@ -124,7 +130,7 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
   for (const row of existingRows) {
     const qid = row.wikidataId.replace(/^Q/, "");
     existingQids.add(qid);
-    updatedAtMap.set(qid, row.updatedAt);
+    if (row.updatedAt) updatedAtMap.set(qid, row.updatedAt);
   }
 
   console.log(`[recentchanges] Loaded ${existingQids.size} existing QIDs from DB`);

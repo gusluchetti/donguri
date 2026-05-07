@@ -329,6 +329,12 @@ async function createSubset(dumpPath: string, subsetPath: string): Promise<void>
 
   console.log(`[subset] Decompressing and filtering ${dumpPath}`);
 
+  // Clean up any previous .done sentinel in case we're retrying
+  const donePath = `${subsetPath}.done`;
+  try {
+    fs.unlinkSync(donePath);
+  } catch {}
+
   // Use shell pipeline to avoid Node.js buffering
   // Limit lbzip2 to 2 threads to match consumer speed
   const exitCode = spawnSync(
@@ -339,6 +345,9 @@ async function createSubset(dumpPath: string, subsetPath: string): Promise<void>
   if (exitCode !== 0) {
     throw new Error(`Subset creation failed with exit code ${exitCode}`);
   }
+
+  // Write sentinel file to signal successful completion
+  fs.writeFileSync(donePath, `${startTime}\n${Date.now()}\n`);
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(0);
   console.log(`[subset] Completed in ${duration}s`);
@@ -369,9 +378,29 @@ export async function runFullPipeline(db: DbType, config: ImportConfig): Promise
     dumpPath = targetPath;
   }
 
-  console.log(`\n[pipeline] Creating subset from ${dumpPath}...`);
   const subsetPath = `${config.dataDir}/subset.ndjson`;
-  await createSubset(dumpPath, subsetPath);
+  const donePath = `${subsetPath}.done`;
+
+  let subsetExists = false;
+  if (fs.existsSync(subsetPath) && fs.existsSync(donePath)) {
+    const subsetMtime = fs.statSync(subsetPath).mtimeMs;
+    const dumpMtime = fs.statSync(dumpPath).mtimeMs;
+    const subsetSize = fs.statSync(subsetPath).size;
+    const doneMtime = fs.statSync(donePath).mtimeMs;
+    if (subsetMtime > dumpMtime && doneMtime > dumpMtime && subsetSize > 0) {
+      console.log(`[pipeline] Subset already up‑to‑date, skipping regeneration`);
+      subsetExists = true;
+    }
+  }
+
+  if (!subsetExists) {
+    // Clean up any stale sentinel file before regenerating
+    try {
+      fs.unlinkSync(donePath);
+    } catch {}
+    console.log(`\n[pipeline] Creating subset from ${dumpPath}...`);
+    await createSubset(dumpPath, subsetPath);
+  }
 
   console.log(`\n[pipeline] Importing subset to database...`);
   await runMediaImport(db, {
