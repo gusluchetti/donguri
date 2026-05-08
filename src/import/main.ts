@@ -142,6 +142,12 @@ async function main() {
         break;
       }
 
+      case "qrank": {
+        const { runQrank } = await import("./qrank");
+        await runQrank(db, config);
+        break;
+      }
+
       case "all": {
         const { runFullPipeline } = await import("./pipeline");
         await runFullPipeline(db, config);
@@ -192,7 +198,7 @@ async function main() {
       default:
         console.error(`[main] Unknown stage: ${stage}`);
         console.error(
-          "Available stages: download, subset, db, full, incremental, covers, all, auto",
+          "Available stages: download, subset, db, full, incremental, covers, qrank, all, auto",
         );
         process.exit(1);
     }

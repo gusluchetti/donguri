@@ -24,6 +24,7 @@
     "import:db": "bun run src/import/main.ts db",
     "import:full": "bun run src/import/main.ts full",
     "import:covers": "bun run src/import/main.ts covers",
+    "import:qrank": "bun run src/import/main.ts qrank",
     "import:incremental": "bun run src/import/main.ts incremental",
     "import:all": "bun run src/import/main.ts all",
     "import:auto": "bun run src/import/main.ts",

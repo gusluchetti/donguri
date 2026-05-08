@@ -64,9 +64,9 @@ async function parseMatchesFromQrank(
       .pipe(parse({ columns: ["QID", "score"] }))
       .on("data", (row: { QID: string; score: string }) => {
         const qid = row.QID.slice(1); // CSV has Q12345, set stores 12345
-if (qidSet.has(qid)) {
-  matches.set(qid, Number(row.score));
-}
+        if (qidSet.has(qid)) {
+          matches.set(qid, Number(row.score));
+        }
       })
       .on("end", () => {
         console.log(`[qrank] Parsed ${matches.size} QRank matched entries`);
@@ -81,7 +81,7 @@ function computePercentiles(matches: Map<string, number>): Map<string, number> {
   const total = sorted.length;
   const percentiles = new Map<string, number>();
   if (total === 0) return percentiles;
-  
+
   for (let i = 0; i < total; i++) {
     const [qid] = sorted[i];
     const percentile = (i / total) * 100;
@@ -103,7 +103,9 @@ async function updateQrankPercentiles(db: DbType, percentiles: Map<string, numbe
   const entries = Array.from(percentiles.entries());
   for (let i = 0; i < entries.length; i += batchSize) {
     const batch = entries.slice(i, i + batchSize);
-    const placeholders = batch.map((_, idx) => `($${idx * 2 + 1}, $${idx * 2 + 2})`).join(",");
+    const placeholders = batch
+      .map((_, idx) => `($${idx * 2 + 1}, $${idx * 2 + 2}::numeric)`)
+      .join(",");
     const values = batch.flat();
     await db.$client.unsafe(
       `
