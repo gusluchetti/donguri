@@ -70,15 +70,36 @@ async function detectMode(db: DbType, config: ImportConfig): Promise<"full" | "i
   return "incremental";
 }
 
-async function runSupplementary(db: DbType, config: ImportConfig): Promise<void> {
+async function runSupplementary(
+  db: DbType,
+  config: ImportConfig,
+): Promise<import("./notify").ImportReport> {
   console.log("");
   const { runQrank } = await import("./qrank");
   const { runAnimeOffline } = await import("./anime-offline");
   const { runCovers } = await import("./covers");
 
-  await runQrank(db, config);
-  await runAnimeOffline(db, config);
-  await runCovers(db, config);
+  const report: import("./notify").ImportReport = {};
+
+  try {
+    report.qrank = await runQrank(db, config);
+  } catch (err) {
+    console.error("[supplementary] qrank failed:", err);
+  }
+
+  try {
+    report.animeOffline = await runAnimeOffline(db, config);
+  } catch (err) {
+    console.error("[supplementary] anime-offline failed:", err);
+  }
+
+  try {
+    report.covers = await runCovers(db, config);
+  } catch (err) {
+    console.error("[supplementary] covers failed:", err);
+  }
+
+  return report;
 }
 
 async function main() {
@@ -151,10 +172,10 @@ async function main() {
       case "all": {
         const { runFullPipeline } = await import("./pipeline");
         await runFullPipeline(db, config);
-        await runSupplementary(db, config);
+        const report = await runSupplementary(db, config);
         console.log("[main] Import pipeline fully complete");
         const { notifySuccess } = await import("./notify");
-        await notifySuccess(stage, Date.now() - startTime);
+        await notifySuccess(stage, Date.now() - startTime, report);
         process.exit(0);
         break;
       }
@@ -179,18 +200,12 @@ async function main() {
 
         console.log("[main] Import completed successfully");
 
-        try {
-          await runSupplementary(db, config);
-        } catch (suppError) {
-          console.error("[main] Supplementary import step failed:", suppError);
-          const { notifyWarning } = await import("./notify");
-          await notifyWarning("supplementary step failed", suppError);
-        }
+        const suppReport = await runSupplementary(db, config);
 
         console.log("[main] Import pipeline fully complete");
         console.log("[main] Timestamp:", new Date().toISOString());
         const { notifySuccess } = await import("./notify");
-        await notifySuccess(stage, Date.now() - startTime);
+        await notifySuccess(stage, Date.now() - startTime, suppReport);
         process.exit(0);
         break;
       }

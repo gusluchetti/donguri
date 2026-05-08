@@ -5,7 +5,12 @@ import { and, isNotNull, isNull, or } from "drizzle-orm";
 import { media } from "~/db/schema";
 import type { DbType } from "./_upsert";
 import type { ImportConfig } from "./config";
-import { downloadDump } from "./download";
+import { downloadIfNeeded } from "./download";
+
+export interface AnimeOfflineStats {
+  enriched: number;
+  durationMs: number;
+}
 
 interface AnimeOfflineEntry {
   title: string;
@@ -21,22 +26,12 @@ interface AnimeOfflineDatabase {
 
 async function downloadAnimeOfflineIfNeeded(config: ImportConfig): Promise<string> {
   const targetPath = path.join(config.dataDir, "anime-offline-database.json");
-  const exists = fs.existsSync(targetPath);
-  if (exists) {
-    const stats = fs.statSync(targetPath);
-    const ageDays = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60 * 24);
-    if (ageDays < config.supplementaryMaxAgeDays) {
-      console.log(
-        `[anime offline] Cache age ${ageDays.toFixed(1)} days < ${config.supplementaryMaxAgeDays}, skipping download`,
-      );
-      return targetPath;
-    }
-  }
-
-  const url =
-    "https://github.com/manami-project/anime-offline-database/raw/master/anime-offline-database-minified.json";
-  console.log(`[anime offline] Downloading anime offline database from ${url}...`);
-  await downloadDump(url, targetPath);
+  await downloadIfNeeded(
+    "https://github.com/manami-project/anime-offline-database/releases/latest/download/anime-offline-database-minified.json",
+    targetPath,
+    config.supplementaryMaxAgeDays,
+    "anime offline",
+  );
   return targetPath;
 }
 
@@ -151,17 +146,13 @@ async function enrichMediaIds(
 
   for (const row of rows) {
     let entry: AnimeOfflineEntry | undefined;
-    let _matchedBy = "";
 
     if (row.anilistId && byAnilistId.has(row.anilistId)) {
       entry = byAnilistId.get(row.anilistId);
-      _matchedBy = "AniList";
     } else if (row.malId && byMalId.has(row.malId)) {
       entry = byMalId.get(row.malId);
-      _matchedBy = "MAL";
     } else if (row.anidbId && byAnidbId.has(row.anidbId)) {
       entry = byAnidbId.get(row.anidbId);
-      _matchedBy = "AniDB";
     }
 
     if (!entry) continue;
@@ -222,7 +213,10 @@ async function enrichMediaIds(
   return { updated: updates.length };
 }
 
-export async function runAnimeOffline(db: DbType, config: ImportConfig): Promise<void> {
+export async function runAnimeOffline(
+  db: DbType,
+  config: ImportConfig,
+): Promise<AnimeOfflineStats> {
   console.log("[anime offline] Starting anime offline database enrichment");
   const startTime = Date.now();
 
@@ -232,8 +226,11 @@ export async function runAnimeOffline(db: DbType, config: ImportConfig): Promise
     const rows = await findMediaNeedingEnrichment(db);
     const { updated } = await enrichMediaIds(db, rows, byAnilistId, byMalId, byAnidbId);
 
-    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`[anime offline] Enrichment completed in ${duration}s, updated ${updated} items`);
+    const durationMs = Date.now() - startTime;
+    console.log(
+      `[anime offline] Enrichment completed in ${(durationMs / 1000).toFixed(1)}s, updated ${updated} items`,
+    );
+    return { enriched: updated, durationMs };
   } catch (error) {
     console.error("[anime offline] Enrichment failed:", error);
     throw error;
