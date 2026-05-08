@@ -20,14 +20,10 @@ interface AnimeOfflineEntry {
   anidbId?: string;
 }
 
-interface AnimeOfflineDatabase {
-  data: AnimeOfflineEntry[];
-}
-
 async function downloadAnimeOfflineIfNeeded(config: ImportConfig): Promise<string> {
-  const targetPath = path.join(config.dataDir, "anime-offline-database.json");
+  const targetPath = path.join(config.dataDir, "anime-offline-database.jsonl");
   await downloadIfNeeded(
-    "https://github.com/manami-project/anime-offline-database/releases/latest/download/anime-offline-database-minified.json",
+    "https://github.com/manami-project/anime-offline-database/releases/latest/download/anime-offline-database.jsonl",
     targetPath,
     config.supplementaryMaxAgeDays,
     "anime offline",
@@ -70,20 +66,37 @@ async function parseAnimeOfflineDatabase(filePath: string): Promise<{
   byAnidbId: Map<string, AnimeOfflineEntry>;
 }> {
   const content = fs.readFileSync(filePath, "utf-8");
-  const db = JSON.parse(content) as AnimeOfflineDatabase;
-  console.log(`[anime offline] Parsed ${db.data.length} entries`);
+  const lines = content.split("\n").filter((line) => line.trim().length > 0);
 
   const byAnilistId = new Map<string, AnimeOfflineEntry>();
   const byMalId = new Map<string, AnimeOfflineEntry>();
   const byAnidbId = new Map<string, AnimeOfflineEntry>();
 
-  for (const entry of db.data) {
-    const ids = extractIdsFromSources(entry);
-    if (ids.anilistId) byAnilistId.set(ids.anilistId, { ...entry, ...ids });
-    if (ids.malId) byMalId.set(ids.malId, { ...entry, ...ids });
-    if (ids.anidbId) byAnidbId.set(ids.anidbId, { ...entry, ...ids });
+  let parsedCount = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (i === 0) {
+      try {
+        const metadata = JSON.parse(lines[i]);
+        if (metadata.$schema) {
+          console.log(`[anime offline] Metadata line: ${metadata.lastUpdate || "unknown date"}`);
+          continue;
+        }
+      } catch {}
+    }
+
+    try {
+      const entry = JSON.parse(lines[i]) as AnimeOfflineEntry;
+      parsedCount++;
+      const ids = extractIdsFromSources(entry);
+      if (ids.anilistId) byAnilistId.set(ids.anilistId, { ...entry, ...ids });
+      if (ids.malId) byMalId.set(ids.malId, { ...entry, ...ids });
+      if (ids.anidbId) byAnidbId.set(ids.anidbId, { ...entry, ...ids });
+    } catch (err) {
+      console.warn(`[anime offline] Failed to parse line ${i}: ${err}`);
+    }
   }
 
+  console.log(`[anime offline] Parsed ${parsedCount} entries`);
   console.log(
     `[anime offline] Built maps: AniList=${byAnilistId.size}, MAL=${byMalId.size}, AniDB=${byAnidbId.size}`,
   );
