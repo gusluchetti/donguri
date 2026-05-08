@@ -4,6 +4,14 @@ import { media } from "~/db/schema";
 import type { DbType } from "./_upsert";
 import type { ImportConfig } from "./config";
 
+export interface CoversStats {
+  tmdb: number;
+  anilist: number;
+  igdb: number;
+  updated: number;
+  durationMs: number;
+}
+
 interface TmdbMovieResponse {
   poster_path: string | null;
 }
@@ -247,7 +255,7 @@ async function updatePosterUrls(db: DbType, posterMap: Map<string, string>): Pro
   return totalUpdated;
 }
 
-export async function runCovers(db: DbType, _config: ImportConfig): Promise<void> {
+export async function runCovers(db: DbType, _config: ImportConfig): Promise<CoversStats> {
   console.log("[covers] Starting cover art fetch");
   const startTime = Date.now();
 
@@ -271,22 +279,13 @@ export async function runCovers(db: DbType, _config: ImportConfig): Promise<void
 
     const tmdbItems = items
       .filter((item): item is typeof item & { tmdbId: string } => item.tmdbId !== null)
-      .map((item) => ({
-        id: item.id,
-        tmdbId: item.tmdbId,
-      }));
+      .map((item) => ({ id: item.id, tmdbId: item.tmdbId }));
     const anilistItems = items
       .filter((item): item is typeof item & { anilistId: string } => item.anilistId !== null)
-      .map((item) => ({
-        id: item.id,
-        anilistId: item.anilistId,
-      }));
+      .map((item) => ({ id: item.id, anilistId: item.anilistId }));
     const igdbItems = items
       .filter((item): item is typeof item & { igdbId: string } => item.igdbId !== null)
-      .map((item) => ({
-        id: item.id,
-        igdbId: item.igdbId,
-      }));
+      .map((item) => ({ id: item.id, igdbId: item.igdbId }));
 
     const [tmdbResults, anilistResults, igdbResults] = await Promise.all([
       fetchTmdbPosters(tmdbItems),
@@ -295,23 +294,24 @@ export async function runCovers(db: DbType, _config: ImportConfig): Promise<void
     ]);
 
     const combined = new Map<string, string>();
-    for (const [map, _name] of [
-      [tmdbResults, "TMDB"],
-      [anilistResults, "AniList"],
-      [igdbResults, "IGDB"],
-    ] as const) {
-      for (const [id, url] of map) {
-        if (combined.has(id)) {
-          console.log(`[covers] Duplicate poster for ${id} (keeping existing)`);
-        } else {
-          combined.set(id, url);
-        }
+    for (const coverMap of [tmdbResults, anilistResults, igdbResults]) {
+      for (const [id, url] of coverMap) {
+        if (!combined.has(id)) combined.set(id, url);
       }
     }
 
     const updated = await updatePosterUrls(db, combined);
-    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`[covers] Cover art fetch completed in ${duration}s, updated ${updated} items`);
+    const durationMs = Date.now() - startTime;
+    console.log(
+      `[covers] Cover art fetch completed in ${(durationMs / 1000).toFixed(1)}s, updated ${updated} items`,
+    );
+    return {
+      tmdb: tmdbResults.size,
+      anilist: anilistResults.size,
+      igdb: igdbResults.size,
+      updated,
+      durationMs,
+    };
   } catch (error) {
     console.error("[covers] Cover art fetch failed:", error);
     throw error;

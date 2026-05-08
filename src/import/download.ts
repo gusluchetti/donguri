@@ -1,6 +1,26 @@
 import fs from "node:fs";
 import { fetch } from "undici";
 
+export async function downloadIfNeeded(
+  url: string,
+  targetPath: string,
+  maxAgeDays: number,
+  label: string,
+): Promise<void> {
+  if (fs.existsSync(targetPath)) {
+    const stats = fs.statSync(targetPath);
+    const ageDays = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60 * 24);
+    if (ageDays < maxAgeDays) {
+      console.log(
+        `[${label}] Cache age ${ageDays.toFixed(1)} days < ${maxAgeDays}, skipping download`,
+      );
+      return;
+    }
+  }
+  console.log(`[${label}] Downloading from ${url}...`);
+  await downloadDump(url, targetPath);
+}
+
 export async function downloadDump(url: string, targetPath: string): Promise<void> {
   const startTime = Date.now();
 

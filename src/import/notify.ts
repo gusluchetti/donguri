@@ -1,6 +1,9 @@
 import { Resend } from "resend";
 import { formatDuration } from "./_retry";
+import type { AnimeOfflineStats } from "./anime-offline";
 import { getConfig } from "./config";
+import type { CoversStats } from "./covers";
+import type { QrankStats } from "./qrank";
 
 let client: Resend | null = null;
 
@@ -13,18 +16,73 @@ function getClient(): Resend | null {
   return client;
 }
 
-export async function notifySuccess(stage: string, durationMs: number): Promise<void> {
+export interface ImportReport {
+  qrank?: QrankStats;
+  animeOffline?: AnimeOfflineStats;
+  covers?: CoversStats;
+}
+
+function fmt(n: number): string {
+  return n.toLocaleString("en-US");
+}
+
+function buildSuccessBody(stage: string, durationMs: number, report?: ImportReport): string {
+  const lines: string[] = [
+    `Import pipeline stage "${stage}" completed in ${formatDuration(durationMs)}.`,
+    "",
+    `Timestamp: ${new Date().toISOString()}`,
+  ];
+
+  if (report) {
+    if (report.qrank) {
+      const q = report.qrank;
+      lines.push(
+        "",
+        "── QRank ──────────────────────────────",
+        `  Matched entries:  ${fmt(q.matched)}`,
+        `  Records updated:  ${fmt(q.updated)}`,
+        `  Duration:         ${formatDuration(q.durationMs)}`,
+      );
+    }
+
+    if (report.animeOffline) {
+      const a = report.animeOffline;
+      lines.push(
+        "",
+        "── Anime Offline ───────────────────────",
+        `  Records enriched: ${fmt(a.enriched)}`,
+        `  Duration:         ${formatDuration(a.durationMs)}`,
+      );
+    }
+
+    if (report.covers) {
+      const c = report.covers;
+      lines.push(
+        "",
+        "── Covers ──────────────────────────────",
+        `  TMDB:             ${fmt(c.tmdb)}`,
+        `  AniList:          ${fmt(c.anilist)}`,
+        `  IGDB:             ${fmt(c.igdb)}`,
+        `  Total updated:    ${fmt(c.updated)}`,
+        `  Duration:         ${formatDuration(c.durationMs)}`,
+      );
+    }
+  }
+
+  return lines.join("\n");
+}
+
+export async function notifySuccess(
+  stage: string,
+  durationMs: number,
+  report?: ImportReport,
+): Promise<void> {
   const config = getConfig();
   const client = getClient();
   if (!client || !config.emailOnSuccess) return;
 
-  const duration = formatDuration(durationMs);
   const subject = `[donguri] Import completed (${stage})`;
-
-  const body = `Import pipeline stage "${stage}" completed in ${duration}.
-
-Data source: Wikidata (full dump + RecentChanges).
-Timestamp: ${new Date().toISOString()}`;
+  const body = buildSuccessBody(stage, durationMs, report);
 
   try {
     await client.emails.send({
