@@ -18,15 +18,21 @@
  */
 
 import { createInterface } from "node:readline";
-import { isMediaEntity, isSeasonEntity } from "./_filters";
+import { getInstanceOfValues, isCollectionEntity, isMediaEntity, isSeasonEntity } from "./_filters";
 import type { WikidataEntity } from "./_types";
 
 let totalLines = 0;
 let mediaFound = 0;
 let seasonsFound = 0;
+let collectionsFound = 0;
+let parseErrors = 0;
 let errors = 0;
+let noP31Count = 0;
+const p31Sample = new Set<string>();
+const matchSample: Array<{ id: string; p31: string[] }> = [];
 
 const PROGRESS_INTERVAL = 25_000;
+const SAMPLE_MAX = 10;
 
 function parseJsonLine(line: string): WikidataEntity | null {
   let cleanLine = line.trim();
@@ -35,7 +41,24 @@ function parseJsonLine(line: string): WikidataEntity | null {
   try {
     return JSON.parse(cleanLine);
   } catch {
+    parseErrors++;
     return null;
+  }
+}
+
+function recordP31Sample(entity: WikidataEntity): void {
+  const p31Values = getInstanceOfValues(entity);
+  if (p31Values.length === 0) {
+    noP31Count++;
+    return;
+  }
+  for (const qValue of p31Values) {
+    if (p31Sample.size < SAMPLE_MAX) {
+      p31Sample.add(qValue);
+    }
+  }
+  if (matchSample.length < 3 && p31Values.length > 0) {
+    matchSample.push({ id: entity.id, p31: p31Values });
   }
 }
 
@@ -45,6 +68,7 @@ const rl = createInterface({
 });
 
 const startTime = Date.now();
+let lastProgressTime = startTime;
 
 for await (const line of rl) {
   const entity = parseJsonLine(line);
@@ -52,12 +76,22 @@ for await (const line of rl) {
 
   totalLines++;
 
+  recordP31Sample(entity);
+
   if (totalLines % PROGRESS_INTERVAL === 0) {
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
-    const rate = (totalLines / ((Date.now() - startTime) / 1000)).toFixed(0);
+    const now = Date.now();
+    const elapsed = ((now - startTime) / 1000).toFixed(0);
+    const chunkTime = (now - lastProgressTime) / 1000;
+    const rate = (PROGRESS_INTERVAL / chunkTime).toFixed(0);
     process.stderr.write(
-      `[${elapsed}s] Processed ${totalLines.toLocaleString()} entities, found ${mediaFound.toLocaleString()} media + ${seasonsFound.toLocaleString()} seasons (${rate}/s)\n`,
+      `[${elapsed}s] Processed ${totalLines.toLocaleString()} entities, found ${mediaFound.toLocaleString()} media + ${seasonsFound.toLocaleString()} seasons + ${collectionsFound.toLocaleString()} collections (${rate}/s)\n`,
     );
+    lastProgressTime = now;
+
+    if (totalLines === PROGRESS_INTERVAL * 1) {
+      const sampleArr = Array.from(p31Sample).slice(0, 5);
+      process.stderr.write(`  Early P31 sample (first 5): ${sampleArr.join(", ")}\n`);
+    }
   }
 
   try {
@@ -67,6 +101,9 @@ for await (const line of rl) {
     } else if (isSeasonEntity(entity)) {
       seasonsFound++;
       process.stdout.write(`${JSON.stringify(entity)}\n`);
+    } else if (isCollectionEntity(entity)) {
+      collectionsFound++;
+      process.stdout.write(`${JSON.stringify(entity)}\n`);
     }
   } catch {
     errors++;
@@ -75,5 +112,23 @@ for await (const line of rl) {
 
 const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 process.stderr.write(
-  `\nDone in ${elapsed}s. Total: ${totalLines.toLocaleString()}, Media: ${mediaFound.toLocaleString()}, Seasons: ${seasonsFound.toLocaleString()}, Errors: ${errors}\n`,
+  `\nDone in ${elapsed}s.\n` +
+    `  Processed: ${totalLines.toLocaleString()}\n` +
+    `  No P31: ${noP31Count}\n` +
+    `  Parse errors: ${parseErrors}\n` +
+    `  Media: ${mediaFound.toLocaleString()}\n` +
+    `  Seasons: ${seasonsFound.toLocaleString()}\n` +
+    `  Collections: ${collectionsFound.toLocaleString()}\n` +
+    `  Errors: ${errors}\n`,
 );
+if (p31Sample.size > 0) {
+  process.stderr.write(
+    `  P31 Q-values seen (${p31Sample.size}): ${Array.from(p31Sample).join(", ")}\n`,
+  );
+}
+if (matchSample.length > 0) {
+  process.stderr.write(`  Matched entity samples:\n`);
+  for (const sample of matchSample) {
+    process.stderr.write(`    ${sample.id}: P31=${sample.p31.join(",")}\n`);
+  }
+}

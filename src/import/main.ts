@@ -2,20 +2,22 @@
 import fs from "node:fs";
 import path from "node:path";
 import { getDb } from "~/db";
+import type { DbType } from "./_upsert";
+import type { ImportConfig } from "./config";
 import { getConfig } from "./config";
 import { getLastFullDumpAt } from "./state";
 
 /**
  * Set up file logging: write all console.log/error to both stdout and a dated file.
  */
-function setupFileLogging(): void {
+function setupFileLogging(stage: string): void {
   const logsDir = "./logs";
   if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true });
   }
 
   const date = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-  const logFile = path.join(logsDir, `import-${date}.log`);
+  const logFile = path.join(logsDir, `import-${stage}-${date}.log`);
   const stream = fs.createWriteStream(logFile, { flags: "a" });
 
   const originalLog = console.log;
@@ -38,103 +40,169 @@ function setupFileLogging(): void {
   };
 }
 
+async function detectMode(db: DbType, config: ImportConfig): Promise<"full" | "incremental"> {
+  const { sql } = await import("drizzle-orm");
+  const { media } = await import("~/db/schema");
+
+  const result = await db.select({ count: sql<number>`COUNT(*)` }).from(media);
+  const mediaCount = Number(result[0]?.count || 0);
+
+  if (mediaCount === 0) {
+    console.log("[detect] Media table empty → full dump required");
+    return "full";
+  }
+
+  const lastFull = getLastFullDumpAt();
+  if (!lastFull) {
+    console.log("[detect] No previous full dump recorded → full dump required");
+    return "full";
+  }
+
+  const daysSinceFull = (Date.now() - lastFull.getTime()) / (1000 * 60 * 60 * 24);
+  if (daysSinceFull > config.dumpMaxAgeDays) {
+    console.log(
+      `[detect] Last full dump was ${daysSinceFull.toFixed(1)} days ago → full dump required`,
+    );
+    return "full";
+  }
+
+  console.log(`[detect] Recent full dump (${daysSinceFull.toFixed(1)} days ago) → incremental`);
+  return "incremental";
+}
+
+async function runSupplementary(db: DbType, config: ImportConfig): Promise<void> {
+  console.log("");
+  const { runQrank } = await import("./qrank");
+  const { runAnimeOffline } = await import("./anime-offline");
+  const { runCovers } = await import("./covers");
+
+  await runQrank(db, config);
+  await runAnimeOffline(db, config);
+  await runCovers(db, config);
+}
+
 async function main() {
   const startTime = Date.now();
-  setupFileLogging();
+  const stage = process.argv[2] ?? "auto";
+  setupFileLogging(stage);
 
   const config = getConfig();
   const db = getDb();
 
-  console.log("[main] Starting import pipeline");
+  console.log(`[main] Starting import stage: ${stage}`);
   console.log("[main] Timestamp:", new Date().toISOString());
 
   try {
-    let mode: "full" | "incremental" = "full";
-    // Determine mode: --full, --incremental, or auto
-    let autoMode: "full" | "incremental" | "auto" = "auto";
-
-    for (const arg of process.argv.slice(2)) {
-      if (arg === "--full") autoMode = "full";
-      else if (arg === "--incremental") autoMode = "incremental";
-    }
-
-    // Auto-decide if not explicitly set
-    if (autoMode === "auto") {
-      // eslint-disable-line @typescript-eslint/no-unnecessary-condition
-      const { sql } = await import("drizzle-orm");
-      const { media } = await import("~/db/schema");
-
-      const result = await db.select({ count: sql<number>`COUNT(*)` }).from(media);
-      const mediaCount = Number(result[0]?.count || 0);
-
-      if (mediaCount === 0) {
-        console.log("[main] Media table empty → full dump required");
-        mode = "full";
-      } else {
-        const lastFull = getLastFullDumpAt();
-        if (!lastFull) {
-          console.log("[main] No previous full dump recorded → full dump required");
-          mode = "full";
-        } else {
-          const daysSinceFull = (Date.now() - lastFull.getTime()) / (1000 * 60 * 60 * 24);
-          if (daysSinceFull > config.dumpMaxAgeDays) {
-            console.log(
-              `[main] Last full dump was ${daysSinceFull.toFixed(1)} days ago → full dump required`,
-            );
-            mode = "full";
-          } else {
-            console.log(
-              `[main] Recent full dump (${daysSinceFull.toFixed(1)} days ago) → incremental`,
-            );
-            mode = "incremental";
-          }
-        }
+    switch (stage) {
+      case "download": {
+        const { downloadDump } = await import("./download");
+        const targetPath = `${config.dataDir}/latest-all.json.bz2`;
+        await downloadDump(config.dumpUrl, targetPath);
+        break;
       }
-    } else {
-      mode = autoMode;
-    }
 
-    console.log(`[main] Mode: ${mode}`);
-    console.log("");
+      case "subset": {
+        const { runSubset } = await import("./pipeline");
+        await runSubset(config);
+        break;
+      }
 
-    if (mode === "full") {
-      const { runFullPipeline } = await import("./pipeline");
-      await runFullPipeline(db, config);
-    } else {
-      const { runIncremental } = await import("./incremental");
-      const needsFull = await runIncremental(db, config);
-      if (needsFull) {
-        console.log("[main] Incremental gap too large → falling back to full dump");
+      case "db": {
+        const subsetPath = `${config.dataDir}/subset.ndjson`;
+        if (!fs.existsSync(subsetPath)) {
+          throw new Error(`No subset at ${subsetPath}. Run import:subset first.`);
+        }
+        const { runMediaImport } = await import("./pipeline");
+        const { setLastFullDumpAt } = await import("./state");
+        await runMediaImport(db, { subsetPath });
+        setLastFullDumpAt(new Date());
+        break;
+      }
+
+      case "full": {
         const { runFullPipeline } = await import("./pipeline");
         await runFullPipeline(db, config);
+        break;
       }
+
+      case "incremental": {
+        const { runIncremental } = await import("./incremental");
+        const needsFull = await runIncremental(db, config);
+        if (needsFull) {
+          console.log("[main] Incremental gap too large → falling back to full dump");
+          const { runFullPipeline } = await import("./pipeline");
+          await runFullPipeline(db, config);
+        }
+        break;
+      }
+
+      case "covers": {
+        const { runCovers } = await import("./covers");
+        await runCovers(db, config);
+        break;
+      }
+
+      case "all": {
+        const { runFullPipeline } = await import("./pipeline");
+        await runFullPipeline(db, config);
+        await runSupplementary(db, config);
+        console.log("[main] Import pipeline fully complete");
+        const { notifySuccess } = await import("./notify");
+        await notifySuccess(stage, Date.now() - startTime);
+        process.exit(0);
+        break;
+      }
+
+      case "auto": {
+        const mode = await detectMode(db, config);
+        console.log(`[main] Mode: ${mode}`);
+        console.log("");
+
+        if (mode === "full") {
+          const { runFullPipeline } = await import("./pipeline");
+          await runFullPipeline(db, config);
+        } else {
+          const { runIncremental } = await import("./incremental");
+          const needsFull = await runIncremental(db, config);
+          if (needsFull) {
+            console.log("[main] Incremental gap too large → falling back to full dump");
+            const { runFullPipeline } = await import("./pipeline");
+            await runFullPipeline(db, config);
+          }
+        }
+
+        console.log("[main] Import completed successfully");
+
+        try {
+          await runSupplementary(db, config);
+        } catch (suppError) {
+          console.error("[main] Supplementary import step failed:", suppError);
+          const { notifyWarning } = await import("./notify");
+          await notifyWarning("supplementary step failed", suppError);
+        }
+
+        console.log("[main] Import pipeline fully complete");
+        console.log("[main] Timestamp:", new Date().toISOString());
+        const { notifySuccess } = await import("./notify");
+        await notifySuccess(stage, Date.now() - startTime);
+        process.exit(0);
+        break;
+      }
+
+      default:
+        console.error(`[main] Unknown stage: ${stage}`);
+        console.error(
+          "Available stages: download, subset, db, full, incremental, covers, all, auto",
+        );
+        process.exit(1);
     }
 
-    console.log("[main] Import completed successfully");
-
-    try {
-      console.log("");
-      const { runQrank } = await import("./qrank");
-      const { runAnimeOffline } = await import("./anime-offline");
-      const { runCovers } = await import("./covers");
-
-      await runQrank(db, config);
-      await runAnimeOffline(db, config);
-      await runCovers(db, config);
-    } catch (suppError) {
-      console.error("[main] Supplementary import step failed:", suppError);
-      const { notifyWarning } = await import("./notify");
-      await notifyWarning("supplementary step failed", suppError);
-      // Continue rather than crashing, since main import succeeded
-    }
-
-    console.log("[main] Import pipeline fully complete");
-    console.log("[main] Timestamp:", new Date().toISOString());
+    console.log(`[main] Stage "${stage}" completed successfully`);
     const { notifySuccess } = await import("./notify");
-    await notifySuccess(mode, Date.now() - startTime);
+    await notifySuccess(stage, Date.now() - startTime);
     process.exit(0);
   } catch (error) {
-    console.error("[main] Import failed:", error);
+    console.error(`[main] Stage "${stage}" failed:`, error);
     console.error("[main] Timestamp:", new Date().toISOString());
     const { notifyFailure } = await import("./notify");
     await notifyFailure(error);

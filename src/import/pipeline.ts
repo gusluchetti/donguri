@@ -7,19 +7,12 @@ import fs from "node:fs";
 import readline from "node:readline";
 import { eq, sql } from "drizzle-orm";
 import { TRGM_SETUP_SQL } from "~/db/fts";
-import { CANONICAL_GENRES, GENRE_MAPPINGS } from "~/db/genre-data";
-import { CANONICAL_PLATFORMS, PLATFORM_MAPPINGS } from "~/db/platform-data";
-import {
-  canonicalGenres,
-  canonicalPlatforms,
-  genreMappings,
-  importProgress,
-  platformMappings,
-} from "~/db/schema";
+import { importProgress } from "~/db/schema";
 import { parseMediaEntity, shouldImportEntity } from "./_filters";
+import { loadCanonicalLookups, seedCanonicalMappings } from "./_mappings";
 import { formatDuration } from "./_retry";
 import type { ParsedMedia, WikidataEntity } from "./_types";
-import { type CanonicalLookup, type DbType, type ImportStats, processSuperBatch } from "./_upsert";
+import { type DbType, type ImportStats, processSuperBatch } from "./_upsert";
 import type { ImportConfig } from "./config";
 import { downloadDump } from "./download";
 import { setLastFullDumpAt } from "./state";
@@ -44,77 +37,7 @@ function parseJsonLine(line: string): WikidataEntity | null {
   }
 }
 
-async function seedCanonicalMappings(db: DbType): Promise<void> {
-  console.log("[mappings] Syncing canonical genres/platforms...");
-
-  const topGenres = CANONICAL_GENRES.filter((g) => g.parentSlug === null);
-  for (const g of topGenres) {
-    await db
-      .insert(canonicalGenres)
-      .values({ slug: g.slug, name: g.name, parentId: null, sortOrder: g.sortOrder })
-      .onConflictDoNothing({ target: canonicalGenres.slug });
-  }
-  const allGenres = await db.select().from(canonicalGenres);
-  const genreSlugToId = new Map(allGenres.map((g) => [g.slug, g.id]));
-
-  for (const g of CANONICAL_GENRES.filter(
-    (g): g is typeof g & { parentSlug: string } => g.parentSlug !== null,
-  )) {
-    const parentId = genreSlugToId.get(g.parentSlug);
-    if (!parentId) continue;
-    await db
-      .insert(canonicalGenres)
-      .values({ slug: g.slug, name: g.name, parentId, sortOrder: g.sortOrder })
-      .onConflictDoNothing({ target: canonicalGenres.slug });
-  }
-  const allGenresNow = await db.select().from(canonicalGenres);
-  const genreSlugToIdNow = new Map(allGenresNow.map((g) => [g.slug, g.id]));
-
-  for (const m of GENRE_MAPPINGS) {
-    const id = genreSlugToIdNow.get(m.canonicalSlug);
-    if (!id) continue;
-    await db
-      .insert(genreMappings)
-      .values({ wikidataId: m.wikidataId, canonicalGenreId: id, source: "manual" })
-      .onConflictDoNothing();
-  }
-
-  const topPlatforms = CANONICAL_PLATFORMS.filter((p) => p.parentSlug === null);
-  for (const p of topPlatforms) {
-    await db
-      .insert(canonicalPlatforms)
-      .values({ slug: p.slug, name: p.name, parentId: null, sortOrder: p.sortOrder })
-      .onConflictDoNothing({ target: canonicalPlatforms.slug });
-  }
-  const allPlatforms = await db.select().from(canonicalPlatforms);
-  const platSlugToId = new Map(allPlatforms.map((p) => [p.slug, p.id]));
-
-  for (const p of CANONICAL_PLATFORMS.filter(
-    (p): p is typeof p & { parentSlug: string } => p.parentSlug !== null,
-  )) {
-    const parentId = platSlugToId.get(p.parentSlug);
-    if (!parentId) continue;
-    await db
-      .insert(canonicalPlatforms)
-      .values({ slug: p.slug, name: p.name, parentId, sortOrder: p.sortOrder })
-      .onConflictDoNothing({ target: canonicalPlatforms.slug });
-  }
-  const allPlatformsNow = await db.select().from(canonicalPlatforms);
-  const platSlugToIdNow = new Map(allPlatformsNow.map((p) => [p.slug, p.id]));
-
-  for (const m of PLATFORM_MAPPINGS) {
-    const id = platSlugToIdNow.get(m.canonicalSlug);
-    if (!id) continue;
-    await db
-      .insert(platformMappings)
-      .values({ wikidataId: m.wikidataId, canonicalPlatformId: id, source: "manual" })
-      .onConflictDoNothing();
-  }
-
-  console.log("[mappings] Completed");
-}
-
-async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> {
+export async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> {
   const { subsetPath, limit = Infinity, batchSize = DEFAULT_BATCH_SIZE } = opts;
   const startTime = Date.now();
 
@@ -143,33 +66,7 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
     .returning({ id: importProgress.id });
 
   await seedCanonicalMappings(db);
-
-  console.log("[import] Loading canonical genre/platform mappings...");
-  const genreLookup: CanonicalLookup = {};
-  const platformLookup: CanonicalLookup = {};
-
-  const [gmRows, pmRows] = await Promise.all([
-    db
-      .select({ wikidataId: genreMappings.wikidataId, canonicalId: genreMappings.canonicalGenreId })
-      .from(genreMappings),
-    db
-      .select({
-        wikidataId: platformMappings.wikidataId,
-        canonicalId: platformMappings.canonicalPlatformId,
-      })
-      .from(platformMappings),
-  ]);
-  for (const row of gmRows) {
-    if (!genreLookup[row.wikidataId]) genreLookup[row.wikidataId] = [];
-    genreLookup[row.wikidataId].push(row.canonicalId);
-  }
-  for (const row of pmRows) {
-    if (!platformLookup[row.wikidataId]) platformLookup[row.wikidataId] = [];
-    platformLookup[row.wikidataId].push(row.canonicalId);
-  }
-  console.log(
-    `  Genre mappings: ${gmRows.length} entries, Platform mappings: ${pmRows.length} entries`,
-  );
+  const { genreLookup, platformLookup } = await loadCanonicalLookups(db);
 
   let batch: ParsedMedia[] = [];
 
@@ -191,9 +88,10 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
         const elapsed = formatDuration(Date.now() - startTime);
         const rate = (stats.entitiesProcessed / ((Date.now() - startTime) / 1000)).toFixed(0);
         console.log(
-          `[${elapsed}] Processed: ${stats.entitiesProcessed.toLocaleString()}, ` +
-            `Imported: ${stats.entitiesImported.toLocaleString()}, ` +
-            `Errors: ${stats.errors}, Rate: ${rate}/s`,
+          `[${elapsed}] Processed: ${stats.entitiesProcessed.toLocaleString()} | ` +
+            `Imported: ${stats.entitiesImported.toLocaleString()} ` +
+            `(${stats.entitiesNew.toLocaleString()} new, ${stats.entitiesUpdated.toLocaleString()} updated) | ` +
+            `Errors: ${stats.errors} | Rate: ${rate}/s`,
         );
 
         await db
@@ -225,14 +123,13 @@ async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> 
     }
 
     console.log(`\n[import] Completed in ${formatDuration(Date.now() - startTime)}`);
+    console.log(`  Processed:   ${stats.entitiesProcessed.toLocaleString()} Wikidata entities`);
     console.log(
-      `  Processed: ${stats.entitiesProcessed.toLocaleString()}, ` +
-        `Imported: ${stats.entitiesImported.toLocaleString()} ` +
-        `(${stats.entitiesNew.toLocaleString()} new, ${stats.entitiesUpdated.toLocaleString()} updated)`,
+      `  Imported:    ${stats.entitiesImported.toLocaleString()} media rows (${stats.entitiesNew.toLocaleString()} new, ${stats.entitiesUpdated.toLocaleString()} updated)`,
     );
-    console.log(`  Genres: ${stats.genresFound.toLocaleString()} links`);
-    console.log(`  Platforms: ${stats.platformsFound.toLocaleString()} links`);
-    console.log(`  Errors: ${stats.errors}`);
+    console.log(`  Genre links: ${stats.genresFound.toLocaleString()}`);
+    console.log(`  Platform links: ${stats.platformsFound.toLocaleString()}`);
+    console.log(`  Errors:      ${stats.errors}`);
     console.log(`  By type:`);
     for (const [type, count] of Object.entries(stats.byType)) {
       if (count > 0) console.log(`    ${type}: ${count.toLocaleString()}`);
@@ -335,12 +232,14 @@ async function createSubset(dumpPath: string, subsetPath: string): Promise<void>
     fs.unlinkSync(donePath);
   } catch {}
 
-  // Use shell pipeline to avoid Node.js buffering
+  // Use shell pipeline with pipefail to detect early failures
   // Limit lbzip2 to 2 threads to match consumer speed
-  const exitCode = spawnSync(
-    `lbzip2 -dc -n2 "${dumpPath}" | bun src/import/subset.ts > "${subsetPath}"`,
-    { shell: true, stdio: "inherit", cwd: process.cwd() },
-  ).status;
+  const shellCmd = `set -o pipefail && lbzip2 -dc -n2 "${dumpPath}" | bun src/import/subset.ts > "${subsetPath}"`;
+  const exitCode = spawnSync(shellCmd, {
+    shell: true,
+    stdio: "inherit",
+    cwd: process.cwd(),
+  }).status;
 
   if (exitCode !== 0) {
     throw new Error(`Subset creation failed with exit code ${exitCode}`);
@@ -413,4 +312,16 @@ export async function runFullPipeline(db: DbType, config: ImportConfig): Promise
 
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(0);
   console.log(`\n[pipeline] Total pipeline completed in ${totalTime}s`);
+}
+
+export type { MediaImportOpts };
+
+export async function runSubset(config: ImportConfig): Promise<void> {
+  const dumpPath = findDumpPath(config.dataDir);
+  if (!dumpPath) {
+    throw new Error(`No dump found in ${config.dataDir}`);
+  }
+
+  const subsetPath = `${config.dataDir}/subset.ndjson`;
+  await createSubset(dumpPath, subsetPath);
 }

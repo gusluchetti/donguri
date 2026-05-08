@@ -13,18 +13,15 @@ function getClient(): Resend | null {
   return client;
 }
 
-export async function notifySuccess(
-  mode: "full" | "incremental",
-  durationMs: number,
-): Promise<void> {
+export async function notifySuccess(stage: string, durationMs: number): Promise<void> {
   const config = getConfig();
   const client = getClient();
   if (!client || !config.emailOnSuccess) return;
 
   const duration = formatDuration(durationMs);
-  const subject = `[donguri] Import completed (${mode})`;
+  const subject = `[donguri] Import completed (${stage})`;
 
-  const body = `Import pipeline ${mode} completed in ${duration}.
+  const body = `Import pipeline stage "${stage}" completed in ${duration}.
 
 Data source: Wikidata (full dump + RecentChanges).
 Timestamp: ${new Date().toISOString()}`;

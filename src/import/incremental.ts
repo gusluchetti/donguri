@@ -12,99 +12,16 @@
 import { eq, sql } from "drizzle-orm";
 import { fetch } from "undici";
 import { TRGM_SETUP_SQL } from "~/db/fts";
-import { CANONICAL_GENRES, GENRE_MAPPINGS } from "~/db/genre-data";
-import { CANONICAL_PLATFORMS, PLATFORM_MAPPINGS } from "~/db/platform-data";
-import {
-  canonicalGenres,
-  canonicalPlatforms,
-  genreMappings,
-  importProgress,
-  media,
-  platformMappings,
-} from "~/db/schema";
+import { importProgress, media } from "~/db/schema";
 import { parseMediaEntity, shouldImportEntity } from "./_filters";
+import { loadCanonicalLookups, seedCanonicalMappings } from "./_mappings";
 import { formatDuration, withRetry } from "./_retry";
 import type { ParsedMedia, WikidataEntity } from "./_types";
-import { type CanonicalLookup, type DbType, type ImportStats, processSuperBatch } from "./_upsert";
+import { type DbType, type ImportStats, processSuperBatch } from "./_upsert";
 import type { ImportConfig } from "./config";
 import { getLastFullDumpAt, getLastIncrementalAt, setLastIncrementalAt } from "./state";
 
 const WIKIDATA_API = "https://www.wikidata.org/w/api.php";
-
-interface ParsedIncremental {
-  parsed: ParsedMedia[];
-  errors: number;
-}
-
-async function seedCanonicalMappings(db: DbType): Promise<void> {
-  console.log("[mappings] Syncing canonical genres/platforms...");
-
-  const topGenres = CANONICAL_GENRES.filter((g) => g.parentSlug === null);
-  for (const g of topGenres) {
-    await db
-      .insert(canonicalGenres)
-      .values({ slug: g.slug, name: g.name, parentId: null, sortOrder: g.sortOrder })
-      .onConflictDoNothing({ target: canonicalGenres.slug });
-  }
-  const allGenres = await db.select().from(canonicalGenres);
-  const genreSlugToId = new Map(allGenres.map((g) => [g.slug, g.id]));
-
-  for (const g of CANONICAL_GENRES.filter(
-    (g): g is typeof g & { parentSlug: string } => g.parentSlug !== null,
-  )) {
-    const parentId = genreSlugToId.get(g.parentSlug);
-    if (!parentId) continue;
-    await db
-      .insert(canonicalGenres)
-      .values({ slug: g.slug, name: g.name, parentId, sortOrder: g.sortOrder })
-      .onConflictDoNothing({ target: canonicalGenres.slug });
-  }
-  const allGenresNow = await db.select().from(canonicalGenres);
-  const genreSlugToIdNow = new Map(allGenresNow.map((g) => [g.slug, g.id]));
-
-  for (const m of GENRE_MAPPINGS) {
-    const id = genreSlugToIdNow.get(m.canonicalSlug);
-    if (!id) continue;
-    await db
-      .insert(genreMappings)
-      .values({ wikidataId: m.wikidataId, canonicalGenreId: id, source: "manual" })
-      .onConflictDoNothing();
-  }
-
-  const topPlatforms = CANONICAL_PLATFORMS.filter((p) => p.parentSlug === null);
-  for (const p of topPlatforms) {
-    await db
-      .insert(canonicalPlatforms)
-      .values({ slug: p.slug, name: p.name, parentId: null, sortOrder: p.sortOrder })
-      .onConflictDoNothing({ target: canonicalPlatforms.slug });
-  }
-  const allPlatforms = await db.select().from(canonicalPlatforms);
-  const platSlugToId = new Map(allPlatforms.map((p) => [p.slug, p.id]));
-
-  for (const p of CANONICAL_PLATFORMS.filter(
-    (p): p is typeof p & { parentSlug: string } => p.parentSlug !== null,
-  )) {
-    const parentId = platSlugToId.get(p.parentSlug);
-    if (!parentId) continue;
-    await db
-      .insert(canonicalPlatforms)
-      .values({ slug: p.slug, name: p.name, parentId, sortOrder: p.sortOrder })
-      .onConflictDoNothing({ target: canonicalPlatforms.slug });
-  }
-  const allPlatformsNow = await db.select().from(canonicalPlatforms);
-  const platSlugToIdNow = new Map(allPlatformsNow.map((p) => [p.slug, p.id]));
-
-  for (const m of PLATFORM_MAPPINGS) {
-    const id = platSlugToIdNow.get(m.canonicalSlug);
-    if (!id) continue;
-    await db
-      .insert(platformMappings)
-      .values({ wikidataId: m.wikidataId, canonicalPlatformId: id, source: "manual" })
-      .onConflictDoNothing();
-  }
-
-  console.log("[mappings] Completed");
-}
 
 interface RecentChangesResult {
   qid: string;
@@ -165,6 +82,13 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
     const data = await withRetry(async () => {
       const response = await fetch(url, { headers: { "User-Agent": "donguri-import-bot/1.0" } });
       if (!response.ok) {
+        // Handle rate limiting with Retry-After header
+        if (response.status === 429) {
+          const retryAfter = response.headers.get("retry-after");
+          const delaySeconds = retryAfter ? parseInt(retryAfter, 10) : 5;
+          console.log(`[recentchanges] Rate limited, waiting ${delaySeconds}s before retry...`);
+          await new Promise((r) => setTimeout(r, delaySeconds * 1000));
+        }
         throw new Error(`RecentChanges API failed: HTTP ${response.status} ${response.statusText}`);
       }
       const json = (await response.json()) as {
@@ -265,30 +189,6 @@ async function fetchEntitiesFromWikidata(qids: string[]): Promise<WikidataEntity
 }
 
 /**
- * Parse and filter entities, same as full pipeline.
- */
-async function parseEntities(entities: WikidataEntity[]): Promise<ParsedIncremental> {
-  console.log(`[parse] Parsing ${entities.length} entities...`);
-
-  const parsed: ParsedMedia[] = [];
-  let errors = 0;
-
-  for (const entity of entities) {
-    try {
-      if (!shouldImportEntity(entity)) continue;
-      const media = parseMediaEntity(entity);
-      if (!media) continue;
-      parsed.push(media);
-    } catch {
-      errors++;
-    }
-  }
-
-  console.log(`[parse] Parsed: ${parsed.length}, Errors: ${errors}`);
-  return { parsed, errors };
-}
-
-/**
  * Main incremental update function.
  * Returns true if full dump is needed (gap too large), false otherwise.
  */
@@ -347,7 +247,21 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
   console.log(`[incremental] Fetched ${entities.length} full entities`);
 
   // Parse
-  const { parsed } = await parseEntities(entities);
+  console.log(`[parse] Parsing ${entities.length} entities...`);
+  const parsed: ParsedMedia[] = [];
+  let parseErrors = 0;
+
+  for (const entity of entities) {
+    try {
+      if (!shouldImportEntity(entity)) continue;
+      const m = parseMediaEntity(entity);
+      if (!m) continue;
+      parsed.push(m);
+    } catch {
+      parseErrors++;
+    }
+  }
+  console.log(`[parse] Parsed: ${parsed.length}, Errors: ${parseErrors}`);
 
   if (parsed.length === 0) {
     console.log("[incremental] No valid entities to import");
@@ -367,30 +281,7 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
     .returning({ id: importProgress.id });
 
   await seedCanonicalMappings(db);
-
-  console.log("[incremental] Loading canonical genre/platform mappings...");
-  const genreLookup: CanonicalLookup = {};
-  const platformLookup: CanonicalLookup = {};
-
-  const [gmRows, pmRows] = await Promise.all([
-    db
-      .select({ wikidataId: genreMappings.wikidataId, canonicalId: genreMappings.canonicalGenreId })
-      .from(genreMappings),
-    db
-      .select({
-        wikidataId: platformMappings.wikidataId,
-        canonicalId: platformMappings.canonicalPlatformId,
-      })
-      .from(platformMappings),
-  ]);
-  for (const row of gmRows) {
-    if (!genreLookup[row.wikidataId]) genreLookup[row.wikidataId] = [];
-    genreLookup[row.wikidataId].push(row.canonicalId);
-  }
-  for (const row of pmRows) {
-    if (!platformLookup[row.wikidataId]) platformLookup[row.wikidataId] = [];
-    platformLookup[row.wikidataId].push(row.canonicalId);
-  }
+  const { genreLookup, platformLookup } = await loadCanonicalLookups(db);
 
   // Upsert in batches
   console.log("[incremental] Upserting entities...");
@@ -426,10 +317,17 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
 
   const totalTime = formatDuration(Date.now() - startTime);
   console.log(`\n[incremental] Completed in ${totalTime}`);
+  console.log(`  Processed:   ${stats.entitiesProcessed.toLocaleString()} Wikidata entities`);
   console.log(
-    `  Processed: ${stats.entitiesProcessed}, Imported: ${stats.entitiesImported} ` +
-      `(${stats.entitiesNew} new, ${stats.entitiesUpdated} updated)`,
+    `  Imported:    ${stats.entitiesImported.toLocaleString()} media rows (${stats.entitiesNew.toLocaleString()} new, ${stats.entitiesUpdated.toLocaleString()} updated)`,
   );
+  console.log(`  Genre links: ${stats.genresFound.toLocaleString()}`);
+  console.log(`  Platform links: ${stats.platformsFound.toLocaleString()}`);
+  console.log(`  Errors:      ${stats.errors}`);
+  console.log(`  By type:`);
+  for (const [type, count] of Object.entries(stats.byType)) {
+    if (count > 0) console.log(`    ${type}: ${count.toLocaleString()}`);
+  }
 
   return false;
 }
