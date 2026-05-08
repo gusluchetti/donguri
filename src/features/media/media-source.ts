@@ -57,7 +57,7 @@ class DbSource implements MediaSource {
 
     if (mediaType) conditions.push(...typeConditions(mediaType));
 
-    // Keyset cursor pagination (popularity_score ASC NULLS LAST, sitelinks_count DESC, id ASC)
+    // Keyset cursor pagination (popularity_score DESC NULLS LAST, sitelinks_count DESC, id ASC)
     if (cursor) {
       const [cursorItem] = await db
         .select({
@@ -76,7 +76,7 @@ class DbSource implements MediaSource {
           conditions.push(
             sql`(
               (${media.popularityScore} IS NOT NULL AND (
-                ${media.popularityScore} > ${ps}
+                ${media.popularityScore} < ${ps}
                 OR (${media.popularityScore} = ${ps} AND COALESCE(${media.sitelinksCount}, 0) < ${sc})
                 OR (${media.popularityScore} = ${ps} AND COALESCE(${media.sitelinksCount}, 0) = ${sc} AND ${media.id} > ${cursor})
               ))
@@ -101,7 +101,7 @@ class DbSource implements MediaSource {
       .from(media)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(
-        sql`${media.popularityScore} ASC NULLS LAST`,
+        sql`${media.popularityScore} DESC NULLS LAST`,
         desc(media.sitelinksCount),
         asc(media.id),
       )
@@ -137,7 +137,7 @@ class DbSource implements MediaSource {
       word_similarity(${searchTerm}, ${media.title}),
       word_similarity(${searchTerm}, COALESCE(${media.originalTitle}, '')),
       word_similarity(${normalizedTerm}, COALESCE(${media.searchTitle}, ''))
-    ) + COALESCE(1.0 - ${media.popularityScore}, 0)`;
+    ) + COALESCE(${media.popularityScore}, 0)`;
 
     const fuzzyCondition = sql`(
       ${searchTerm} <% ${media.title}
@@ -158,7 +158,7 @@ class DbSource implements MediaSource {
       .where(and(...conditions))
       .orderBy(
         desc(relevance),
-        sql`${media.popularityScore} ASC NULLS LAST`,
+        sql`${media.popularityScore} DESC NULLS LAST`,
         desc(media.sitelinksCount),
         asc(media.id),
       )
@@ -236,8 +236,8 @@ class CacheSource implements MediaSource {
       const origLower = item.originalTitle?.toLowerCase() ?? "";
       const itemAliases = item.aliases ? item.aliases.split("|") : [];
       const searchTitleVal = item.searchTitle ?? "";
-      // Popularity bonus: 0-1 where higher = more popular
-      const popBonus = item.popularityScore != null ? 1.0 - Number(item.popularityScore) : 0;
+      // Popularity bonus: 0.00000–1.00000 where higher = more popular
+      const popBonus = item.popularityScore != null ? Number(item.popularityScore) : 0;
 
       if (itemAliases.includes(searchTerm)) {
         scored.push({ item, score: 10 + popBonus });

@@ -216,7 +216,7 @@ export async function processSuperBatch(
 							runtime_minutes = COALESCE(EXCLUDED.runtime_minutes, media.runtime_minutes),
 							season_count = COALESCE(EXCLUDED.season_count, media.season_count),
 							episode_count = COALESCE(EXCLUDED.episode_count, media.episode_count),
-							sitelinks_count = GREATEST(EXCLUDED.sitelinks_count, media.sitelinks_count),
+							sitelinks_count = EXCLUDED.sitelinks_count,
 							country_of_origin = COALESCE(EXCLUDED.country_of_origin, media.country_of_origin),
 							imdb_id = COALESCE(EXCLUDED.imdb_id, media.imdb_id),
 							tmdb_id = COALESCE(EXCLUDED.tmdb_id, media.tmdb_id),

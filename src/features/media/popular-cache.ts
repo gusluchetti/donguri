@@ -45,7 +45,7 @@ async function warmCache(): Promise<void> {
         .from(media)
         .where(bucketCondition(type))
         .orderBy(
-          sql`${media.popularityScore} ASC NULLS LAST`,
+          sql`${media.popularityScore} DESC NULLS LAST`,
           desc(media.sitelinksCount),
           asc(media.id),
         )
@@ -63,9 +63,9 @@ async function warmCache(): Promise<void> {
   // Merge all types, re-sort by same order
   const newAll = FILTER_TYPES.flatMap((t) => newByType[t]);
   newAll.sort((a, b) => {
-    const pa = a.popularityScore == null ? Number.POSITIVE_INFINITY : Number(a.popularityScore);
-    const pb = b.popularityScore == null ? Number.POSITIVE_INFINITY : Number(b.popularityScore);
-    if (pa !== pb) return pa - pb;
+    const pa = a.popularityScore == null ? Number.NEGATIVE_INFINITY : Number(a.popularityScore);
+    const pb = b.popularityScore == null ? Number.NEGATIVE_INFINITY : Number(b.popularityScore);
+    if (pa !== pb) return pb - pa;
     const sa = b.sitelinksCount ?? 0;
     const sb = a.sitelinksCount ?? 0;
     if (sa !== sb) return sa - sb;

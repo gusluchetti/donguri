@@ -43,12 +43,12 @@ export const media = pgTable(
     seasonCount: integer("season_count"),
     episodeCount: integer("episode_count"),
 
-    // Popularity
+    // Popularity (0.00000 = least popular, 1.00000 = most popular)
     sitelinksCount: integer("sitelinks_count").default(0),
-    qrankPct: numeric("qrank_pct", { precision: 5, scale: 2 }),
-    sitelinksPct: numeric("sitelinks_pct", { precision: 5, scale: 2 }),
-    popularityScore: numeric("popularity_score", { precision: 5, scale: 2 }).generatedAlwaysAs(
-      sql`CASE WHEN qrank_pct IS NOT NULL THEN 0.6 * qrank_pct + 0.4 * COALESCE(sitelinks_pct, 100) ELSE COALESCE(sitelinks_pct, 100) END`,
+    qrankScore: numeric("qrank_score", { precision: 6, scale: 5 }),
+    sitelinksScore: numeric("sitelinks_score", { precision: 6, scale: 5 }),
+    popularityScore: numeric("popularity_score", { precision: 6, scale: 5 }).generatedAlwaysAs(
+      sql`0.6 * COALESCE(qrank_score, 0.0) + 0.4 * COALESCE(sitelinks_score, 0.0)`,
     ),
 
     // Country

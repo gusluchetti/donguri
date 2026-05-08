@@ -15,20 +15,20 @@ export interface QrankStats {
 }
 
 async function computeSitelinksPercentiles(db: DbType): Promise<void> {
-  console.log("[qrank] Computing sitelinks_pct...");
+  console.log("[qrank] Computing sitelinks_score...");
   await db.$client.unsafe(`
 		WITH ranked AS (
 			SELECT
 				id,
-				PERCENT_RANK() OVER (ORDER BY sitelinks_count DESC) * 100 AS sitelinks_pct
+				1.0 - PERCENT_RANK() OVER (ORDER BY sitelinks_count DESC) AS sitelinks_score
 			FROM media
 		)
 		UPDATE media
-		SET sitelinks_pct = ranked.sitelinks_pct
+		SET sitelinks_score = ranked.sitelinks_score
 		FROM ranked
 		WHERE media.id = ranked.id
 	`);
-  console.log("[qrank] sitelinks_pct updated");
+  console.log("[qrank] sitelinks_score updated");
 }
 
 async function loadWikidataIds(db: DbType): Promise<Set<string>> {
@@ -63,17 +63,20 @@ async function parseMatchesFromQrank(
 }
 
 function computePercentiles(matches: Map<string, number>): Map<string, number> {
-  const sorted = Array.from(matches.entries()).sort((a, b) => a[1] - b[1]);
+  // Sort descending: highest QRank score (most popular) gets index 0
+  const sorted = Array.from(matches.entries()).sort((a, b) => b[1] - a[1]);
   const total = sorted.length;
   const percentiles = new Map<string, number>();
   if (total === 0) return percentiles;
 
   for (let i = 0; i < total; i++) {
     const [qid] = sorted[i];
-    percentiles.set(qid, Number(((i / total) * 100).toFixed(2)));
+    // 1.0 for most popular (i=0), 0.0 for least popular (i=total-1)
+    const score = total === 1 ? 1.0 : 1.0 - i / (total - 1);
+    percentiles.set(qid, Number(score.toFixed(5)));
   }
   console.log(
-    `[qrank] Percentiles range: min=${percentiles.values().next().value}, max=${percentiles.get(sorted[total - 1][0])}`,
+    `[qrank] Scores range: max=${percentiles.values().next().value}, min=${percentiles.get(sorted[total - 1][0])}`,
   );
   return percentiles;
 }
@@ -98,8 +101,8 @@ async function updateQrankPercentiles(
     await db.$client.unsafe(
       `
 			UPDATE media
-			SET qrank_pct = data.pct
-			FROM (VALUES ${placeholders}) AS data(qid, pct)
+			SET qrank_score = data.score
+			FROM (VALUES ${placeholders}) AS data(qid, score)
 			WHERE media.wikidata_id = 'Q' || data.qid
 		`,
       values,
