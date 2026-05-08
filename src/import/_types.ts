@@ -123,6 +123,8 @@ export const WikidataProperties = {
   ANN_ID: "P1985",
   TVDB_ID: "P4835",
   TVMAZE_ID: "P4372",
+  ISBN_13: "P212",
+  ISBN_10: "P957",
 
   // Dates
   START_TIME: "P580",
@@ -134,14 +136,16 @@ export const WikidataProperties = {
   SEASON_COUNT: "P2437",
   DURATION: "P2047",
 
-  // Series / Season
+  // Series / Season / Collection
   PART_OF_SERIES: "P179",
   SERIES_ORDINAL: "P1545",
+  PART_OF: "P361",
 
   // Classification
   GENRE: "P136",
   COUNTRY_OF_ORIGIN: "P495",
   PLATFORM: "P400",
+  PERFORMER: "P175",
 
   // Title/Language
   TITLE: "P1476",
@@ -163,6 +167,28 @@ export const MediaTypeQValues = {
   VIDEO_GAME: "Q7889",
   TV_SEASON: "Q3464665",
   ANIME_SEASON: "Q100269041",
+
+  // Podcast
+  PODCAST: "Q24634210",
+
+  // Books
+  BOOK: "Q571",
+  NOVEL: "Q8261",
+
+  // Music albums
+  ALBUM: "Q482994",
+  STUDIO_ALBUM: "Q208569",
+  COMPILATION_ALBUM: "Q169930",
+  LIVE_ALBUM: "Q222910",
+  EP: "Q209939",
+
+  // Music tracks
+  SONG: "Q7366",
+  SINGLE: "Q134556",
+
+  // Collections / sagas
+  FILM_SERIES: "Q24856",
+  MEDIA_FRANCHISE: "Q1260632",
 } as const;
 
 export type MediaType = "movie" | "tv_series" | "game";

@@ -24,6 +24,11 @@ const CONNECTION_ERROR_PATTERNS = [
   "connection refused",
   "fetch failed",
   "terminated unexpectedly",
+  "HTTP 429",
+  "HTTP 503",
+  "query timeout",
+  "SPARQL endpoint unavailable",
+  "500 Internal Server Error",
 ];
 
 export function isConnectionError(err: unknown): boolean {

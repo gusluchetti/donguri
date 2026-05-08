@@ -35,6 +35,39 @@ const ALL_MEDIA_TYPES = new Set<string>([
   ...ANIME_TYPES,
 ]);
 
+// New media type sets
+const PODCAST_TYPES = new Set<string>([Q.PODCAST]);
+
+const BOOK_TYPES = new Set<string>([Q.BOOK, Q.NOVEL]);
+
+const MUSIC_ALBUM_TYPES = new Set<string>([
+  Q.ALBUM,
+  Q.STUDIO_ALBUM,
+  Q.COMPILATION_ALBUM,
+  Q.LIVE_ALBUM,
+  Q.EP,
+]);
+const MUSIC_TRACK_TYPES = new Set<string>([Q.SONG, Q.SINGLE]);
+const MUSIC_TYPES = new Set<string>([...MUSIC_ALBUM_TYPES, ...MUSIC_TRACK_TYPES]);
+
+const COLLECTION_TYPES = new Set<string>([Q.FILM_SERIES, Q.MEDIA_FRANCHISE]);
+
+// Quality-gate helpers
+function hasValidIsbn(entity: WikidataEntity): boolean {
+  return getStringClaim(entity, P.ISBN_13) !== null || getStringClaim(entity, P.ISBN_10) !== null;
+}
+
+function hasValidMusicMetadata(entity: WikidataEntity, iov: string[]): boolean {
+  const hasPerformer = getFirstEntityIdClaim(entity, P.PERFORMER) !== null;
+  const hasYear = getYearFromTimeClaim(entity, P.PUBLICATION_DATE) !== null;
+  if (!hasPerformer || !hasYear) return false;
+  // Tracks must also have P361 (part of) linking to an album
+  if (iov.some((q) => MUSIC_TRACK_TYPES.has(q))) {
+    return getFirstEntityIdClaim(entity, P.PART_OF) !== null;
+  }
+  return true;
+}
+
 // External ID properties to check for quality filter
 const EXTERNAL_ID_PROPERTIES = [
   P.IMDB_ID,
@@ -144,8 +177,12 @@ export function determineMediaType(
  * Check if an entity is a media type we're interested in
  */
 export function isMediaEntity(entity: WikidataEntity): boolean {
-  const instanceOfValues = getInstanceOfValues(entity);
-  return instanceOfValues.some((qValue) => ALL_MEDIA_TYPES.has(qValue));
+  const iov = getInstanceOfValues(entity);
+  if (iov.some((q) => ALL_MEDIA_TYPES.has(q))) return true;
+  if (iov.some((q) => PODCAST_TYPES.has(q))) return true;
+  if (iov.some((q) => BOOK_TYPES.has(q)) && hasValidIsbn(entity)) return true;
+  if (iov.some((q) => MUSIC_TYPES.has(q)) && hasValidMusicMetadata(entity, iov)) return true;
+  return false;
 }
 
 // Season Q-values (TV season + anime season)
@@ -160,6 +197,14 @@ export function isSeasonEntity(entity: WikidataEntity): boolean {
   // Must have P179 (part of series) to be linkable to a parent show
   if (!entity.claims?.[P.PART_OF_SERIES]) return false;
   return true;
+}
+
+/**
+ * Check if an entity is a collection/saga (film series, media franchise)
+ */
+export function isCollectionEntity(entity: WikidataEntity): boolean {
+  const iov = getInstanceOfValues(entity);
+  return iov.some((q) => COLLECTION_TYPES.has(q));
 }
 
 /**

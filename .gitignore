@@ -18,8 +18,8 @@ src/routeTree.gen.ts
 # Import data
 *.ndjson
 media-subset.*
-anime-offline*
-qrank*
+data/anime-offline*
+data/qrank*
 data/
 logs/
 
