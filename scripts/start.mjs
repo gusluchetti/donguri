@@ -37,7 +37,10 @@ async function serveStatic(pathname) {
 
     const body = await readFile(filePath);
     const ext = extname(filePath);
-    const contentType = MIME_TYPES[ext] || "application/octet-stream";
+    const contentType =
+      pathname === "/manifest.json"
+        ? "application/manifest+json"
+        : MIME_TYPES[ext] || "application/octet-stream";
 
     const headers = {
       "Content-Type": contentType,
@@ -47,6 +50,11 @@ async function serveStatic(pathname) {
     // Content-hashed assets get immutable cache headers
     if (pathname.startsWith("/assets/")) {
       headers["Cache-Control"] = "public, max-age=31536000, immutable";
+    }
+    
+    // Service worker should always be revalidated
+    if (pathname === "/sw.js") {
+      headers["Cache-Control"] = "no-cache";
     }
 
     return new Response(body, { status: 200, headers });
