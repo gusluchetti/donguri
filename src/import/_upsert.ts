@@ -310,10 +310,6 @@ export async function processSuperBatch(
         ]),
       "insert relations",
     );
-
-    console.log(
-      `  Batch: ${batchNew} new, ${batchUpdated} updated, ${genreRelations.length} genre links, ${platformRelations.length} platform links`,
-    );
   } catch (error) {
     stats.errors += batch.length;
     console.error("Super-batch error:", error);

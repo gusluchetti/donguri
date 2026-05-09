@@ -6,8 +6,6 @@ import { canonicalGenres, genreMappings } from "./schema";
 const db = getDb();
 
 async function seed() {
-  console.log("Seeding canonical genres...");
-
   const topLevel = CANONICAL_GENRES.filter((g) => g.parentSlug === null);
   for (const g of topLevel) {
     await db
@@ -15,7 +13,6 @@ async function seed() {
       .values({ slug: g.slug, name: g.name, parentId: null, sortOrder: g.sortOrder })
       .onConflictDoNothing({ target: canonicalGenres.slug });
   }
-  console.log(`  ${topLevel.length} top-level genres`);
 
   const allGenres = await db.select().from(canonicalGenres);
   const slugToId = new Map(allGenres.map((g) => [g.slug, g.id]));
@@ -33,31 +30,27 @@ async function seed() {
       .values({ slug: g.slug, name: g.name, parentId, sortOrder: g.sortOrder })
       .onConflictDoNothing({ target: canonicalGenres.slug });
   }
-  console.log(`  ${subGenres.length} sub-genres`);
 
   const allGenresNow = await db.select().from(canonicalGenres);
   const slugToIdNow = new Map(allGenresNow.map((g) => [g.slug, g.id]));
 
-  let mapped = 0;
-  let skipped = 0;
+  let _mapped = 0;
+  let _skipped = 0;
   for (const m of GENRE_MAPPINGS) {
     const canonicalGenreId = slugToIdNow.get(m.canonicalSlug);
     if (!canonicalGenreId) {
       console.warn(
         `  WARN: canonical slug "${m.canonicalSlug}" not found for Q-ID "${m.wikidataId}"`,
       );
-      skipped++;
+      _skipped++;
       continue;
     }
     await db
       .insert(genreMappings)
       .values({ wikidataId: m.wikidataId, canonicalGenreId, source: "manual" })
       .onConflictDoNothing();
-    mapped++;
+    _mapped++;
   }
-  console.log(`  ${mapped} mappings inserted (${skipped} skipped)`);
-
-  console.log("Done!");
   await db.execute(sql`SELECT 1`).then(() => process.exit(0));
 }
 

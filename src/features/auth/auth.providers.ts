@@ -217,7 +217,8 @@ export async function handleProviderCallback(
   const profile = await config.exchangeCode(code, redirectUri);
 
   const isDev = process.env.NODE_ENV === "development";
-  if (isDev) console.debug("[oauth:%s] profile: %o", provider, { ...profile, avatarUrl: "..." });
+  if (isDev) {
+  }
 
   const db = getDb();
   const { idColumn } = config;
@@ -245,7 +246,8 @@ export async function handleProviderCallback(
         avatarUrl: profile.avatarUrl,
       })
       .where(eq(users.id, userId));
-    if (isDev) console.debug("[oauth:%s] returning user: %s", provider, userId);
+    if (isDev) {
+    }
   } else if (profile.email) {
     // 2. Try email-based auto-link: attach this provider to an existing account
     const [byEmail] = await db
@@ -261,13 +263,8 @@ export async function handleProviderCallback(
         .update(users)
         .set({ avatarUrl: profile.avatarUrl, [config.idKey]: profile.providerId })
         .where(eq(users.id, userId));
-      if (isDev)
-        console.debug(
-          "[oauth:%s] linked to existing user %s (matched by email %s)",
-          provider,
-          userId,
-          profile.email,
-        );
+      if (isDev) {
+      }
     } else {
       // 3. Brand new user
       const [newUser] = await db
@@ -283,7 +280,8 @@ export async function handleProviderCallback(
       userId = newUser.id;
       handle = profile.name;
       isNewUser = true;
-      if (isDev) console.debug("[oauth:%s] created new user: %s", provider, userId);
+      if (isDev) {
+      }
     }
   } else {
     // No email from provider — create new user without linking
@@ -299,7 +297,8 @@ export async function handleProviderCallback(
     userId = newUser.id;
     handle = profile.name;
     isNewUser = true;
-    if (isDev) console.debug("[oauth:%s] created new user (no email): %s", provider, userId);
+    if (isDev) {
+    }
   }
 
   const { getUserSubscriptionTier } = await import("~/features/subscription/subscription.server");

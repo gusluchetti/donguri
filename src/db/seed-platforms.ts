@@ -6,8 +6,6 @@ import { canonicalPlatforms, platformMappings } from "./schema";
 const db = getDb();
 
 async function seed() {
-  console.log("Seeding canonical platforms...");
-
   const topLevel = CANONICAL_PLATFORMS.filter((p) => p.parentSlug === null);
   for (const p of topLevel) {
     await db
@@ -15,7 +13,6 @@ async function seed() {
       .values({ slug: p.slug, name: p.name, parentId: null, sortOrder: p.sortOrder })
       .onConflictDoNothing({ target: canonicalPlatforms.slug });
   }
-  console.log(`  ${topLevel.length} top-level platforms`);
 
   const allPlatforms = await db.select().from(canonicalPlatforms);
   const slugToId = new Map(allPlatforms.map((p) => [p.slug, p.id]));
@@ -33,31 +30,27 @@ async function seed() {
       .values({ slug: p.slug, name: p.name, parentId, sortOrder: p.sortOrder })
       .onConflictDoNothing({ target: canonicalPlatforms.slug });
   }
-  console.log(`  ${children.length} child platforms`);
 
   const allPlatformsNow = await db.select().from(canonicalPlatforms);
   const slugToIdNow = new Map(allPlatformsNow.map((p) => [p.slug, p.id]));
 
-  let mapped = 0;
-  let skipped = 0;
+  let _mapped = 0;
+  let _skipped = 0;
   for (const m of PLATFORM_MAPPINGS) {
     const canonicalPlatformId = slugToIdNow.get(m.canonicalSlug);
     if (!canonicalPlatformId) {
       console.warn(
         `  WARN: canonical slug "${m.canonicalSlug}" not found for Q-ID "${m.wikidataId}"`,
       );
-      skipped++;
+      _skipped++;
       continue;
     }
     await db
       .insert(platformMappings)
       .values({ wikidataId: m.wikidataId, canonicalPlatformId, source: "manual" })
       .onConflictDoNothing();
-    mapped++;
+    _mapped++;
   }
-  console.log(`  ${mapped} mappings inserted (${skipped} skipped)`);
-
-  console.log("Done!");
   await db.execute(sql`SELECT 1`).then(() => process.exit(0));
 }
 

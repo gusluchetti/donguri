@@ -4,7 +4,7 @@
  */
 
 const DEFAULT_MAX_RETRIES = 5;
-const DEFAULT_BASE_DELAY_MS = 1_000;
+const DEFAULT_BASE_DELAY_MS = 1000;
 const DEFAULT_MAX_DELAY_MS = 30_000;
 
 export interface RetryOptions {
@@ -51,7 +51,6 @@ export async function withRetry<T>(
     try {
       const result = await fn();
       if (lastAttempt > 0) {
-        console.log(`[retry] ${label} succeeded on attempt ${attempt}/${maxRetries}`);
       }
       return result;
     } catch (err) {
@@ -74,8 +73,8 @@ export async function withRetry<T>(
 
 export function formatDuration(ms: number): string {
   const seconds = Math.floor(ms / 1000) % 60;
-  const minutes = Math.floor(ms / 60000) % 60;
-  const hours = Math.floor(ms / 3600000);
+  const minutes = Math.floor(ms / 60_000) % 60;
+  const hours = Math.floor(ms / 3_600_000);
   if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
   if (minutes > 0) return `${minutes}m ${seconds}s`;
   return `${seconds}s`;

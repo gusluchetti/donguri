@@ -28,7 +28,6 @@ export const getCatalogEntry = createServerFn({ method: "GET" })
   .inputValidator(z.object({ wikidataId: z.string() }))
   .handler(async ({ data }): Promise<CatalogEntry | null> => {
     const { userId } = await requireAuth();
-    console.debug("[catalog] getCatalogEntry wikidataId=%s userId=%s", data.wikidataId, userId);
     const db = getDb();
 
     const [entry] = await db
@@ -40,16 +39,11 @@ export const getCatalogEntry = createServerFn({ method: "GET" })
       .limit(1);
 
     const result = entry ?? null;
-    console.debug(
-      "[catalog] getCatalogEntry → %s",
-      result ? `found (status=${result.status})` : "null",
-    );
     return result;
   });
 
 export const getUserCatalogEntries = createServerFn({ method: "GET" }).handler(async () => {
   const { userId } = await requireAuth();
-  console.debug("[catalog] getUserCatalogEntries userId=%s", userId);
   const db = getDb();
 
   const entries = await db
@@ -76,14 +70,11 @@ export const getUserCatalogEntries = createServerFn({ method: "GET" }).handler(a
     .leftJoin(media, eq(catalogEntries.mediaWikidataId, media.wikidataId))
     .where(eq(catalogEntries.userId, userId))
     .orderBy(desc(catalogEntries.updatedAt));
-
-  console.debug("[catalog] getUserCatalogEntries → %d entries", entries.length);
   return entries.map((e) => resolveMediaPoster(e, "detail"));
 });
 
 export const getUserTrackedIds = createServerFn({ method: "GET" }).handler(async () => {
   const { userId } = await requireAuth();
-  console.debug("[catalog] getUserTrackedIds userId=%s", userId);
   const db = getDb();
 
   const entries = await db
@@ -93,8 +84,6 @@ export const getUserTrackedIds = createServerFn({ method: "GET" }).handler(async
     })
     .from(catalogEntries)
     .where(eq(catalogEntries.userId, userId));
-
-  console.debug("[catalog] getUserTrackedIds → %d tracked", entries.length);
   return Object.fromEntries(entries.map((e) => [e.mediaWikidataId, e.status]));
 });
 
@@ -114,20 +103,9 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    console.debug(
-      "[catalog] setCatalogEntry wikidataId=%s status=%s rating=%s",
-      data.wikidataId,
-      data.status,
-      data.rating ?? "null",
-    );
     try {
       const auth = await requireAuth();
       const { userId } = auth;
-      console.debug(
-        "[catalog] setCatalogEntry auth ok userId=%s method=%s",
-        userId,
-        auth.authMethod,
-      );
 
       const now = new Date().toISOString();
       const db = getDb();
@@ -230,8 +208,6 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
             set: values,
           });
       }
-
-      console.debug("[catalog] setCatalogEntry → ok");
       return { ok: true };
     } catch (err) {
       throwIfSessionExpired(err);
@@ -243,15 +219,9 @@ export const setCatalogEntry = createServerFn({ method: "POST" })
 export const removeCatalogEntry = createServerFn({ method: "POST" })
   .inputValidator(z.object({ wikidataId: z.string() }))
   .handler(async ({ data }) => {
-    console.debug("[catalog] removeCatalogEntry wikidataId=%s", data.wikidataId);
     try {
       const auth = await requireAuth();
       const { userId } = auth;
-      console.debug(
-        "[catalog] removeCatalogEntry auth ok userId=%s method=%s",
-        userId,
-        auth.authMethod,
-      );
 
       if (auth.authMethod === "atproto" && auth.did) {
         // PDS-first flow for AT Protocol users
@@ -269,8 +239,6 @@ export const removeCatalogEntry = createServerFn({ method: "POST" })
             ),
           );
       }
-
-      console.debug("[catalog] removeCatalogEntry → ok");
       return { ok: true };
     } catch (err) {
       throwIfSessionExpired(err);

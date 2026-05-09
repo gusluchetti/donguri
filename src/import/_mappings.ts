@@ -4,8 +4,6 @@ import { canonicalGenres, canonicalPlatforms, genreMappings, platformMappings } 
 import type { CanonicalLookup, DbType } from "./_upsert";
 
 export async function seedCanonicalMappings(db: DbType): Promise<void> {
-  console.log("[mappings] Syncing canonical genres/platforms...");
-
   const topGenres = CANONICAL_GENRES.filter((g) => g.parentSlug === null);
   for (const g of topGenres) {
     await db
@@ -69,15 +67,12 @@ export async function seedCanonicalMappings(db: DbType): Promise<void> {
       .values({ wikidataId: m.wikidataId, canonicalPlatformId: id, source: "manual" })
       .onConflictDoNothing();
   }
-
-  console.log("[mappings] Completed");
 }
 
 export async function loadCanonicalLookups(db: DbType): Promise<{
   genreLookup: CanonicalLookup;
   platformLookup: CanonicalLookup;
 }> {
-  console.log("[lookups] Loading canonical genre/platform mappings...");
   const genreLookup: CanonicalLookup = {};
   const platformLookup: CanonicalLookup = {};
 
@@ -100,8 +95,5 @@ export async function loadCanonicalLookups(db: DbType): Promise<{
     if (!platformLookup[row.wikidataId]) platformLookup[row.wikidataId] = [];
     platformLookup[row.wikidataId].push(row.canonicalId);
   }
-  console.log(
-    `  Genre mappings: ${gmRows.length} entries, Platform mappings: ${pmRows.length} entries`,
-  );
   return { genreLookup, platformLookup };
 }

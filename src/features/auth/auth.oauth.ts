@@ -15,14 +15,12 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
 
   // Return cached client if the URL hasn't changed (e.g. tunnel restart)
   if (_client && _clientUrl === publicUrl) {
-    if (isDev) console.debug("[oauth] reusing cached client for", publicUrl);
+    if (isDev) {
+    }
     return _client;
   }
 
   if (isDev) {
-    console.debug("[oauth] creating new client");
-    console.debug("[oauth] PUBLIC_URL:", publicUrl);
-    console.debug("[oauth] private key length:", privateKeyJwk.length);
   }
 
   if (!privateKeyJwk) {
@@ -35,7 +33,8 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
   try {
     const key = await JoseKey.fromImportable(privateKeyJwk, "donguri-key");
     keyset = [key];
-    if (isDev) console.debug("[oauth] key imported successfully, kid:", key.kid);
+    if (isDev) {
+    }
   } catch (err) {
     console.error("[oauth] failed to import private key:", err);
     throw new Error(
@@ -59,9 +58,6 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
   };
 
   if (isDev) {
-    console.debug("[oauth] client_id:", clientMetadata.client_id);
-    console.debug("[oauth] redirect_uris:", clientMetadata.redirect_uris);
-    console.debug("[oauth] allowHttp:", true);
   }
 
   _client = new NodeOAuthClient({
@@ -74,7 +70,8 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
   });
   _clientUrl = publicUrl;
 
-  if (isDev) console.debug("[oauth] client created successfully");
+  if (isDev) {
+  }
 
   return _client;
 }

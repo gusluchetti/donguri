@@ -72,13 +72,12 @@ async function parseAnimeOfflineDatabase(filePath: string): Promise<{
   const byMalId = new Map<string, AnimeOfflineEntry>();
   const byAnidbId = new Map<string, AnimeOfflineEntry>();
 
-  let parsedCount = 0;
+  let _parsedCount = 0;
   for (let i = 0; i < lines.length; i++) {
     if (i === 0) {
       try {
         const metadata = JSON.parse(lines[i]);
         if (metadata.$schema) {
-          console.log(`[anime offline] Metadata line: ${metadata.lastUpdate || "unknown date"}`);
           continue;
         }
       } catch {}
@@ -86,7 +85,7 @@ async function parseAnimeOfflineDatabase(filePath: string): Promise<{
 
     try {
       const entry = JSON.parse(lines[i]) as AnimeOfflineEntry;
-      parsedCount++;
+      _parsedCount++;
       const ids = extractIdsFromSources(entry);
       if (ids.anilistId) byAnilistId.set(ids.anilistId, { ...entry, ...ids });
       if (ids.malId) byMalId.set(ids.malId, { ...entry, ...ids });
@@ -95,11 +94,6 @@ async function parseAnimeOfflineDatabase(filePath: string): Promise<{
       console.warn(`[anime offline] Failed to parse line ${i}: ${err}`);
     }
   }
-
-  console.log(`[anime offline] Parsed ${parsedCount} entries`);
-  console.log(
-    `[anime offline] Built maps: AniList=${byAnilistId.size}, MAL=${byMalId.size}, AniDB=${byAnidbId.size}`,
-  );
   return { byAnilistId, byMalId, byAnidbId };
 }
 
@@ -131,8 +125,6 @@ async function findMediaNeedingEnrichment(db: DbType): Promise<
         and(isNull(media.anidbId), isNotNull(media.malId)),
       ),
     );
-
-  console.log(`[anime offline] Found ${rows.length} media items needing ID enrichment`);
   return rows;
 }
 
@@ -188,7 +180,6 @@ async function enrichMediaIds(
   }
 
   if (updates.length === 0) {
-    console.log("[anime offline] No ID updates needed");
     return { updated: 0 };
   }
 
@@ -217,12 +208,7 @@ async function enrichMediaIds(
 		`,
       values,
     );
-    console.log(
-      `[anime offline] Updated batch ${i / batchSize + 1} (${Math.min(i + batchSize, updates.length)}/${updates.length})`,
-    );
   }
-
-  console.log(`[anime offline] Enriched ${updates.length} media items`);
   return { updated: updates.length };
 }
 
@@ -230,7 +216,6 @@ export async function runAnimeOffline(
   db: DbType,
   config: ImportConfig,
 ): Promise<AnimeOfflineStats> {
-  console.log("[anime offline] Starting anime offline database enrichment");
   const startTime = Date.now();
 
   try {
@@ -240,9 +225,6 @@ export async function runAnimeOffline(
     const { updated } = await enrichMediaIds(db, rows, byAnilistId, byMalId, byAnidbId);
 
     const durationMs = Date.now() - startTime;
-    console.log(
-      `[anime offline] Enrichment completed in ${(durationMs / 1000).toFixed(1)}s, updated ${updated} items`,
-    );
     return { enriched: updated, durationMs };
   } catch (error) {
     console.error("[anime offline] Enrichment failed:", error);

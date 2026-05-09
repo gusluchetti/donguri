@@ -48,25 +48,18 @@ async function detectMode(db: DbType, config: ImportConfig): Promise<"full" | "i
   const mediaCount = Number(result[0]?.count || 0);
 
   if (mediaCount === 0) {
-    console.log("[detect] Media table empty → full dump required");
     return "full";
   }
 
   const lastFull = getLastFullDumpAt();
   if (!lastFull) {
-    console.log("[detect] No previous full dump recorded → full dump required");
     return "full";
   }
 
   const daysSinceFull = (Date.now() - lastFull.getTime()) / (1000 * 60 * 60 * 24);
   if (daysSinceFull > config.dumpMaxAgeDays) {
-    console.log(
-      `[detect] Last full dump was ${daysSinceFull.toFixed(1)} days ago → full dump required`,
-    );
     return "full";
   }
-
-  console.log(`[detect] Recent full dump (${daysSinceFull.toFixed(1)} days ago) → incremental`);
   return "incremental";
 }
 
@@ -74,7 +67,6 @@ async function runSupplementary(
   db: DbType,
   config: ImportConfig,
 ): Promise<import("./notify").ImportReport> {
-  console.log("");
   const { runQrank } = await import("./qrank");
   const { runAnimeOffline } = await import("./anime-offline");
   const { runCovers } = await import("./covers");
@@ -109,9 +101,6 @@ async function main() {
 
   const config = getConfig();
   const db = getDb();
-
-  console.log(`[main] Starting import stage: ${stage}`);
-  console.log("[main] Timestamp:", new Date().toISOString());
 
   try {
     switch (stage) {
@@ -150,7 +139,6 @@ async function main() {
         const { runIncremental } = await import("./incremental");
         const needsFull = await runIncremental(db, config);
         if (needsFull) {
-          console.log("[main] Incremental gap too large → falling back to full dump");
           const { runFullPipeline } = await import("./pipeline");
           await runFullPipeline(db, config);
         }
@@ -173,7 +161,6 @@ async function main() {
         const { runFullPipeline } = await import("./pipeline");
         await runFullPipeline(db, config);
         const report = await runSupplementary(db, config);
-        console.log("[main] Import pipeline fully complete");
         const { notifySuccess } = await import("./notify");
         await notifySuccess(stage, Date.now() - startTime, report);
         process.exit(0);
@@ -182,8 +169,6 @@ async function main() {
 
       case "auto": {
         const mode = await detectMode(db, config);
-        console.log(`[main] Mode: ${mode}`);
-        console.log("");
 
         if (mode === "full") {
           const { runFullPipeline } = await import("./pipeline");
@@ -192,18 +177,12 @@ async function main() {
           const { runIncremental } = await import("./incremental");
           const needsFull = await runIncremental(db, config);
           if (needsFull) {
-            console.log("[main] Incremental gap too large → falling back to full dump");
             const { runFullPipeline } = await import("./pipeline");
             await runFullPipeline(db, config);
           }
         }
 
-        console.log("[main] Import completed successfully");
-
         const suppReport = await runSupplementary(db, config);
-
-        console.log("[main] Import pipeline fully complete");
-        console.log("[main] Timestamp:", new Date().toISOString());
         const { notifySuccess } = await import("./notify");
         await notifySuccess(stage, Date.now() - startTime, suppReport);
         process.exit(0);
@@ -217,8 +196,6 @@ async function main() {
         );
         process.exit(1);
     }
-
-    console.log(`[main] Stage "${stage}" completed successfully`);
     const { notifySuccess } = await import("./notify");
     await notifySuccess(stage, Date.now() - startTime);
     process.exit(0);

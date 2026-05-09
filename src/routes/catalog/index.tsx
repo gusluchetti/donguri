@@ -314,7 +314,7 @@ function CatalogPage() {
   const parentRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchFocused, setSearchFocused] = useState(false);
-  const [_showFeedback, setShowFeedback] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   const trackedIds: Record<string, string | null> = rootTrackedIds;
 
@@ -599,6 +599,7 @@ function CatalogPage() {
           </div>
         </div>
       </div>
+      {auth && showFeedback && <FeedbackDialog onClose={() => setShowFeedback(false)} />}
     </div>
   );
 }
@@ -759,7 +760,6 @@ const MediaRow = memo(function MediaRow({
           </div>
         </div>
       )}
-      {auth && showFeedback && <FeedbackDialog onClose={() => setShowFeedback(false)} />}
     </div>
   );
 });

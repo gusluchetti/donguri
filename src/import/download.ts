@@ -5,27 +5,20 @@ export async function downloadIfNeeded(
   url: string,
   targetPath: string,
   maxAgeDays: number,
-  label: string,
+  _label: string,
 ): Promise<void> {
   if (fs.existsSync(targetPath)) {
     const stats = fs.statSync(targetPath);
     const ageDays = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60 * 24);
     if (ageDays < maxAgeDays) {
-      console.log(
-        `[${label}] Cache age ${ageDays.toFixed(1)} days < ${maxAgeDays}, skipping download`,
-      );
       return;
     }
   }
-  console.log(`[${label}] Downloading from ${url}...`);
   await downloadDump(url, targetPath);
 }
 
 export async function downloadDump(url: string, targetPath: string): Promise<void> {
   const startTime = Date.now();
-
-  console.log(`[download] Starting: ${url}`);
-  console.log(`[download] Target: ${targetPath}`);
 
   try {
     const response = await fetch(url);
@@ -35,9 +28,7 @@ export async function downloadDump(url: string, targetPath: string): Promise<voi
     }
 
     const totalSize = Number.parseInt(response.headers.get("content-length") || "0", 10);
-    const totalSizeGB = (totalSize / 1024 / 1024 / 1024).toFixed(1);
-
-    console.log(`[download] Total size: ${totalSizeGB}GB`);
+    const _totalSizeGB = (totalSize / 1024 / 1024 / 1024).toFixed(1);
 
     const tempPath = `${targetPath}.partial`;
     const file = fs.createWriteStream(tempPath);
@@ -56,11 +47,9 @@ export async function downloadDump(url: string, targetPath: string): Promise<voi
       const now = Date.now();
 
       if (totalSize > 0 && now - lastProgressTime > 5000) {
-        const pct = ((downloaded / totalSize) * 100).toFixed(1);
-        const downloadedMB = (downloaded / 1024 / 1024).toFixed(0);
-        const rate = (downloaded / 1024 / 1024 / ((now - startTime) / 1000)).toFixed(1);
-
-        console.log(`[download] ${pct}% (${downloadedMB}MB / ${totalSizeGB}GB) @ ${rate}MB/s`);
+        const _pct = ((downloaded / totalSize) * 100).toFixed(1);
+        const _downloadedMB = (downloaded / 1024 / 1024).toFixed(0);
+        const _rate = (downloaded / 1024 / 1024 / ((now - startTime) / 1000)).toFixed(1);
 
         lastProgressTime = now;
       }
@@ -75,10 +64,8 @@ export async function downloadDump(url: string, targetPath: string): Promise<voi
 
     fs.renameSync(tempPath, targetPath);
 
-    const duration = ((Date.now() - startTime) / 1000).toFixed(0);
-    const downloadedGB = (downloaded / 1024 / 1024 / 1024).toFixed(1);
-
-    console.log(`[download] Completed in ${duration}s (${downloadedGB}GB)`);
+    const _duration = ((Date.now() - startTime) / 1000).toFixed(0);
+    const _downloadedGB = (downloaded / 1024 / 1024 / 1024).toFixed(1);
   } catch (error) {
     const tempPath = `${targetPath}.partial`;
     if (fs.existsSync(tempPath)) {

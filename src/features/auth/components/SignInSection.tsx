@@ -1,5 +1,5 @@
 import { GithubLogo, GoogleLogo } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "~/components/Button";
 import { initiateLogin, initiateOAuthLogin } from "~/features/auth/auth.functions";
 
@@ -36,6 +36,7 @@ function BlueskyLoginForm() {
   const [handle, setHandle] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const _inputId = useId();
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +61,7 @@ function BlueskyLoginForm() {
     <div className="border border-dg-border-subtle rounded p-4 sm:p-5 bg-dg-surface">
       <form onSubmit={onSubmit}>
         <label
-          htmlFor="handle"
+          htmlFor={_inputId}
           className="flex items-center gap-2 text-dg-text-secondary text-[0.8rem] uppercase tracking-wider mb-3"
         >
           <a
@@ -77,7 +78,7 @@ function BlueskyLoginForm() {
         </label>
         <div className="flex flex-col sm:flex-row gap-2">
           <input
-            id="handle"
+            id={_inputId}
             type="text"
             value={handle}
             onChange={(e) => setHandle(e.target.value)}

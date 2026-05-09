@@ -234,7 +234,6 @@ export const lemonSqueezy: PaymentProvider = {
       }
 
       default:
-        console.log("[webhook:payment] unhandled event:", eventName);
         return { userId, action: "ignored" };
     }
   },

@@ -91,7 +91,6 @@ export async function notifySuccess(
       subject,
       text: body,
     });
-    console.log("[notify] Success email sent");
   } catch (err) {
     console.error("[notify] Failed to send success email:", err);
   }
@@ -118,7 +117,6 @@ ${errorString}`;
       subject,
       text: body,
     });
-    console.log("[notify] Failure email sent");
   } catch (err) {
     console.error("[notify] Failed to send failure email:", err);
   }
@@ -146,7 +144,6 @@ ${errorString}`;
       subject,
       text: body,
     });
-    console.log("[notify] Warning email sent");
   } catch (err) {
     console.error("[notify] Failed to send warning email:", err);
   }

@@ -26,16 +26,17 @@ export const initiateLogin = createServerFn({ method: "POST" })
   .inputValidator(z.object({ handle: z.string().min(1) }))
   .handler(async ({ data }) => {
     if (isDev) {
-      console.debug("[login] ─── initiateLogin called ───");
-      console.debug("[login] handle:", data.handle);
     }
 
     try {
       const client = await getOAuthClient();
-      if (isDev) console.debug("[login] OAuth client obtained");
-      if (isDev) console.debug("[login] calling client.authorize with handle:", data.handle);
+      if (isDev) {
+      }
+      if (isDev) {
+      }
       const url = await client.authorize(data.handle);
-      if (isDev) console.debug("[login] authorize returned URL:", url.toString());
+      if (isDev) {
+      }
       return { url: url.toString() };
     } catch (err) {
       console.error("[login] failed:", err);
@@ -55,14 +56,6 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
   )
   .handler(async ({ data }) => {
     if (isDev) {
-      console.debug("[callback] ─── handleOAuthCallback called ───");
-      console.debug("[callback] params:", {
-        code: data.code ? `${data.code.slice(0, 10)}...` : undefined,
-        state: data.state ? `${data.state.slice(0, 10)}...` : undefined,
-        iss: data.iss,
-        error: data.error,
-        error_description: data.error_description,
-      });
     }
 
     if (data.error) {
@@ -76,29 +69,33 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
 
     try {
       const client = await getOAuthClient();
-      if (isDev) console.debug("[callback] OAuth client obtained");
+      if (isDev) {
+      }
 
       const params = new URLSearchParams();
       if (data.code) params.set("code", data.code);
       if (data.state) params.set("state", data.state);
       if (data.iss) params.set("iss", data.iss);
 
-      if (isDev)
-        console.debug("[callback] calling client.callback with params:", params.toString());
+      if (isDev) {
+      }
 
       const result = await client.callback(params);
       const did = result.session.did;
-      if (isDev) console.debug("[callback] session obtained, DID:", did);
+      if (isDev) {
+      }
 
       let handle: string = did;
       try {
-        if (isDev) console.debug("[callback] resolving handle for DID:", did);
+        if (isDev) {
+        }
         const res = await fetch(`https://plc.directory/${encodeURIComponent(did)}`);
         if (res.ok) {
           const doc = (await res.json()) as { alsoKnownAs?: string[] };
           const atUri = doc.alsoKnownAs?.find((u) => u.startsWith("at://"));
           if (atUri) handle = atUri.replace("at://", "");
-          if (isDev) console.debug("[callback] resolved handle:", handle);
+          if (isDev) {
+          }
         }
       } catch (err) {
         console.error("[callback] handle resolution failed:", err);
@@ -120,7 +117,8 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
         const sessionInfo = await agent.com.atproto.server.getSession();
         if (sessionInfo.data.email && sessionInfo.data.emailConfirmed) {
           email = sessionInfo.data.email;
-          if (isDev) console.debug("[callback] got confirmed email from PDS:", email);
+          if (isDev) {
+          }
         }
       } catch (err) {
         console.error("[callback] agent/email fetch failed (continuing):", err);
@@ -133,20 +131,23 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
           .update(users)
           .set({ handle, ...(email ? { email } : {}) })
           .where(eq(users.id, userId));
-        if (isDev) console.debug("[callback] updated existing user:", userId);
+        if (isDev) {
+        }
       } else {
         const [newUser] = await db
           .insert(users)
           .values({ did, handle, authMethod: "atproto", ...(email ? { email } : {}) })
           .returning({ id: users.id });
         userId = newUser.id;
-        if (isDev) console.debug("[callback] created new user:", userId);
+        if (isDev) {
+        }
       }
 
       if (agent) {
         try {
           await reconcileUser(agent, userId, did);
-          if (isDev) console.debug("[callback] PDS reconciliation complete");
+          if (isDev) {
+          }
         } catch (err) {
           console.error("[callback] PDS reconciliation failed (login continues):", err);
         }
@@ -158,7 +159,8 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
       const tier = existing.length > 0 ? await getUserSubscriptionTier(userId) : null;
 
       await setSessionCookie({ userId, handle, authMethod: "atproto", did, tier });
-      if (isDev) console.debug("[callback] session cookie set, login complete");
+      if (isDev) {
+      }
       return { did, handle };
     } catch (err) {
       console.error("[callback] failed:", err);
@@ -193,18 +195,21 @@ export const handleOAuthProviderCallback = createServerFn({ method: "GET" })
 // ─── Logout ───────────────────────────────────────────────────────────────────
 
 export const logout = createServerFn({ method: "POST" }).handler(async () => {
-  if (isDev) console.debug("[logout] ─── logout called ───");
+  if (isDev) {
+  }
   const session = await getSessionData();
   if (session?.authMethod === "atproto" && session.did) {
     try {
       const client = await getOAuthClient();
       await client.revoke(session.did as `did:${string}:${string}`);
-      if (isDev) console.debug("[logout] AT Protocol session revoked for DID:", session.did);
+      if (isDev) {
+      }
     } catch (err) {
       console.error("[logout] AT Protocol revocation failed:", err);
     }
   }
   clearSessionCookie();
-  if (isDev) console.debug("[logout] cookie cleared");
+  if (isDev) {
+  }
   return { ok: true };
 });

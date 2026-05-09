@@ -50,13 +50,10 @@ interface IGDBCover {
 async function fetchTmdbPosters(
   items: Array<{ id: string; tmdbId: string }>,
 ): Promise<Map<string, string>> {
-  const TMDB_API_KEY = process.env.TMDB_API_KEY;
-  if (!TMDB_API_KEY) {
-    console.log("[covers] TMDB_API_KEY not set, skipping TMDB poster fetch");
+  const TmdbApiKey = process.env.TMDB_API_KEY;
+  if (!TmdbApiKey) {
     return new Map();
   }
-
-  console.log(`[covers] Fetching TMDB posters for ${items.length} items`);
 
   const results = new Map<string, string>();
   const batchSize = 10;
@@ -67,24 +64,20 @@ async function fetchTmdbPosters(
     const promises = batch.map(async (item) => {
       const [, type, numericId] = item.tmdbId.match(/^(movie|tv)\/(\d+)$/) || [];
       if (!type || !numericId) {
-        console.log(`[covers] Invalid tmdb_id format: ${item.tmdbId}`);
         return;
       }
 
-      const url = `https://api.themoviedb.org/3/${type}/${numericId}?api_key=${TMDB_API_KEY}`;
+      const url = `https://api.themoviedb.org/3/${type}/${numericId}?api_key=${TmdbApiKey}`;
       try {
         const response = await fetch(url);
         if (!response.ok) {
-          console.log(`[covers] TMDB API error for ${item.tmdbId}: HTTP ${response.status}`);
           return;
         }
         const data = (await response.json()) as TmdbMovieResponse | TmdbTvResponse;
         if (data.poster_path) {
           const posterUrl = `https://image.tmdb.org/t/p/w92${data.poster_path}`;
           results.set(item.id, posterUrl);
-          console.log(`[covers] TMDB poster found for ${item.tmdbId}`);
         } else {
-          console.log(`[covers] No poster path in TMDB response for ${item.tmdbId}`);
         }
       } catch (error) {
         console.error(`[covers] TMDB fetch failed for ${item.tmdbId}:`, error);
@@ -96,8 +89,6 @@ async function fetchTmdbPosters(
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
-
-  console.log(`[covers] Got ${results.size} TMDB poster URLs`);
   return results;
 }
 
@@ -105,8 +96,6 @@ async function fetchAnilistPosters(
   items: Array<{ id: string; anilistId: string }>,
 ): Promise<Map<string, string>> {
   if (items.length === 0) return new Map();
-
-  console.log(`[covers] Fetching AniList covers for ${items.length} items`);
 
   const ids = items.map((item) => Number(item.anilistId));
   const query = `
@@ -149,8 +138,6 @@ async function fetchAnilistPosters(
         results.set(matchingItem.id, media.coverImage.medium);
       }
     }
-
-    console.log(`[covers] Got ${results.size} AniList cover URLs`);
     return results;
   } catch (error) {
     console.error("[covers] AniList fetch failed:", error);
@@ -161,23 +148,20 @@ async function fetchAnilistPosters(
 async function fetchIgdbPosters(
   items: Array<{ id: string; igdbId: string }>,
 ): Promise<Map<string, string>> {
-  const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
-  const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
-  if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET) {
-    console.log("[covers] Twitch credentials not set, skipping IGDB poster fetch");
+  const TwitchClientId = process.env.TWITCH_CLIENT_ID;
+  const TwitchClientSecret = process.env.TWITCH_CLIENT_SECRET;
+  if (!TwitchClientId || !TwitchClientSecret) {
     return new Map();
   }
 
   if (items.length === 0) return new Map();
 
-  console.log(`[covers] Fetching IGDB covers for ${items.length} items`);
-
   const tokenResponse = await fetch("https://id.twitch.tv/oauth2/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: TWITCH_CLIENT_ID,
-      client_secret: TWITCH_CLIENT_SECRET,
+      client_id: TwitchClientId,
+      client_secret: TwitchClientSecret,
       grant_type: "client_credentials",
     }),
   });
@@ -196,7 +180,7 @@ async function fetchIgdbPosters(
   const coverResponse = await fetch("https://api.igdb.com/v4/covers", {
     method: "POST",
     headers: {
-      "Client-ID": TWITCH_CLIENT_ID,
+      "Client-ID": TwitchClientId,
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/json",
     },
@@ -221,8 +205,6 @@ async function fetchIgdbPosters(
       results.set(matchingItem.id, smallUrl);
     }
   }
-
-  console.log(`[covers] Got ${results.size} IGDB cover URLs`);
   return results;
 }
 
@@ -247,16 +229,12 @@ async function updatePosterUrls(db: DbType, posterMap: Map<string, string>): Pro
       values,
     );
     totalUpdated += batch.length;
-    console.log(
-      `[covers] Updated batch ${i / batchSize + 1} (${Math.min(i + batchSize, entries.length)}/${entries.length})`,
-    );
   }
 
   return totalUpdated;
 }
 
 export async function runCovers(db: DbType, _config: ImportConfig): Promise<CoversStats> {
-  console.log("[covers] Starting cover art fetch");
   const startTime = Date.now();
 
   try {
@@ -274,8 +252,6 @@ export async function runCovers(db: DbType, _config: ImportConfig): Promise<Cove
           or(isNotNull(media.tmdbId), isNotNull(media.anilistId), isNotNull(media.igdbId)),
         ),
       );
-
-    console.log(`[covers] Found ${items.length} media items without poster_url`);
 
     const tmdbItems = items
       .filter((item): item is typeof item & { tmdbId: string } => item.tmdbId !== null)
@@ -302,9 +278,6 @@ export async function runCovers(db: DbType, _config: ImportConfig): Promise<Cove
 
     const updated = await updatePosterUrls(db, combined);
     const durationMs = Date.now() - startTime;
-    console.log(
-      `[covers] Cover art fetch completed in ${(durationMs / 1000).toFixed(1)}s, updated ${updated} items`,
-    );
     return {
       tmdb: tmdbResults.size,
       anilist: anilistResults.size,
