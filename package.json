@@ -17,7 +17,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "typecheck": "tsc --noEmit",
-    "validate": "biome check --write --unsafe . && biome format --fix . && bun run typecheck",
+    "validate": "biome check --error-on-warnings . && biome format --fix . && bun run typecheck",
     "validate-build": "bun run validate && bun run build",
     "import:download": "bun run src/import/main.ts download",
     "import:subset": "bun run src/import/main.ts subset",

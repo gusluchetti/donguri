@@ -22,7 +22,7 @@
   },
   "linter": {
     "domains": {
-      "react": "all",
+      "react": "recommended",
       "test": "recommended"
     },
     "rules": {
@@ -54,11 +54,7 @@
         "useFragmentSyntax": "error",
         "useShorthandAssign": "error",
         "useTemplate": "error",
-        "useNumericSeparators": "error",
-        "useNamingConvention": {
-          "level": "warn",
-          "options": { "strictCase": false, "requireAscii": true }
-        }
+        "useNumericSeparators": "error"
       },
       "suspicious": {
         "noVar": "error",
@@ -90,5 +86,17 @@
       "trailingCommas": "all",
       "arrowParentheses": "always"
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["src/import/**", "src/db/seed-*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    }
+  ]
 }

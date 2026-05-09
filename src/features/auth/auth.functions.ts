@@ -9,6 +9,7 @@ import { getAuthUrl, handleProviderCallback, type Provider } from "~/features/au
 import { clearSessionCookie, getSessionData, setSessionCookie } from "~/features/auth/auth.session";
 import { reconcileUser } from "~/features/auth/auth.sync";
 import { cleanEnv } from "~/lib/env";
+import { log } from "~/lib/logger";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -25,8 +26,8 @@ export const getAuthState = createServerFn({ method: "GET" }).handler(async () =
 export const initiateLogin = createServerFn({ method: "POST" })
   .inputValidator(z.object({ handle: z.string().min(1) }))
   .handler(async ({ data }) => {
-    if (isDev) {
-    }
+    log.debug("[login] ─── initiateLogin called ───");
+    log.debug("[login] handle:", data.handle);
 
     try {
       const client = await getOAuthClient();
