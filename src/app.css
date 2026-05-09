@@ -98,6 +98,34 @@ textarea {
   --color-dg-seal-common: #687a78;
   --color-dg-seal-rare: #5db8a0;
   --color-dg-seal-legendary: #e8702e;
+
+  /* Onboarding active card backgrounds - dark theme */
+  --dg-onboarding-active-bg-movie: linear-gradient(
+    135deg,
+    hsl(20, 18%, 14%) 0%,
+    hsl(20, 12%, 10%) 100%
+  );
+  --dg-onboarding-active-bg-tv: linear-gradient(
+    135deg,
+    hsl(194, 18%, 14%) 0%,
+    hsl(194, 12%, 10%) 100%
+  );
+  --dg-onboarding-active-bg-anime: linear-gradient(
+    135deg,
+    hsl(0, 18%, 14%) 0%,
+    hsl(0, 12%, 10%) 100%
+  );
+  --dg-onboarding-active-bg-game: linear-gradient(
+    135deg,
+    hsl(148, 18%, 14%) 0%,
+    hsl(148, 12%, 10%) 100%
+  );
+
+  /* Selected cover overlay - dark theme */
+  --dg-onboarding-selected-overlay: rgba(0, 0, 0, 0.4);
+
+  /* Upsell banner background - dark theme */
+  --dg-upsell-banner-bg: linear-gradient(135deg, #1a1208 0%, #2a1a0a 40%, #1a1208 100%);
 }
 
 /* Light theme overrides — must be in @layer base to beat @layer theme */
@@ -164,6 +192,34 @@ textarea {
       transparent 30%,
       var(--color-dg-bg) 100%
     );
+
+    /* Onboarding active card backgrounds - light theme */
+    --dg-onboarding-active-bg-movie: linear-gradient(
+      135deg,
+      hsl(20, 25%, 35%) 0%,
+      hsl(20, 18%, 28%) 100%
+    );
+    --dg-onboarding-active-bg-tv: linear-gradient(
+      135deg,
+      hsl(194, 25%, 35%) 0%,
+      hsl(194, 18%, 28%) 100%
+    );
+    --dg-onboarding-active-bg-anime: linear-gradient(
+      135deg,
+      hsl(0, 25%, 35%) 0%,
+      hsl(0, 18%, 28%) 100%
+    );
+    --dg-onboarding-active-bg-game: linear-gradient(
+      135deg,
+      hsl(148, 25%, 35%) 0%,
+      hsl(148, 18%, 28%) 100%
+    );
+
+    /* Selected cover overlay - light theme */
+    --dg-onboarding-selected-overlay: rgba(184, 78, 24, 0.2);
+
+    /* Upsell banner background - light theme */
+    --dg-upsell-banner-bg: linear-gradient(135deg, #f5f0e6 0%, #e8e0d0 40%, #f5f0e6 100%);
   }
 
   .dg-press {
