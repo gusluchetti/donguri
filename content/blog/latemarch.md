@@ -6,7 +6,7 @@ date: 2026-03-23
 Hello! I'm back! Finally!! Life caught up to me so I had to focus a bit on some other stuff. I'm
 back on getting some foundational stuff done, and prepping for the future.
 
-If you're reading this, you're one of the first X users! Congrats! (You'll get an achievement
+If you're reading this, you're one of the first 9 users! Congrats! (You'll get an achievement
 pretty soon!). I haven't quite done much marketing on the website yet, since I wanted it to be a
 bit more sturdy, with a couple more features before sharing it with everyone. It's usable, as you
 can clearly see, but there's a lot of kinks I wanted to buff out. Those include:
