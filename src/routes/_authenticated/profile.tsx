@@ -149,13 +149,13 @@ function ProfileHeader({
         >
           <Suspense
             fallback={
-              <RangerPassCard handle={user.handle} plan={subscription.plan} maxWidth={180} />
+              <RangerPassCard handle={user.handle} plan={subscription.plan} maxWidth={140} />
             }
           >
             <RangerPassCard3D
               handle={user.handle}
               plan={subscription.plan}
-              maxWidth={180}
+              maxWidth={140}
               dpr={[1, 1]}
             />
           </Suspense>
@@ -332,7 +332,7 @@ function TerritoryBar({
           }),
         )}
       </div>
-      <div className="flex flex-wrap gap-3 mt-2">
+      <div className="flex flex-wrap gap-g2 mt-g1">
         {TERRITORY_TYPES.map((type, i) => {
           const completed = completedTypeCounts[type] ?? 0;
           const total = typeCounts[type] ?? 0;
@@ -350,7 +350,7 @@ function TerritoryBar({
           );
         })}
       </div>
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-g2">
         {STATUS_ORDER.map((status) => {
           const count = statusCounts[status] ?? 0;
           return (
@@ -437,8 +437,10 @@ function RecentTrail({ entries }: { entries: ProfileData["recent"] }) {
               <span className="flex-1 min-w-0 text-[0.8rem] truncate">
                 {entry.mediaTitle ?? "Untitled"}
               </span>
-              <StampBadge type={type} index={i} />
-              <span className="text-[10px] text-dg-text-tertiary w-4 text-center shrink-0 flex items-center justify-center">
+              <div className="w-5 shrink-0">
+                <StampBadge type={type} index={i} />
+              </div>
+              <span className="text-[10px] text-dg-text-tertiary w-12 shrink-0 flex items-center justify-center">
                 <StatusIcon status={entry.status ?? "planned"} size={10} />
               </span>
               <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums font-mono shrink-0 w-14 text-right">

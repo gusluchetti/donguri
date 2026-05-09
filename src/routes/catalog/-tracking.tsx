@@ -15,6 +15,8 @@ import { catalogEntryOptions } from "~/features/catalog/catalog.queries";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import {
   availableStatuses,
+  countWatchedEpisodes,
+  markThroughEpisode,
   ratingColor,
   replayCountLabel,
   STATUS_ACCENT,
@@ -27,6 +29,7 @@ import {
 } from "~/features/media/media-types";
 import { useAction } from "~/hooks/use-action";
 import { cn } from "~/lib/cn";
+import type { Season } from "./-episodes";
 
 type StatePair<T> = { value: T; set: (v: T) => void };
 
@@ -42,6 +45,7 @@ export type TrackingPanelProps = {
   onRewatch?: () => void;
   isMovie?: boolean;
   totalEpisodes?: number;
+  seasons?: Season[];
   children?: React.ReactNode;
 };
 
@@ -573,6 +577,7 @@ export function TrackingPanel({
   onRewatch,
   isMovie,
   totalEpisodes = 0,
+  seasons = [],
   children,
 }: TrackingPanelProps) {
   const router = useRouter();
@@ -774,7 +779,6 @@ export function TrackingPanel({
 
   const handleStatusChange = useCallback(
     (s: string) => {
-      if (s === "completed" && totalEpisodes > 0) return;
       if (s === localStatus) {
         if (s === "completed" || s === "mastered") {
           setLocalReplayCount(localReplayCount + 1);
@@ -790,13 +794,81 @@ export function TrackingPanel({
         setLocalReplayCount(localReplayCount + 1);
         onRewatch?.();
       }
+
+      // Check if changing to "completed" for a TV series with episodes
+      if (s === "completed" && totalEpisodes > 0 && setLocalWatchedEpisodes) {
+        const isTvSeries = mediaType === "tv_series" || mediaType === "anime";
+        if (isTvSeries) {
+          const watchedCount = countWatchedEpisodes(localWatchedEpisodes);
+          if (watchedCount === 0) {
+            // Show prompt instead of immediately setting status
+            setPendingCompletedStatus(s);
+            setShowMarkAllPrompt(true);
+            return;
+          }
+        }
+      }
+
       setLocalStatus(s);
     },
-    [localStatus, localReplayCount, totalEpisodes, setLocalStatus, setLocalReplayCount, onRewatch],
+    [
+      localStatus,
+      localReplayCount,
+      totalEpisodes,
+      mediaType,
+      localWatchedEpisodes,
+      setLocalStatus,
+      setLocalReplayCount,
+      setLocalWatchedEpisodes,
+      onRewatch,
+    ],
   );
 
   const [ratingMode, setRatingMode] = useState(false);
+  const [showMarkAllPrompt, setShowMarkAllPrompt] = useState(false);
+  const [pendingCompletedStatus, setPendingCompletedStatus] = useState<string | null>(null);
   const notBusy = action.state !== "pending";
+
+  const handleMarkAllEpisodes = useCallback(() => {
+    if (!setLocalWatchedEpisodes || seasons.length === 0) return;
+
+    // Create a new watched episodes object with all episodes marked
+    let newWatched: WatchedEpisodes = { ...localWatchedEpisodes };
+    const today = todayISO();
+
+    for (const season of seasons) {
+      if (season.episodeCount && season.episodeCount > 0) {
+        newWatched = markThroughEpisode(
+          newWatched,
+          season.seasonNumber,
+          season.episodeCount,
+          today,
+        );
+      }
+    }
+
+    setLocalWatchedEpisodes(newWatched);
+    if (pendingCompletedStatus) {
+      setLocalStatus(pendingCompletedStatus);
+    }
+    setShowMarkAllPrompt(false);
+    setPendingCompletedStatus(null);
+  }, [
+    seasons,
+    localWatchedEpisodes,
+    setLocalWatchedEpisodes,
+    pendingCompletedStatus,
+    setLocalStatus,
+  ]);
+
+  const handleCancelMarkAll = useCallback(() => {
+    // Just set status to completed without marking episodes
+    if (pendingCompletedStatus) {
+      setLocalStatus(pendingCompletedStatus);
+    }
+    setShowMarkAllPrompt(false);
+    setPendingCompletedStatus(null);
+  }, [pendingCompletedStatus, setLocalStatus]);
 
   useRatingKeyboard(ratingMode, setRatingMode, setLocalRating);
   useTrackingShortcuts({
@@ -857,9 +929,31 @@ export function TrackingPanel({
         localReplayCount={localReplayCount}
         statusAnimating={statusAnimating}
         mediaType={mediaType}
-        completedDisabled={totalEpisodes > 0}
+        completedDisabled={false}
         onStatusChange={handleStatusChange}
       />
+
+      {showMarkAllPrompt && (
+        <div className="mt-4 p-3 border border-dg-accent/20 bg-dg-accent-soft rounded">
+          <p className="text-[0.8rem] text-dg-text m-0 mb-2">Mark all episodes as watched?</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleMarkAllEpisodes}
+              className="text-[0.7rem] px-3 py-1.5 bg-dg-accent text-dg-bg rounded-sm border-none cursor-pointer hover:brightness-110 transition-all"
+            >
+              Yes, mark all
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelMarkAll}
+              className="text-[0.7rem] px-3 py-1.5 bg-dg-surface text-dg-text rounded-sm border border-dg-border cursor-pointer hover:bg-dg-elevated transition-all"
+            >
+              No, just complete
+            </button>
+          </div>
+        </div>
+      )}
 
       {localStatus && isMovie && setLocalWatchedAt && (
         <div className="mt-4">
@@ -896,7 +990,11 @@ export function TrackingPanel({
         </div>
       )}
 
-      {children && <div className="mt-4">{children}</div>}
+      {children && (
+        <div className="mt-4 overflow-visible max-h-none sm:max-h-[80vh] sm:overflow-y-auto">
+          {children}
+        </div>
+      )}
 
       {localStatus && (
         <TrackingSaveBar

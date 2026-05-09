@@ -144,7 +144,7 @@ export function CardFaceContent({
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        padding: 14,
+        padding: 20,
       }}
     >
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
@@ -266,9 +266,9 @@ export function UpsellBanner() {
       onClick={() => SoundEngine.navForward()}
     >
       <div
-        className="relative overflow-hidden rounded-lg border select-none transition-all duration-200 group-hover:border-dg-accent/40"
+        className="relative overflow-hidden rounded-lg border select-none transition-all duration-200 group-hover:border-dg-accent/40 mx-auto"
         style={{
-          background: "linear-gradient(135deg, #1a1208 0%, #2a1a0a 40%, #1a1208 100%)",
+          background: "var(--dg-upsell-banner-bg)",
           borderColor: "var(--color-dg-border-subtle)",
         }}
       >
