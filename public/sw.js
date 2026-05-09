@@ -9,7 +9,6 @@ const PRECACHE_URLS = [
   "/icon-180.png",
   "/icon-192.png",
   "/icon-512.png",
-  "/apple-icon-180.png",
   "/manifest-icon-192.maskable.png",
   "/manifest-icon-512.maskable.png",
   "/icon-maskable.svg",

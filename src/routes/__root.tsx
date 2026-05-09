@@ -73,7 +73,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/acorn.svg" },
       { rel: "manifest", href: "/manifest.json" },
-      { rel: "apple-touch-icon", href: "/apple-icon-180.png" },
+      { rel: "apple-touch-icon", href: "/icon-180.png" },
       // Splash screens — light + dark per device
       // iPhone X/XS/11 Pro: 1125×2436
       {

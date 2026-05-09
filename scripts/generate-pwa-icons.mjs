@@ -37,11 +37,8 @@ async function renderMaskable(size, out) {
 
 await Promise.all([
   renderAny(180, "icon-180.png"),
-  renderAny(180, "apple-icon-180.png"),
   renderAny(192, "icon-192.png"),
   renderAny(512, "icon-512.png"),
   renderMaskable(192, "manifest-icon-192.maskable.png"),
   renderMaskable(512, "manifest-icon-512.maskable.png"),
 ]);
-
-// icon-maskable-512.png is being dropped from the manifest — delete it in step 3.
