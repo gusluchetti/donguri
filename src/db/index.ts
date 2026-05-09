@@ -18,7 +18,7 @@ export function getDb() {
     const url = getConnectionString();
     const isLocal = /localhost|127\.0\.0\.1/.test(url);
     const client = postgres(url, {
-      max: 15,
+      max: 5,
       idle_timeout: 20,
       connect_timeout: 30,
       ssl: isLocal ? undefined : "require",

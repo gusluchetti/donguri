@@ -9,6 +9,12 @@ const clientDir = resolve(__dirname, "../dist/client");
 
 const handler = (await import("../dist/server/server.js")).default;
 
+// Simple static file cache keyed by filePath, validated by mtime.
+// Evicts oldest entries when total exceeds MAX_CACHE_BYTES.
+const staticFileCache = new Map();
+const MAX_CACHE_BYTES = 50 * 1024 * 1024; // 50MB
+let currentCacheBytes = 0;
+
 const MIME_TYPES = {
   ".html": "text/html",
   ".css": "text/css",
@@ -25,6 +31,19 @@ const MIME_TYPES = {
   ".webmanifest": "application/manifest+json",
 };
 
+function evictOldest(neededBytes) {
+  while (currentCacheBytes + neededBytes > MAX_CACHE_BYTES && staticFileCache.size > 0) {
+    const firstKey = staticFileCache.keys().next().value;
+    const entry = staticFileCache.get(firstKey);
+    if (entry) {
+      currentCacheBytes -= entry.buffer.byteLength;
+      staticFileCache.delete(firstKey);
+    } else {
+      break;
+    }
+  }
+}
+
 async function serveStatic(pathname) {
   const filePath = join(clientDir, pathname);
 
@@ -35,6 +54,21 @@ async function serveStatic(pathname) {
     const fileStat = await stat(filePath);
     if (!fileStat.isFile()) return null;
 
+    const mtimeMs = fileStat.mtimeMs;
+    const cached = staticFileCache.get(filePath);
+
+    if (cached && cached.mtimeMs === mtimeMs) {
+      // Cache hit — move to end (LRU) and reuse buffer
+      staticFileCache.delete(filePath);
+      staticFileCache.set(filePath, cached);
+      const headers = { ...cached.headers };
+      if (pathname.startsWith("/assets/")) {
+        headers["Cache-Control"] = "public, max-age=31536000, immutable";
+      }
+      return new Response(cached.buffer, { status: 200, headers });
+    }
+
+    // Cache miss or stale — read from disk
     const body = await readFile(filePath);
     const ext = extname(filePath);
     const contentType =
@@ -47,9 +81,12 @@ async function serveStatic(pathname) {
       "Content-Length": String(body.byteLength),
     };
 
-    // Content-hashed assets get immutable cache headers
+    // Only cache content-hashed assets (not HTML which changes per deploy)
     if (pathname.startsWith("/assets/")) {
       headers["Cache-Control"] = "public, max-age=31536000, immutable";
+      evictOldest(body.byteLength);
+      staticFileCache.set(filePath, { buffer: body, mtimeMs, headers });
+      currentCacheBytes += body.byteLength;
     }
     
     // Service worker should always be revalidated

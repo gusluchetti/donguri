@@ -30,4 +30,4 @@ COPY scripts ./scripts
 COPY package.json ./
 
 EXPOSE 3000
-CMD ["bun", "scripts/start.mjs"]
+CMD ["bun", "--bun", "--max-old-space-size=600", "scripts/start.mjs"]
