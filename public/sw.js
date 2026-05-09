@@ -6,10 +6,24 @@ const OFFLINE_URL = "/offline.html";
 const PRECACHE_URLS = [
   OFFLINE_URL,
   "/acorn.svg",
+  "/icon-180.png",
   "/icon-192.png",
   "/icon-512.png",
+  "/apple-icon-180.png",
+  "/manifest-icon-192.maskable.png",
+  "/manifest-icon-512.maskable.png",
   "/icon-maskable.svg",
+  "/icon-maskable-512.png",
   "/manifest.json",
+  // Splash screens used in the app
+  "/apple-splash-dark-1125-2436.png",
+  "/apple-splash-dark-1170-2532.png",
+  "/apple-splash-dark-1179-2556.png",
+  "/apple-splash-dark-1284-2778.png",
+  "/apple-splash-dark-1290-2796.png",
+  "/apple-splash-dark-1536-2048.png",
+  "/apple-splash-dark-1668-2388.png",
+  "/apple-splash-dark-2048-2732.png",
 ];
 
 self.addEventListener("install", (event) => {
