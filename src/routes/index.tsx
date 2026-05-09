@@ -449,7 +449,7 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
               <Star size={10} weight="fill" className="text-dg-accent mr-0.5 inline-block" />
             )}
             {item.mediaTitle ?? item.mediaWikidataId}
-            {hasMediaUpdate(item) && (
+            {_hasMediaUpdate(item) && (
               <span
                 className="inline-block w-1.5 h-1.5 rounded-full bg-dg-accent ml-1 align-middle"
                 role="img"
@@ -510,7 +510,7 @@ function WatchlistListItem({ item, index }: { item: CatalogEntryRow; index: numb
           <Star size={11} weight="fill" className="text-dg-accent mr-1 inline-block" />
         )}
         {item.mediaTitle ?? item.mediaWikidataId}
-        {hasMediaUpdate(item) && (
+        {_hasMediaUpdate(item) && (
           <span
             className="inline-block w-1.5 h-1.5 rounded-full bg-dg-accent ml-1.5 align-middle"
             role="img"
