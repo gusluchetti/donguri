@@ -28,6 +28,7 @@ import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
 import { StatusIcon } from "~/features/catalog/components/StatusIcon";
+import { FeedbackDialog } from "~/features/feedback/FeedbackDialog";
 import { getRandomMediaId } from "~/features/media/media.functions";
 import {
   displayMediaType,
@@ -313,6 +314,7 @@ function CatalogPage() {
   const parentRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [_showFeedback, setShowFeedback] = useState(false);
 
   const trackedIds: Record<string, string | null> = rootTrackedIds;
 
@@ -454,6 +456,14 @@ function CatalogPage() {
           >
             news
           </Link>
+          <span className="text-dg-text-tertiary">·</span>
+          <button
+            type="button"
+            onClick={() => setShowFeedback(true)}
+            className="bg-transparent border-none p-0 cursor-pointer text-dg-text-tertiary hover:text-dg-text-secondary transition-colors"
+          >
+            feedback
+          </button>
         </div>
 
         <div className="relative" ref={filterDropdownRef}>
@@ -749,6 +759,7 @@ const MediaRow = memo(function MediaRow({
           </div>
         </div>
       )}
+      {auth && showFeedback && <FeedbackDialog onClose={() => setShowFeedback(false)} />}
     </div>
   );
 });

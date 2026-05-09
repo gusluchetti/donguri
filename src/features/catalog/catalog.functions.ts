@@ -70,6 +70,7 @@ export const getUserCatalogEntries = createServerFn({ method: "GET" }).handler(a
       episodeCount: media.episodeCount,
       seasonCount: media.seasonCount,
       posterUrl: media.posterUrl,
+      mediaUpdatedAt: media.updatedAt,
     })
     .from(catalogEntries)
     .leftJoin(media, eq(catalogEntries.mediaWikidataId, media.wikidataId))

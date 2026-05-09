@@ -134,7 +134,7 @@ export function OnboardingFlow() {
           <div className="grid grid-cols-2 gap-3">
             {MEDIA_TYPES.map((t, i) => {
               const active = selectedTypes.has(t.key);
-              const hue = TYPE_HUES[t.key] ?? 0;
+              const _hue = TYPE_HUES[t.key] ?? 0;
               const color = STAMP_COLORS[t.key] ?? "var(--color-dg-accent)";
 
               return (
@@ -146,7 +146,7 @@ export function OnboardingFlow() {
                   style={{
                     borderColor: active ? color : "var(--color-dg-border-subtle)",
                     background: active
-                      ? `linear-gradient(135deg, hsl(${hue},18%,14%) 0%, hsl(${hue},12%,10%) 100%)`
+                      ? `var(--dg-onboarding-active-bg-${t.key})`
                       : "var(--color-dg-surface)",
                     animation: `fadeIn 50ms var(--ease-smooth) both ${i * 12}ms`,
                   }}
@@ -259,7 +259,7 @@ export function OnboardingFlow() {
                     <div
                       className="absolute inset-0 flex items-center justify-center rounded"
                       style={{
-                        background: "rgba(0,0,0,0.4)",
+                        background: "var(--dg-onboarding-selected-overlay)",
                         animation: "sealPop 50ms var(--ease-smooth) both",
                       }}
                     >

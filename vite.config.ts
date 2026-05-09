@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
@@ -31,5 +33,27 @@ export default defineConfig({
       },
     },
   },
-  plugins: [tailwindcss(), tsconfigPaths(), tanstackStart(), react()],
+  plugins: [
+    tailwindcss(),
+    tsconfigPaths(),
+    tanstackStart(),
+    react(),
+    {
+      name: "sw-cache-version",
+      apply: "build",
+      closeBundle: async () => {
+        const out = path.resolve("dist/client", "sw.js");
+        try {
+          await fs.access(out);
+        } catch {
+          // sw.js not copied yet, skip
+          return;
+        }
+        const buildId = Date.now().toString(36);
+        let src = await fs.readFile(out, "utf8");
+        src = src.replace(/__SW_VERSION__/g, buildId);
+        await fs.writeFile(out, src);
+      },
+    },
+  ],
 });

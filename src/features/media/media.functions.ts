@@ -258,7 +258,9 @@ export const getMedia = createServerFn({ method: "GET" })
         .orderBy(seasons.seasonNumber),
     ]);
 
-    // TEMP: hide episode tracking for non-consecutive seasons
+    if (items.length === 0) return null;
+
+    // Hide episode tracking for non-consecutive seasons (e.g., anime with decimal season numbers)
     const isConsecutive =
       itemSeasons.length === 0 || itemSeasons.every((s, i) => s.seasonNumber === i + 1);
 

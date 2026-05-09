@@ -47,10 +47,16 @@ type CatalogEntryRow = {
   episodeCount: number | null;
   seasonCount: number | null;
   posterUrl: string | null;
+  mediaUpdatedAt: Date | null;
 };
 
 /** Compute "on s01e05" or "on ep 05" from watchedEpisodes map. */
 function episodePosition(item: CatalogEntryRow): string | null {
+  /** Check if media has been updated since user last edited the entry */
+  function _hasMediaUpdate(item: CatalogEntryRow): boolean {
+    if (!item.mediaUpdatedAt || !item.updatedAt) return false;
+    return item.mediaUpdatedAt.getTime() > item.updatedAt.getTime();
+  }
   if (!item.watchedEpisodes) return null;
   if (item.mediaType !== "tv_series") return null;
   // Don't show position for completed entries
@@ -443,6 +449,14 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
               <Star size={10} weight="fill" className="text-dg-accent mr-0.5 inline-block" />
             )}
             {item.mediaTitle ?? item.mediaWikidataId}
+            {hasMediaUpdate(item) && (
+              <span
+                className="inline-block w-1.5 h-1.5 rounded-full bg-dg-accent ml-1 align-middle"
+                role="img"
+                aria-label="catalog updated since you last edited"
+                title="catalog updated since you last edited"
+              />
+            )}
           </div>
           <div className="mt-0.5 flex items-center gap-1">
             <StampBadge
@@ -496,6 +510,14 @@ function WatchlistListItem({ item, index }: { item: CatalogEntryRow; index: numb
           <Star size={11} weight="fill" className="text-dg-accent mr-1 inline-block" />
         )}
         {item.mediaTitle ?? item.mediaWikidataId}
+        {hasMediaUpdate(item) && (
+          <span
+            className="inline-block w-1.5 h-1.5 rounded-full bg-dg-accent ml-1.5 align-middle"
+            role="img"
+            aria-label="catalog updated since you last edited"
+            title="catalog updated since you last edited"
+          />
+        )}
       </span>
       {pos && (
         <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums shrink-0 font-mono">

@@ -573,6 +573,7 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
             onRewatch={handleRewatch}
             isMovie={data.mediaType === "movie"}
             totalEpisodes={totalEps}
+            seasons={hasSeasons ? data.seasons : []}
           >
             {hasSeasons && data.seasons ? (
               <EpisodeTracker

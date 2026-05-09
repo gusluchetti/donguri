@@ -71,7 +71,10 @@ async function serveStatic(pathname) {
     // Cache miss or stale — read from disk
     const body = await readFile(filePath);
     const ext = extname(filePath);
-    const contentType = MIME_TYPES[ext] || "application/octet-stream";
+    const contentType =
+      pathname === "/manifest.json"
+        ? "application/manifest+json"
+        : MIME_TYPES[ext] || "application/octet-stream";
 
     const headers = {
       "Content-Type": contentType,
@@ -84,6 +87,11 @@ async function serveStatic(pathname) {
       evictOldest(body.byteLength);
       staticFileCache.set(filePath, { buffer: body, mtimeMs, headers });
       currentCacheBytes += body.byteLength;
+    }
+    
+    // Service worker should always be revalidated
+    if (pathname === "/sw.js") {
+      headers["Cache-Control"] = "no-cache";
     }
 
     return new Response(body, { status: 200, headers });
