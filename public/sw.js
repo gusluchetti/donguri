@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = "donguri-v1";
+const CACHE_NAME = "donguri-__SW_VERSION__";
 const OFFLINE_URL = "/offline.html";
 
 const PRECACHE_URLS = [
@@ -13,17 +13,23 @@ const PRECACHE_URLS = [
   "/manifest-icon-192.maskable.png",
   "/manifest-icon-512.maskable.png",
   "/icon-maskable.svg",
-  "/icon-maskable-512.png",
-  "/manifest.json",
-  // Splash screens used in the app
+  // Splash screens used in the app (light + dark)
   "/apple-splash-dark-1125-2436.png",
+  "/apple-splash-light-1125-2436.png",
   "/apple-splash-dark-1170-2532.png",
+  "/apple-splash-light-1170-2532.png",
   "/apple-splash-dark-1179-2556.png",
+  "/apple-splash-light-1179-2556.png",
   "/apple-splash-dark-1284-2778.png",
+  "/apple-splash-light-1284-2778.png",
   "/apple-splash-dark-1290-2796.png",
+  "/apple-splash-light-1290-2796.png",
   "/apple-splash-dark-1536-2048.png",
+  "/apple-splash-light-1536-2048.png",
   "/apple-splash-dark-1668-2388.png",
+  "/apple-splash-light-1668-2388.png",
   "/apple-splash-dark-2048-2732.png",
+  "/apple-splash-light-2048-2732.png",
 ];
 
 self.addEventListener("install", (event) => {

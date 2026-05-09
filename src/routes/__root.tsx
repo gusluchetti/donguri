@@ -74,62 +74,110 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", type: "image/svg+xml", href: "/acorn.svg" },
       { rel: "manifest", href: "/manifest.json" },
       { rel: "apple-touch-icon", href: "/apple-icon-180.png" },
-      // Splash screens (dark mode only for now)
+      // Splash screens — light + dark per device
       // iPhone X/XS/11 Pro: 1125×2436
       {
         rel: "apple-touch-startup-image",
         href: "/apple-splash-dark-1125-2436.png",
         media:
-          "(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)",
+          "(prefers-color-scheme: dark) and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)",
+      },
+      {
+        rel: "apple-touch-startup-image",
+        href: "/apple-splash-light-1125-2436.png",
+        media:
+          "(prefers-color-scheme: light) and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)",
       },
       // iPhone 12/13/14/15: 1170×2532
       {
         rel: "apple-touch-startup-image",
         href: "/apple-splash-dark-1170-2532.png",
         media:
-          "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)",
+          "(prefers-color-scheme: dark) and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)",
+      },
+      {
+        rel: "apple-touch-startup-image",
+        href: "/apple-splash-light-1170-2532.png",
+        media:
+          "(prefers-color-scheme: light) and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)",
       },
       // iPhone 14/15 Plus: 1284×2778
       {
         rel: "apple-touch-startup-image",
         href: "/apple-splash-dark-1284-2778.png",
         media:
-          "(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)",
+          "(prefers-color-scheme: dark) and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)",
+      },
+      {
+        rel: "apple-touch-startup-image",
+        href: "/apple-splash-light-1284-2778.png",
+        media:
+          "(prefers-color-scheme: light) and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)",
       },
       // iPhone 14/15 Pro: 1179×2556
       {
         rel: "apple-touch-startup-image",
         href: "/apple-splash-dark-1179-2556.png",
         media:
-          "(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)",
+          "(prefers-color-scheme: dark) and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)",
+      },
+      {
+        rel: "apple-touch-startup-image",
+        href: "/apple-splash-light-1179-2556.png",
+        media:
+          "(prefers-color-scheme: light) and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)",
       },
       // iPhone 14/15 Pro Max: 1290×2796
       {
         rel: "apple-touch-startup-image",
         href: "/apple-splash-dark-1290-2796.png",
         media:
-          "(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)",
+          "(prefers-color-scheme: dark) and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)",
+      },
+      {
+        rel: "apple-touch-startup-image",
+        href: "/apple-splash-light-1290-2796.png",
+        media:
+          "(prefers-color-scheme: light) and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)",
       },
       // iPad mini/Air: 1536×2048
       {
         rel: "apple-touch-startup-image",
         href: "/apple-splash-dark-1536-2048.png",
         media:
-          "(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)",
+          "(prefers-color-scheme: dark) and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)",
+      },
+      {
+        rel: "apple-touch-startup-image",
+        href: "/apple-splash-light-1536-2048.png",
+        media:
+          "(prefers-color-scheme: light) and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)",
       },
       // iPad Pro 11": 1668×2388
       {
         rel: "apple-touch-startup-image",
         href: "/apple-splash-dark-1668-2388.png",
         media:
-          "(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)",
+          "(prefers-color-scheme: dark) and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)",
+      },
+      {
+        rel: "apple-touch-startup-image",
+        href: "/apple-splash-light-1668-2388.png",
+        media:
+          "(prefers-color-scheme: light) and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)",
       },
       // iPad Pro 12.9": 2048×2732
       {
         rel: "apple-touch-startup-image",
         href: "/apple-splash-dark-2048-2732.png",
         media:
-          "(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)",
+          "(prefers-color-scheme: dark) and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)",
+      },
+      {
+        rel: "apple-touch-startup-image",
+        href: "/apple-splash-light-2048-2732.png",
+        media:
+          "(prefers-color-scheme: light) and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)",
       },
       { rel: "preconnect", href: "https://image.tmdb.org", crossOrigin: "anonymous" },
       { rel: "preconnect", href: "https://s4.anilist.co", crossOrigin: "anonymous" },
