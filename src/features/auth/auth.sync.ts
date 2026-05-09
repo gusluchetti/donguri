@@ -8,6 +8,7 @@ import {
   normalizeStatus,
   watchedEpisodesSchema,
 } from "~/features/media/media-types";
+import { log } from "~/lib/logger";
 
 const COLLECTION = "app.donguri.catalog.entry";
 
@@ -204,6 +205,7 @@ export async function reconcileUser(agent: Agent, userId: string, did: string): 
         if (parsed.success) {
           pdsRecords.set(rkey, parsed.data);
         } else {
+          log.warn("[sync] catalog entry validation failed for rkey:", rkey, record.value);
         }
       }
 
@@ -238,5 +240,6 @@ export async function reconcileUser(agent: Agent, userId: string, did: string): 
       }
     }
   } else {
+    log.debug("[sync] skipping PDS pruning (fetch incomplete)");
   }
 }
