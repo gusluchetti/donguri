@@ -70,8 +70,6 @@ type MediaDetail = Media & {
   }[];
 };
 
-// ─── Input schemas ──────────────────────────────────────────────────────────
-
 const ListMediaInput = z.object({
   cursor: z.string().optional(),
   limit: z.number().min(1).max(100).default(50),
@@ -82,8 +80,6 @@ const ListMediaInput = z.object({
 const GetMediaInput = z.object({
   wikidataId: z.string(),
 });
-
-// ─── Server functions ───────────────────────────────────────────────────────
 
 /**
  * List media with cursor-based pagination, optional type filter and search.
@@ -152,8 +148,6 @@ export const getSamplesForHomepage = createServerFn({ method: "GET" }).handler(a
 
   return samples.map((m) => resolveMediaPoster(m, "detail"));
 });
-
-// ─── Server-side media detail cache ──────────────────────────────────────────
 
 const mediaDetailCache = new Map<string, { data: MediaDetail; ts: number }>();
 const DETAIL_CACHE_TTL = 10 * 60 * 1000; // 10 min
@@ -257,8 +251,6 @@ export const getMedia = createServerFn({ method: "GET" })
         .where(eq(seasons.mediaId, mediaId))
         .orderBy(seasons.seasonNumber),
     ]);
-
-    if (items.length === 0) return null;
 
     // Hide episode tracking for non-consecutive seasons (e.g., anime with decimal season numbers)
     const isConsecutive =

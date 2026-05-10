@@ -77,7 +77,6 @@ async function fetchTmdbPosters(
         if (data.poster_path) {
           const posterUrl = `https://image.tmdb.org/t/p/w92${data.poster_path}`;
           results.set(item.id, posterUrl);
-        } else {
         }
       } catch (error) {
         console.error(`[covers] TMDB fetch failed for ${item.tmdbId}:`, error);

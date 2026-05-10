@@ -50,9 +50,9 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
 
   let continueCursor: string | null = null;
   let pageCount = 0;
-  let _totalReturned = 0;
-  let _totalMatched = 0;
-  let _totalAlreadyUpdated = 0;
+  let totalReturned = 0;
+  let totalMatched = 0;
+  let totalAlreadyUpdated = 0;
 
   while (true) {
     pageCount++;
@@ -97,7 +97,7 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
     }, `RecentChanges page ${pageCount}`);
 
     const changes = data.query?.recentchanges ?? [];
-    _totalReturned += changes.length;
+    totalReturned += changes.length;
 
     for (const rc of changes) {
       const qid = rc.title.replace(/^Q/, "");
@@ -110,12 +110,12 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
       const ourUpdatedAt = updatedAtMap.get(qid);
       if (ourUpdatedAt && modified <= ourUpdatedAt) {
         // Wikidata's timestamp is not newer than our record — skip
-        _totalAlreadyUpdated++;
+        totalAlreadyUpdated++;
         continue;
       }
 
       results.push({ qid, modified });
-      _totalMatched++;
+      totalMatched++;
     }
 
     continueCursor = data.continue?.rccontinue ?? null;
@@ -126,6 +126,10 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
     // Inter‑page delay to stay within rate limits
     await new Promise((r) => setTimeout(r, 100));
   }
+
+  console.info(
+    `[incremental] recentchanges summary: returned=${totalReturned}, matched=${totalMatched}, already-updated=${totalAlreadyUpdated}`,
+  );
   return results;
 }
 
@@ -217,7 +221,7 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
   const qids = changes.map((c) => `Q${c.qid}`);
   const entities = await fetchEntitiesFromWikidata(qids);
   const parsed: ParsedMedia[] = [];
-  let _parseErrors = 0;
+  let parseErrors = 0;
 
   for (const entity of entities) {
     try {
@@ -226,9 +230,11 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
       if (!m) continue;
       parsed.push(m);
     } catch {
-      _parseErrors++;
+      parseErrors++;
     }
   }
+
+  if (parseErrors > 0) console.warn(`[incremental] ${parseErrors} parse errors`);
 
   if (parsed.length === 0) {
     setLastIncrementalAt(new Date());
@@ -275,11 +281,8 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
 
   setLastIncrementalAt(new Date());
 
-  const _totalTime = formatDuration(Date.now() - startTime);
-  for (const [_type, count] of Object.entries(stats.byType)) {
-    if (count > 0) {
-    }
-  }
+  const totalTime = formatDuration(Date.now() - startTime);
+  console.info(`[incremental] done in ${totalTime}`, stats.byType);
 
   return false;
 }

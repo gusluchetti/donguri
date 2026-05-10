@@ -28,8 +28,6 @@ export interface MediaSource {
   randomId(mediaType?: FilterType): Promise<string | null>;
 }
 
-// ─── Filter helpers ──────────────────────────────────────────────────────────
-
 /** Build compound WHERE conditions for virtual "anime" filter vs base types. */
 function typeConditions(filterType: FilterType) {
   if (filterType === "anime") {
@@ -39,8 +37,6 @@ function typeConditions(filterType: FilterType) {
   // Non-anime filters exclude anime items so they don't appear in both buckets
   return [eq(media.mediaType, filterType), isNull(media.animationOrigin)];
 }
-
-// ─── DbSource ───────────────────────────────────────────────────────────────
 
 class DbSource implements MediaSource {
   async list({
@@ -197,8 +193,6 @@ class DbSource implements MediaSource {
   }
 }
 
-// ─── CacheSource ────────────────────────────────────────────────────────────
-
 class CacheSource implements MediaSource {
   async list({
     cursor,
@@ -281,8 +275,6 @@ class CacheSource implements MediaSource {
     return source[Math.floor(Math.random() * source.length)].wikidataId;
   }
 }
-
-// ─── Factory ────────────────────────────────────────────────────────────────
 
 const dbSource = new DbSource();
 const cacheSource = new CacheSource();

@@ -39,8 +39,6 @@ interface OAuthProviderConfig {
   exchangeCode: (code: string, redirectUri: string) => Promise<UserProfile>;
 }
 
-// ─── Provider-specific code exchange ────────────────────────────────────────
-
 async function exchangeGoogleCode(code: string, redirectUri: string): Promise<UserProfile> {
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -156,8 +154,6 @@ async function exchangeGitHubCode(code: string, redirectUri: string): Promise<Us
   };
 }
 
-// ─── Provider configs ───────────────────────────────────────────────────────
-
 const PROVIDERS: Record<Provider, OAuthProviderConfig> = {
   google: {
     name: "google",
@@ -188,8 +184,6 @@ const PROVIDERS: Record<Provider, OAuthProviderConfig> = {
   },
 };
 
-// ─── Generic auth URL builder ───────────────────────────────────────────────
-
 export function getAuthUrl(provider: Provider, state: string): string {
   const config = PROVIDERS[provider];
   const publicUrl = getPublicUrl();
@@ -204,8 +198,6 @@ export function getAuthUrl(provider: Provider, state: string): string {
   if (provider === "google") params.set("response_type", "code");
   return `${config.authEndpoint}?${params}`;
 }
-
-// ─── Unified callback handler ───────────────────────────────────────────────
 
 export async function handleProviderCallback(
   provider: Provider,

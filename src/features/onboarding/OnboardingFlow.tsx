@@ -6,11 +6,9 @@ import { Button } from "~/components/Button";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
-import { displayMediaType, STAMP_COLORS, TYPE_HUES } from "~/features/media/media-types";
+import { displayMediaType, STAMP_COLORS } from "~/features/media/media-types";
 import { completeOnboarding } from "~/features/onboarding/onboarding.functions";
 import { onboardingPicksOptions } from "~/features/onboarding/onboarding.queries";
-
-// ─── Constants ───────────────────────────────────────────────────────────────
 
 const MEDIA_TYPES = [
   { key: "movie", label: "Movies", icon: "\uD83C\uDFAC" },
@@ -22,8 +20,6 @@ const MEDIA_TYPES = [
 type MediaTypeKey = (typeof MEDIA_TYPES)[number]["key"];
 
 const DISPLAY_COUNT = 24;
-
-// ─── Shuffle helper ──────────────────────────────────────────────────────────
 
 function shuffleArray<T>(arr: T[], seed?: number | string): T[] {
   const result = [...arr];
@@ -51,8 +47,6 @@ function shuffleArray<T>(arr: T[], seed?: number | string): T[] {
   }
   return result;
 }
-
-// ─── Component ───────────────────────────────────────────────────────────────
 
 export function OnboardingFlow() {
   const [step, setStep] = useState<1 | 2>(1);
@@ -152,7 +146,6 @@ export function OnboardingFlow() {
           <div className="grid grid-cols-2 gap-3">
             {MEDIA_TYPES.map((t, i) => {
               const active = selectedTypes.has(t.key);
-              const _hue = TYPE_HUES[t.key] ?? 0;
               const color = STAMP_COLORS[t.key] ?? "var(--color-dg-accent)";
 
               return (

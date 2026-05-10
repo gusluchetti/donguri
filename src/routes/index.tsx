@@ -153,8 +153,6 @@ function HomePage() {
   );
 }
 
-// ─── Logged-Out Landing ─────────────────────────────────────────────────────
-
 const TYPE_CARDS = [
   { type: "movie", label: "Movies", count: "28k+" },
   { type: "tv_series", label: "TV Shows", count: "12k+" },
@@ -355,8 +353,6 @@ function CarouselSection() {
     </section>
   );
 }
-
-// ─── Logged-In Watchlist ────────────────────────────────────────────────────
 
 function LoggedInView() {
   const { entries } = Route.useLoaderData();

@@ -80,8 +80,9 @@ export async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise
       stats.entitiesProcessed++;
 
       if (stats.entitiesProcessed % PROGRESS_LOG_INTERVAL === 0) {
-        const _elapsed = formatDuration(Date.now() - startTime);
-        const _rate = (stats.entitiesProcessed / ((Date.now() - startTime) / 1000)).toFixed(0);
+        const elapsed = formatDuration(Date.now() - startTime);
+        const rate = (stats.entitiesProcessed / ((Date.now() - startTime) / 1000)).toFixed(0);
+        console.info(`[pipeline] ${stats.entitiesProcessed} processed in ${elapsed} (${rate}/s)`);
 
         await db
           .update(importProgress)
@@ -110,10 +111,7 @@ export async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise
     if (batch.length > 0) {
       await processSuperBatch(db, batch, genreLookup, platformLookup, stats);
     }
-    for (const [_type, count] of Object.entries(stats.byType)) {
-      if (count > 0) {
-      }
-    }
+    console.info("[pipeline] by type:", stats.byType);
 
     await db
       .update(importProgress)
@@ -180,14 +178,19 @@ function findDumpPath(dataDir: string): string | null {
     try {
       if (fs.existsSync(path)) {
         const stats = fs.statSync(path);
-        const _sizeGB = (stats.size / 1024 / 1024 / 1024).toFixed(1);
+        const sizeGB = (stats.size / 1024 / 1024 / 1024).toFixed(1);
         const ageMs = Date.now() - stats.mtimeMs;
-        const _ageDays = (ageMs / (1000 * 60 * 60 * 24)).toFixed(1);
+        const ageDays = (ageMs / (1000 * 60 * 60 * 24)).toFixed(1);
+        console.info(`[pipeline] using existing dump: ${sizeGB} GB, ${ageDays} days old`);
 
         // Only use if less than 14 days old (we'll check this in pipeline)
         return path;
       }
-    } catch {}
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+        console.warn("[pipeline] could not stat dump file:", e);
+      }
+    }
   }
   return null;
 }
@@ -199,7 +202,11 @@ async function createSubset(dumpPath: string, subsetPath: string): Promise<void>
   const donePath = `${subsetPath}.done`;
   try {
     fs.unlinkSync(donePath);
-  } catch {}
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+      console.warn("[pipeline] could not remove sentinel:", e);
+    }
+  }
 
   // Use shell pipeline with pipefail to detect early failures
   // Limit lbzip2 to 2 threads to match consumer speed
@@ -217,7 +224,8 @@ async function createSubset(dumpPath: string, subsetPath: string): Promise<void>
   // Write sentinel file to signal successful completion
   fs.writeFileSync(donePath, `${startTime}\n${Date.now()}\n`);
 
-  const _duration = ((Date.now() - startTime) / 1000).toFixed(0);
+  const duration = ((Date.now() - startTime) / 1000).toFixed(0);
+  console.info(`[pipeline] subset created in ${duration}s`);
 }
 
 export async function runFullPipeline(db: DbType, config: ImportConfig): Promise<void> {
@@ -253,7 +261,11 @@ export async function runFullPipeline(db: DbType, config: ImportConfig): Promise
     // Clean up any stale sentinel file before regenerating
     try {
       fs.unlinkSync(donePath);
-    } catch {}
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+        console.warn("[pipeline] could not remove sentinel:", e);
+      }
+    }
     await createSubset(dumpPath, subsetPath);
   }
   await runMediaImport(db, {
@@ -264,7 +276,8 @@ export async function runFullPipeline(db: DbType, config: ImportConfig): Promise
 
   setLastFullDumpAt(new Date());
 
-  const _totalTime = ((Date.now() - startTime) / 1000).toFixed(0);
+  const totalTime = ((Date.now() - startTime) / 1000).toFixed(0);
+  console.info(`[pipeline] import completed in ${totalTime}s`);
 }
 
 export type { MediaImportOpts };

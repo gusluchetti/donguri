@@ -72,7 +72,7 @@ async function parseAnimeOfflineDatabase(filePath: string): Promise<{
   const byMalId = new Map<string, AnimeOfflineEntry>();
   const byAnidbId = new Map<string, AnimeOfflineEntry>();
 
-  let _parsedCount = 0;
+  let parsedCount = 0;
   for (let i = 0; i < lines.length; i++) {
     if (i === 0) {
       try {
@@ -85,7 +85,7 @@ async function parseAnimeOfflineDatabase(filePath: string): Promise<{
 
     try {
       const entry = JSON.parse(lines[i]) as AnimeOfflineEntry;
-      _parsedCount++;
+      parsedCount++;
       const ids = extractIdsFromSources(entry);
       if (ids.anilistId) byAnilistId.set(ids.anilistId, { ...entry, ...ids });
       if (ids.malId) byMalId.set(ids.malId, { ...entry, ...ids });
@@ -94,6 +94,7 @@ async function parseAnimeOfflineDatabase(filePath: string): Promise<{
       console.warn(`[anime offline] Failed to parse line ${i}: ${err}`);
     }
   }
+  console.info(`[anime offline] parsed ${parsedCount} entries`);
   return { byAnilistId, byMalId, byAnidbId };
 }
 

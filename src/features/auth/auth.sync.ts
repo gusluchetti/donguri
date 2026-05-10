@@ -232,11 +232,9 @@ export async function reconcileUser(agent: Agent, userId: string, did: string): 
       .from(catalogEntries)
       .where(eq(catalogEntries.userId, userId));
 
-    let _pruned = 0;
     for (const local of localEntries) {
       if (local.rkey && !pdsRecords.has(local.rkey)) {
         await db.delete(catalogEntries).where(eq(catalogEntries.id, local.id));
-        _pruned++;
       }
     }
   } else {

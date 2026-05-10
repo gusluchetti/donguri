@@ -51,6 +51,7 @@ export async function withRetry<T>(
     try {
       const result = await fn();
       if (lastAttempt > 0) {
+        console.info(`[retry] ${label} succeeded after ${lastAttempt + 1} attempts`);
       }
       return result;
     } catch (err) {

@@ -6,7 +6,7 @@ import { PgSessionStore, PgStateStore } from "./auth.kv-stores";
 
 /** Cached singleton — reused across requests within the same process. */
 let _client: NodeOAuthClient | null = null;
-const _clientUrl: string | null = null;
+let _clientUrl: string | null = null;
 
 export async function getOAuthClient(): Promise<NodeOAuthClient> {
   const publicUrl = getPublicUrl();
@@ -66,5 +66,6 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
 
   log.debug("[oauth] OAuth client created successfully");
 
+  _clientUrl = publicUrl;
   return _client;
 }

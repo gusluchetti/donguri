@@ -28,7 +28,8 @@ export async function downloadDump(url: string, targetPath: string): Promise<voi
     }
 
     const totalSize = Number.parseInt(response.headers.get("content-length") || "0", 10);
-    const _totalSizeGB = (totalSize / 1024 / 1024 / 1024).toFixed(1);
+    const totalSizeGB = (totalSize / 1024 / 1024 / 1024).toFixed(1);
+    console.info(`[download] starting, total ${totalSizeGB} GB`);
 
     const tempPath = `${targetPath}.partial`;
     const file = fs.createWriteStream(tempPath);
@@ -47,9 +48,10 @@ export async function downloadDump(url: string, targetPath: string): Promise<voi
       const now = Date.now();
 
       if (totalSize > 0 && now - lastProgressTime > 5000) {
-        const _pct = ((downloaded / totalSize) * 100).toFixed(1);
-        const _downloadedMB = (downloaded / 1024 / 1024).toFixed(0);
-        const _rate = (downloaded / 1024 / 1024 / ((now - startTime) / 1000)).toFixed(1);
+        const pct = ((downloaded / totalSize) * 100).toFixed(1);
+        const downloadedMB = (downloaded / 1024 / 1024).toFixed(0);
+        const rate = (downloaded / 1024 / 1024 / ((now - startTime) / 1000)).toFixed(1);
+        console.info(`[download] ${pct}% (${downloadedMB} MB) @ ${rate} MB/s`);
 
         lastProgressTime = now;
       }
@@ -64,8 +66,9 @@ export async function downloadDump(url: string, targetPath: string): Promise<voi
 
     fs.renameSync(tempPath, targetPath);
 
-    const _duration = ((Date.now() - startTime) / 1000).toFixed(0);
-    const _downloadedGB = (downloaded / 1024 / 1024 / 1024).toFixed(1);
+    const duration = ((Date.now() - startTime) / 1000).toFixed(0);
+    const downloadedGB = (downloaded / 1024 / 1024 / 1024).toFixed(1);
+    console.info(`[download] done in ${duration}s, ${downloadedGB} GB`);
   } catch (error) {
     const tempPath = `${targetPath}.partial`;
     if (fs.existsSync(tempPath)) {

@@ -12,8 +12,7 @@ import { catalogEntryOptions, trackedIdsOptions } from "~/features/catalog/catal
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
-import { GenreChips } from "~/features/media/components/GenreChips";
-import { PlatformChips } from "~/features/media/components/PlatformChips";
+import { GroupedChips } from "~/features/media/components/GroupedChips";
 import type { getMedia } from "~/features/media/media.functions";
 import { getRandomMediaId } from "~/features/media/media.functions";
 import { mediaDetailOptions } from "~/features/media/media.queries";
@@ -536,8 +535,8 @@ function MediaDetailPage({ wikidataId }: { wikidataId: string }) {
               ))}
             </div>
           )}
-          {data.platforms.length > 0 && <PlatformChips platforms={data.platforms} />}
-          {visibleGenres.length > 0 && <GenreChips genres={visibleGenres} />}
+          {data.platforms.length > 0 && <GroupedChips items={data.platforms} />}
+          {visibleGenres.length > 0 && <GroupedChips items={visibleGenres} />}
           {data.description && (
             <p className="text-[0.8rem] text-dg-text-secondary font-body m-0 leading-relaxed line-clamp-3">
               {data.description}

@@ -36,7 +36,7 @@ function BlueskyLoginForm() {
   const [handle, setHandle] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const _inputId = useId();
+  const inputId = useId();
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +61,7 @@ function BlueskyLoginForm() {
     <div className="border border-dg-border-subtle rounded p-4 sm:p-5 bg-dg-surface">
       <form onSubmit={onSubmit}>
         <label
-          htmlFor={_inputId}
+          htmlFor={inputId}
           className="flex items-center gap-2 text-dg-text-secondary text-[0.8rem] uppercase tracking-wider mb-3"
         >
           <a
@@ -78,7 +78,7 @@ function BlueskyLoginForm() {
         </label>
         <div className="flex flex-col sm:flex-row gap-2">
           <input
-            id={_inputId}
+            id={inputId}
             type="text"
             value={handle}
             onChange={(e) => setHandle(e.target.value)}

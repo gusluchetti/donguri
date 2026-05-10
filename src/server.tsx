@@ -70,7 +70,8 @@ const fetch = async (request: Request) => {
           headers: { "Cache-Control": "public, max-age=3600" },
         },
       );
-    } catch {
+    } catch (e) {
+      console.error("[server:jwks] failed:", e);
       return Response.json({ error: "JWKS not configured" }, { status: 500 });
     }
   }

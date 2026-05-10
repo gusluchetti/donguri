@@ -19,8 +19,6 @@ export const getAuthState = createServerFn({ method: "GET" }).handler(async () =
   return await getSessionData();
 });
 
-// ─── Bluesky (AT Protocol) login ──────────────────────────────────────────────
-
 export const initiateLogin = createServerFn({ method: "POST" })
   .inputValidator(z.object({ handle: z.string().min(1) }))
   .handler(async ({ data }) => {
@@ -157,8 +155,6 @@ export const handleOAuthCallback = createServerFn({ method: "GET" })
     }
   });
 
-// ─── Google / GitHub login ────────────────────────────────────────────────────
-
 const providerSchema = z.enum(["google", "github"]);
 
 const ENV_FOR_PROVIDER: Record<Provider, string> = {
@@ -180,8 +176,6 @@ export const handleOAuthProviderCallback = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     return handleProviderCallback(data.provider, data.code);
   });
-
-// ─── Logout ───────────────────────────────────────────────────────────────────
 
 export const logout = createServerFn({ method: "POST" }).handler(async () => {
   log.debug("[logout] ─── logout called ───");

@@ -47,8 +47,6 @@ export interface PaymentProvider {
   handleWebhook(rawBody: string, signature: string): Promise<WebhookResult>;
 }
 
-// ─── Lemon Squeezy ──────────────────────────────────────────────────────────
-
 const VARIANT_ENV_MAP = {
   monthly: "LEMONSQUEEZY_RANGER_MONTHLY_VARIANT_ID",
   annual: "LEMONSQUEEZY_RANGER_ANNUAL_VARIANT_ID",
