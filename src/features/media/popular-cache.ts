@@ -14,8 +14,6 @@ const FILTER_TYPES: FilterType[] = ["movie", "tv_series", "anime", "game"];
 const ITEMS_PER_TYPE = 1000;
 const TTL_MS = 30 * 60 * 1000; // 30 minutes
 
-// ─── Cache state ────────────────────────────────────────────────────────────
-
 let byType: Record<FilterType, Media[]> = {
   movie: [],
   tv_series: [],
@@ -25,8 +23,6 @@ let byType: Record<FilterType, Media[]> = {
 let all: Media[] = [];
 let warmedAt = 0;
 let warmingPromise: Promise<void> | null = null;
-
-// ─── Warm ───────────────────────────────────────────────────────────────────
 
 /** Build WHERE clause per filter bucket. Anime = virtual bucket via animationOrigin. */
 function bucketCondition(type: FilterType) {
@@ -99,8 +95,6 @@ async function ensureWarmed(): Promise<void> {
     }
   }
 }
-
-// ─── Public API ─────────────────────────────────────────────────────────────
 
 /** Ensure cache is warm, then return the arrays. */
 export async function getCacheArrays(): Promise<{

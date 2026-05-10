@@ -34,7 +34,6 @@ export const idbPersister =
       })
     : undefined;
 
-// ─── Catalog freshness check ────────────────────────────────────────────────
 // Root loader fetches a lightweight fingerprint (count + max updated_at) on every
 // navigation. If it differs from the last seen value, all ["user"] queries are
 // invalidated so child loaders/components get fresh data.

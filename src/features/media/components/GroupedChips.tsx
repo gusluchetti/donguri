@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { cn } from "~/lib/cn";
 
-type Platform = {
+type Item = {
   id: string;
   slug: string;
   name: string;
@@ -10,30 +10,30 @@ type Platform = {
   parentName: string | null;
 };
 
-type PlatformGroup = {
+type ItemGroup = {
   familyName: string;
-  familySlug: string;
-  children: Platform[];
+  familyId: string;
+  children: Item[];
 };
 
-function groupPlatforms(platforms: Platform[]): {
-  standalone: Platform[];
-  families: PlatformGroup[];
+function groupItems(items: Item[]): {
+  standalone: Item[];
+  families: ItemGroup[];
 } {
-  const childIds = new Set(platforms.filter((p) => p.parentId).map((p) => p.parentId as string));
-  const standalone: Platform[] = [];
-  const familyMap = new Map<string, PlatformGroup>();
+  const childParentIds = new Set(items.filter((i) => i.parentId).map((i) => i.parentId as string));
+  const standalone: Item[] = [];
+  const familyMap = new Map<string, ItemGroup>();
 
-  for (const p of platforms) {
-    if (p.parentId && p.parentName) {
-      let family = familyMap.get(p.parentId);
+  for (const i of items) {
+    if (i.parentId && i.parentName) {
+      let family = familyMap.get(i.parentId);
       if (!family) {
-        family = { familyName: p.parentName, familySlug: p.parentId, children: [] };
-        familyMap.set(p.parentId, family);
+        family = { familyName: i.parentName, familyId: i.parentId, children: [] };
+        familyMap.set(i.parentId, family);
       }
-      family.children.push(p);
-    } else if (!childIds.has(p.id)) {
-      standalone.push(p);
+      family.children.push(i);
+    } else if (!childParentIds.has(i.id)) {
+      standalone.push(i);
     }
   }
 
@@ -43,8 +43,8 @@ function groupPlatforms(platforms: Platform[]): {
 const CHIP =
   "text-xs font-mono py-1.5 px-2.5 sm:py-1 sm:px-2 bg-dg-elevated border border-dg-border rounded-sm text-dg-text-secondary";
 
-export function PlatformChips({ platforms }: { platforms: Platform[] }) {
-  const { standalone, families } = groupPlatforms(platforms);
+export function GroupedChips({ items }: { items: Item[] }) {
+  const { standalone, families } = groupItems(items);
   const total = standalone.length + families.reduce((n, f) => n + f.children.length, 0);
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -66,9 +66,9 @@ export function PlatformChips({ platforms }: { platforms: Platform[] }) {
             </span>
           )),
         )}
-        {standalone.map((p) => (
-          <span key={p.id} className={CHIP}>
-            {p.name}
+        {standalone.map((i) => (
+          <span key={i.id} className={CHIP}>
+            {i.name}
           </span>
         ))}
       </div>
@@ -78,23 +78,23 @@ export function PlatformChips({ platforms }: { platforms: Platform[] }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {families.map((f) => (
-        <div key={f.familySlug} className="relative">
+        <div key={f.familyId} className="relative">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setExpanded(expanded === f.familySlug ? null : f.familySlug);
+              setExpanded(expanded === f.familyId ? null : f.familyId);
             }}
             className={cn(
               CHIP,
               "cursor-pointer inline-flex items-center gap-1",
-              expanded === f.familySlug && "border-dg-accent text-dg-accent",
+              expanded === f.familyId && "border-dg-accent text-dg-accent",
             )}
           >
             {f.familyName}
             <span className="text-[0.625rem] font-mono opacity-60">{f.children.length}</span>
           </button>
-          {expanded === f.familySlug && (
+          {expanded === f.familyId && (
             <div className="absolute top-full left-0 mt-1 z-20 flex flex-col gap-1 bg-dg-surface border border-dg-border rounded-sm p-1.5 shadow-lg min-w-max">
               {f.children.map((c) => (
                 <span key={c.id} className="text-xs text-dg-text-secondary px-2 py-1">
@@ -105,9 +105,9 @@ export function PlatformChips({ platforms }: { platforms: Platform[] }) {
           )}
         </div>
       ))}
-      {standalone.map((p) => (
-        <span key={p.id} className={CHIP}>
-          {p.name}
+      {standalone.map((i) => (
+        <span key={i.id} className={CHIP}>
+          {i.name}
         </span>
       ))}
     </div>

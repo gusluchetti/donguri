@@ -100,12 +100,12 @@ export function PlanLandscape({ plan, accent }: { plan: string; accent: string }
 const SERIAL_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 export function handleToSerial(handle: string): string {
   // Two-pass FNV-1a to get 64 bits of entropy (need ~46.5 bits for 36^9)
-  let a = 0x811c9dc5;
-  let b = 0xdeadbeef;
+  let a = 0x81_1c_9d_c5;
+  let b = 0xde_ad_be_ef;
   for (let i = 0; i < handle.length; i++) {
     const c = handle.charCodeAt(i);
-    a = Math.imul(a ^ c, 0x01000193) >>> 0;
-    b = Math.imul(b ^ c, 0x1b873593) >>> 0;
+    a = Math.imul(a ^ c, 0x01_00_01_93) >>> 0;
+    b = Math.imul(b ^ c, 0x1b_87_35_93) >>> 0;
   }
   let out = "";
   let n = a;

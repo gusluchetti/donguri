@@ -8,6 +8,7 @@ import {
   normalizeStatus,
   watchedEpisodesSchema,
 } from "~/features/media/media-types";
+import { log } from "~/lib/logger";
 
 const COLLECTION = "app.donguri.catalog.entry";
 
@@ -38,7 +39,6 @@ export async function putCatalogEntry(
   entry: CatalogEntryRecord,
 ): Promise<{ uri: string; cid: string }> {
   const rkey = entry.mediaRef;
-  console.debug("[sync] putCatalogEntry did=%s rkey=%s status=%s", did, rkey, entry.status);
 
   let response: Awaited<ReturnType<typeof agent.com.atproto.repo.putRecord>>;
   try {
@@ -52,20 +52,13 @@ export async function putCatalogEntry(
       },
       validate: false, // PDS can't validate custom lexicons
     });
-    console.debug(
-      "[sync] putCatalogEntry PDS putRecord → uri=%s cid=%s",
-      response.data.uri,
-      response.data.cid,
-    );
   } catch (err) {
     console.error("[sync] putCatalogEntry PDS write FAILED:", err);
     throw err;
   }
 
   try {
-    console.debug("[sync] putCatalogEntry mirroring to local DB...");
     await upsertLocalMirror(userId, rkey, entry);
-    console.debug("[sync] putCatalogEntry → done");
   } catch (err) {
     console.error("[sync] putCatalogEntry local mirror FAILED (PDS write succeeded):", err);
     throw err;
@@ -81,20 +74,17 @@ export async function deleteCatalogEntry(
   mediaRef: string,
 ): Promise<void> {
   const rkey = mediaRef;
-  console.debug("[sync] deleteCatalogEntry did=%s rkey=%s", did, rkey);
 
   await agent.com.atproto.repo.deleteRecord({
     repo: did,
     collection: COLLECTION,
     rkey,
   });
-  console.debug("[sync] deleteCatalogEntry PDS deleteRecord → ok");
 
   const db = getDb();
   await db
     .delete(catalogEntries)
     .where(and(eq(catalogEntries.userId, userId), eq(catalogEntries.mediaWikidataId, mediaRef)));
-  console.debug("[sync] deleteCatalogEntry DB delete → ok");
 }
 
 export async function upsertLocalMirror(
@@ -147,15 +137,8 @@ export async function upsertLocalMirror(
       existing.rkey === rkey;
 
     if (unchanged) {
-      console.debug(
-        "[sync] upsertLocalMirror userId=%s rkey=%s → no changes, skipping",
-        userId,
-        rkey,
-      );
       return;
     }
-
-    console.debug("[sync] upsertLocalMirror userId=%s rkey=%s → update existing", userId, rkey);
     await db
       .update(catalogEntries)
       .set({
@@ -178,7 +161,6 @@ export async function upsertLocalMirror(
       })
       .where(eq(catalogEntries.id, existing.id));
   } else {
-    console.debug("[sync] upsertLocalMirror userId=%s rkey=%s → insert new", userId, rkey);
     await db.insert(catalogEntries).values({
       userId,
       mediaWikidataId: normalized.mediaRef,
@@ -202,7 +184,6 @@ export async function upsertLocalMirror(
 
 /** Reconcile on login — catches writes from other clients. */
 export async function reconcileUser(agent: Agent, userId: string, did: string): Promise<void> {
-  console.debug("[sync] reconcileUser did=%s — fetching PDS records...", did);
   const db = getDb();
 
   let cursor: string | undefined;
@@ -224,11 +205,7 @@ export async function reconcileUser(agent: Agent, userId: string, did: string): 
         if (parsed.success) {
           pdsRecords.set(rkey, parsed.data);
         } else {
-          console.debug(
-            "[sync] reconcileUser skipping invalid record rkey=%s errors=%o",
-            rkey,
-            parsed.error.flatten().fieldErrors,
-          );
+          log.warn("[sync] catalog entry validation failed for rkey:", rkey, record.value);
         }
       }
 
@@ -244,16 +221,9 @@ export async function reconcileUser(agent: Agent, userId: string, did: string): 
     );
   }
 
-  console.debug(
-    "[sync] reconcileUser fetched %d records from PDS (complete=%s)",
-    pdsRecords.size,
-    fetchComplete,
-  );
-
   for (const [rkey, record] of pdsRecords) {
     await upsertLocalMirror(userId, rkey, record);
   }
-  console.debug("[sync] reconcileUser upserted %d records to local DB", pdsRecords.size);
 
   // Only prune entries missing from PDS if the fetch completed fully
   if (fetchComplete) {
@@ -262,17 +232,12 @@ export async function reconcileUser(agent: Agent, userId: string, did: string): 
       .from(catalogEntries)
       .where(eq(catalogEntries.userId, userId));
 
-    let pruned = 0;
     for (const local of localEntries) {
       if (local.rkey && !pdsRecords.has(local.rkey)) {
         await db.delete(catalogEntries).where(eq(catalogEntries.id, local.id));
-        pruned++;
       }
     }
-    console.debug("[sync] reconcileUser pruned %d stale local entries", pruned);
   } else {
-    console.debug("[sync] reconcileUser skipped pruning — PDS fetch was incomplete");
+    log.debug("[sync] skipping PDS pruning (fetch incomplete)");
   }
-
-  console.debug("[sync] reconcileUser → done");
 }

@@ -13,6 +13,7 @@ import { users } from "~/db/schema";
 import type { SessionData } from "~/features/auth/auth.session";
 import { setSessionCookie } from "~/features/auth/auth.session";
 import { cleanEnv, getPublicUrl } from "~/lib/env";
+import { log } from "~/lib/logger";
 
 export type Provider = "google" | "github";
 
@@ -37,8 +38,6 @@ interface OAuthProviderConfig {
   extraAuthParams?: Record<string, string>;
   exchangeCode: (code: string, redirectUri: string) => Promise<UserProfile>;
 }
-
-// ─── Provider-specific code exchange ────────────────────────────────────────
 
 async function exchangeGoogleCode(code: string, redirectUri: string): Promise<UserProfile> {
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -155,8 +154,6 @@ async function exchangeGitHubCode(code: string, redirectUri: string): Promise<Us
   };
 }
 
-// ─── Provider configs ───────────────────────────────────────────────────────
-
 const PROVIDERS: Record<Provider, OAuthProviderConfig> = {
   google: {
     name: "google",
@@ -187,8 +184,6 @@ const PROVIDERS: Record<Provider, OAuthProviderConfig> = {
   },
 };
 
-// ─── Generic auth URL builder ───────────────────────────────────────────────
-
 export function getAuthUrl(provider: Provider, state: string): string {
   const config = PROVIDERS[provider];
   const publicUrl = getPublicUrl();
@@ -204,8 +199,6 @@ export function getAuthUrl(provider: Provider, state: string): string {
   return `${config.authEndpoint}?${params}`;
 }
 
-// ─── Unified callback handler ───────────────────────────────────────────────
-
 export async function handleProviderCallback(
   provider: Provider,
   code: string,
@@ -216,8 +209,7 @@ export async function handleProviderCallback(
 
   const profile = await config.exchangeCode(code, redirectUri);
 
-  const isDev = process.env.NODE_ENV === "development";
-  if (isDev) console.debug("[oauth:%s] profile: %o", provider, { ...profile, avatarUrl: "..." });
+  log.debug("[oauth] provider callback received for:", provider, "profile:", profile);
 
   const db = getDb();
   const { idColumn } = config;
@@ -245,7 +237,7 @@ export async function handleProviderCallback(
         avatarUrl: profile.avatarUrl,
       })
       .where(eq(users.id, userId));
-    if (isDev) console.debug("[oauth:%s] returning user: %s", provider, userId);
+    log.debug("[oauth] updated existing user with provider ID:", profile.providerId);
   } else if (profile.email) {
     // 2. Try email-based auto-link: attach this provider to an existing account
     const [byEmail] = await db
@@ -261,13 +253,7 @@ export async function handleProviderCallback(
         .update(users)
         .set({ avatarUrl: profile.avatarUrl, [config.idKey]: profile.providerId })
         .where(eq(users.id, userId));
-      if (isDev)
-        console.debug(
-          "[oauth:%s] linked to existing user %s (matched by email %s)",
-          provider,
-          userId,
-          profile.email,
-        );
+      log.debug("[oauth] auto-linked email to existing user:", profile.email);
     } else {
       // 3. Brand new user
       const [newUser] = await db
@@ -283,7 +269,7 @@ export async function handleProviderCallback(
       userId = newUser.id;
       handle = profile.name;
       isNewUser = true;
-      if (isDev) console.debug("[oauth:%s] created new user: %s", provider, userId);
+      log.debug("[oauth] created new user with email:", profile.email);
     }
   } else {
     // No email from provider — create new user without linking
@@ -299,7 +285,7 @@ export async function handleProviderCallback(
     userId = newUser.id;
     handle = profile.name;
     isNewUser = true;
-    if (isDev) console.debug("[oauth:%s] created new user (no email): %s", provider, userId);
+    log.debug("[oauth] created new user without email for provider:", provider);
   }
 
   const { getUserSubscriptionTier } = await import("~/features/subscription/subscription.server");

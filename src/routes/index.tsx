@@ -50,13 +50,14 @@ type CatalogEntryRow = {
   mediaUpdatedAt: Date | null;
 };
 
+/** Check if media has been updated since user last edited the entry */
+function hasMediaUpdate(item: CatalogEntryRow): boolean {
+  if (!item.mediaUpdatedAt || !item.updatedAt) return false;
+  return item.mediaUpdatedAt.getTime() > item.updatedAt.getTime();
+}
+
 /** Compute "on s01e05" or "on ep 05" from watchedEpisodes map. */
 function episodePosition(item: CatalogEntryRow): string | null {
-  /** Check if media has been updated since user last edited the entry */
-  function _hasMediaUpdate(item: CatalogEntryRow): boolean {
-    if (!item.mediaUpdatedAt || !item.updatedAt) return false;
-    return item.mediaUpdatedAt.getTime() > item.updatedAt.getTime();
-  }
   if (!item.watchedEpisodes) return null;
   if (item.mediaType !== "tv_series") return null;
   // Don't show position for completed entries
@@ -151,8 +152,6 @@ function HomePage() {
     </div>
   );
 }
-
-// ─── Logged-Out Landing ─────────────────────────────────────────────────────
 
 const TYPE_CARDS = [
   { type: "movie", label: "Movies", count: "28k+" },
@@ -354,8 +353,6 @@ function CarouselSection() {
     </section>
   );
 }
-
-// ─── Logged-In Watchlist ────────────────────────────────────────────────────
 
 function LoggedInView() {
   const { entries } = Route.useLoaderData();

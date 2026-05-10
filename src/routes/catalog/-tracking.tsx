@@ -226,8 +226,6 @@ function StatusButtons({
   );
 }
 
-// ─── Rating Knob ──────────────────────────────────────────────────────────────
-
 const KNOB_STROKE = 6;
 const ARC_START = 135;
 const ARC_SWEEP = 270;

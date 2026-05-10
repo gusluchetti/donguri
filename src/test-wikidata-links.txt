@@ -1,7 +1,0 @@
-https://www.wikidata.org/wiki/Special:EntityData/Q107087854.json - smiling friends
-https://www.wikidata.org/wiki/Special:EntityData/Q22997984.json - despicable me 3
-https://www.wikidata.org/wiki/Special:EntityData/Q70209136.json - hunter x hunter (anime)
-https://www.wikidata.org/wiki/Special:EntityData/Q204228.json - the mentalist
-https://www.wikidata.org/wiki/Special:EntityData/Q111165107.json - counter strike 2
-https://www.wikidata.org/wiki/Special:EntityData/Q842146.json - counter strike: global offensive
-https://www.wikidata.org/wiki/Special:EntityData/Q12130601.json - song to song

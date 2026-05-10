@@ -70,8 +70,6 @@ type MediaDetail = Media & {
   }[];
 };
 
-// ─── Input schemas ──────────────────────────────────────────────────────────
-
 const ListMediaInput = z.object({
   cursor: z.string().optional(),
   limit: z.number().min(1).max(100).default(50),
@@ -82,8 +80,6 @@ const ListMediaInput = z.object({
 const GetMediaInput = z.object({
   wikidataId: z.string(),
 });
-
-// ─── Server functions ───────────────────────────────────────────────────────
 
 /**
  * List media with cursor-based pagination, optional type filter and search.
@@ -121,16 +117,16 @@ export const getRandomMediaId = createServerFn({ method: "GET" }).handler(async 
  */
 export const getSamplesForHomepage = createServerFn({ method: "GET" }).handler(async () => {
   const { byType } = await getCacheArrays();
-  const PER_TYPE = 25;
+  const PerType = 25;
   const types = ["movie", "tv_series", "anime", "game"] as const;
 
   // Seeded PRNG (mulberry32) — deterministic per 30-min window
   const seed = Math.floor(Date.now() / 1_800_000);
-  let t = (seed | 0) + 0x6d2b79f5;
+  let t = (seed | 0) + 0x6d_2b_79_f5;
   function rand() {
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296;
   }
 
   const samples: Media[] = [];
@@ -141,7 +137,7 @@ export const getSamplesForHomepage = createServerFn({ method: "GET" }).handler(a
       const j = Math.floor(rand() * (i + 1));
       [withPosters[i], withPosters[j]] = [withPosters[j], withPosters[i]];
     }
-    samples.push(...withPosters.slice(0, PER_TYPE));
+    samples.push(...withPosters.slice(0, PerType));
   }
 
   // Final shuffle for mixed display order
@@ -152,8 +148,6 @@ export const getSamplesForHomepage = createServerFn({ method: "GET" }).handler(a
 
   return samples.map((m) => resolveMediaPoster(m, "detail"));
 });
-
-// ─── Server-side media detail cache ──────────────────────────────────────────
 
 const mediaDetailCache = new Map<string, { data: MediaDetail; ts: number }>();
 const DETAIL_CACHE_TTL = 10 * 60 * 1000; // 10 min
@@ -257,8 +251,6 @@ export const getMedia = createServerFn({ method: "GET" })
         .where(eq(seasons.mediaId, mediaId))
         .orderBy(seasons.seasonNumber),
     ]);
-
-    if (items.length === 0) return null;
 
     // Hide episode tracking for non-consecutive seasons (e.g., anime with decimal season numbers)
     const isConsecutive =

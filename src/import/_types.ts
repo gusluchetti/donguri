@@ -107,8 +107,6 @@ export interface SiteLink {
   badges: string[];
 }
 
-// ─── Property & Q-value constants ───────────────────────────────────────────
-
 export const WikidataProperties = {
   INSTANCE_OF: "P31",
 

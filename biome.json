@@ -1,5 +1,10 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
     "includes": ["src/**", "*.ts", "*.json", "!src/routeTree.gen.ts"]
   },
@@ -8,43 +13,71 @@
     "indentWidth": 2,
     "lineWidth": 100
   },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
   "linter": {
+    "domains": {
+      "react": "recommended",
+      "test": "recommended"
+    },
     "rules": {
       "recommended": true,
+      "correctness": {
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error",
+        "noUnusedFunctionParameters": "error",
+        "noUnusedPrivateClassMembers": "error",
+        "useExhaustiveDependencies": "error",
+        "useHookAtTopLevel": "error",
+        "useJsxKeyInIterable": "error"
+      },
       "complexity": {
         "noImportantStyles": "off",
         "noExcessiveCognitiveComplexity": {
-          "options": {
-            "maxAllowedComplexity": 25
-          }
+          "level": "error",
+          "options": { "maxAllowedComplexity": 40 }
         },
-        "noForEach": "warn"
-      },
-      "correctness": {
-        "noUnusedImports": "warn",
-        "useExhaustiveDependencies": "warn"
+        "noForEach": "error",
+        "noUselessFragments": "error",
+        "noUselessTernary": "error",
+        "noVoid": "error"
       },
       "style": {
-        "noNonNullAssertion": "warn",
-        "useImportType": "warn",
-        "useConst": "error"
+        "noNonNullAssertion": "error",
+        "useImportType": "error",
+        "useConst": "error",
+        "useFragmentSyntax": "error",
+        "useShorthandAssign": "error",
+        "useTemplate": "error",
+        "useNumericSeparators": "error"
       },
       "suspicious": {
         "noVar": "error",
         "noDebugger": "error",
-        "noExplicitAny": "warn",
-        "noImplicitAnyLet": "warn"
+        "noExplicitAny": "error",
+        "noImplicitAnyLet": "error",
+        "noArrayIndexKey": "error",
+        "noConsole": {
+          "level": "error",
+          "options": { "allow": ["warn", "error"] }
+        }
+      },
+      "security": {
+        "recommended": true
+      },
+      "performance": {
+        "recommended": true
       }
     }
   },
   "css": {
-    "parser": {
-      "cssModules": true,
-      "tailwindDirectives": true
-    },
-    "linter": {
-      "enabled": true
-    }
+    "parser": { "cssModules": true, "tailwindDirectives": true },
+    "linter": { "enabled": true }
   },
   "javascript": {
     "formatter": {
@@ -53,5 +86,17 @@
       "trailingCommas": "all",
       "arrowParentheses": "always"
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["src/import/**", "src/db/seed-*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    }
+  ]
 }

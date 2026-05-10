@@ -31,8 +31,6 @@ function SettingsPage() {
   );
 }
 
-// ─── Sound ──────────────────────────────────────────────────────────────────
-
 function SoundSection() {
   const [on, setOn] = useState(true);
   const [vol, setVol] = useState(1);
@@ -91,8 +89,6 @@ function SoundSection() {
     </section>
   );
 }
-
-// ─── Theme ──────────────────────────────────────────────────────────────────
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; icon: React.ReactNode }[] = [
   { value: "system", label: "System", icon: <Monitor size={14} weight="bold" /> },

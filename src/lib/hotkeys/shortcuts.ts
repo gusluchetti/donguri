@@ -8,8 +8,6 @@ export function isInputFocused(): boolean {
   return false;
 }
 
-// ─── Help overlay data ──────────────────────────────────────────────────────
-
 export interface ShortcutDef {
   /** Key labels for display (each element = one keycap). */
   keys: string[];

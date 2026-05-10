@@ -36,8 +36,6 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
   const sinceIso = since.toISOString();
   const results: RecentChangesResult[] = [];
 
-  console.log(`[recentchanges] Querying for edits since ${sinceIso}...`);
-
   // Load our existing Wikidata IDs into a Set for fast lookup
   const existingRows = await db
     .select({ wikidataId: media.wikidataId, updatedAt: media.updatedAt })
@@ -49,8 +47,6 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
     existingQids.add(qid);
     if (row.updatedAt) updatedAtMap.set(qid, row.updatedAt);
   }
-
-  console.log(`[recentchanges] Loaded ${existingQids.size} existing QIDs from DB`);
 
   let continueCursor: string | null = null;
   let pageCount = 0;
@@ -77,7 +73,6 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
     }
 
     const url = `${WIKIDATA_API}?${params}`;
-    console.log(`[recentchanges] Page ${pageCount}: ${url}`);
 
     const data = await withRetry(async () => {
       const response = await fetch(url, { headers: { "User-Agent": "donguri-import-bot/1.0" } });
@@ -86,7 +81,6 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
         if (response.status === 429) {
           const retryAfter = response.headers.get("retry-after");
           const delaySeconds = retryAfter ? parseInt(retryAfter, 10) : 5;
-          console.log(`[recentchanges] Rate limited, waiting ${delaySeconds}s before retry...`);
           await new Promise((r) => setTimeout(r, delaySeconds * 1000));
         }
         throw new Error(`RecentChanges API failed: HTTP ${response.status} ${response.statusText}`);
@@ -104,7 +98,6 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
 
     const changes = data.query?.recentchanges ?? [];
     totalReturned += changes.length;
-    console.log(`[recentchanges] Page ${pageCount}: ${changes.length} edits`);
 
     for (const rc of changes) {
       const qid = rc.title.replace(/^Q/, "");
@@ -134,8 +127,8 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
     await new Promise((r) => setTimeout(r, 100));
   }
 
-  console.log(
-    `[recentchanges] Total: ${totalReturned} edits, ${totalMatched} matched and need update, ${totalAlreadyUpdated} already up‑to‑date`,
+  console.info(
+    `[incremental] recentchanges summary: returned=${totalReturned}, matched=${totalMatched}, already-updated=${totalAlreadyUpdated}`,
   );
   return results;
 }
@@ -146,14 +139,12 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
  */
 async function fetchEntitiesFromWikidata(qids: string[]): Promise<WikidataEntity[]> {
   const entities: WikidataEntity[] = [];
-  const BATCH_SIZE = 50;
+  const BatchSize = 50;
 
-  for (let i = 0; i < qids.length; i += BATCH_SIZE) {
-    const batch = qids.slice(i, i + BATCH_SIZE);
-    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-    const totalBatches = Math.ceil(qids.length / BATCH_SIZE);
-
-    console.log(`[wikidata] Fetching batch ${batchNum}/${totalBatches} (${batch.length} items)...`);
+  for (let i = 0; i < qids.length; i += BatchSize) {
+    const batch = qids.slice(i, i + BatchSize);
+    const batchNum = Math.floor(i / BatchSize) + 1;
+    const _totalBatches = Math.ceil(qids.length / BatchSize);
 
     const params = new URLSearchParams({
       action: "wbgetentities",
@@ -194,12 +185,6 @@ async function fetchEntitiesFromWikidata(qids: string[]): Promise<WikidataEntity
  */
 export async function runIncremental(db: DbType, _config: ImportConfig): Promise<boolean> {
   const startTime = Date.now();
-
-  console.log(`\n${"=".repeat(60)}`);
-  console.log("INCREMENTAL UPDATE PIPELINE");
-  console.log(`${"=".repeat(60)}\n`);
-
-  console.log("[incremental] Setting up trigram indexes...");
   for (const stmt of TRGM_SETUP_SQL) {
     await db.execute(sql.raw(stmt));
   }
@@ -213,22 +198,14 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
     if (!since) {
       // Should never happen — but as final fallback, 24 hours ago
       since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      console.log(
-        `[incremental] No incremental or full dump timestamps found. Defaulting to 24h ago: ${since.toISOString()}`,
-      );
     } else {
-      console.log(
-        `[incremental] No previous incremental record. Using last full dump timestamp: ${since.toISOString()}`,
-      );
     }
   }
 
   const daysSince = (Date.now() - since.getTime()) / (1000 * 60 * 60 * 24);
-  console.log(`[incremental] Gap since last update: ${daysSince.toFixed(1)} days`);
 
   // Gap too large — signal to full pipeline
   if (daysSince > 30) {
-    console.log("[incremental] Gap > 30 days — need full dump");
     return true;
   }
 
@@ -236,7 +213,6 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
   const changes = await queryRecentChanges(db, since);
 
   if (changes.length === 0) {
-    console.log("[incremental] No changes found — skipping import");
     setLastIncrementalAt(new Date());
     return false;
   }
@@ -244,10 +220,6 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
   // Fetch full entities
   const qids = changes.map((c) => `Q${c.qid}`);
   const entities = await fetchEntitiesFromWikidata(qids);
-  console.log(`[incremental] Fetched ${entities.length} full entities`);
-
-  // Parse
-  console.log(`[parse] Parsing ${entities.length} entities...`);
   const parsed: ParsedMedia[] = [];
   let parseErrors = 0;
 
@@ -261,16 +233,13 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
       parseErrors++;
     }
   }
-  console.log(`[parse] Parsed: ${parsed.length}, Errors: ${parseErrors}`);
+
+  if (parseErrors > 0) console.warn(`[incremental] ${parseErrors} parse errors`);
 
   if (parsed.length === 0) {
-    console.log("[incremental] No valid entities to import");
     setLastIncrementalAt(new Date());
     return false;
   }
-
-  // Prepare for upsert
-  console.log("[incremental] Preparing import...");
   const [progressRecord] = await db
     .insert(importProgress)
     .values({
@@ -282,9 +251,6 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
 
   await seedCanonicalMappings(db);
   const { genreLookup, platformLookup } = await loadCanonicalLookups(db);
-
-  // Upsert in batches
-  console.log("[incremental] Upserting entities...");
   const stats: ImportStats = {
     entitiesProcessed: parsed.length,
     entitiesImported: 0,
@@ -296,9 +262,9 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
     byType: {},
   };
 
-  const BATCH_SIZE = 5_000;
-  for (let i = 0; i < parsed.length; i += BATCH_SIZE) {
-    const batch = parsed.slice(i, i + BATCH_SIZE);
+  const BatchSize = 5000;
+  for (let i = 0; i < parsed.length; i += BatchSize) {
+    const batch = parsed.slice(i, i + BatchSize);
     await processSuperBatch(db, batch, genreLookup, platformLookup, stats);
   }
 
@@ -316,18 +282,7 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
   setLastIncrementalAt(new Date());
 
   const totalTime = formatDuration(Date.now() - startTime);
-  console.log(`\n[incremental] Completed in ${totalTime}`);
-  console.log(`  Processed:   ${stats.entitiesProcessed.toLocaleString()} Wikidata entities`);
-  console.log(
-    `  Imported:    ${stats.entitiesImported.toLocaleString()} media rows (${stats.entitiesNew.toLocaleString()} new, ${stats.entitiesUpdated.toLocaleString()} updated)`,
-  );
-  console.log(`  Genre links: ${stats.genresFound.toLocaleString()}`);
-  console.log(`  Platform links: ${stats.platformsFound.toLocaleString()}`);
-  console.log(`  Errors:      ${stats.errors}`);
-  console.log(`  By type:`);
-  for (const [type, count] of Object.entries(stats.byType)) {
-    if (count > 0) console.log(`    ${type}: ${count.toLocaleString()}`);
-  }
+  console.info(`[incremental] done in ${totalTime}`, stats.byType);
 
   return false;
 }

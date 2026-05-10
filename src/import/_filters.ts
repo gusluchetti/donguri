@@ -14,6 +14,14 @@ import {
 const P = WikidataProperties;
 const Q = MediaTypeQValues;
 
+function sortByPreferredRank<T extends { rank: string }>(claims: readonly T[]): T[] {
+  return [...claims].sort((a, b) => {
+    if (a.rank === "preferred" && b.rank !== "preferred") return -1;
+    if (b.rank === "preferred" && a.rank !== "preferred") return 1;
+    return 0;
+  });
+}
+
 // All Q-values that indicate anime
 const ANIME_TYPES = new Set<string>([
   Q.ANIME,
@@ -214,11 +222,7 @@ export function getStringClaim(entity: WikidataEntity, property: string): string
   const claims = entity.claims?.[property];
   if (!claims || claims.length === 0) return null;
 
-  const sortedClaims = [...claims].sort((a, b) => {
-    if (a.rank === "preferred" && b.rank !== "preferred") return -1;
-    if (b.rank === "preferred" && a.rank !== "preferred") return 1;
-    return 0;
-  });
+  const sortedClaims = sortByPreferredRank(claims);
 
   const claim = sortedClaims[0];
   if (claim.mainsnak.snaktype === "value" && claim.mainsnak.datavalue?.type === "string") {
@@ -390,11 +394,7 @@ function getOriginalTitle(entity: WikidataEntity): { title: string; language: st
   const claims = entity.claims?.[P.TITLE];
   if (!claims || claims.length === 0) return null;
 
-  const sortedClaims = [...claims].sort((a, b) => {
-    if (a.rank === "preferred" && b.rank !== "preferred") return -1;
-    if (b.rank === "preferred" && a.rank !== "preferred") return 1;
-    return 0;
-  });
+  const sortedClaims = sortByPreferredRank(claims);
 
   const claim = sortedClaims[0];
   if (claim.mainsnak.snaktype === "value" && claim.mainsnak.datavalue?.type === "monolingualtext") {
@@ -455,11 +455,7 @@ function getYearFromTimeClaim(entity: WikidataEntity, property: string): number 
   const claims = entity.claims?.[property];
   if (!claims || claims.length === 0) return null;
 
-  const sortedClaims = [...claims].sort((a, b) => {
-    if (a.rank === "preferred" && b.rank !== "preferred") return -1;
-    if (b.rank === "preferred" && a.rank !== "preferred") return 1;
-    return 0;
-  });
+  const sortedClaims = sortByPreferredRank(claims);
 
   const claim = sortedClaims[0];
   if (claim.mainsnak.snaktype === "value" && claim.mainsnak.datavalue?.type === "time") {
@@ -474,11 +470,7 @@ function getQuantityClaim(entity: WikidataEntity, property: string): number | nu
   const claims = entity.claims?.[property];
   if (!claims || claims.length === 0) return null;
 
-  const sortedClaims = [...claims].sort((a, b) => {
-    if (a.rank === "preferred" && b.rank !== "preferred") return -1;
-    if (b.rank === "preferred" && a.rank !== "preferred") return 1;
-    return 0;
-  });
+  const sortedClaims = sortByPreferredRank(claims);
 
   const claim = sortedClaims[0];
   if (claim.mainsnak.snaktype === "value" && claim.mainsnak.datavalue?.type === "quantity") {

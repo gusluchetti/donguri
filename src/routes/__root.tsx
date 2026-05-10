@@ -383,7 +383,7 @@ function RootComponent() {
             <footer className="hidden sm:block border-t border-dg-border-subtle px-g3 py-g1 font-body shrink-0">
               <div className="max-w-[1100px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[0.7rem] text-dg-text-tertiary">
                 <span className="flex items-center gap-2">
-                  <span>v2026.3.23</span>
+                  <span>v2026.05.09</span>
                   <button
                     type="button"
                     onClick={() => setShowHelp(true)}

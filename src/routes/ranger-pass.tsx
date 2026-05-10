@@ -223,8 +223,6 @@ function RangerPassPage() {
   );
 }
 
-// ─── Subscription Management ──────────────────────────────────────────────────
-
 const STATUS_LABELS: Record<SubscriptionStatus, { label: string; className: string }> = {
   active: { label: "Active", className: "text-dg-game" },
   canceled: { label: "Canceled", className: "text-dg-anime" },

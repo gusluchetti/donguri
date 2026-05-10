@@ -26,8 +26,6 @@ export function ratingColor(value: number | null): string | undefined {
   return `hsl(${Math.round(h)}, ${Math.round(s)}%, calc(${Math.round(l)}% + var(--rating-l-offset, 0%)))`;
 }
 
-// ─── Status Vocabulary ──────────────────────────────────────────────────────
-
 export const STATUS_ORDER = [
   "in_progress",
   "planned",
@@ -96,8 +94,6 @@ export function replayCountLabel(count: number, mediaType?: string): string | nu
   return `${verb} x${count + 1}`;
 }
 
-// ─── Status Icons ───────────────────────────────────────────────────────────
-
 export const STATUS_ICONS: Record<StatusValue, string> = {
   planned: "\u25C7", // ◇
   in_progress: "\u25B8", // ▸
@@ -106,8 +102,6 @@ export const STATUS_ICONS: Record<StatusValue, string> = {
   mastered: "\u2726", // ✦
   dropped: "\u2715", // ✕
 };
-
-// ─── Status Colors ──────────────────────────────────────────────────────────
 
 /** Text color per status (homepage section headers) */
 export const STATUS_ACCENT: Record<StatusValue, string> = {
@@ -159,8 +153,6 @@ export const TYPE_HUES: Record<string, number> = {
   anime: 0, // #8b3a3a — dark red
   game: 150, // #2a7a50 — green
 };
-
-// ─── Watched Episodes Schema + Helpers ───────────────────────────────────────
 
 import { z } from "zod";
 

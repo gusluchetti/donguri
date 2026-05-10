@@ -6,11 +6,9 @@ import { Button } from "~/components/Button";
 import { SoundEngine } from "~/features/catalog/catalog.sound";
 import { CoverThumb } from "~/features/catalog/components/CoverThumb";
 import { StampBadge } from "~/features/catalog/components/StampBadge";
-import { displayMediaType, STAMP_COLORS, TYPE_HUES } from "~/features/media/media-types";
+import { displayMediaType, STAMP_COLORS } from "~/features/media/media-types";
 import { completeOnboarding } from "~/features/onboarding/onboarding.functions";
 import { onboardingPicksOptions } from "~/features/onboarding/onboarding.queries";
-
-// ─── Constants ───────────────────────────────────────────────────────────────
 
 const MEDIA_TYPES = [
   { key: "movie", label: "Movies", icon: "\uD83C\uDFAC" },
@@ -23,18 +21,32 @@ type MediaTypeKey = (typeof MEDIA_TYPES)[number]["key"];
 
 const DISPLAY_COUNT = 24;
 
-// ─── Shuffle helper ──────────────────────────────────────────────────────────
-
-function shuffleArray<T>(arr: T[]): T[] {
+function shuffleArray<T>(arr: T[], seed?: number | string): T[] {
   const result = [...arr];
+
+  // Create a simple seeded random function if seed is provided
+  let random = Math.random;
+  if (seed !== undefined) {
+    // Simple hash function for seed
+    let hash = 0;
+    const seedStr = String(seed);
+    for (let i = 0; i < seedStr.length; i++) {
+      hash = (hash << 5) - hash + seedStr.charCodeAt(i);
+      hash |= 0; // Convert to 32-bit integer
+    }
+    const seededRandom = () => {
+      hash = (hash * 9301 + 49_297) % 233_280;
+      return hash / 233_280;
+    };
+    random = seededRandom;
+  }
+
   for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [result[i], result[j]] = [result[j], result[i]];
   }
   return result;
 }
-
-// ─── Component ───────────────────────────────────────────────────────────────
 
 export function OnboardingFlow() {
   const [step, setStep] = useState<1 | 2>(1);
@@ -50,10 +62,10 @@ export function OnboardingFlow() {
 
   // Pool: all items from selected types, shuffled on each shuffleKey bump
   const pool = useMemo(() => {
-    void shuffleKey; // read to register as dependency — bumping it re-shuffles
+    // shuffleKey is read to register as dependency — bumping it re-shuffles
     if (!picks) return [];
     const items = Array.from(selectedTypes).flatMap((type) => picks[type] ?? []);
-    return shuffleArray(items);
+    return shuffleArray(items, shuffleKey); // Pass shuffleKey as seed
   }, [picks, selectedTypes, shuffleKey]);
 
   const displayed = pool.slice(0, DISPLAY_COUNT);
@@ -134,7 +146,6 @@ export function OnboardingFlow() {
           <div className="grid grid-cols-2 gap-3">
             {MEDIA_TYPES.map((t, i) => {
               const active = selectedTypes.has(t.key);
-              const _hue = TYPE_HUES[t.key] ?? 0;
               const color = STAMP_COLORS[t.key] ?? "var(--color-dg-accent)";
 
               return (

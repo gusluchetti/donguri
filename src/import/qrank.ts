@@ -15,7 +15,6 @@ export interface QrankStats {
 }
 
 async function computeSitelinksPercentiles(db: DbType): Promise<void> {
-  console.log("[qrank] Computing sitelinks_pct...");
   await db.$client.unsafe(`
 		WITH ranked AS (
 			SELECT
@@ -28,13 +27,11 @@ async function computeSitelinksPercentiles(db: DbType): Promise<void> {
 		FROM ranked
 		WHERE media.id = ranked.id
 	`);
-  console.log("[qrank] sitelinks_pct updated");
 }
 
 async function loadWikidataIds(db: DbType): Promise<Set<string>> {
   const rows = await db.select({ wikidataId: media.wikidataId }).from(media);
   const qids = new Set<string>(rows.map((r) => r.wikidataId.replace(/^Q/, "")));
-  console.log(`[qrank] Loaded ${qids.size} Wikidata QIDs from media table`);
   return qids;
 }
 
@@ -55,7 +52,6 @@ async function parseMatchesFromQrank(
         }
       })
       .on("end", () => {
-        console.log(`[qrank] Parsed ${matches.size} QRank matched entries`);
         resolve(matches);
       })
       .on("error", reject);
@@ -72,9 +68,6 @@ function computePercentiles(matches: Map<string, number>): Map<string, number> {
     const [qid] = sorted[i];
     percentiles.set(qid, Number(((i / total) * 100).toFixed(2)));
   }
-  console.log(
-    `[qrank] Percentiles range: min=${percentiles.values().next().value}, max=${percentiles.get(sorted[total - 1][0])}`,
-  );
   return percentiles;
 }
 
@@ -83,7 +76,6 @@ async function updateQrankPercentiles(
   percentiles: Map<string, number>,
 ): Promise<number> {
   if (percentiles.size === 0) {
-    console.log("[qrank] No percentiles to update");
     return 0;
   }
 
@@ -104,15 +96,11 @@ async function updateQrankPercentiles(
 		`,
       values,
     );
-    console.log(
-      `[qrank] Updated batch ${i / batchSize + 1} (${Math.min(i + batchSize, entries.length)}/${entries.length})`,
-    );
   }
   return entries.length;
 }
 
 export async function runQrank(db: DbType, config: ImportConfig): Promise<QrankStats> {
-  console.log("[qrank] Starting QRank import");
   const startTime = Date.now();
 
   try {
@@ -130,7 +118,6 @@ export async function runQrank(db: DbType, config: ImportConfig): Promise<QrankS
     const updated = await updateQrankPercentiles(db, percentiles);
 
     const durationMs = Date.now() - startTime;
-    console.log(`[qrank] QRank import completed in ${(durationMs / 1000).toFixed(1)}s`);
     return { matched: matches.size, updated, durationMs };
   } catch (error) {
     console.error("[qrank] QRank import failed:", error);

@@ -1,4 +1,3 @@
-// ─── Canonical platforms & Wikidata Q-ID mappings ────────────────────────────
 // Two-tier hierarchy: platform families (parents) + specific platforms (children).
 // Families sorted by modern relevance. Children sorted newest-first.
 
@@ -13,8 +12,6 @@ export type PlatformMappingEntry = {
   wikidataId: string;
   canonicalSlug: string;
 };
-
-// ─── Canonical platforms (~9 families + ~35 children) ────────────────────────
 
 export const CANONICAL_PLATFORMS: CanonicalPlatformEntry[] = [
   // Platform families (sortOrder 0–8)
@@ -82,7 +79,6 @@ export const CANONICAL_PLATFORMS: CanonicalPlatformEntry[] = [
   { slug: "amiga", name: "Amiga", parentSlug: "commodore", sortOrder: 1 },
 ];
 
-// ─── Wikidata Q-ID → canonical slug mappings ────────────────────────────────
 // Q-IDs verified against Wikidata P400 (platform) values.
 
 export const PLATFORM_MAPPINGS: PlatformMappingEntry[] = [

@@ -92,8 +92,6 @@ function ProfilePage() {
   );
 }
 
-// ─── Profile Header ────────────────────────────────────────────────────────
-
 function ProfileHeader({
   user,
   daysActive,
@@ -216,8 +214,6 @@ function Avatar({
   );
 }
 
-// ─── Stats Grid ────────────────────────────────────────────────────────────
-
 function StatsGrid({ stats, daysActive }: { stats: ProfileData["stats"]; daysActive: number }) {
   const finished = stats.statusCounts.completed + stats.statusCounts.mastered;
   const avgDisplay = stats.avgRating != null ? Math.round(stats.avgRating) : "\u2014";
@@ -250,8 +246,6 @@ function StatsGrid({ stats, daysActive }: { stats: ProfileData["stats"]; daysAct
     </div>
   );
 }
-
-// ─── Territory Bar ─────────────────────────────────────────────────────────
 
 const TERRITORY_TYPES = ["movie", "tv_series", "anime", "game"] as const;
 
@@ -370,8 +364,6 @@ function TerritoryBar({
     </div>
   );
 }
-
-// ─── Recent Trail ──────────────────────────────────────────────────────────
 
 function computeRelative(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();

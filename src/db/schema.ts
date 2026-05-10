@@ -14,8 +14,6 @@ import {
 import { ulid } from "ulid";
 import type { RunWatchedEpisodes, WatchedEpisodes } from "~/features/media/media-types";
 
-// ─── Media ──────────────────────────────────────────────────────────────────
-
 export const media = pgTable(
   "media",
   {
@@ -92,8 +90,6 @@ export const media = pgTable(
   ],
 );
 
-// ─── Genres (canonical, import-time resolved) ───────────────────────────────
-
 export const canonicalGenres = pgTable("canonical_genres", {
   id: text("id")
     .primaryKey()
@@ -133,8 +129,6 @@ export const mediaGenres = pgTable(
   },
   (table) => [primaryKey({ columns: [table.mediaId, table.canonicalGenreId] })],
 );
-
-// ─── Platforms (canonical, import-time resolved) ────────────────────────────
 
 export const canonicalPlatforms = pgTable("canonical_platforms", {
   id: text("id")
@@ -176,8 +170,6 @@ export const mediaPlatforms = pgTable(
   (table) => [primaryKey({ columns: [table.mediaId, table.canonicalPlatformId] })],
 );
 
-// ─── Subscriptions ────────────────────────────────────────────────────────
-
 export const subscriptions = pgTable("subscriptions", {
   id: text("id")
     .primaryKey()
@@ -202,8 +194,6 @@ export const subscriptions = pgTable("subscriptions", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// ─── Users ──────────────────────────────────────────────────────────────────
-
 export const users = pgTable("users", {
   id: text("id")
     .primaryKey()
@@ -220,8 +210,6 @@ export const users = pgTable("users", {
   subscriptionId: text("subscription_id").references(() => subscriptions.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
-
-// ─── Catalog Entries (user tracking data) ───────────────────────────────────
 
 export const catalogEntries = pgTable(
   "catalog_entries",
@@ -261,8 +249,6 @@ export const catalogEntries = pgTable(
   ],
 );
 
-// ─── Seasons ────────────────────────────────────────────────────────────────
-
 export const seasons = pgTable(
   "seasons",
   {
@@ -285,23 +271,17 @@ export const seasons = pgTable(
   ],
 );
 
-// ─── OAuth State (replaces KV) ──────────────────────────────────────────────
-
 export const oauthStates = pgTable("oauth_states", {
   key: text("key").primaryKey(),
   value: text("value").notNull(), // JSON string
   expiresAt: timestamp("expires_at").notNull(),
 });
 
-// ─── OAuth Sessions (replaces KV) ──────────────────────────────────────────
-
 export const oauthSessions = pgTable("oauth_sessions", {
   sub: text("sub").primaryKey(), // DID
   session: text("session").notNull(), // JSON string
   updatedAt: timestamp("updated_at").defaultNow(),
 });
-
-// ─── Import Progress ────────────────────────────────────────────────────────
 
 export const importProgress = pgTable("import_progress", {
   id: text("id")
@@ -317,8 +297,6 @@ export const importProgress = pgTable("import_progress", {
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
 });
-
-// ─── Relations ──────────────────────────────────────────────────────────────
 
 export const mediaRelations = relations(media, ({ many }) => ({
   mediaGenres: many(mediaGenres),
@@ -404,8 +382,6 @@ export const seasonsRelations = relations(seasons, ({ one }) => ({
     references: [media.id],
   }),
 }));
-
-// ─── Types ──────────────────────────────────────────────────────────────────
 
 export type Media = typeof media.$inferSelect;
 export type NewMedia = typeof media.$inferInsert;

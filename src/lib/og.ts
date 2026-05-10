@@ -1,13 +1,12 @@
+import { getPublicUrl } from "./env";
+
 const IS_DEV = process.env.NODE_ENV === "development";
 
 export function pageTitle(title: string): string {
   return IS_DEV ? `(DEV) ${title}` : title;
 }
 
-const PUBLIC_URL = (process.env.PUBLIC_URL || "https://dev.donguri.app")
-  .trim()
-  .replace(/^['"]|['"]$/g, "")
-  .replace(/\/+$/, "");
+const PUBLIC_URL = getPublicUrl();
 
 interface OgTagsOptions {
   title: string;

@@ -1,9 +1,8 @@
 import { JoseKey } from "@atproto/jwk-jose";
 import { NodeOAuthClient, requestLocalLock } from "@atproto/oauth-client-node";
 import { cleanEnv, getPublicUrl } from "~/lib/env";
+import { log } from "~/lib/logger";
 import { PgSessionStore, PgStateStore } from "./auth.kv-stores";
-
-const isDev = process.env.NODE_ENV === "development";
 
 /** Cached singleton — reused across requests within the same process. */
 let _client: NodeOAuthClient | null = null;
@@ -15,15 +14,11 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
 
   // Return cached client if the URL hasn't changed (e.g. tunnel restart)
   if (_client && _clientUrl === publicUrl) {
-    if (isDev) console.debug("[oauth] reusing cached client for", publicUrl);
+    log.debug("[oauth] returning cached client");
     return _client;
   }
 
-  if (isDev) {
-    console.debug("[oauth] creating new client");
-    console.debug("[oauth] PUBLIC_URL:", publicUrl);
-    console.debug("[oauth] private key length:", privateKeyJwk.length);
-  }
+  log.debug("[oauth] creating new OAuth client for URL:", publicUrl);
 
   if (!privateKeyJwk) {
     const msg = "OAUTH_PRIVATE_KEY is empty — set OAUTH_PRIVATE_KEY_JWK in .env (see .env.example)";
@@ -35,7 +30,7 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
   try {
     const key = await JoseKey.fromImportable(privateKeyJwk, "donguri-key");
     keyset = [key];
-    if (isDev) console.debug("[oauth] key imported successfully, kid:", key.kid);
+    log.debug("[oauth] imported private key");
   } catch (err) {
     console.error("[oauth] failed to import private key:", err);
     throw new Error(
@@ -58,11 +53,7 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
     jwks_uri: `${publicUrl}/.well-known/jwks.json`,
   };
 
-  if (isDev) {
-    console.debug("[oauth] client_id:", clientMetadata.client_id);
-    console.debug("[oauth] redirect_uris:", clientMetadata.redirect_uris);
-    console.debug("[oauth] allowHttp:", true);
-  }
+  log.debug("[oauth] client metadata built");
 
   _client = new NodeOAuthClient({
     clientMetadata,
@@ -70,11 +61,11 @@ export async function getOAuthClient(): Promise<NodeOAuthClient> {
     stateStore: new PgStateStore(),
     sessionStore: new PgSessionStore(),
     requestLock: requestLocalLock,
-    allowHttp: isDev,
+    allowHttp: process.env.NODE_ENV === "development",
   });
+
+  log.debug("[oauth] OAuth client created successfully");
+
   _clientUrl = publicUrl;
-
-  if (isDev) console.debug("[oauth] client created successfully");
-
   return _client;
 }

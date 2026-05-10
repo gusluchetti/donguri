@@ -1,4 +1,3 @@
-// ─── Canonical genres & Wikidata Q-ID mappings ─────────────────────────────
 // Phase 1: manual mapping of ~150 most common Q-IDs to ~65 canonical genres.
 // Sub-genre implies parent — "Romantic Comedy" maps only to "romantic-comedy",
 // the parent relationship handles the Comedy association.
@@ -14,8 +13,6 @@ export type GenreMappingEntry = {
   wikidataId: string;
   canonicalSlug: string;
 };
-
-// ─── Canonical genres (18 main + sub-genres) ────────────────────────────────
 
 export const CANONICAL_GENRES: CanonicalGenreEntry[] = [
   // Main genres (sortOrder 0–17)
@@ -129,7 +126,6 @@ export const CANONICAL_GENRES: CanonicalGenreEntry[] = [
   { slug: "animation", name: "Animation", parentSlug: null, sortOrder: 32 },
 ];
 
-// ─── Wikidata Q-ID → canonical slug mappings ───────────────────────────────
 // Built from top ~180 Q-IDs by frequency in local DB.
 // Sub-genre implies parent rule: map to sub-genre only, parent is inferred.
 

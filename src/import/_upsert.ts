@@ -28,8 +28,6 @@ export interface ImportStats {
 /** Pre-loaded lookup: Wikidata Q-ID → canonical DB id(s). */
 export type CanonicalLookup = Record<string, string[]>;
 
-// ─── Staging table columns (matches media table layout) ─────────────────────
-
 export const STAGING_COLUMNS = [
   "id",
   "wikidata_id",
@@ -58,8 +56,6 @@ export const STAGING_COLUMNS = [
   "search_title",
   "aliases",
 ] as const;
-
-// ─── TSV escaping for COPY ──────────────────────────────────────────────────
 
 /** Escape a string value for tab-delimited COPY format. */
 export function escapeTsv(value: string): string {
@@ -102,8 +98,6 @@ export function toTsvRow(item: ParsedMedia, rowId: string): string {
   ];
   return fields.join("\t");
 }
-
-// ─── DB helpers ─────────────────────────────────────────────────────────────
 
 /**
  * COPY batch into a temp staging table, then merge into media via upsert.
@@ -309,10 +303,6 @@ export async function processSuperBatch(
             : undefined,
         ]),
       "insert relations",
-    );
-
-    console.log(
-      `  Batch: ${batchNew} new, ${batchUpdated} updated, ${genreRelations.length} genre links, ${platformRelations.length} platform links`,
     );
   } catch (error) {
     stats.errors += batch.length;
