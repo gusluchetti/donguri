@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import fs from "node:fs";
 import { getDb } from "~/db";
-import { attachFileLogging, logShutdownBanner, logStartupBanner } from "~/lib/logger";
+import { attachFileLogging, log, logShutdownBanner, logStartupBanner } from "~/lib/logger";
 import type { DbType } from "./_upsert";
 import type { ImportConfig } from "./config";
 import { getConfig, redactedConfig } from "./config";
@@ -43,19 +43,19 @@ async function runSupplementary(
   try {
     report.qrank = await runQrank(db, config);
   } catch (err) {
-    console.error("[supplementary] qrank failed:", err);
+    log.error("supplementary", "qrank failed", err);
   }
 
   try {
     report.animeOffline = await runAnimeOffline(db, config);
   } catch (err) {
-    console.error("[supplementary] anime-offline failed:", err);
+    log.error("supplementary", "anime-offline failed", err);
   }
 
   try {
     report.covers = await runCovers(db, config);
   } catch (err) {
-    console.error("[supplementary] covers failed:", err);
+    log.error("supplementary", "covers failed", err);
   }
 
   return report;
@@ -79,7 +79,7 @@ async function main() {
   ];
 
   logStartupBanner(stage, runId, redactedConfig(config), envVarsToCheck);
-  console.info("[main]", `stage selected: ${stage}`);
+  log.info("main", `stage selected: ${stage}`);
 
   const db = getDb();
 
@@ -118,10 +118,10 @@ async function main() {
 
       case "incremental": {
         const { runIncremental } = await import("./incremental");
-        console.info("[main]", "running incremental mode detection...");
+        log.info("main", "running incremental mode detection...");
         const needsFull = await runIncremental(db, config);
         if (needsFull) {
-          console.info("[main]", "incremental gap > 30 days, falling back to full pipeline");
+          log.info("main", "incremental gap > 30 days, falling back to full pipeline");
           const { runFullPipeline } = await import("./pipeline");
           await runFullPipeline(db, config);
         }
@@ -152,9 +152,9 @@ async function main() {
 
       case "auto": {
         const mode = await detectMode(db, config);
-        console.info("[main]", `mode detected: ${mode}`, {
+        log.info("main", `mode detected: ${mode}`, {
           mediaCount: await getMediaCount(db),
-          daysSinceFull: await getDaysSinceFull(config),
+          daysSinceFull: await getDaysSinceFull(),
         });
 
         if (mode === "full") {
@@ -164,7 +164,7 @@ async function main() {
           const { runIncremental } = await import("./incremental");
           const needsFull = await runIncremental(db, config);
           if (needsFull) {
-            console.info("[main]", "incremental gap > 30 days, falling back to full pipeline");
+            log.info("main", "incremental gap > 30 days, falling back to full pipeline");
             const { runFullPipeline } = await import("./pipeline");
             await runFullPipeline(db, config);
           }
@@ -178,8 +178,9 @@ async function main() {
       }
 
       default:
-        console.error(`[main] Unknown stage: ${stage}`);
-        console.error(
+        log.error("main", `Unknown stage: ${stage}`);
+        log.error(
+          "main",
           "Available stages: download, subset, db, full, incremental, covers, qrank, all, auto",
         );
         process.exit(1);
@@ -191,8 +192,7 @@ async function main() {
     process.exit(0);
   } catch (error) {
     logShutdownBanner(stage, runId, startTime, 1, error as Error);
-    console.error(`[main] Stage "${stage}" failed:`, error);
-    console.error("[main] Timestamp:", new Date().toISOString());
+    log.error("main", `Stage "${stage}" failed`, error);
     const { notifyFailure } = await import("./notify");
     await notifyFailure(error as Error);
     process.exit(1);
@@ -206,7 +206,7 @@ async function getMediaCount(db: DbType): Promise<number> {
   return Number(result[0]?.count || 0);
 }
 
-async function getDaysSinceFull(_config: ImportConfig): Promise<number> {
+async function getDaysSinceFull(): Promise<number> {
   const lastFull = getLastFullDumpAt();
   if (!lastFull) return Infinity;
   return (Date.now() - lastFull.getTime()) / (1000 * 60 * 60 * 24);

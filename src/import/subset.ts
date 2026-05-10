@@ -27,7 +27,7 @@ let seasonsFound = 0;
 let collectionsFound = 0;
 let parseErrors = 0;
 let errors = 0;
-const noP31Count = 0;
+let noP31Count = 0;
 const p31Sample = new Set<string>();
 const matchSample: Array<{ id: string; p31: string[] }> = [];
 
@@ -60,7 +60,10 @@ function parseJsonLine(line: string): WikidataEntity | null {
 
 function recordP31Sample(entity: WikidataEntity): void {
   const p31Values = getInstanceOfValues(entity);
-  if (p31Values.length === 0) return;
+  if (p31Values.length === 0) {
+    noP31Count++;
+    return;
+  }
   for (const val of p31Values) {
     p31Sample.add(val);
   }
