@@ -13,6 +13,7 @@ import { eq, sql } from "drizzle-orm";
 import { fetch } from "undici";
 import { TRGM_SETUP_SQL } from "~/db/fts";
 import { importProgress, media } from "~/db/schema";
+import { log } from "~/lib/logger";
 import { parseMediaEntity, shouldImportEntity } from "./_filters";
 import { loadCanonicalLookups, seedCanonicalMappings } from "./_mappings";
 import { formatDuration, withRetry } from "./_retry";
@@ -36,6 +37,8 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
   const sinceIso = since.toISOString();
   const results: RecentChangesResult[] = [];
 
+  log.info("incremental", `querying recent changes since=${sinceIso}`);
+
   // Load our existing Wikidata IDs into a Set for fast lookup
   const existingRows = await db
     .select({ wikidataId: media.wikidataId, updatedAt: media.updatedAt })
@@ -47,6 +50,8 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
     existingQids.add(qid);
     if (row.updatedAt) updatedAtMap.set(qid, row.updatedAt);
   }
+
+  log.info("incremental", `loaded ${existingQids.size} existing Q-IDs from database`);
 
   let continueCursor: string | null = null;
   let pageCount = 0;
@@ -73,6 +78,10 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
     }
 
     const url = `${WIKIDATA_API}?${params}`;
+    log.debug(
+      "incremental",
+      `fetching recentchanges page=${pageCount} url=${url.replace(/rccontinue=[^&]+/, "rccontinue=***")}`,
+    );
 
     const data = await withRetry(async () => {
       const response = await fetch(url, { headers: { "User-Agent": "donguri-import-bot/1.0" } });
@@ -81,6 +90,10 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
         if (response.status === 429) {
           const retryAfter = response.headers.get("retry-after");
           const delaySeconds = retryAfter ? parseInt(retryAfter, 10) : 5;
+          log.warn(
+            "incremental",
+            `rate limited (429), waiting ${delaySeconds}s per retry-after header`,
+          );
           await new Promise((r) => setTimeout(r, delaySeconds * 1000));
         }
         throw new Error(`RecentChanges API failed: HTTP ${response.status} ${response.statusText}`);
@@ -91,6 +104,7 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
         error?: unknown;
       };
       if (json.error) {
+        log.error("incremental", `RecentChanges API error`, json.error);
         throw new Error(`RecentChanges API error: ${JSON.stringify(json.error)}`);
       }
       return json;
@@ -98,6 +112,8 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
 
     const changes = data.query?.recentchanges ?? [];
     totalReturned += changes.length;
+
+    log.debug("incremental", `page ${pageCount}: returned ${changes.length} changes`);
 
     for (const rc of changes) {
       const qid = rc.title.replace(/^Q/, "");
@@ -120,6 +136,7 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
 
     continueCursor = data.continue?.rccontinue ?? null;
     if (!continueCursor) {
+      log.debug("incremental", `last page reached, total pages=${pageCount}`);
       break;
     }
 
@@ -127,8 +144,9 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
     await new Promise((r) => setTimeout(r, 100));
   }
 
-  console.info(
-    `[incremental] recentchanges summary: returned=${totalReturned}, matched=${totalMatched}, already-updated=${totalAlreadyUpdated}`,
+  log.info(
+    "incremental",
+    `recentchanges summary: pages=${pageCount} returned=${totalReturned} matched=${totalMatched} already-updated=${totalAlreadyUpdated}`,
   );
   return results;
 }
@@ -140,11 +158,19 @@ async function queryRecentChanges(db: DbType, since: Date): Promise<RecentChange
 async function fetchEntitiesFromWikidata(qids: string[]): Promise<WikidataEntity[]> {
   const entities: WikidataEntity[] = [];
   const BatchSize = 50;
+  const totalBatches = Math.ceil(qids.length / BatchSize);
+
+  log.info("incremental", `fetching ${qids.length} entities in ${totalBatches} batches`);
 
   for (let i = 0; i < qids.length; i += BatchSize) {
     const batch = qids.slice(i, i + BatchSize);
     const batchNum = Math.floor(i / BatchSize) + 1;
-    const _totalBatches = Math.ceil(qids.length / BatchSize);
+
+    log.qids(
+      "incremental",
+      `batch ${batchNum}/${totalBatches}`,
+      batch.map((q) => `Q${q}`),
+    );
 
     const params = new URLSearchParams({
       action: "wbgetentities",
@@ -153,15 +179,23 @@ async function fetchEntitiesFromWikidata(qids: string[]): Promise<WikidataEntity
       props: "labels|descriptions|aliases|claims|sitelinks",
     });
 
+    const url = `${WIKIDATA_API}?${params}`;
+    log.debug("incremental", `fetching entities batch ${batchNum}`, { url });
+
     const response = await withRetry(
       () =>
-        fetch(`${WIKIDATA_API}?${params}`, {
+        fetch(url, {
           headers: { "User-Agent": "donguri-import-bot/1.0" },
         }),
       `Wikidata API batch ${batchNum}`,
     );
 
     if (!response.ok) {
+      log.error(
+        "incremental",
+        `Wikidata API failed: HTTP ${response.status} ${response.statusText}`,
+        { batchSize: batch.length, batchNum },
+      );
       throw new Error(`Wikidata API failed: HTTP ${response.status} ${response.statusText}`);
     }
 
@@ -173,9 +207,16 @@ async function fetchEntitiesFromWikidata(qids: string[]): Promise<WikidataEntity
       for (const entity of Object.values(data.entities)) {
         if (entity.id) entities.push(entity);
       }
+      log.debug(
+        "incremental",
+        `batch ${batchNum} returned ${Object.keys(data.entities).length} entities`,
+      );
+    } else {
+      log.warn("incremental", `batch ${batchNum} returned no entities`);
     }
   }
 
+  log.info("incremental", `fetched ${entities.length} entities total`);
   return entities;
 }
 
@@ -185,12 +226,15 @@ async function fetchEntitiesFromWikidata(qids: string[]): Promise<WikidataEntity
  */
 export async function runIncremental(db: DbType, _config: ImportConfig): Promise<boolean> {
   const startTime = Date.now();
+  log.info("incremental", "starting incremental import");
+
   for (const stmt of TRGM_SETUP_SQL) {
     await db.execute(sql.raw(stmt));
   }
 
   // Determine since date
   let since = getLastIncrementalAt();
+  let source = "lastIncremental";
   if (!since) {
     // Never run incremental before — fall back to last full dump timestamp
     // (which exists because we always do full before incremental)
@@ -198,21 +242,39 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
     if (!since) {
       // Should never happen — but as final fallback, 24 hours ago
       since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      source = "24hFallback";
+      log.warn("incremental", "no previous incremental or full dump timestamp, using 24h fallback");
     } else {
+      source = "lastFullDump";
+      log.info("incremental", "first incremental run, using last full dump timestamp");
     }
   }
 
   const daysSince = (Date.now() - since.getTime()) / (1000 * 60 * 60 * 24);
+  log.info(
+    "incremental",
+    `since date: ${since.toISOString()} (source=${source} days=${daysSince.toFixed(1)})`,
+  );
 
   // Gap too large — signal to full pipeline
   if (daysSince > 30) {
+    log.info(
+      "incremental",
+      `gap too large: ${daysSince.toFixed(1)} days > 30 days, recommending full pipeline`,
+    );
     return true;
   }
 
   // Fetch modified Q-IDs via recentchanges API
   const changes = await queryRecentChanges(db, since);
+  log.qids(
+    "incremental",
+    "matched changes",
+    changes.map((c) => `Q${c.qid}`),
+  );
 
   if (changes.length === 0) {
+    log.info("incremental", "no changes found, updating timestamp and exiting");
     setLastIncrementalAt(new Date());
     return false;
   }
@@ -222,6 +284,7 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
   const entities = await fetchEntitiesFromWikidata(qids);
   const parsed: ParsedMedia[] = [];
   let parseErrors = 0;
+  const parseErrorSamples: string[] = [];
 
   for (const entity of entities) {
     try {
@@ -229,17 +292,30 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
       const m = parseMediaEntity(entity);
       if (!m) continue;
       parsed.push(m);
-    } catch {
+    } catch (_err) {
       parseErrors++;
+      if (parseErrorSamples.length < 3) {
+        parseErrorSamples.push(entity.id || "unknown");
+      }
     }
   }
 
-  if (parseErrors > 0) console.warn(`[incremental] ${parseErrors} parse errors`);
+  if (parseErrors > 0) {
+    log.warn("incremental", `${parseErrors} parse errors`, { samples: parseErrorSamples });
+  }
 
   if (parsed.length === 0) {
+    log.info("incremental", "no parsable media entities, updating timestamp and exiting");
     setLastIncrementalAt(new Date());
     return false;
   }
+
+  log.qids(
+    "incremental",
+    "parsed for upsert",
+    parsed.map((p) => p.wikidataId),
+  );
+
   const [progressRecord] = await db
     .insert(importProgress)
     .values({
@@ -249,8 +325,15 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
     })
     .returning({ id: importProgress.id });
 
+  log.info("incremental", `import progress record created: id=${progressRecord.id}`);
+
   await seedCanonicalMappings(db);
   const { genreLookup, platformLookup } = await loadCanonicalLookups(db);
+  log.info("incremental", "lookups loaded", {
+    genreCount: Object.keys(genreLookup).length,
+    platformCount: Object.keys(platformLookup).length,
+  });
+
   const stats: ImportStats = {
     entitiesProcessed: parsed.length,
     entitiesImported: 0,
@@ -265,6 +348,12 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
   const BatchSize = 5000;
   for (let i = 0; i < parsed.length; i += BatchSize) {
     const batch = parsed.slice(i, i + BatchSize);
+    const batchQids = batch.map((p) => p.wikidataId);
+    log.qids(
+      "incremental",
+      `processing batch ${Math.floor(i / BatchSize) + 1}/${Math.ceil(parsed.length / BatchSize)}`,
+      batchQids,
+    );
     await processSuperBatch(db, batch, genreLookup, platformLookup, stats);
   }
 
@@ -281,8 +370,17 @@ export async function runIncremental(db: DbType, _config: ImportConfig): Promise
 
   setLastIncrementalAt(new Date());
 
-  const totalTime = formatDuration(Date.now() - startTime);
-  console.info(`[incremental] done in ${totalTime}`, stats.byType);
+  const totalDuration = Date.now() - startTime;
+  log.info("incremental", "incremental import completed", {
+    duration: formatDuration(totalDuration),
+    entitiesProcessed: stats.entitiesProcessed,
+    entitiesImported: stats.entitiesImported,
+    entitiesNew: stats.entitiesNew,
+    entitiesUpdated: stats.entitiesUpdated,
+    errors: stats.errors,
+    byType: stats.byType,
+    rate: `${(stats.entitiesProcessed / (totalDuration / 1000)).toFixed(1)}/s`,
+  });
 
   return false;
 }

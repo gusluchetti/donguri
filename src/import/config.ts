@@ -11,6 +11,7 @@ export interface ImportConfig {
   emailOnSuccess: boolean;
   emailOnFailure: boolean;
   emailOnWarning: boolean;
+  logLevel: string;
 }
 
 export function getConfig(): ImportConfig {
@@ -29,5 +30,13 @@ export function getConfig(): ImportConfig {
     emailOnSuccess: process.env.EMAIL_ON_SUCCESS !== "false",
     emailOnFailure: process.env.EMAIL_ON_FAILURE !== "false",
     emailOnWarning: process.env.EMAIL_ON_WARNING !== "false",
+    logLevel: process.env.LOG_LEVEL || "info",
+  };
+}
+
+export function redactedConfig(config: ImportConfig): Record<string, unknown> {
+  return {
+    ...config,
+    resendApiKey: config.resendApiKey ? "***set***" : "***unset***",
   };
 }

@@ -2,12 +2,13 @@
  * Full dump pipeline: download → subset → import
  */
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import readline from "node:readline";
 import { eq, sql } from "drizzle-orm";
 import { TRGM_SETUP_SQL } from "~/db/fts";
 import { importProgress } from "~/db/schema";
+import { log } from "~/lib/logger";
 import { parseMediaEntity, shouldImportEntity } from "./_filters";
 import { loadCanonicalLookups, seedCanonicalMappings } from "./_mappings";
 import { formatDuration } from "./_retry";
@@ -40,6 +41,9 @@ function parseJsonLine(line: string): WikidataEntity | null {
 export async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise<void> {
   const { subsetPath, limit = Infinity, batchSize = DEFAULT_BATCH_SIZE } = opts;
   const startTime = Date.now();
+
+  log.info("pipeline", "media import started", { subsetPath, batchSize, limit });
+
   for (const stmt of TRGM_SETUP_SQL) {
     await db.execute(sql.raw(stmt));
   }
@@ -59,30 +63,67 @@ export async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise
     .insert(importProgress)
     .values({ sourceFile: subsetPath, status: "running", startedAt: new Date() })
     .returning({ id: importProgress.id });
+  log.info("pipeline", `import progress record created: id=${progressRecord.id}`);
 
-  await seedCanonicalMappings(db);
-  const { genreLookup, platformLookup } = await loadCanonicalLookups(db);
+  await log.step("pipeline", "seedCanonicalMappings", async () => {
+    await seedCanonicalMappings(db);
+  });
+
+  const { genreLookup, platformLookup } = await log.step(
+    "pipeline",
+    "loadCanonicalLookups",
+    async () => {
+      return await loadCanonicalLookups(db);
+    },
+  );
+
+  log.info("pipeline", "lookups loaded", {
+    genreCount: Object.keys(genreLookup).length,
+    platformCount: Object.keys(platformLookup).length,
+  });
 
   let batch: ParsedMedia[] = [];
+  let lastEntityId: string | null = null;
 
   try {
+    const fileStats = fs.statSync(subsetPath);
+    const fileSizeMB = fileStats.size / 1024 / 1024;
+    log.info("pipeline", `subset file stats: size=${fileSizeMB.toFixed(2)}MB`);
+
     const rl = readline.createInterface({
       input: fs.createReadStream(subsetPath, { encoding: "utf-8" }),
       crlfDelay: Infinity,
     });
 
+    let linePosition = 0;
+    const startStreamTime = Date.now();
+
     for await (const line of rl) {
       if (stats.entitiesImported >= limit) break;
+      linePosition += Buffer.byteLength(line, "utf-8") + 1; // +1 for newline
 
       const entity = parseJsonLine(line);
       if (!entity) continue;
+      lastEntityId = entity.id;
 
       stats.entitiesProcessed++;
 
       if (stats.entitiesProcessed % PROGRESS_LOG_INTERVAL === 0) {
         const elapsed = formatDuration(Date.now() - startTime);
         const rate = (stats.entitiesProcessed / ((Date.now() - startTime) / 1000)).toFixed(0);
-        console.info(`[pipeline] ${stats.entitiesProcessed} processed in ${elapsed} (${rate}/s)`);
+
+        // Calculate ETA
+        const progressPercent = (linePosition / fileStats.size) * 100;
+        const elapsedMs = Date.now() - startStreamTime;
+        const estimatedTotalMs = elapsedMs / (linePosition / fileStats.size);
+        const etaMs = estimatedTotalMs - elapsedMs;
+        const etaFormatted = formatDuration(etaMs);
+
+        log.info(
+          "pipeline",
+          `progress: processed=${stats.entitiesProcessed} imported=${stats.entitiesImported} elapsed=${elapsed} rate=${rate}/s progress=${progressPercent.toFixed(1)}% eta=${etaFormatted}`,
+          stats.byType,
+        );
 
         await db
           .update(importProgress)
@@ -103,15 +144,30 @@ export async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise
       batch.push(parsed);
 
       if (batch.length >= batchSize) {
+        const batchQids = batch.map((p) => p.wikidataId);
+        log.qids("pipeline", "upsert batch", batchQids);
         await processSuperBatch(db, batch, genreLookup, platformLookup, stats);
         batch = [];
       }
     }
 
     if (batch.length > 0) {
+      const batchQids = batch.map((p) => p.wikidataId);
+      log.qids("pipeline", "upsert final batch", batchQids);
       await processSuperBatch(db, batch, genreLookup, platformLookup, stats);
     }
-    console.info("[pipeline] by type:", stats.byType);
+
+    const totalDuration = Date.now() - startTime;
+    log.info("pipeline", "import completed", {
+      duration: formatDuration(totalDuration),
+      entitiesProcessed: stats.entitiesProcessed,
+      entitiesImported: stats.entitiesImported,
+      entitiesNew: stats.entitiesNew,
+      entitiesUpdated: stats.entitiesUpdated,
+      errors: stats.errors,
+      byType: stats.byType,
+      rate: `${(stats.entitiesProcessed / (totalDuration / 1000)).toFixed(1)}/s`,
+    });
 
     await db
       .update(importProgress)
@@ -123,6 +179,13 @@ export async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise
       })
       .where(eq(importProgress.id, progressRecord.id));
   } catch (err) {
+    log.error("pipeline", "import failed", {
+      lastEntityId,
+      batchSize: batch.length,
+      stats,
+      error: err,
+    });
+
     try {
       await db
         .update(importProgress)
@@ -132,15 +195,13 @@ export async function runMediaImport(db: DbType, opts: MediaImportOpts): Promise
           status: "failed",
         })
         .where(eq(importProgress.id, progressRecord.id));
-    } catch {
-      /* best-effort */
-    }
+    } catch {}
     throw err;
   }
 }
 
-function checkDiskSpace(dataDir: string, requiredGB: number): boolean {
-  try {
+async function checkDiskSpace(dataDir: string, requiredGB: number): Promise<boolean> {
+  return log.step("pipeline", "checkDiskSpace", async () => {
     const { status, stdout } = spawnSync("df", ["-B1", dataDir]);
 
     if (status !== 0) {
@@ -160,15 +221,17 @@ function checkDiskSpace(dataDir: string, requiredGB: number): boolean {
 
     const availBytes = Number.parseInt(parts[3], 10);
     const availGB = availBytes / (1024 * 1024 * 1024);
+    log.info(
+      "pipeline",
+      `disk space check: available=${availGB.toFixed(2)}GB required=${requiredGB}GB`,
+    );
 
     if (availGB < requiredGB) {
+      log.error("pipeline", `insufficient disk space: ${availGB.toFixed(2)}GB < ${requiredGB}GB`);
       return false;
     }
     return true;
-  } catch (error) {
-    console.error("[check] Disk space check failed:", error);
-    throw error;
-  }
+  });
 }
 
 function findDumpPath(dataDir: string): string | null {
@@ -181,64 +244,114 @@ function findDumpPath(dataDir: string): string | null {
         const sizeGB = (stats.size / 1024 / 1024 / 1024).toFixed(1);
         const ageMs = Date.now() - stats.mtimeMs;
         const ageDays = (ageMs / (1000 * 60 * 60 * 24)).toFixed(1);
-        console.info(`[pipeline] using existing dump: ${sizeGB} GB, ${ageDays} days old`);
+        log.info(
+          "pipeline",
+          `found existing dump: path=${path} size=${sizeGB}GB age=${ageDays}days mtime=${new Date(stats.mtimeMs).toISOString()}`,
+        );
 
-        // Only use if less than 14 days old (we'll check this in pipeline)
+        log.debug("pipeline", `dump candidates checked: ${candidates.join(", ")}`);
+        log.info("pipeline", `selected dump: ${path}`);
         return path;
       }
+      log.debug("pipeline", `dump not found: ${path}`);
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
-        console.warn("[pipeline] could not stat dump file:", e);
+        log.warn("pipeline", "could not stat dump file", e);
       }
     }
   }
+  log.info("pipeline", "no existing dump found, will download fresh");
   return null;
 }
 
 async function createSubset(dumpPath: string, subsetPath: string): Promise<void> {
-  const startTime = Date.now();
+  return log.step("pipeline", "createSubset", async () => {
+    const startTime = Date.now();
 
-  // Clean up any previous .done sentinel in case we're retrying
-  const donePath = `${subsetPath}.done`;
-  try {
-    fs.unlinkSync(donePath);
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
-      console.warn("[pipeline] could not remove sentinel:", e);
+    log.info("pipeline", `dump_path=${dumpPath} subset_path=${subsetPath}`);
+    log.info(
+      "pipeline",
+      `shell command: lbzip2 -dc -n2 "${dumpPath}" | bun src/import/subset.ts > "${subsetPath}"`,
+    );
+
+    // Clean up any previous .done sentinel in case we're retrying
+    const donePath = `${subsetPath}.done`;
+    try {
+      fs.unlinkSync(donePath);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+        log.warn("pipeline", "could not remove sentinel", e);
+      }
     }
-  }
 
-  // Use shell pipeline with pipefail to detect early failures
-  // Limit lbzip2 to 2 threads to match consumer speed
-  const shellCmd = `set -o pipefail && lbzip2 -dc -n2 "${dumpPath}" | bun src/import/subset.ts > "${subsetPath}"`;
-  const exitCode = spawnSync(shellCmd, {
-    shell: true,
-    stdio: "inherit",
-    cwd: process.cwd(),
-  }).status;
+    const subsetStream = fs.createWriteStream(subsetPath);
 
-  if (exitCode !== 0) {
-    throw new Error(`Subset creation failed with exit code ${exitCode}`);
-  }
+    const lbzip2 = spawn("lbzip2", ["-dc", "-n2", dumpPath]);
+    const bun = spawn("bun", ["src/import/subset.ts"], {
+      env: { ...process.env, LOG_LEVEL: process.env.LOG_LEVEL || "info" },
+    });
 
-  // Write sentinel file to signal successful completion
-  fs.writeFileSync(donePath, `${startTime}\n${Date.now()}\n`);
+    bun.stdout.pipe(subsetStream);
 
-  const duration = ((Date.now() - startTime) / 1000).toFixed(0);
-  console.info(`[pipeline] subset created in ${duration}s`);
+    let stderrBuffer = "";
+    bun.stderr.on("data", (data) => {
+      const lines = data.toString().split("\n");
+      for (const line of lines.filter((l: string) => l.trim())) {
+        log.info("subset", line.trim());
+      }
+      stderrBuffer += data.toString();
+    });
+
+    lbzip2.stdout.pipe(bun.stdin);
+
+    const _exitCode = await new Promise<number>((resolve, reject) => {
+      bun.on("close", (code) => {
+        subsetStream.end();
+        if (code === 0) {
+          resolve(code);
+        } else {
+          reject(
+            new Error(
+              `Subset creation failed with exit code ${code}\nLast stderr:\n${stderrBuffer.slice(-2000)}`,
+            ),
+          );
+        }
+      });
+
+      bun.on("error", reject);
+      lbzip2.on("error", reject);
+    });
+
+    // Write sentinel file to signal successful completion
+    fs.writeFileSync(donePath, `${startTime}\n${Date.now()}\n`);
+
+    const stats = fs.statSync(subsetPath);
+    log.info(
+      "pipeline",
+      `subset created successfully: size=${(stats.size / 1024 / 1024).toFixed(2)}MB duration_s=${((Date.now() - startTime) / 1000).toFixed(0)}`,
+    );
+  });
 }
 
 export async function runFullPipeline(db: DbType, config: ImportConfig): Promise<void> {
   const startTime = Date.now();
 
-  if (!checkDiskSpace(config.dataDir, config.requiredDiskSpaceGB)) {
+  log.info("pipeline", "full pipeline started", {
+    dataDir: config.dataDir,
+    requiredDiskSpaceGB: config.requiredDiskSpaceGB,
+  });
+
+  const hasSpace = await checkDiskSpace(config.dataDir, config.requiredDiskSpaceGB);
+  if (!hasSpace) {
     throw new Error(`Insufficient disk space. Need ${config.requiredDiskSpaceGB}GB`);
   }
 
   let dumpPath = findDumpPath(config.dataDir);
+  log.info("pipeline", "dump path result", { dumpPath });
 
   if (!dumpPath) {
     const targetPath = `${config.dataDir}/latest-all.json.bz2`;
+    log.info("pipeline", "downloading fresh dump", { dumpUrl: config.dumpUrl, targetPath });
     await downloadDump(config.dumpUrl, targetPath);
     dumpPath = targetPath;
   }
@@ -254,40 +367,59 @@ export async function runFullPipeline(db: DbType, config: ImportConfig): Promise
     const doneMtime = fs.statSync(donePath).mtimeMs;
     if (subsetMtime > dumpMtime && doneMtime > dumpMtime && subsetSize > 0) {
       subsetExists = true;
+      log.info("pipeline", "reusing existing subset", {
+        subsetMtime: new Date(subsetMtime).toISOString(),
+        dumpMtime: new Date(dumpMtime).toISOString(),
+        subsetSizeMB: (subsetSize / 1024 / 1024).toFixed(2),
+      });
     }
   }
 
   if (!subsetExists) {
-    // Clean up any stale sentinel file before regenerating
-    try {
-      fs.unlinkSync(donePath);
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
-        console.warn("[pipeline] could not remove sentinel:", e);
-      }
-    }
     await createSubset(dumpPath, subsetPath);
   }
-  await runMediaImport(db, {
-    subsetPath,
-    limit: Infinity,
-    batchSize: DEFAULT_BATCH_SIZE,
+
+  await setLastFullDumpAt(new Date());
+  await runMediaImport(db, { subsetPath });
+
+  const totalDuration = Date.now() - startTime;
+  log.info("pipeline", "full pipeline completed", {
+    duration: formatDuration(totalDuration),
+    importProgressId: "see import_progress table",
   });
-
-  setLastFullDumpAt(new Date());
-
-  const totalTime = ((Date.now() - startTime) / 1000).toFixed(0);
-  console.info(`[pipeline] import completed in ${totalTime}s`);
 }
 
-export type { MediaImportOpts };
-
 export async function runSubset(config: ImportConfig): Promise<void> {
-  const dumpPath = findDumpPath(config.dataDir);
+  const startTime = Date.now();
+
+  log.info("pipeline", "subset-only mode started", { dataDir: config.dataDir });
+
+  const hasSpace = await checkDiskSpace(config.dataDir, config.requiredDiskSpaceGB);
+  if (!hasSpace) {
+    throw new Error(`Insufficient disk space. Need ${config.requiredDiskSpaceGB}GB`);
+  }
+
+  let dumpPath = findDumpPath(config.dataDir);
+  log.info("pipeline", "dump path result", { dumpPath });
+
   if (!dumpPath) {
-    throw new Error(`No dump found in ${config.dataDir}`);
+    const targetPath = `${config.dataDir}/latest-all.json.bz2`;
+    log.info("pipeline", "downloading fresh dump for subset", {
+      dumpUrl: config.dumpUrl,
+      targetPath,
+    });
+    await downloadDump(config.dumpUrl, targetPath);
+    dumpPath = targetPath;
   }
 
   const subsetPath = `${config.dataDir}/subset.ndjson`;
   await createSubset(dumpPath, subsetPath);
+
+  const totalDuration = Date.now() - startTime;
+  log.info("pipeline", "subset-only mode completed", {
+    duration: formatDuration(totalDuration),
+    subsetPath,
+  });
 }
+
+

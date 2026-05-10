@@ -302,7 +302,10 @@ function RootComponent() {
         <HotkeysProvider>
           <GlobalShortcuts showHelp={showHelp} setShowHelp={setShowHelp} />
           <NavProgress />
-          <div className="h-dvh overflow-hidden flex flex-col relative z-[2]">
+          <div
+            className="h-dvh overflow-hidden flex flex-col relative z-[2]"
+            style={auth ? { paddingTop: "env(safe-area-inset-top)" } : undefined}
+          >
             <nav
               className={`font-body shrink-0 sticky top-0 z-30 ${auth ? "hidden sm:block" : ""}`}
               style={{
@@ -310,7 +313,6 @@ function RootComponent() {
                 backdropFilter: "blur(16px) saturate(1.3)",
                 WebkitBackdropFilter: "blur(16px) saturate(1.3)",
                 borderBottom: "1px solid var(--color-dg-border-subtle)",
-                paddingTop: "env(safe-area-inset-top)",
               }}
             >
               <div className="max-w-[1100px] mx-auto px-g2 sm:px-g3 flex items-center justify-between h-12">
