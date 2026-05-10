@@ -34,6 +34,15 @@ const matchSample: Array<{ id: string; p31: string[] }> = [];
 const PROGRESS_INTERVAL = 25_000;
 const SAMPLE_MAX = 10;
 
+function formatLog(level: string, message: string): string {
+  const timestamp = new Date().toISOString();
+  return `${timestamp} ${level.toUpperCase().padEnd(5)} [subset] ${message}\n`;
+}
+
+function writeStderr(level: string, message: string): void {
+  process.stderr.write(formatLog(level, message));
+}
+
 function parseJsonLine(line: string): WikidataEntity | null {
   let cleanLine = line.trim();
   if (cleanLine.endsWith(",")) cleanLine = cleanLine.slice(0, -1);
@@ -42,6 +51,9 @@ function parseJsonLine(line: string): WikidataEntity | null {
     return JSON.parse(cleanLine);
   } catch {
     parseErrors++;
+    if (parseErrors <= 5) {
+      writeStderr("warn", `parse error at line ~${totalLines}: ${cleanLine.slice(0, 100)}...`);
+    }
     return null;
   }
 }
@@ -52,12 +64,10 @@ function recordP31Sample(entity: WikidataEntity): void {
     noP31Count++;
     return;
   }
-  for (const qValue of p31Values) {
-    if (p31Sample.size < SAMPLE_MAX) {
-      p31Sample.add(qValue);
-    }
+  for (const val of p31Values) {
+    p31Sample.add(val);
   }
-  if (matchSample.length < 3 && p31Values.length > 0) {
+  if (matchSample.length < SAMPLE_MAX) {
     matchSample.push({ id: entity.id, p31: p31Values });
   }
 }
@@ -70,6 +80,9 @@ const rl = createInterface({
 const startTime = Date.now();
 let lastProgressTime = startTime;
 
+writeStderr("info", `starting subset extraction from stdin, writing NDJSON to stdout`);
+writeStderr("info", `progress interval: every ${PROGRESS_INTERVAL.toLocaleString()} entities`);
+
 for await (const line of rl) {
   const entity = parseJsonLine(line);
   if (!entity) continue;
@@ -80,17 +93,18 @@ for await (const line of rl) {
 
   if (totalLines % PROGRESS_INTERVAL === 0) {
     const now = Date.now();
-    const elapsed = ((now - startTime) / 1000).toFixed(0);
+    const _elapsed = ((now - startTime) / 1000).toFixed(0);
     const chunkTime = (now - lastProgressTime) / 1000;
     const rate = (PROGRESS_INTERVAL / chunkTime).toFixed(0);
-    process.stderr.write(
-      `[${elapsed}s] Processed ${totalLines.toLocaleString()} entities, found ${mediaFound.toLocaleString()} media + ${seasonsFound.toLocaleString()} seasons + ${collectionsFound.toLocaleString()} collections (${rate}/s)\n`,
+    writeStderr(
+      "info",
+      `processed ${totalLines.toLocaleString()} entities, found ${mediaFound.toLocaleString()} media + ${seasonsFound.toLocaleString()} seasons + ${collectionsFound.toLocaleString()} collections (${rate}/s)`,
     );
     lastProgressTime = now;
 
     if (totalLines === PROGRESS_INTERVAL * 1) {
       const sampleArr = Array.from(p31Sample).slice(0, 5);
-      process.stderr.write(`  Early P31 sample (first 5): ${sampleArr.join(", ")}\n`);
+      writeStderr("debug", `early P31 sample (first 5): ${sampleArr.join(", ")}`);
     }
   }
 
@@ -111,24 +125,28 @@ for await (const line of rl) {
 }
 
 const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-process.stderr.write(
-  `\nDone in ${elapsed}s.\n` +
-    `  Processed: ${totalLines.toLocaleString()}\n` +
-    `  No P31: ${noP31Count}\n` +
-    `  Parse errors: ${parseErrors}\n` +
-    `  Media: ${mediaFound.toLocaleString()}\n` +
-    `  Seasons: ${seasonsFound.toLocaleString()}\n` +
-    `  Collections: ${collectionsFound.toLocaleString()}\n` +
-    `  Errors: ${errors}\n`,
-);
+writeStderr("info", `subset extraction completed in ${elapsed}s`);
+writeStderr("info", `processed: ${totalLines.toLocaleString()}`);
+writeStderr("info", `no P31: ${noP31Count}`);
+writeStderr("info", `parse errors: ${parseErrors}`);
+writeStderr("info", `media entities: ${mediaFound.toLocaleString()}`);
+writeStderr("info", `season entities: ${seasonsFound.toLocaleString()}`);
+writeStderr("info", `collection entities: ${collectionsFound.toLocaleString()}`);
+writeStderr("info", `errors: ${errors}`);
+
 if (p31Sample.size > 0) {
-  process.stderr.write(
-    `  P31 Q-values seen (${p31Sample.size}): ${Array.from(p31Sample).join(", ")}\n`,
+  writeStderr(
+    "debug",
+    `P31 Q-values seen (${p31Sample.size}): ${Array.from(p31Sample).join(", ")}`,
   );
 }
 if (matchSample.length > 0) {
-  process.stderr.write(`  Matched entity samples:\n`);
+  writeStderr("debug", `matched entity samples:`);
   for (const sample of matchSample) {
-    process.stderr.write(`    ${sample.id}: P31=${sample.p31.join(",")}\n`);
+    writeStderr("debug", `  ${sample.id}: P31=${sample.p31.join(",")}`);
   }
+}
+
+if (parseErrors > 0) {
+  writeStderr("warn", `had ${parseErrors} parse errors, first 5 lines were logged`);
 }

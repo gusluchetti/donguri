@@ -1,44 +1,11 @@
 #!/usr/bin/env bun
 import fs from "node:fs";
-import path from "node:path";
 import { getDb } from "~/db";
+import { attachFileLogging, log, logShutdownBanner, logStartupBanner } from "~/lib/logger";
 import type { DbType } from "./_upsert";
 import type { ImportConfig } from "./config";
-import { getConfig } from "./config";
+import { getConfig, redactedConfig } from "./config";
 import { getLastFullDumpAt } from "./state";
-
-/**
- * Set up file logging: write all console.log/error to both stdout and a dated file.
- */
-function setupFileLogging(stage: string): void {
-  const logsDir = "./logs";
-  if (!fs.existsSync(logsDir)) {
-    fs.mkdirSync(logsDir, { recursive: true });
-  }
-
-  const date = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-  const logFile = path.join(logsDir, `import-${stage}-${date}.log`);
-  const stream = fs.createWriteStream(logFile, { flags: "a" });
-
-  const originalLog = console.log;
-  const originalError = console.error;
-
-  console.log = (...args: unknown[]) => {
-    const msg = args
-      .map((a) => (typeof a === "string" ? a : a instanceof Error ? String(a) : JSON.stringify(a)))
-      .join(" ");
-    originalLog(msg);
-    stream.write(`${msg}\n`);
-  };
-
-  console.error = (...args: unknown[]) => {
-    const msg = args
-      .map((a) => (typeof a === "string" ? a : a instanceof Error ? String(a) : JSON.stringify(a)))
-      .join(" ");
-    originalError(msg);
-    stream.write(`${msg}\n`);
-  };
-}
 
 async function detectMode(db: DbType, config: ImportConfig): Promise<"full" | "incremental"> {
   const { sql } = await import("drizzle-orm");
@@ -76,30 +43,44 @@ async function runSupplementary(
   try {
     report.qrank = await runQrank(db, config);
   } catch (err) {
-    console.error("[supplementary] qrank failed:", err);
+    log.error("supplementary", "qrank failed", err);
   }
 
   try {
     report.animeOffline = await runAnimeOffline(db, config);
   } catch (err) {
-    console.error("[supplementary] anime-offline failed:", err);
+    log.error("supplementary", "anime-offline failed", err);
   }
 
   try {
     report.covers = await runCovers(db, config);
   } catch (err) {
-    console.error("[supplementary] covers failed:", err);
+    log.error("supplementary", "covers failed", err);
   }
 
   return report;
 }
 
 async function main() {
-  const startTime = Date.now();
+  const startTime = new Date();
   const stage = process.argv[2] ?? "auto";
-  setupFileLogging(stage);
 
   const config = getConfig();
+  const { runId } = attachFileLogging(stage);
+
+  const envVarsToCheck = [
+    "DATA_DIR",
+    "STATE_DB_PATH",
+    "DUMP_URL",
+    "LOG_LEVEL",
+    "TMDB_API_KEY",
+    "TWITCH_CLIENT_ID",
+    "TWITCH_CLIENT_SECRET",
+  ];
+
+  logStartupBanner(stage, runId, redactedConfig(config), envVarsToCheck);
+  log.info("main", `stage selected: ${stage}`);
+
   const db = getDb();
 
   try {
@@ -137,8 +118,10 @@ async function main() {
 
       case "incremental": {
         const { runIncremental } = await import("./incremental");
+        log.info("main", "running incremental mode detection...");
         const needsFull = await runIncremental(db, config);
         if (needsFull) {
+          log.info("main", "incremental gap > 30 days, falling back to full pipeline");
           const { runFullPipeline } = await import("./pipeline");
           await runFullPipeline(db, config);
         }
@@ -162,13 +145,17 @@ async function main() {
         await runFullPipeline(db, config);
         const report = await runSupplementary(db, config);
         const { notifySuccess } = await import("./notify");
-        await notifySuccess(stage, Date.now() - startTime, report);
+        await notifySuccess(stage, Date.now() - startTime.getTime(), report);
         process.exit(0);
         break;
       }
 
       case "auto": {
         const mode = await detectMode(db, config);
+        log.info("main", `mode detected: ${mode}`, {
+          mediaCount: await getMediaCount(db),
+          daysSinceFull: await getDaysSinceFull(),
+        });
 
         if (mode === "full") {
           const { runFullPipeline } = await import("./pipeline");
@@ -177,6 +164,7 @@ async function main() {
           const { runIncremental } = await import("./incremental");
           const needsFull = await runIncremental(db, config);
           if (needsFull) {
+            log.info("main", "incremental gap > 30 days, falling back to full pipeline");
             const { runFullPipeline } = await import("./pipeline");
             await runFullPipeline(db, config);
           }
@@ -184,28 +172,44 @@ async function main() {
 
         const suppReport = await runSupplementary(db, config);
         const { notifySuccess } = await import("./notify");
-        await notifySuccess(stage, Date.now() - startTime, suppReport);
+        await notifySuccess(stage, Date.now() - startTime.getTime(), suppReport);
         process.exit(0);
         break;
       }
 
       default:
-        console.error(`[main] Unknown stage: ${stage}`);
-        console.error(
+        log.error("main", `Unknown stage: ${stage}`);
+        log.error(
+          "main",
           "Available stages: download, subset, db, full, incremental, covers, qrank, all, auto",
         );
         process.exit(1);
     }
+
+    logShutdownBanner(stage, runId, startTime, 0);
     const { notifySuccess } = await import("./notify");
-    await notifySuccess(stage, Date.now() - startTime);
+    await notifySuccess(stage, Date.now() - startTime.getTime());
     process.exit(0);
   } catch (error) {
-    console.error(`[main] Stage "${stage}" failed:`, error);
-    console.error("[main] Timestamp:", new Date().toISOString());
+    logShutdownBanner(stage, runId, startTime, 1, error as Error);
+    log.error("main", `Stage "${stage}" failed`, error);
     const { notifyFailure } = await import("./notify");
-    await notifyFailure(error);
+    await notifyFailure(error as Error);
     process.exit(1);
   }
+}
+
+async function getMediaCount(db: DbType): Promise<number> {
+  const { sql } = await import("drizzle-orm");
+  const { media } = await import("~/db/schema");
+  const result = await db.select({ count: sql<number>`COUNT(*)` }).from(media);
+  return Number(result[0]?.count || 0);
+}
+
+async function getDaysSinceFull(): Promise<number> {
+  const lastFull = getLastFullDumpAt();
+  if (!lastFull) return Infinity;
+  return (Date.now() - lastFull.getTime()) / (1000 * 60 * 60 * 24);
 }
 
 main();

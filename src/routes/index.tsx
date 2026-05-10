@@ -39,7 +39,7 @@ type CatalogEntryRow = {
   episodeProgress: number | null;
   isFavorite: boolean;
   replayCount: number;
-  updatedAt: Date | null;
+  updatedAt: Date | string | null;
   mediaTitle: string | null;
   mediaType: string | null;
   animationOrigin: string | null;
@@ -47,13 +47,13 @@ type CatalogEntryRow = {
   episodeCount: number | null;
   seasonCount: number | null;
   posterUrl: string | null;
-  mediaUpdatedAt: Date | null;
+  mediaUpdatedAt: Date | string | null;
 };
 
-/** Check if media has been updated since user last edited the entry */
-function hasMediaUpdate(item: CatalogEntryRow): boolean {
+/** Check if media has been updated since user last edited the entry — kept for future notification system */
+function _hasMediaUpdate(item: CatalogEntryRow): boolean {
   if (!item.mediaUpdatedAt || !item.updatedAt) return false;
-  return item.mediaUpdatedAt.getTime() > item.updatedAt.getTime();
+  return new Date(item.mediaUpdatedAt).getTime() > new Date(item.updatedAt).getTime();
 }
 
 /** Compute "on s01e05" or "on ep 05" from watchedEpisodes map. */
@@ -446,6 +446,7 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
               <Star size={10} weight="fill" className="text-dg-accent mr-0.5 inline-block" />
             )}
             {item.mediaTitle ?? item.mediaWikidataId}
+            {/* TODO: replace with dismissible notification (track WHAT changed; persist dismissal in browser state)
             {hasMediaUpdate(item) && (
               <span
                 className="inline-block w-1.5 h-1.5 rounded-full bg-dg-accent ml-1 align-middle"
@@ -454,6 +455,7 @@ function WatchlistGrid({ items }: { items: CatalogEntryRow[] }) {
                 title="catalog updated since you last edited"
               />
             )}
+            */}
           </div>
           <div className="mt-0.5 flex items-center gap-1">
             <StampBadge
@@ -507,6 +509,7 @@ function WatchlistListItem({ item, index }: { item: CatalogEntryRow; index: numb
           <Star size={11} weight="fill" className="text-dg-accent mr-1 inline-block" />
         )}
         {item.mediaTitle ?? item.mediaWikidataId}
+        {/* TODO: replace with dismissible notification (track WHAT changed; persist dismissal in browser state)
         {hasMediaUpdate(item) && (
           <span
             className="inline-block w-1.5 h-1.5 rounded-full bg-dg-accent ml-1.5 align-middle"
@@ -515,6 +518,7 @@ function WatchlistListItem({ item, index }: { item: CatalogEntryRow; index: numb
             title="catalog updated since you last edited"
           />
         )}
+        */}
       </span>
       {pos && (
         <span className="text-[0.65rem] text-dg-text-tertiary tabular-nums shrink-0 font-mono">
