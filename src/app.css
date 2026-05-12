@@ -13,6 +13,10 @@
 /* Mobile touch & scroll */
 html {
   -webkit-tap-highlight-color: transparent;
+  --safe-area-inset-top: env(safe-area-inset-top);
+  --safe-area-inset-right: env(safe-area-inset-right);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom);
+  --safe-area-inset-left: env(safe-area-inset-left);
 }
 body {
   overflow-x: hidden;
@@ -394,7 +398,10 @@ textarea {
 
 .bg-grid {
   position: fixed;
-  inset: 0;
+  top: env(safe-area-inset-top);
+  right: env(safe-area-inset-right);
+  bottom: env(safe-area-inset-bottom);
+  left: env(safe-area-inset-left);
   pointer-events: none;
   z-index: 0;
   background-image:
@@ -409,7 +416,10 @@ textarea {
 
 .bg-topo {
   position: fixed;
-  inset: 0;
+  top: env(safe-area-inset-top);
+  right: env(safe-area-inset-right);
+  bottom: env(safe-area-inset-bottom);
+  left: env(safe-area-inset-left);
   pointer-events: none;
   z-index: 0;
   background:
@@ -421,7 +431,10 @@ textarea {
 
 .bg-vig {
   position: fixed;
-  inset: 0;
+  top: env(safe-area-inset-top);
+  right: env(safe-area-inset-right);
+  bottom: env(safe-area-inset-bottom);
+  left: env(safe-area-inset-left);
   pointer-events: none;
   z-index: 1;
   background: var(--vignette);
@@ -429,7 +442,10 @@ textarea {
 
 .noise {
   position: fixed;
-  inset: 0;
+  top: env(safe-area-inset-top);
+  right: env(safe-area-inset-right);
+  bottom: env(safe-area-inset-bottom);
+  left: env(safe-area-inset-left);
   pointer-events: none;
   z-index: 9999;
   opacity: var(--noise-opacity);
@@ -503,7 +519,7 @@ textarea {
 
 .dg-nav-progress {
   position: fixed;
-  top: 0;
+  top: env(safe-area-inset-top);
   left: 0;
   right: 0;
   height: 2px;
@@ -640,6 +656,20 @@ textarea {
 }
 .dg-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--color-dg-text-muted);
+}
+
+/* ─── Safe-area debugging ───────────────────────────────────────────────────────── */
+
+.debug-safe-area::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99999;
+  border-top: env(safe-area-inset-top) solid rgba(255, 0, 0, 0.3);
+  border-bottom: env(safe-area-inset-bottom) solid rgba(0, 255, 0, 0.3);
+  border-left: env(safe-area-inset-left) solid rgba(0, 0, 255, 0.3);
+  border-right: env(safe-area-inset-right) solid rgba(255, 255, 0, 0.3);
 }
 
 /* ─── Reduced motion ───────────────────────────────────────────────────────── */

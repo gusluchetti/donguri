@@ -43,6 +43,18 @@ import { ogTags, pageTitle } from "~/lib/og";
 import { checkCatalogFreshness } from "~/lib/query";
 import { ThemeProvider, useTheme } from "~/lib/theme";
 
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 640px)");
+    setIsDesktop(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
+  return isDesktop;
+}
+
 // Sets data-theme before first paint. Also syncs the cookie for SSR on next visit.
 const THEME_INIT_SCRIPT = `(function(){try{var p=localStorage.getItem('dg-theme-pref')||'system';var t=p==='system'?(window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):p;document.documentElement.setAttribute('data-theme',t);document.cookie='dg-theme='+t+';path=/;max-age=34560000;samesite=lax'}catch(e){document.documentElement.setAttribute('data-theme','dark')}})()`;
 
@@ -268,10 +280,6 @@ function RootComponent() {
     };
   }, []);
 
-  useEffect(() => {
-    if (import.meta.env.DEV) import("react-grab");
-  }, []);
-
   // Global error handler: stale deploys + expired AT Protocol sessions
   useEffect(() => {
     const onError = (e: PromiseRejectionEvent) => {
@@ -295,6 +303,11 @@ function RootComponent() {
 
   const [showHelp, setShowHelp] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const isDesktop = useIsDesktop();
+
+  useEffect(() => {
+    if (import.meta.env.DEV && isDesktop) import("react-grab");
+  }, [isDesktop]);
 
   return (
     <RootDocument theme={theme}>
@@ -303,8 +316,8 @@ function RootComponent() {
           <GlobalShortcuts showHelp={showHelp} setShowHelp={setShowHelp} />
           <NavProgress />
           <div
-            className="h-dvh overflow-hidden flex flex-col relative z-[2]"
-            style={auth ? { paddingTop: "env(safe-area-inset-top)" } : undefined}
+            className="h-svh overflow-hidden flex flex-col relative z-[2]"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
             <nav
               className={`font-body shrink-0 sticky top-0 z-30 ${auth ? "hidden sm:block" : ""}`}
@@ -315,7 +328,13 @@ function RootComponent() {
                 borderBottom: "1px solid var(--color-dg-border-subtle)",
               }}
             >
-              <div className="max-w-[1100px] mx-auto px-g2 sm:px-g3 flex items-center justify-between h-12">
+              <div
+                className="max-w-[1100px] mx-auto px-g2 sm:px-g3 flex items-center justify-between h-12"
+                style={{
+                  paddingLeft: "max(var(--spacing-g2), env(safe-area-inset-left))",
+                  paddingRight: "max(var(--spacing-g2), env(safe-area-inset-right))",
+                }}
+              >
                 <div className="flex items-center gap-1 sm:gap-g1">
                   <Link
                     to="/"
@@ -439,7 +458,7 @@ function RootComponent() {
         </HotkeysProvider>
         {auth && showFeedback && <FeedbackDialog onClose={() => setShowFeedback(false)} />}
       </ThemeProvider>
-      {import.meta.env.DEV && (
+      {import.meta.env.DEV && isDesktop && (
         <>
           <ReactQueryDevtools buttonPosition="bottom-left" />
           <TanStackRouterDevtools position="bottom-right" />
@@ -512,7 +531,7 @@ function RootError({ error, reset }: ErrorComponentProps) {
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <title>Something went wrong — donguri</title>
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static inline script for theme init before paint */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
@@ -616,9 +635,11 @@ function BottomNav() {
         backdropFilter: "blur(16px) saturate(1.3)",
         WebkitBackdropFilter: "blur(16px) saturate(1.3)",
         paddingBottom: "env(safe-area-inset-bottom)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
       }}
     >
-      <div className="flex items-stretch h-14">
+      <div className="flex items-stretch h-12 px-2">
         <Link
           to="/catalog"
           activeOptions={{ exact: false }}
