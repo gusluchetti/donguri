@@ -46,7 +46,7 @@ export function FeedbackDialog({ onClose }: { onClose: () => void }) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       onClick={handleBackdropClick}
     >
-      <div className="bg-dg-surface border border-dg-border rounded max-w-[480px] w-[92vw] max-h-[80vh] overflow-y-auto p-4 sm:p-5 font-body">
+      <div className="bg-dg-surface border border-dg-border rounded max-w-[480px] w-[92vw] max-h-[80dvh] overflow-y-auto p-4 sm:p-5 font-body">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-[0.9rem] font-semibold text-dg-text m-0">Send Feedback</h2>
           <button

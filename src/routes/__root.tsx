@@ -302,10 +302,10 @@ function RootComponent() {
         <HotkeysProvider>
           <GlobalShortcuts showHelp={showHelp} setShowHelp={setShowHelp} />
           <NavProgress />
-          <div
-            className="h-dvh overflow-hidden flex flex-col relative z-[2]"
-            style={auth ? { paddingTop: "env(safe-area-inset-top)" } : undefined}
-          >
+<div
+             className="h-dvh overflow-hidden flex flex-col relative z-[2]"
+             style={{ paddingTop: "env(safe-area-inset-top)" }}
+           >
             <nav
               className={`font-body shrink-0 sticky top-0 z-30 ${auth ? "hidden sm:block" : ""}`}
               style={{
@@ -315,7 +315,12 @@ function RootComponent() {
                 borderBottom: "1px solid var(--color-dg-border-subtle)",
               }}
             >
-              <div className="max-w-[1100px] mx-auto px-g2 sm:px-g3 flex items-center justify-between h-12">
+              <div className="max-w-[1100px] mx-auto px-g2 sm:px-g3 flex items-center justify-between h-12"
+             style={{
+               paddingLeft: "max(var(--spacing-g2), env(safe-area-inset-left))",
+               paddingRight: "max(var(--spacing-g2), env(safe-area-inset-right))"
+             }}
+           >
                 <div className="flex items-center gap-1 sm:gap-g1">
                   <Link
                     to="/"
@@ -512,7 +517,7 @@ function RootError({ error, reset }: ErrorComponentProps) {
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <title>Something went wrong — donguri</title>
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static inline script for theme init before paint */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
@@ -616,9 +621,11 @@ function BottomNav() {
         backdropFilter: "blur(16px) saturate(1.3)",
         WebkitBackdropFilter: "blur(16px) saturate(1.3)",
         paddingBottom: "env(safe-area-inset-bottom)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
       }}
     >
-      <div className="flex items-stretch h-14">
+      <div className="flex items-stretch h-14 px-2">
         <Link
           to="/catalog"
           activeOptions={{ exact: false }}

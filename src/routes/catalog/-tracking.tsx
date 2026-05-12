@@ -989,7 +989,7 @@ export function TrackingPanel({
       )}
 
       {children && (
-        <div className="mt-4 overflow-visible max-h-none sm:max-h-[80vh] sm:overflow-y-auto">
+        <div className="mt-4 overflow-visible max-h-none sm:max-h-[80dvh] sm:overflow-y-auto">
           {children}
         </div>
       )}
