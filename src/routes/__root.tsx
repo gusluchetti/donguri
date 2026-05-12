@@ -316,7 +316,7 @@ function RootComponent() {
           <GlobalShortcuts showHelp={showHelp} setShowHelp={setShowHelp} />
           <NavProgress />
           <div
-            className="h-dvh overflow-hidden flex flex-col relative z-[2]"
+            className="h-svh overflow-hidden flex flex-col relative z-[2]"
             style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
             <nav
@@ -639,7 +639,7 @@ function BottomNav() {
         paddingRight: "env(safe-area-inset-right)",
       }}
     >
-      <div className="flex items-stretch h-14 px-2">
+      <div className="flex items-stretch h-12 px-2">
         <Link
           to="/catalog"
           activeOptions={{ exact: false }}
