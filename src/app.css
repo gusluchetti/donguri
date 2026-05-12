@@ -661,7 +661,7 @@ textarea {
 /* ─── Safe-area debugging ───────────────────────────────────────────────────────── */
 
 .debug-safe-area::before {
-  content: '';
+  content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;

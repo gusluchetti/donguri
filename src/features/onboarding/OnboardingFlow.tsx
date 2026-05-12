@@ -294,9 +294,9 @@ export function OnboardingFlow() {
         {/* Sticky bottom bar */}
         <div
           className="sticky bottom-0 py-4 mt-4"
-          style={{ 
+          style={{
             background: "linear-gradient(to top, var(--color-dg-bg) 60%, transparent)",
-            paddingBottom: "env(safe-area-inset-bottom)"
+            paddingBottom: "env(safe-area-inset-bottom)",
           }}
         >
           <div className="flex items-center justify-between gap-3">

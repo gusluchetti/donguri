@@ -146,7 +146,7 @@ function HomePage() {
 
   return (
     <div className="dg-page-enter text-dg-text flex-1 overflow-y-auto font-body">
-      <div className="max-w-[1100px] mx-auto px-g3 py-4 sm:py-6">
+      <div className="max-w-[1100px] mx-auto px-g3 pt-1 pb-2 sm:py-6">
         <LoggedInView />
       </div>
     </div>
