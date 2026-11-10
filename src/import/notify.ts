@@ -9,7 +9,7 @@ let client: Resend | null = null;
 
 function getClient(): Resend | null {
   const config = getConfig();
-  if (!config.resendApiKey) return null;
+  if (!config.resendApiKey || !config.emailFrom || !config.emailTo) return null;
   if (!client) {
     client = new Resend(config.resendApiKey);
   }

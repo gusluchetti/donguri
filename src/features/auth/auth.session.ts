@@ -24,14 +24,22 @@ export type SessionData = {
 const COOKIE_NAME = "donguri-auth";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
+// Dev-only fallback, generated once per process so sign and verify agree.
+// Sessions reset on restart; set SESSION_SECRET to keep them.
+let devFallbackSecret: string | null = null;
+
+function getSessionSecret(): string {
+  const secret = cleanEnv(process.env.SESSION_SECRET);
+  if (secret) return secret;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("SESSION_SECRET must be set in production");
+  }
+  devFallbackSecret ??= crypto.randomUUID();
+  return devFallbackSecret;
+}
+
 async function signPayload(payload: string): Promise<string> {
-  const secret =
-    cleanEnv(process.env.SESSION_SECRET) ||
-    (process.env.NODE_ENV === "production"
-      ? (() => {
-          throw new Error("SESSION_SECRET must be set in production");
-        })()
-      : crypto.randomUUID());
+  const secret = getSessionSecret();
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(secret),

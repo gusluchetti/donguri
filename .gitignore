@@ -6,7 +6,6 @@ dist/
 !.env.example
 .dev.vars
 *.local
-bun.lock
 
 
 # Generated route tree
